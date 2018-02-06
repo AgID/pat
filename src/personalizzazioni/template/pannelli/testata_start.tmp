@@ -1,0 +1,192 @@
+<script type="text/javascript" src="pat/js/jquery-1.9.1.min.js"></script>
+<script type="text/javascript" src="pat/js/jquery-ui-1.9.2.min.js"></script>	
+<script type="text/javascript" src="personalizzazioni/popover/jquery.popover-1.1.2.js" ></script>
+
+
+<script type="text/javascript">
+<!--
+jQuery.noConflict();
+-->
+</script>
+
+<?php // QUI VERIFICO SE L'UTENTE E' UN AMMINISTRATORE NORMALE
+$stileAggTemp = '';
+if ($datiUser['permessi'] > 1 AND $datiUser['permessi'] != 10 AND $datiUser['sessione_loggato']) {
+	// inserisco la barra di strumenti PAT 
+	$stileAggTemp = 'style="margin-top:55px;"';
+	?>
+<div id="adminTrasp">
+	<div class="logo">
+		<a href="./admin_pat.php"><img style="border:none;" src="pat/grafica_admin/<? echo $configurazione['logo_etrasp']; ?>" alt="" /></a>
+	</div>
+	
+
+	<div class="userloggedinfo">
+		<? if ($idEnteAdmin) {
+			echo "<img src=\"".$server_url."moduli/output_media.php?file=enti_pat/".$enteAdmin['file_logo_semplice']."&amp;altezza=28\" style=\"border:0px;\" />"; 
+		} else {
+			echo "<img src=\"pat/grafica_admin/logo_user_default.gif\" height=\"28\" alt=\"Utente gestore\" style=\"border:0px;\" />";
+		} ?>
+		<div class="userinfo">
+			<h5><? echo $datiUser['nome']; ?> <small>- <? echo $datiUser['email']; ?></small></h5>
+		</div>
+		<? if ($idEnteAdmin) { ?>
+		<a href="admin_pat.php">Entra in amministrazione</a>
+		<? } ?>
+		<a href="index.php?azione=logout">Effettua il logout</a>
+	</div>
+
+	<div class="reset"></div>
+</div>
+<?php } ?>
+<div id="testataIniziale" <? echo $stileAggTemp; ?>>
+
+	<div id="barraIniziale">
+	
+		<div class="contenitoreEmulato">
+		
+			<div id="menuCanali">
+				<ul>
+					<li><a href="<? echo $server_url; ?>">Home Trasparenza</a></li>
+					<li><a href="<? echo $entePubblicato['url_sitoistituzionale']; ?>">Sito Istituzionale</a></li>
+					<li><a href="<? echo $entePubblicato['url_albopretorio']; ?>">Albo Pretorio</a></li>
+				</ul>
+			</div>
+			
+			<div id="boxRicerca">
+			
+			<script type="text/javascript">
+			<!--
+			function controlSearchPers() {
+				if (document.getElementById('strcercaPers').value == 'Testo da cercare') {
+					document.getElementById('strcercaPers').value = '';
+				}
+			}
+			function controlSearchResetPers() {
+				if (document.getElementById('strcercaPers').value == '') {
+					document.getElementById('strcercaPers').value = 'Testo da cercare';
+				}
+			}
+			var submitForm = true;
+			function controlSubmitForm() {
+				return submitForm;
+			}
+			-->
+			</script>
+			
+			<?
+			$idStileTestataOggetto = 176;
+			$idStilePiuRisultati = 0;
+			$stileCercaInputAggiuntivo = "font-size: 100%; font-family: 'Open Sans', Tahoma, serif; ";
+			$stileCercaSubmitAggiuntivo = "font-size: 0;";
+			
+			?>
+			
+			<!-- inizio pannello di ricerca -->
+			<form id="ricercaPersonalizzata" action="<? echo $server_url; ?>index.php?azione=cerca&amp;id_sezione=<? echo $sezioneNavigazione['id']; ?>&amp;ordineRis=default&amp;sezioneRicerca=0&amp;oggettiRicerca=" method="post" enctype="application/x-www-form-urlencoded" onsubmit="return controlSubmitForm()">
+				<div class="ui-widget">
+				
+					<a id="infoRicerca" href="#tip1"><img src="pat/grafica/icona_info.png" alt="Informazioni sulla ricerca" style="border:0px;" /></a>
+					<div style="display:none;">
+						<div id="tip1">
+							<div style="font-size: 100%;">
+								<div class="campoOggetto176">Ricerca assistita</div>
+								<div style="font-size: 100%; margin: 8px 10px; line-height: 1.2;">
+									Mentre digiti nella casella di ricerca la <strong>funzione di completamento</strong> automatico ti offre diverse soluzioni di ricerca
+								</div>
+							</div>
+						</div>
+					</div>
+					
+					<input class="ricercaAuto" type="text" id="strcercaPers" title="Testo da cercare" value="Testo da cercare" name="strcerca" onblur="controlSearchResetPers()" onfocus="controlSearchPers()" style="<? echo $stileCercaInputAggiuntivo; ?>" />
+					<input class="ricercaAutoPuls" type="submit" value="cerca" id="sumbitRicercaPers" style="<? echo $stileCercaSubmitAggiuntivo; ?>" />
+					<input id="tagsRicerca" name="tagsRicerca" type="hidden" value="" />
+				</div>
+			</form>
+				
+			<script type="text/javascript">
+			<!--
+			var jSearch = jQuery.noConflict();
+			jSearch(document).ready(function($) {
+				var cache = {};
+				
+				function monkeyPatchAutocomplete() {
+					var oldFn = $.ui.autocomplete.prototype._renderItem;
+					$.ui.autocomplete.prototype._renderItem = function( ul, item) {
+			 
+						//var t = String(item.value).replace(new RegExp(this.term, "gi"),"<span class='ui-state-highlight'>$&</span>");
+						var t = String(item.value).replace(new RegExp(this.term, "gi"),"<span style='background-color: #FFEE00; color: #333333;'><strong>$&</strong></span>");
+						return $( "<li></li>" ).data( "item.autocomplete", item ).append( "<a>" + t + "</a>" ).appendTo( ul );
+					};
+				}
+			
+				monkeyPatchAutocomplete();
+			
+				$.widget( "custom.catcomplete", $.ui.autocomplete, {
+					_renderMenu: function( ul, items ) {
+						var that = this;
+						$.each( items, function( index, item ) {
+							if ( item.objName == 1 ) {
+								ul.append( "<li class='campoOggetto<? echo $idStileTestataOggetto; ?>'>" + item.label + "</li>" );
+							} else if ( item.objName == 2 ) {
+								ul.append( "<li class='campoOggetto<? echo $idStilePiuRisultati; ?>><a href=\""+item.url+"\"><b>" + item.label + "</b></a></li>" );
+							} else {
+								if (item.label != '' && item.url != '') {
+									that._renderItemData( ul, item );
+								}
+							}
+						});
+					}
+				});
+				
+				$("#strcercaPers").catcomplete({
+					//source: "ajaxPers.php?azione=cercaAuto",
+					source: function( request, response ) {
+						var term = request.term;
+						if ( term in cache ) {
+							response(cache[term]);
+							return;
+						}
+						$.getJSON( "ajaxPers.php?azione=cercaAuto", request, function( data, status, xhr ) {
+							cache[term] = data;
+							response(data);
+						});
+					},
+					search: function() {
+						if (this.value.length < 3) {
+							return false;
+						}
+						$(this).addClass("wait");
+					},
+					select: function(event, ui) {
+						if(ui.item.url) {
+							location.href = ui.item.url;
+						}
+						return false;
+					},
+					position: { 
+						my : "right top", 
+						at: "right bottom" 
+					},
+					response: function(event, ui){
+						$(this).removeClass("wait");
+					}
+				});
+				
+				$( "#infoRicerca" ).tooltip({
+					items: "a",
+					content: function() {
+						var element = $( this );
+						if ( element.is( "a" ) ) {
+							return $('#tip1').html();
+						}
+					}
+				});
+				
+			});
+			-->
+			</script>
+
+			<!-- fine pannello di ricerca --> 
+			</div> 
+	

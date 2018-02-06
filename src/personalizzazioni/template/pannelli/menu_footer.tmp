@@ -1,0 +1,9 @@
+<div id="copyFooter">
+	<div id="footEtrasp">
+		<img style="border:none;" alt="Logo <? echo $configurazione['denominazione_etrasparenza']; ?>" src="./pat/grafica/<? echo $configurazione['logo_etrasp_scuro']; ?>" />
+	</div>
+	PAT - Portale Amministrazione Trasparente
+	<br /><br />
+	<a href="<? echo $server_url; ?>pagina605_privacy.html">Privacy</a> - <a href="<? echo $server_url; ?>pagina811_cookie-policy.html">Cookie policy</a>
+</div> 
+	

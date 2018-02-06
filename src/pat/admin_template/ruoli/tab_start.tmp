@@ -1,0 +1,63 @@
+<script type="text/javascript">
+	var tabellaDinamica;
+    jQuery(document).ready(function(){
+	
+        // dinamicizzo la tabella 
+        tabellaDinamica = jQuery('#dyntable').dataTable({
+            "sPaginationType": "full_numbers",
+            "aaSortingFixed": [[0,'asc']],
+			"oLanguage": {
+                "sUrl": "pat/js/jquery.dataTables.italiano.txt"
+            },
+            "fnDrawCallback": function(oSettings) {
+                jQuery.uniform.update();
+            }
+        });
+		
+		// includo gestione delle selezioni
+		<? include_once("./pat/admin_template/operazioni_selezione.tmp"); ?>
+		
+		// includo gestione delle notifiche delle operazioni
+		<? include_once("./pat/admin_template/operazioni_alert.tmp"); ?>
+		
+    });
+
+</script>
+
+<? // includo gestione delle cancellazioni
+include_once("./pat/admin_template/operazioni_cancella.tmp"); ?>
+
+<div class="headtitle">
+	<div class="btn-group">
+		<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
+		<ul class="dropdown-menu">
+		  <li><a href="?menu=ruoli&amp;azione=aggiungi"><i class="iconfa-plus-sign"></i> &nbsp;Aggiungi un nuovo profilo</a></li>
+		  <li class="divider"></li>
+		  <li><a href="#" idcanc="0" class="confCanc"><i class="icon-trash"></i> &nbsp;Cancella profili selezionati</a></li>
+		</ul>
+	</div>
+	<h4 class="widgettitle">Profili ACL installati</h4>
+</div>
+<table id="dyntable" class="table table-bordered">
+	<colgroup>
+		<col class="con0" style="align: center; width: 1%" />
+		<? if ($datiUser['permessi']==10) {
+			echo "<col class=\"con0\" />";	
+		} ?>	
+		<col class="con0" />
+		<col class="con1" />
+		<col class="con1" style="align: center; width: 128px !important;" />
+	</colgroup>
+	<thead>
+		<tr>
+			<th class="head0 nosort"><input type="checkbox" class="checkall" /></th>
+			<? if ($datiUser['permessi']==10) {
+				echo "<th class=\"head0\">Ente</th>";	
+			} ?>						
+			<th class="head1">Profilo ACL</th>
+			<th class="head0">Descrizione</th>
+			<th class="head0 nosort"></th>
+		</tr>
+	</thead>
+	<tbody>
+

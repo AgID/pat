@@ -1,0 +1,31 @@
+<tr class="gradeX">
+	<td class="aligncenter">
+		<? if ($visualizzaInterfaccia) { ?>
+		<span class="center">
+			<input type="checkbox" name="selRow" value="<? echo $istanzaOggetto['id']; ?>" />
+		</span>
+		<? } ?>
+	</td>
+	<td>
+		<? echo datoEnte($istanzaOggetto['id_ente'],'nome_completo_ente'); ?>
+	</td>
+	<td>
+		<? echo visualizzaData($istanzaOggetto['data_attivazione'],'d-m-Y'); ?>
+	</td>
+	<td>
+		<? echo ($istanzaOggetto['attivo'] ? 'si' : 'no'); ?>
+	</td>
+	<td>
+		<? echo $istanzaOggetto['modulo']; ?>
+	</td>
+	<td class="centeralign intTooltip">
+		<? if ($visualizzaInterfaccia) { ?>
+		<a href="#" idcanc="<? echo $istanzaOggetto['id']; ?>" data-placement="top" data-rel="tooltip" data-original-title="Elimina modulo personalizzato" class="btn confCanc"><span class="iconfa-trash"></span></a>	
+		<a href="?menu=moduli_personalizzati&amp;azione=modifica&amp;id=<? echo $istanzaOggetto['id']; ?>" data-placement="top" data-rel="tooltip" data-original-title="Modifica modulo personalizzato" class="btn"><span class="iconfa-edit"></span></a>	
+		<!--
+		<a href="#" data-placement="top" data-rel="tooltip" data-original-title="Blocca modulo" class="btn"><span class="iconfa-lock"></span></a>	
+		<a href="#" data-placement="top" data-rel="tooltip" data-original-title="Attiva modulo" class="btn"><span class="iconfa-unlock"></span></a>	
+		-->
+		<? } ?>
+	</td>
+</tr>

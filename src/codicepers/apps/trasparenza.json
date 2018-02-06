@@ -1,0 +1,210 @@
+[
+{
+  "id": "1",
+  "name": "DISPOSIZIONI GENERALI",
+  "sezioni":[
+    {"id":"1.1", "name":"Programma per la Trasparenza e l'Integrita'", "route":"info", "url": "getProgrammaTrasparenzaIntegrita", "contenuto": "getContenutoProgrammaTrasparenzaIntegrita"},
+    {"id":"1.2", 
+      "name":"Atti generali", 
+      "route":"",
+      "sezioni":[
+        {"id":"1.1.1", "name":"Atti generali", "route":"info", "url":"getAttiGenerali", "contenuto": "getContenutoAttiGenerali"}, 
+		{"id":"1.1.2", "name":"Statuti", "route":"info", "url":"getStatuti"}, 
+        {"id":"1.1.3", "name":"Normativa", "route":"list", "url":"getNormativa"}, 
+        {"id":"1.1.4", "name":"Regolamenti", "route":"list", "url":"getRegolamenti"},
+        {"id":"1.1.5", "name":"Codice disciplinare e codice di condotta", "route":"list", "url":"getCodiceDisciplinareECodiceCondotta"},
+        {"id":"1.1.6", "name":"Modulistica", "route":"list", "url":"getModulistica"}]}, 
+    {"id":"1.3", "name":"Burocrazia zero", "route":"info", "url": "getBurocraziaZero", "contenuto": "getContenutoBurocraziaZero"}, 
+    {"id":"1.4", "name":"Attestazioni OIV o di struttura analoga", "route":"info", "url": "getAttestazioniOIV", "contenuto": "getContenutoAttestazioniOIV"}
+
+  ]
+},
+{
+  "id": "2",
+  "name": "ORGANIZZAZIONE",
+  "sezioni":[
+    {"id":"2.1", 
+      "name":"Organi di indirizzo politico-amministrativo", 
+      "route":"",
+      "sezioni":[
+        {"id":"2.1.1", "name":"Collegio dei revisori dei conti", "route":"list", "url":"getCollegioRevisori"}, 
+        {"id":"2.1.2", "name":"Direzione Generale", "route":"info", "url":"getDirezioneGenerale"}, 
+        {"id":"2.1.3", "name":"Comitato di indirizzo", "route":"list", "url":"getComitatoIndirizzo"},
+        {"id":"2.1.10", "name":"Archivio", "route":"list", "url":"getArchivioPolitico"}]}, 
+    {
+		"id":"2.4", 
+		"name":"Articolazione degli uffici", 
+		"route":"", 
+		"sezioni":[
+			{"id":"2.4.1", "name":"Articolazione degli uffici - Informazioni generali", "route":"info", "url":"getArticolazioneUfficiOld", "contenuto": "getContenutoArticolazioneUffici"}, 
+			{"id":"2.4.2", "name":"Uffici", "route":"list", "url":"getArticolazioneUffici"}]
+	},
+    {
+		"id":"2.5", 
+		"name":"Telefono e posta elettronica", 
+		"route":"", 
+		"sezioni":[
+			{"id":"2.5.1", "name":"Informazioni di contatto", "route":"info", "url":"getTelefonoEPostaElettronicaOld", "contenuto": "getContenutoTelefonoEPostaElettronica"}, 
+			{"id":"2.5.2", "name":"Telefono e posta elettronica", "route":"list", "url":"getTelefonoEPostaElettronica"}]
+	}]
+},
+{
+  "id": "3",
+  "name": "CONSULENTI E COLLABORATORI",
+  "sezioni":[
+    {"id":"3.3", "name":"Consulenti e collaboratori", "route":"info", "url":"getConsulentiCollaboratori", "contenuto": "getContenutoConsulentiCollaboratori"},
+	{"id":"3.1", "name":"Incarichi retribuiti e non retribuiti affidati a soggetti esterni", "route":"list", "url": "getIncarichiSoggettiEsterni"},
+    {"id":"3.2", "name":"Incarichi retribuiti e non retribuiti affidati a soggetti interni", "route":"list", "url": "getIncarichiSoggettiInterni"}
+  ]
+},
+{
+  "id": "4",
+  "name": "PERSONALE",
+  "sezioni":[
+    {"id":"4.1", "name":"Incarichi amministrativi di vertice", "route":"list", "url": "getIncarichiAmministrativiDiVertice", "contenuto":"getContenutoIncarichiAmministrativiDiVertice"},
+    {"id":"4.2", "name":"Dirigenti", "route":"list", "url": "getDirigenti", "contenuto": "getContenutoDirigenti"},
+    {"id":"4.3", "name":"Posizioni organizzative", "route":"list", "url": "getPosizioniOrganizzative", "contenuto":"getContenutoPosizioniOrganizzative"},
+    {"id":"4.4", "name":"Dotazione organica", "route":"list", "url": "getDotazioneOrganica", "contenuto": "getContenutoDotazioneOrganica"},
+    {"id":"4.5", "name":"Personale non a tempo indeterminato", "route":"list", "url": "getPersonaleNonATempoIndeterminato", "contenuto": "getContenutoPersonaleNonATempoIndeterminato"},
+    {"id":"4.6", "name":"Tassi di assenza", "route":"info", "url": "getTassiDiAssenza", "contenuto": "getContenutoTassiDiAssenza"},
+    {"id":"4.7", "name":"Incarichi conferiti e autorizzati ai dipendenti", "route":"list", "url": "getIncarichiDipendenti", "contenuto": "getContenutoIncarichiDipendenti"},
+    {"id":"4.8", "name":"Contrattazione collettiva", "route":"info", "url": "getContrattazioneCollettiva", "contenuto": "getContenutoContrattazioneCollettiva"},
+    {"id":"4.9", "name":"Contrattazione integrativa", "route":"info", "url": "getContrattazioneIntegrativa", "contenuto": "getContenutoContrattazioneIntegrativa"},
+    {"id":"4.10", "name":"OIV", "route":"info", "url": "getOIV", "contenuto": "getContenutoOIV"},
+    {"id":"4.11", "name":"Archivio", "route":"list", "url": "getArchivio", "contenuto": "getContenutoArchivio"}
+  ]
+},
+{
+  "id": "5",
+  "name": "BANDI DI CONCORSO",
+  "sezioni":[
+    {"id":"5.1", "name":"Concorsi attivi", "route":"list", "url": "getConcorsiAttivi"},
+    {"id":"5.2", "name":"Concorsi scaduti", "route":"list", "url": "getConcorsiScaduti"},
+    {"id":"5.3", "name":"Avvisi", "route":"list", "url": "getAvvisi"},
+    {"id":"5.4", "name":"Esiti", "route":"list", "url": "getEsiti"}
+  ]
+},
+{
+  "id": "6",
+  "name": "PERFORMANCE",
+  "sezioni":[
+    {"id":"6.1", "name":"Piano della Performance", "route":"info", "url": "getPianoDellaPerformance", "contenuto": "getContenutoPianoDellaPerformance"},
+    {"id":"6.2", "name":"Relazione sulla Performance", "route":"info", "url": "getRelazioneSullaPerformance", "contenuto": "getContenutoRelazioneSullaPerformance"},
+    {"id":"6.3", "name":"Ammontare complessivo dei premi", "route":"info", "url": "getAmmontareComplessivoDeiPremi", "contenuto": "getContenutoAmmontareComplessivoDeiPremi"},
+    {"id":"6.4", "name":"Dati relativi ai premi", "route":"info", "url": "getDatiRelativiAiPremi", "contenuto": "getContenutoDatiRelativiAiPremi"},
+    {"id":"6.5", "name":"Benessere organizzativo", "route":"info", "url": "getBenessereOrganizzativo", "contenuto": "getContenutoBenessereOrganizzativo"},
+    {"id":"6.6", "name":"Sistema di misurazione e valutazione della Performance", "route":"info", "url": "getSistemaDiMisurazioneEValutazioneDellaPerformance", "contenuto": "getContenutoSistemaDiMisurazioneEValutazioneDellaPerformance"},
+    {"id":"6.7", "name":"Documento dell'OIV di validazione della Relazione sulla Performance", "route":"info", "url": "getDocumentoOIVValidazioneDellaRelazioneSullaPerformance", "contenuto": "getContenutoDocumentoOIVValidazioneDellaRelazioneSullaPerformance"},
+    {"id":"6.8", "name":"Relazione dell'OIV sul funzionamento complessivo del Sistema di valutazione trasparenza e integrita' dei controlli interni", "route":"info", "url": "getRelazioneOIV", "contenuto": "getContenutoRelazioneOIV"}
+  ]
+},
+{
+  "id": "8",
+  "name": "ATTIVITA' E PROCEDIMENTI",
+  "sezioni":[
+    {"id":"8.2", "name":"Tipologie di procedimento", "route":"list", "url": "getTipologieDiProcedimento", "contenuto": "getContenutoTipologieDiProcedimento"},
+    {"id":"8.3", "name":"Monitoraggio tempi procedimentali", "route":"info", "url": "getMonitoraggioTempiProcedimentali", "contenuto": "getContenutoMonitoraggioTempiProcedimentali"},
+    {"id":"8.4", "name":"Dichiarazioni sostitutive e acquisizione d'ufficio dei dati", "route":"info", "url": "getDichiarazioniSostitutiveEAcquisizioneUfficioDeiDati", "contenuto": "getContenutoDichiarazioniSostitutiveEAcquisizioneUfficioDeiDati"}
+  ]
+},
+{
+  "id": "9",
+  "name": "PROVVEDIMENTI",
+  "sezioni":[
+    {"id":"9.2", "name":"Provvedimenti Dirigenti", "route":"list", "url": "getProvvedimentiDirigenti", "contenuto": "getContenutoProvvedimentiDirigenti"}
+  ]
+},
+{
+  "id": "11",
+  "name": "BANDI DI GARA E CONTRATTI",
+  "sezioni":[
+    {"id":"11.1", 
+      "name":"Gare e procedure in corso", 
+      "route":"table",
+      "sezioni":[
+        {"id":"11.1.1", "name":"Gare e procedure in corso", "route":"list", "url": "getGareEProcedureInCorso", "contenuto": "getContenutoGareEProcedureInCorso"}, 
+        {"id":"11.1.2", "name":"Bandi di lavori", "route":"list", "url":"getBandiDiLavori", "contenuto": "getContenutoBandiDiLavori"}, 
+        {"id":"11.1.3", "name":"Bandi di servizi", "route":"list", "url":"getBandiDiServizi", "contenuto": "getContenutoBandiDiServizi"}, 
+        {"id":"11.1.4", "name":"Bandi di forniture", "route":"list", "url":"getBandiDiForniture", "contenuto": "getContenutoBandiDiForniture"}]}, 
+    {"id":"11.2", "name":"Gare e procedure scadute", "route":"list", "url": "getGareEProcedureScadute", "contenuto": "getContenutoGareEProcedureScadute"},
+    {"id":"11.3", "name":"Avvisi di aggiudicazione ed esiti", "route":"list", "url": "getAvvisiDiAggiudigazioneEdEsiti", "contenuto": "getContenutoAvvisiDiAggiudigazioneEdEsiti"},
+    {"id":"11.4", "name":"Affidamenti", "route":"list", "url": "getAffidamenti", "contenuto": "getContenutoAffidamenti"},
+    {"id":"11.5", 
+      "name":"Avvisi pubblici", 
+      "route":"",
+      "sezioni":[
+        {"id":"11.5.1", "name":"Avvisi pubblici", "route":"list", "url": "getAvvisiPubblici", "contenuto": "getContenutoAvvisiPubblici"}, 
+        {"id":"11.5.2", "name":"Avvisi pubblici scaduti", "route":"list", "url":"getAvvisiPubbliciScaduti", "contenuto": "getContenutoAvvisiPubbliciScaduti"}]}, 
+    {"id":"11.6", "name":"Delibere e Determine a contrarre", "route":"list", "url": "getDelibereEDetermineAContrarre", "contenuto": "getContenutoDelibereEDetermineAContrarre"},
+    {
+		"id":"11.7", 
+		"name":"Tabelle riassuntive ai sensi dell'Art. 1 comma 32", 
+		"route":"", 
+		"sezioni":[
+			{"id":"11.7.1", "name":"Contenuto", "route":"info", "url": "getTabelleANAC", "contenuto": "getContenutoTabelleANAC"}, 
+			{"id":"11.7.2", "name":"Tabelle", "route":"list", "url":"getTabelleRiassuntive"}]
+	}
+  ]
+},
+{
+  "id": "12",
+  "name": "SOVVENZIONI, CONTRIBUTI, SUSSIDI, VANTAGGI ECONOMICI",
+  "sezioni":[
+    {"id":"12.1", "name":"Atti di concessione", "route":"list", "url": "getAttiConcessione"},
+	{"id":"12.2", "name":"Criteri e modalita'", "route":"info", "url": "getCriteriModalita", "contenuto": "getContenutoCriteriModalita"},
+	{"id":"12.3", "name":"Albo dei beneficiari", "route":"info", "url": "getAlboBeneficiari", "contenuto": "getContenutoAlboBeneficiari"}
+  ]
+},
+{
+  "id": "13",
+  "name": "BILANCI",
+  "sezioni":[
+    {"id":"13.1", "name":"Bilancio preventivo e consuntivo", "route":"list", "url": "getBilancioPreventivoEConsuntivo", "contenuto": "getContenutoBilancioPreventivoEConsuntivo"},
+    {"id":"13.2", "name":"Piano degli indicatori e risultati attesi di bilancio", "route":"list", "url": "getPianoDegliIndicatoriERisultatiAttesiDiBilancio", "contenuto": "getContenutoPianoDegliIndicatoriERisultatiAttesiDiBilancio"}
+  ]
+},
+{
+  "id": "14",
+  "name": "BENI IMMOBILI E GESTIONE PATRIMONIO",
+  "sezioni":[
+    {"id":"14.1", "name":"Patrimonio immobiliare", "route":"info", "url": "getPatrimonioImmobiliare", "contenuto": "getContenutoPatrimonioImmobiliare"},
+    {"id":"14.2", "name":"Canoni di locazione o affitto", "route":"info", "url": "getCanoniDiLocazioneOAffitto", "contenuto": "getContenutoCanoniDiLocazioneOAffitto"}
+  ]
+},
+{
+  "id": "15",
+  "name": "CONTROLLI E RILIEVI SULL'AMMINISTRAZIONE",
+  "sezioni":[
+    {"id":"15.1", "name":"Controlli e rilievi sull'amministrazione", "route":"info", "url": "getControlliERilieviAmministrazione", "contenuto": "getContenutoControlliERilieviAmministrazione"}
+  ]
+},
+{
+  "id": "16",
+  "name": "SERVIZI EROGATI",
+  "sezioni":[
+	{"id":"16.5", "name":"Servizi erogati", "route":"info", "url": "getServiziErogati", "contenuto": "getContenutoServiziErogati"}
+  ]
+},
+{
+  "id": "17",
+  "name": "PAGAMENTI DELL'AMMINISTRAZIONE",
+  "sezioni":[
+    {"id":"17.1", "name":"Indicatore di tempestivita' dei pagamenti", "route":"info", "url": "getIndicatoreDiTempestivitaDeiPagamenti", "contenuto": "getContenutoIndicatoreDiTempestivitaDeiPagamenti"},
+    {"id":"17.2", "name":"IBAN e pagamenti informatici", "route":"info", "url": "getIBANEPagamentiInformatici", "contenuto": "getContenutoIBANEPagamentiInformatici"},
+    {"id":"17.3", "name":"Elenco debiti scaduti", "route":"info", "url": "getElencoDebitiScaduti", "contenuto": "getContenutoElencoDebitiScaduti"},
+    {"id":"17.4", "name":"Piano dei pagamenti", "route":"info", "url": "getPianoDeiPagamenti", "contenuto": "getContenutoPianoDeiPagamenti"},
+    {"id":"17.5", "name":"Elenco debiti comunicati ai creditori", "route":"info", "url": "getElencoDebitiComunicatiAiCreditori", "contenuto": "getContenutoElencoDebitiComunicatiAiCreditori"}
+  ]
+},
+{
+  "id": "23",
+  "name": "ALTRI CONTENUTI",
+  "sezioni":[
+    {"id":"23.1", "name":"Altri contenuti", "route":"info", "url": "getAltriContenuti", "contenuto": "getContenutoAltriContenuti"},
+    {"id":"23.2", "name":"Corruzione", "route":"info", "url": "getCorruzione", "contenuto": "getContenutoCorruzione"},
+    {"id":"23.3", "name":"Accesso civico", "route":"info", "url": "getAccessoCivico", "contenuto": "getContenutoAccessoCivico"},
+    {"id":"23.4", "name":"Accessibilita' e Catalogo di dati, metadati e banche dati", "route":"info", "url": "getAccesibilitaECatalogoDati", "contenuto": "getContenutoAccesibilitaECatalogoDati"},
+    {"id":"23.5", "name":"Dati ulteriori", "route":"info", "url": "getDatiUlteriori", "contenuto": "getContenutoDatiUlteriori"}
+  ]
+}
+]

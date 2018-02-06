@@ -1,0 +1,14 @@
+<script type="text/javascript">	
+	resizeIframe=function(){
+		var a=jQuery(window).height()-300+"px";
+		jQuery("#kc_div").css({height:a});
+		jQuery("iframe").css({height:a})
+		//alert('resize del file manager a: '+a);
+	};
+	jQuery(window).load(resizeIframe);
+	jQuery(window).resize(resizeIframe);
+</script>
+
+<div id="kc_div" style="border:1px solid #888;padding:none">
+<iframe id="kc_frame" name="kcfinder_alone" src="./editor/kcfinder/browse.php?lng=it" frameborder="0" width="100%" height="100%"></iframe>
+</div>

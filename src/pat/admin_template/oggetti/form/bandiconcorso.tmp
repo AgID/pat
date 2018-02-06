@@ -1,0 +1,219 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+
+		// inizializzo campo orario (� solo testuale)
+		jQuery('#orario_scadenza').timepicker(
+			{showMeridian: true}
+		);
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		var editorDesc = CKEDITOR.replace( 'descrizione' );
+		<? if(moduloAttivo('concorsi')) { ?>
+		var editorCalendario = CKEDITOR.replace( 'calendario_prove' );
+		<? } ?>
+
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				<?	// modulo concorsi attivo
+				if(moduloAttivo('concorsi'))	{ 
+				?>
+					tipologia: "required",
+					concorso_collegato: {
+						required: function(element) {
+								return jQuery('input[name=tipologia]:checked').val() == 'esiti';
+						}
+					},
+					data_scadenzaVis: {
+						required: function(element) {
+								return jQuery('input[name=tipologia]:checked').val() == 'concorsi';
+						}
+					},
+					orario_scadenza: {
+						required: function(element) {
+								return jQuery('input[name=tipologia]:checked').val() == 'concorsi';
+						}
+					},
+			
+				<?
+				} 
+				?>
+				
+				data_attivazioneVis: "required",
+				<?	// modulo concorsi attivo
+				if(!moduloAttivo('concorsi'))	{ 
+				?>				
+					data_scadenzaVis: "required",
+					orario_scadenza: "required",
+				<? } ?>
+				oggetto: "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire il bando\",";
+				} ?>
+				<?	// modulo concorsi attivo
+				if(moduloAttivo('concorsi'))	{ 
+					echo "tipologia: \"Devi selezionare la tipologia\",";				} 
+					echo "concorso_collegato: \"Selezionare il Concorso al quale fa riferimento l'avviso o esito\","
+				?>
+				data_attivazioneVis: "Seleziona la data di pubblicazione del bando",
+				data_scadenzaVis: "Seleziona la data di scadenza del bando",
+				orario_scadenza: "Inserisci l'orario di scadenza del bando",
+				oggetto: "Devi inserire l'oggetto del bando",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+		
+		
+	});
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco bandi di concorso</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> bando di concorso
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./pat/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if ($datiUser['permessi']==10 AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			?>
+
+			<? //se � attivo il modulo concorsi - TIPOLOGIA
+			if(moduloAttivo('concorsi')) { 
+				creaFormTrasp('Tipologia','radio', 'tipologia', 'concorsi,avvisi,esiti', $istanzaOggetto['tipologia'], '','input-xxlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" name=\"tipologia\" value=\"concorsi\">";
+			}
+			?>
+				
+			<? creaFormTrasp('Oggetto del concorso','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? //se � attivo il modulo concorsi - SEDE PROVA
+			if(moduloAttivo('concorsi')) { 
+				creaFormTrasp('Sede Prova - Provincia','selezione', 'sede_provincia', 'AG,AL,AN,AO,AR,AP,AT,AV,BA,BT,BL,BN,BG,BI,BO,BZ,BS,BR,CA,CL,CB,CI,CE,CT,CZ,CH,CO,CS,CR,KR,CN,EN,FM,FE,FI,FG,FC,FR,GE,GO,GR,IM,IS,SP,AQ,LT,LE,LC,LI,LO,LU,MC,MN,MS,MT,ME,MI,MO,MB,NA,NO,NU,OT,OR,PD,PA,PR,PV,PG,PU,PE,PC,PI,PT,PN,PZ,PO,RG,RA,RC,RE,RI,RN,RM,RO,SA,VS,SS,SV,SI,SR,SO,TA,TE,TR,TO,OG,TP,TN,TV,TS,UD,VA,VE,VB,VC,VR,VV,VI,VT', $istanzaOggetto['sede_provincia'], '','input-small datiAmm',1,'',0,$disabilitato);
+				creaFormTrasp('Sede Prova - Comune','testo', 'sede_comune', '', $istanzaOggetto['sede_comune'], '','input-large datiAmm',0,'', 0, $disabilitato, false);
+				creaFormTrasp('Sede Prova - Indirizzo','testo', 'sede_indirizzo', '', $istanzaOggetto['sede_indirizzo'], '','input-xxlarge datiAmm',0,'', 0, $disabilitato, false);
+				creaFormTrasp('Ufficio di riferimento','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge');
+				creaFormTrasp('Calendario delle prove','html', 'calendario_prove', '', $istanzaOggetto['calendario_prove'], '','');
+				creaFormTrasp('Concorso o Avviso relativo','bandoconcorso', 'concorso_collegato', '', $istanzaOggetto['concorso_collegato'], '','input-xxlarge');
+			}
+			?>
+
+			<div style="clear:both"></div>
+			
+			
+			<? creaFormTrasp('Data di pubblicazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); 
+			 // echo "<input type=\"text\" name=\"test\" id=\"prova\" class=\"input-small hasDatepicker prova\" />";	?>
+			
+			<? creaFormTrasp('Data di scadenza del bando','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Orario di scadenza del bando','ora', 'orario_scadenza', '', $istanzaOggetto['orario_scadenza'], '','input-small',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Numero dipendenti assunti','testo', 'dipendenti_assunti', '', $istanzaOggetto['dipendenti_assunti'], '','input-small'); ?>
+			
+			<? creaFormTrasp('Eventuale spesa prevista','testo', 'spesa_prevista', '', $istanzaOggetto['spesa_prevista'], '','input-medium'); ?>
+			
+			<? creaFormTrasp('Spese effettuate','testo', 'spese_fatte', '', $istanzaOggetto['spese_fatte'], '','input-medium'); ?>
+	
+			<? creaFormTrasp('Maggiori informazioni sul bando','html', 'descrizione', '', $istanzaOggetto['descrizione'], '',''); ?>
+			
+			<? // file allegati 			
+			creaFormTrasp('File allegato','file', 'allegato1', '', $istanzaOggetto['allegato1'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato2', '', $istanzaOggetto['allegato2'], '',''); 
+			creaFormTrasp('File allegato','file', 'alelgato3', '', $istanzaOggetto['alelgato3'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato4', '', $istanzaOggetto['allegato4'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato5', '', $istanzaOggetto['allegato5'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato6', '', $istanzaOggetto['allegato6'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato7', '', $istanzaOggetto['allegato7'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato8', '', $istanzaOggetto['allegato8'], '',''); 	
+			creaFormTrasp('File allegato','file', 'allegato9', '', $istanzaOggetto['allegato9'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato10', '', $istanzaOggetto['allegato10'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato11', '', $istanzaOggetto['allegato11'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato12', '', $istanzaOggetto['allegato12'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato13', '', $istanzaOggetto['allegato13'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato14', '', $istanzaOggetto['allegato14'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato15', '', $istanzaOggetto['allegato15'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato16', '', $istanzaOggetto['allegato16'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato17', '', $istanzaOggetto['allegato17'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato18', '', $istanzaOggetto['allegato18'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato19', '', $istanzaOggetto['allegato19'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato20', '', $istanzaOggetto['allegato20'], '',''); 
+			?>
+				
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				?>
+				<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco bandi di concorso</a> 
+<? } ?>

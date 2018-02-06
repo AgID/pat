@@ -1,0 +1,109 @@
+<script type="text/javascript">
+jQuery(document).ready(function(){
+
+	// Devo inizializzare il campo editor col nuovo ckEditor
+	//var editorDesc = CKEDITOR.replace( 'note' );
+	
+	// Necessario per Textarea
+	jQuery('#note').autogrow();	
+		
+	// Inizializzo il widget per il wizard form
+	jQuery('#confWizard').smartWizard({
+		selected: 0,  // Step selezionato
+		keyNavigation: true, 
+		enableAllSteps: false,  
+		transitionEffect: 'fade', 
+		contentURL:null, 
+		contentCache:true, 
+		cycleSteps: false,
+		enableFinishButton: false,
+		errorSteps:[], 
+		labelNext:'Step successivo',
+		labelPrevious:'Step precedente',
+		labelFinish:'Finisci',   
+		
+		// Eventi
+		onLeaveStep: null, 
+		onShowStep: null,  
+		onFinish: onFinishCallback  
+	}); 	
+		
+    function onFinishCallback(){
+        alert('Operazioni conpletate');
+    } 
+	
+	// necessario per i campi file
+	jQuery('.uniform-file').uniform();
+	// necessario per i campi select con ricerca
+	jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});		
+
+
+	
+
+    
+});
+</script>
+
+<!-- INIZIO WIZARD DI CONFIGURAZIONE -->
+<form class="stdform" method="post" action="" />
+<div id="confWizard" class="wizard wizard-inverse">
+	<br />
+	<ul class="hormenu">
+		<li>
+			<a href="#confStep1">
+				<span class="h2">Step 1</span>
+				<span class="label">Informazioni generali ente</span>
+			</a>
+		</li>
+		<li>
+			<a href="#confStep2">
+				<span class="h2">Step 2</span>
+				<span class="label">Recapiti dell'ente</span>
+			</a>
+		</li>
+		<li>
+			<a href="#confStep3">
+				<span class="h2">Step 3</span>
+				<span class="label">Impostazioni del portale</span>
+			</a>
+		</li>
+	</ul>
+								
+	<div id="confStep1" class="formwiz">
+		<h4 class="widgettitle">Step 1: Informazioni generali ente</h4>
+		
+			<? creaFormTrasp('Nome completo dell\'ente','testo', 'nome_completo_ente', '', $enteAdmin['nome_completo_ente'], '','input-xxlarge'); ?>
+
+			<? creaFormTrasp('Logo ente','file', 'file_logo_semplice', '', $enteAdmin['file_logo_semplice'], '',''); ?>
+			
+			<? creaFormTrasp('Partita IVA','testo', 'p_iva', '', $enteAdmin['p_iva'], '','input-large'); ?>
+			
+			<? creaFormTrasp('Note','areatesto', 'note', '', $enteAdmin['note'], '','input-xxlarge'); ?>
+	</div>
+	
+	<div id="confStep2" class="formwiz">
+		<h4 class="widgettitle">Step 2: Recapiti dell'ente</h4>
+		
+			<? creaFormTrasp('Via/piazza, n°','testo', 'indirizzo_via', '', $enteAdmin['indirizzo_via'], '','input-xlarge'); ?>
+
+			<? creaFormTrasp('CAP','testo', 'indirizzo_cap', '', $enteAdmin['indirizzo_cap'], '','input-small'); ?>
+			
+			<? creaFormTrasp('Comune','testo', 'indirizzo_comune', '', $enteAdmin['indirizzo_comune'], '','input-large'); ?>
+			
+			<? 
+			$prov = "AG,AL,AN,AO,AR,AP,AT,AV,BA,BT,BL,BN,BG,BI,BO,BZ,BS,BR,CA,CL,CB,CI,CE,CT,CZ,CH,CO,CS,CR,KR,CN,EN,FM,FE,FI,FG,FC,FR,GE,GO,GR,IM,IS,SP,AQ,LT,LE,LC,LI,LO,LU,MC,MN,MS,MT,ME,MI,MO,MB,NA,NO,NU,OT,OR,PD,PA,PR,PV,PG,PU,PE,PC,PI,PT,PN,PZ,PO,RG,RA,RC,RE,RI,RN,RM,RO,SA,VS,SS,SV,SI,SR,SO,TA,TE,TR,TO,OG,TP,TN,TV,TS,UD,VA,VE,VB,VC,VR,VV,VI,VT";
+			creaFormTrasp('Provincia','selezione', 'indirizzo_provincia', $prov, $enteAdmin['indirizzo_provincia'], '','input-small',1); ?>
+																		   
+	</div>
+	
+	<div id="confStep3" class="formwiz">
+		<h4 class="widgettitle">Step 3: Impostazioni del portale</h4>
+			<p>
+				<label>Url del portale isituzionale</label>
+				<span class="field"><input type="text" name="lastname" class="input-xxlarge" /></span>
+			</p>
+	</div>
+	
+</div>
+</form>
+<!-- FINE WIZARD DI CONFIGURAZIONE-->

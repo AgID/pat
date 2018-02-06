@@ -1,0 +1,61 @@
+<script type="text/javascript">		
+jQuery(document).ready(function(){	
+	function initCancella() {
+		//alert('Init canc');
+		// funzioni di cancellazione con richiesta di conferma
+		if(jQuery('.confCanc').length > 0) {
+			jQuery('.confCanc').click(function(){
+			
+				var idCancello = jQuery(this).attr('idcanc');
+				//alert('Attributo da cancellare: '+idCancello);
+				// verifico se usare l'id o le selezioni
+				if (idCancello==0) {
+					// cerco tutte le caselle selezionate
+					var numCanc = 0;
+					var parentTable = jQuery('#dyntable');	
+					var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+					var idCancello = '';
+					ch.each(function(){
+						if ( jQuery(this).attr('checked')) {
+							// casella selezionata
+							if (idCancello != '') {
+									idCancello = idCancello+',';
+							}
+							idCancello = idCancello+jQuery(this).attr('value');
+							numCanc++;
+						}
+					});							
+				} else {	
+					var numCanc = 1;
+				}
+				
+				if (numCanc==0) {
+					jQuery.alerts.dialogClass = 'alert-inverse';
+					jAlert('Nessun elemento selezionato per la cancellazione.', 'Messaggio di sistema', function(){
+						jQuery.alerts.dialogClass = null; // reset to default
+					});
+				} else {
+					jConfirm('Sei sicuro di voler proseguire con la cancellazione ? Proseguendo '+numCanc+' elementi verranno eliminati.', 'Richiesta di conferma', function(r) {
+						if (r) {
+							// proseguo con la cancellazione, invio il form con i valori
+							jQuery('#id_cancello_tabella').attr('value',idCancello);
+							//alert('Questi sono gli ID che cancello: '+jQuery('#id_cancello_tabella').attr('value'));
+							jQuery('#formCancella').submit();
+						}
+					});
+				}
+			});
+		}	
+	}
+	initCancella();
+});
+	
+</script>
+
+<?  
+/////////////////// FORM CANCELLAZIONE NASCOSTO
+echo "<form name=\"formCancella\" id=\"formCancella\" method=\"post\" action=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azionesec=cancella\">"; 
+
+echo "<input type=\"hidden\" value=\"\" name=\"id_cancello_tabella\" id=\"id_cancello_tabella\" />";
+echo "</form>";
+?>

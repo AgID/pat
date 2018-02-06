@@ -1,0 +1,19 @@
+		// verifico tutti i checkbox della tabella
+		jQuery('.checkall').click( function(){
+			var parentTable = jQuery(this).parents('table');	
+			var ch = parentTable.find('tbody input[type=checkbox]');
+			if(jQuery(this).is(':checked')) {	
+				ch.each(function(){
+					//alert('analizzo riga');
+					jQuery(this).attr('checked',true);
+					jQuery(this).parent().addClass('checked');	
+					jQuery(this).parents('tr').addClass('selected'); 
+				});	
+			} else {	
+				ch.each(function(){
+					jQuery(this).attr('checked',false);
+					jQuery(this).parent().removeClass('checked');	
+					jQuery(this).parents('tr').removeClass('selected');
+				});	
+			}
+		});	

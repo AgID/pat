@@ -1,0 +1,80 @@
+<?
+if ($idIstanza) {
+	?>
+	<div class="alert alert-block">
+		<button data-dismiss="alert" class="close" type="button">&times;</button>
+		<h4><span class="iconfa-info-sign"></span> Informazioni di sistema</h4>
+		<p style="margin: 8px 0;color:#646464;">
+			<?
+			if ($istanzaOggetto['ultima_modifica'] == $istanzaOggetto['data_creazione']) {
+				?>
+				<span>Questa istanza � stata creata da <strong><? echo nomeUserDaId($istanzaOggetto['id_proprietario'],'nome'); ?></strong> in data <strong><? echo visualizzaData($istanzaOggetto['data_creazione']); ?></strong> e non � mai stata modificata.</span>
+				<?
+			} else {
+				?>
+				<span>Questa istanza � stata modificata l'ultima volta in data <strong><? echo visualizzaData($istanzaOggetto['ultima_modifica']); ?></strong> dopo la sua creazione in data <strong><? echo visualizzaData($istanzaOggetto['data_creazione']); ?></strong> da parte di <strong><? echo nomeUserDaId($istanzaOggetto['id_proprietario'], 'nome'); ?></strong>.</span>
+				<?
+			}
+			?>
+		</p>
+		<?
+		if(moduloAttivo('workflow') and $istanzaOggetto['stato_workflow'] != 'finale') {
+			?>
+			<h4><span class="iconfa-lock"></span> Elemento in workflow: stato <? echo $statoWf['nome']; ?></h4>
+			<p style="margin: 8px 0;color:#646464;">
+				<span>Questo elemento <strong>non � ancora pubblicato</strong> perch� si trova nello stato <? echo $statoWf['nome']; ?>.</span>
+			</p>
+			<?
+		}
+		if(moduloAttivo('bandigara') and $oggOgg->idOggetto == 11) {
+			if($istanzaOggetto['id_record_cig_principale'] > 0) {
+				$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_gare_atti WHERE id_record_cig_principale = ".$istanzaOggetto['id_record_cig_principale']." AND id != id_record_cig_principale";
+				if(!($result = $database->connessioneConReturn($sql))) {}
+				$numLotti = $database->sqlNumRighe($result);
+				?>
+				<p style="margin: 8px 0;color:#646464;">
+				<?
+				if($istanzaOggetto['id_record_cig_principale'] == $istanzaOggetto['id']) {
+					?>
+					<span>La presente istanza � una <strong>procedura con pi� CIG</strong> (<? echo $numLotti; ?> lotti totali).</span>
+					<?
+				} else {
+					?>
+					<span>Il presente lotto fa parte di una <strong>procedura con pi� CIG</strong> (<? echo $numLotti; ?> lotti totali).</span>
+					<?
+				}
+				?>
+				</p>
+				<?
+			}
+		}
+		?>
+	</div>
+	<?
+} else {
+	//nuovo record
+	if(moduloAttivo('workflow') and $statoWf['id']) {
+		?>
+		<div class="alert alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<h4><span class="iconfa-lock"></span> Elemento in workflow: stato iniziale</h4>
+			<p style="margin: 8px 0;color:#646464;">
+				<span>Questo elemento <strong>non verr� pubblicato al salvataggio</strong> perch� si trova nello stato iniziale.</span>
+			</p>
+		</div>
+		<?
+	}
+}
+if (($oggOgg->autorizzazione == 'root' and ($datiUser['permessi'] != 3 and $datiUser['permessi'] != 10)) OR ($oggOgg->autorizzazione == 'redattore' and !$datiUser['redattore']) ) {
+	?>
+	<div class="avvisino" style="margin:-10px 0px 14px 0px;">
+		<img src="grafica/admin_skin/<? echo $datiUser['admin_skin']; ?>/alert.gif" align="absmiddle" hspace="3">
+		<? if ($idIstanza) { ?>
+			<span>Ricorda che questa modific� dovr� essere autorizzata prima di essere pubblicata.</span>
+		<? } else { ?>
+			<span>Ricorda che la nuova istanza creata dovr� essere autorizzata prima di essere pubblicata.</span>
+		<? } ?>
+	</div> 
+	<?
+}
+?>

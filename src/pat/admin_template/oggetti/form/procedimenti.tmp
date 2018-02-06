@@ -1,0 +1,236 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		var editorDesc = CKEDITOR.replace( 'descrizione' );
+		var editorCosti = CKEDITOR.replace( 'costi' );
+		
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				nome: "required",
+				<?
+				// scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>		
+				"referente_proc[]": "required",
+				"ufficio_def[]": "required"
+			},
+			
+			messages: {
+				nome: "Devi inserire il nome del procedimento",
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				} ?>
+				"referente_proc[]": "Devi inserire i responsabili del procedimento",
+				"ufficio_def[]": "Devi selezionare almeno una struttura di riferimento",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+		
+		jQuery("#servizio_disponibile").change(function(){
+			
+			if (document.getElementById('servizio_disponibile').checked && jQuery("#urlServizioBox").css('display') != 'block') {
+				jQuery("#urlServizioBox").toggle('fast');
+				jQuery( "#link_servizio" ).rules( "add", {
+						required: true,
+						url: true,
+						messages: {
+						required: "Se il servizo � dispoonible online, inserirne l'url in un formato valido",
+						url: "Se il servizo � dispoonible online, inserirne l'url in un formato valido"
+					}
+				});	
+				jQuery("#tempiServizioBox").toggle('fast');
+				jQuery("#tempi_servizio").val('');
+				jQuery("#tempi_servizio").rules( "remove" );
+				
+			} else if (!(document.getElementById('servizio_disponibile').checked) && jQuery("#tempiServizioBox").css('display') != 'block') {
+				jQuery("#tempiServizioBox").toggle('fast');
+				jQuery( "#tempi_servizio" ).rules( "add", {
+						required: true,
+						messages: {
+						required: "Se il servizio non � disponibile, inserire i tempi di attivazione previsti"
+					}
+				});	
+				jQuery("#urlServizioBox").toggle('fast');
+				jQuery("#link_servizio").val('');
+				jQuery("#link_servizio").rules( "remove" );
+			}
+				
+		});
+		
+		
+	});
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco procedimenti</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> procedimenti
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./pat/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if ($datiUser['permessi']==10 AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			?>
+			
+			<? creaFormTrasp('Nome del procedimento','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Responsabile/i di procedimento','referenti', 'referente_proc', '', $istanzaOggetto['referente_proc'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Responsabile/i di provvedimento','referenti', 'referente_prov', '', $istanzaOggetto['referente_prov'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Responsabile/i sostitutivi','referenti', 'resp_sost', '', $istanzaOggetto['resp_sost'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Strutture di riferimento (Chi Contattare)','strutture', 'ufficio_def', '', $istanzaOggetto['ufficio_def'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Personale di riferimento (Chi Contattare)','referenti', 'personale_proc', '', $istanzaOggetto['personale_proc'], '','input-xxlarge'); ?>
+			
+			<? 
+			if ($istanzaOggetto['contattare'] == '') {
+				$istanzaOggetto['contattare'] = 'struttura-referenti';
+			}
+			creaFormTrasp('Visualizzazione del Chi Contattare','selezione', 'contattare', 'struttura-referenti,referenti-struttura,struttura,referenti', $istanzaOggetto['contattare'], 'prima la struttura poi il personale,prima il personale poi la stuttura,visualizza solo la struttura di riferimento,visualizza solo il personale di riferimento','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Altre strutture associate','strutture', 'ufficio', '', $istanzaOggetto['ufficio'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Descrizione del procedimento','html', 'descrizione', '', $istanzaOggetto['descrizione'], '',''); ?>
+			
+			<? creaFormTrasp('Costi e modalit� di pagamento','html', 'costi', '', $istanzaOggetto['costi'], '',''); ?>
+			
+			<? creaFormTrasp('Conclusione tramite silenzio assenso','casella', 'silenzio_assenso', '1', $istanzaOggetto['silenzio_assenso'], '',''); ?>	
+			
+			<? creaFormTrasp('Conclusione tramite dichiarazione dell\'interessato','casella', 'dichiarazione', '1', $istanzaOggetto['dichiarazione'], '',''); ?>		
+			
+			<? creaFormTrasp('Riferimenti normativi','normative', 'norme', '', $istanzaOggetto['norme'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Termine di conclusione','testo', 'termine', '', $istanzaOggetto['termine'], '','input-large'); ?>
+			
+			<div class="campoMultiplo">		
+
+			<? // il campo sul servizio online 
+			if (!$id OR $istanzaOggetto['link_servizio'] != '') {
+				$stileTempi = "none";
+				$stileUrl = "block";
+				creaFormTrasp('Disponibilit� del servizio online','casella', 'servizio_disponibile', '1', 1, '','');	
+				?>
+				<script type="text/javascript">		
+					// attivo la validazione inline del form
+					jQuery(document).ready(function(){
+					
+						// Devo inizializzare il controllo sui campi condizionati
+						jQuery( "#link_servizio" ).rules( "add", {
+								required: true,
+								url: true,
+								messages: {
+								required: "Se il servizo � dispoonible online, inserirne l'url in un formato valido",
+								url: "Se il servizo � dispoonible online, inserirne l'url in un formato valido"
+							}
+						});	
+					
+					});
+				</script>
+				<?
+			} else {		
+				$stileTempi = "block";
+				$stileUrl = "none";			
+				creaFormTrasp('Disponibilit� del servizio online','casella', 'servizio_disponibile', '1', '', '','');	
+				?>
+				<script type="text/javascript">		
+					// attivo la validazione inline del form
+					jQuery(document).ready(function(){
+					
+						jQuery( "#tempi_servizio" ).rules( "add", {
+								required: true,
+								messages: {
+								required: "Se il servizio online non � disponibile, inserire i tempi di attivazione previsti"
+							}
+						});	
+					
+					});
+				</script>
+				<?				
+			}
+			
+			echo "<div id=\"tempiServizioBox\" style=\"display:".$stileTempi.";\">";
+			creaFormTrasp('Tempi previsti per attivazione del servizio online','testo', 'tempi_servizio', '', $istanzaOggetto['tempi_servizio'], '','',0,'', 0, 0,true);
+			echo "</div>";
+			echo "<div id=\"urlServizioBox\" style=\"display:".$stileUrl.";\">";
+			creaFormTrasp('Url per il servizio online relativo','link', 'link_servizio', '', $istanzaOggetto['link_servizio'], '','input-xlarge',0,'', 0, 0,true); 
+			echo "</div>";
+			
+			?>
+			</div>
+			
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				?>
+				<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco procedimenti</a> 
+<? } ?>

@@ -1,0 +1,50 @@
+<? // Verifico esistenza del paragrafo
+$oraCorrente = time();
+$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_modello WHERE id_ente = ".$idEnte." AND id_sezione_etrasp = ".$sezioneNavigazione['id']." LIMIT 0,1";
+
+if( !($result = $database->connessioneConReturn($sql)) ) {
+	echo "errore in caricamento paragrafi degli enti".$sql;
+}
+$contenutoModello = $database->sqlArray($result);
+
+//echo $contenutoModello['html_generico'];
+
+// VERIFICO SE SONO UN AMMINISTRATORE, ABILITANDO L'EDITING INLINE
+
+///////////////////////////////////////////// AMMINISTRAZIONE INLINE
+/*
+if ($datiUser['permessi'] == 2 AND $datiUser['sessione_loggato']) {
+	echo "<div id=\"contEditabile\" class=\"editorInline\" contenteditable=\"true\">";
+	echo $contenutoModello['html_generico'];
+	echo "</div>
+			<script type=\"text/javascript\">	
+				// Turn off automatic editor creation first.
+				CKEDITOR.disableAutoInline = true;
+				CKEDITOR.inline('contEditabile');
+			</script>";
+} else {
+	echo "<div class=\"contenutoModello\">".$contenutoModello['html_generico']."</div>";
+}
+*/
+
+if (!($idOggetto>0 AND $idDocumento>0)){ // visualziza il paragrafo solo se non si è in lettura completa
+
+	include 'paragrafi_personalizzati_enti.php';
+
+	if ($contenutoModello['html_generico'] != '' AND $contenutoModello['html_generico'] != '<p></p>' AND $contenutoModello['html_generico'] != '<p>&nbsp;</p>') {
+		echo "<div class=\"contenutoModello \">".$contenutoModello['html_generico'];
+		if ($entePubblicato['mostra_data_aggiornamento']) {
+			if(($entePubblicato['id']!=23 OR ($entePubblicato['id']==23 AND ($sezioneNavigazione['id']!=725 AND $sezioneNavigazione['id']!=726))) AND
+			   ($entePubblicato['id']!=33 OR ($entePubblicato['id']==33 AND ($sezioneNavigazione['id']!=725 AND $sezioneNavigazione['id']!=726))) AND
+			   ($entePubblicato['id']!=44 OR ($entePubblicato['id']==44 AND ($sezioneNavigazione['id']!=742)))
+			){
+				echo "<div id=\"dataAggiornamento\">Contenuto aggiornato al ".visualizzaData($contenutoModello['ultima_modifica'],'d-m-Y')."</div>";
+			}
+		}
+		echo "</div>";
+	}
+
+}	
+
+?> 
+	

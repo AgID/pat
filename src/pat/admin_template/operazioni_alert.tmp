@@ -1,0 +1,20 @@
+<? 
+/////////////// ALERT OPERAZIONI
+if (isset ($operazioneTesto) and $operazioneTesto != '') { ?>
+
+	// ALERT DELLE OPERAZIONI
+	<? if (!$operazione) { ?>
+		// errore
+		jQuery.alerts.dialogClass = 'alert-warning';
+		jAlert('<? echo $operazioneTesto; ?>', 'Messaggio di errore', function(){
+			jQuery.alerts.dialogClass = null; // reset to default
+		});
+	<? } else { ?>
+		// successo
+		jQuery.alerts.dialogClass = 'alert-success';
+		jAlert('<? echo $operazioneTesto; ?>', 'Messaggio di successo', function(){
+			jQuery.alerts.dialogClass = null; // reset to default
+		});
+	<? } ?>
+	
+<? } ?>

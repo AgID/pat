@@ -1,0 +1,186 @@
+<script type="text/javascript">	
+	
+	var validatore;
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		var editorIndi = CKEDITOR.replace( 'note' );
+		var editorNote = CKEDITOR.replace( 'modo_individuazione' );
+		
+		jQuery.validator.addMethod("allegatoCheck", function(value , element) {
+			if('<? echo $id; ?>' != '') {
+				//modifica
+				if(jQuery('#'+element.id+'azione').val() == 'nessuna') {
+					return true;
+				} else if(jQuery('#'+element.id+'azione').val() == 'elimina') {
+					return false;
+				} else if(jQuery('#'+element.id+'azione').val() == 'modifica' && !jQuery('#'+element.id).val()) {
+					return false;
+				} else if(jQuery('#'+element.id+'azione').val() == 'importAllegato' && !jQuery('#import-file-'+element.id).val()) {
+					return false;
+				} else if(jQuery('#'+element.id+'azione').val() == 'aggiungi' && !jQuery('#'+element.id).val() && !jQuery('#import-file-'+element.id).val()) {
+					return false;
+				} else {
+					return true;
+				}
+			} else {
+				//inserimento
+				if(!jQuery('#'+element.id).val() && !jQuery('#import-file-'+element.id).val()) {
+					return false;
+				} else {
+					return true;
+				}
+			}
+		}, 'Inserisci il file allegato');
+
+		jQuery("#formOggetto").validate(
+		{
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>
+				nominativo: "required",
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				struttura: "required",
+				"responsabile[]": "required",
+				dataVis: "required",
+				compenso: "required",
+				oggetto: "required"
+			},
+			
+			messages: {
+				nominativo: "Inserisci il nominativo del soggetto beneficiario",
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la sovvenzione\",";
+				} ?>
+				struttura: "Seleziona la struttura organizzativa responsabile",
+				"responsabile[]": "Seleziona il dirigente o funzionario responsabile",
+				dataVis: "Seleziona la data di riferimento",
+				oggetto: "Devi inserire l'oggetto della sovvenzione",
+				compenso: "Devi inserire l'importo",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		}
+		);
+		
+	}
+	);
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco sovvenzioni</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> sovvenzioni, sussidi e vantaggi eocnomici
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./pat/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if ($datiUser['permessi']==10 AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			?>
+			
+			<? creaFormTrasp('Nominativo del beneficiario','testo', 'nominativo', '', $istanzaOggetto['nominativo'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Dati fiscali','areatesto', 'dati_fiscali', '', $istanzaOggetto['dati_fiscali'], '','input-xxlarge',0,'', 0, 0,false); ?>
+			
+			<? creaFormTrasp('Struttura organizzativa responsabile','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Dirigente o funzionario responsabile','referenti', 'responsabile', '', $istanzaOggetto['responsabile'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Importo','testo', 'compenso', '', $istanzaOggetto['compenso'], '','input-small',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Normativa alla base dell\'attribuzione','normativa', 'normativa', '', $istanzaOggetto['normativa'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Regolamento alla base dell\'attribuzione','regolamento', 'regolamento', '', $istanzaOggetto['regolamento'], '','input-xxlarge'); ?>
+
+			<? creaFormTrasp('Data di riferimento','data', 'data', '', $istanzaOggetto['data'], '','input-small',0,'', 0, 0,true); ?>			
+			
+			<? creaFormTrasp('Modalit� seguita per l\'individuazione','html', 'modo_individuazione', '', $istanzaOggetto['modo_individuazione'], '','',0,'', 0, 0,true); ?>
+			
+			<? // file allegati 
+			creaFormTrasp('Atto di concessione','file', 'file_atto', '', $istanzaOggetto['file_atto'], '','',0,'', 0, 0,false); 
+			creaFormTrasp('Progetto selezionato','file', 'progetto', '', $istanzaOggetto['progetto'], '',''); 
+			creaFormTrasp('Curriculum incaricato','file', 'cv_soggetto', '', $istanzaOggetto['cv_soggetto'], '',''); 
+			
+			?>
+			
+			<? creaFormTrasp('Note','html', 'note', '', $istanzaOggetto['note'], '',''); ?>
+			<?
+			if(moduloAttivo('privacy')){
+				creaFormTrasp('Omissis (Privacy)','casella', 'omissis', '1', $istanzaOggetto['omissis'], '','');
+				}
+			?>
+				
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				?>
+				<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco sovvenzioni</a> 
+<? } ?>

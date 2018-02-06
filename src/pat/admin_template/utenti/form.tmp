@@ -1,0 +1,196 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});
+	
+		jQuery("#form1").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				nome: "required",
+				<? if (!$id) { ?>
+				username: {
+					required: true,
+					remote: { url: "ajax.php?azione=verificaUsername", async: false } 
+					
+				},
+				<? } ?>
+				email: {
+					required: true,
+					email: true
+				},
+				confermaemail: {
+					equalTo: "#email"
+				},
+				<? if (!$id) { ?>
+				password: {
+					required: true,
+					minlength: 8
+				},
+				confermapassword: {
+					equalTo: "#password"
+				},
+				<? } ?>
+
+				permessi: "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire questo utente\",";
+				} ?>
+				nome: "Inserisci il nome completo dell'utente",
+				<? if (!$id) { ?>
+				username: "Questo username è vuoto oppure già utilizzato, devi inserirne uno diverso",
+				<? } ?>
+				email: "Inserisci un indirizzo email valido",
+				confermaemail: "La conferma dell'indirizzo email deve essere uguale alla email inserita",
+				password: "Inserisci una password di almeno 8 caratteri",
+				confermapassword: "La conferma della password deve essere uguale alla password inserita",
+				permessi: "Seleziona il tipo di utente"
+			}
+			
+
+
+		});
+		
+		
+		
+	});
+</script>
+
+<a href="?menu=utenti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco utenti</a> 
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> utente
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<form id="form1" class="stdform" method="post" action="?menu=utenti&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		
+			<input type="hidden" name="rispostaForm" value="1" />	
+			<input type="hidden" name="id_profilo_permessi" value="0" />	
+			<input type="hidden" name="admin_skin" value="classic" />	
+			<input type="hidden" name="admin_accessibile" value="0" />	
+			<input type="hidden" name="admin_interfaccia" value="visualizzata" />	
+			<input type="hidden" name="admin_avvisi" value="visualizza" />	
+			
+			<? // scelta ente
+			if ($datiUser['permessi']==10 AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente_admin', '', '', '','input-xlarge'); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente_admin\" name=\"id_ente_admin\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>	
+			
+			<? creaFormTrasp('Nome utente','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? 
+			$disableCampo = 0;
+			if ($id) {
+				$disableCampo = 1;
+				echo "<input type=\"hidden\" id=\"username\" name=\"username\" value=\"".$istanzaOggetto['username']."\">";
+			} 
+			creaFormTrasp('Username','testo', 'username', '', $istanzaOggetto['username'], '','input-large',0,'', 0, $disableCampo,true); ?>	
+			
+			<div class="control-group">
+				<label class="control-label" for="password">
+					<span class="obbliCampo intTooltip">
+						<a data-placement="top" data-rel="tooltip" data-original-title="Campo obbligatorio">
+							<span class="icon-ok-circle"></span>
+						</a>
+					</span>
+					<? if ($id) { echo "Nuova"; } ?> Password
+				</label>
+				<div class="controls"><input type="password" name="password" id="password" class="input-large" value="" /></div>
+			</div>
+			
+			<div class="control-group">
+				<label class="control-label" for="confermapassword">
+					<span class="obbliCampo intTooltip">
+						<a data-placement="top" data-rel="tooltip" data-original-title="Campo obbligatorio">
+							<span class="icon-ok-circle"></span>
+						</a>
+					</span>
+					Conferma <? if ($id) { echo "nuova"; } ?> password
+				</label>
+				<div class="controls"><input type="password" name="confermapassword" id="confermapassword" class="input-large" value="" /></div>
+			</div>
+			
+			<?
+			if($enteAdmin['modulo_webservice']) {
+				echo "<div class=\"par control-group\">";
+				echo "<label class=\"control-label\" for=\"token\">Token di autenticazione web service</label>";
+				echo "<div class=\"controls\">";
+				echo "<input placeholder=\"\" type=\"text\" name=\"token\" id=\"token\" readonly=\"readonly\" value=\"".md5($istanzaOggetto['username'].$enteAdmin['cookie_dominio'])."\" class=\"disabled input-xxlarge\" />";
+			}
+			?>
+			
+			<? creaFormTrasp('Indirizzo email','testo', 'email', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? creaFormTrasp('Conferma indirizzo email','testo', 'confermaemail', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? creaFormTrasp('Recapito cellulare','testo', 'cellulare', '', $istanzaOggetto['cellulare'], '','input-large'); ?>	
+			
+			<? if ($id==$datiUser['id']) {
+				echo "<input type=\"hidden\" name=\"permessi\" value=\"".$istanzaOggetto['permessi']."\" />";
+			} else {
+				creaFormTrasp('Tipo di utente','selezione', 'permessi', '2,0', $istanzaOggetto['permessi'], 'Amministratore,Utente','input-large',0,'', 0, 0,true);
+			}
+			?>	
+			
+			<? if ($aclTrasparenza['ruoli']) {
+				creaFormTrasp('Profili ACL','ruoli', 'acl', '', $istanzaOggetto['acl'], '','input-xxlarge'); 
+				creaFormTrasp('Usa codice sorgente in editor','casella', 'editor_avanzato', '1', $istanzaOggetto['editor_avanzato'], '1');	
+			} else {
+				echo "<input type=\"hidden\" name=\"acl\" value=\"".$istanzaOggetto['acl']."\" />";
+				echo "<input type=\"hidden\" name=\"editor_avanzato\" value=\"".$istanzaOggetto['editor_avanzato']."\" />";
+			}
+			?>	
+
+					
+			
+			<div class="par control-group">
+				<label class="control-label" for="note">Note</label>
+				<div class="controls"><textarea cols="80" rows="5" name="note" class="input-xxlarge" id="note"></textarea></div> 
+			</div>
+			
+			<? if (!$id) { ?>
+			<div class="par control-group">
+				<label class="control-label" for="tipoReg">Tipo di registrazione</label>
+				<div class="controls">
+					<select name="tipoReg" class="uniformselect">
+						<option value="normale" />Registra utente attivo
+						<option value="mail" />Registra utente attivo con mail di notifica
+						<option value="bloccata" />Registra utente come bloccato ed invia email per l'attivazione
+					</select>
+				</div>
+			</div>	
+			<? } ?>
+				
+			<p class="stdformbutton">
+				<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+			</p>
+		</form>
+	</div>
+</div>

@@ -1,0 +1,33 @@
+AddType text/css .css
+AddDefaultCharset iso-8859-1 
+RewriteEngine On
+#CheckSpelling On
+
+#RISCRITTURA REGOLE ISWEB
+DirectoryIndex ./index.php?id_sezione=0
+RewriteRule ^staff ./index.php?azione=accesso
+RewriteRule ^funzione_([^_]+).html ./index.php?azione=$1 
+RewriteRule ^tag([^_]+)_([^_]+).html ./index.php?azione=cercatag&id_tag=$1&nome=$2 
+RewriteRule ^tag([^_]+)_([^_]+)_([^_]+).html ./index.php?azione=cercatag&id_tag=$1&nome=$2&tipotag=$3 
+RewriteRule ^pagina([^_]+)_([^_]+).html ./index.php?id_sezione=$1&nome=$2 
+RewriteRule ^pagina([^_]+)_([^_]+)_cat([^_]+)_([^_]+)_([^_]+)_ord([^_]+)-([^-]+).html ./index.php?id_sezione=$1&nome=$2&id_cat=$3&inizio=$4&limite=$5&ordine=$6&senso=$7 
+RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4&id_sez_ori=$5&template_ori=$6
+RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4&id_sez_ori=$5
+RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4 [L]
+#RewriteCond %{REQUEST_FILENAME} !-f
+#RewriteCond %{REQUEST_FILENAME} !-d
+#RewriteRule ^.*$ ./index.php?id_sezione=-404 
+RewriteRule ^rest ./appRest.php
+
+#Eventuale autenticazione
+#SetEnvIf HOST "^nomehost" testing_url
+
+#AuthName "Richiesta autenticazione"
+#AuthType Basic
+#AuthUserFile "/percorso/verso/vhost/.htpasswd"
+
+#Order Allow,Deny
+#Satisfy any
+#Allow from all
+#Require valid-user
+#Deny from env=testing_url

@@ -1,0 +1,15 @@
+<? if ($entePubblicato['testo_welcome'] == '<p>&Acirc;</p>' OR $entePubblicato['testo_welcome'] == '<p></p>' OR $entePubblicato['testo_welcome'] == '') { ?>
+<div>
+	In questo portale saranno pubblicati, raggruppati secondo le indicazioni di legge, documenti, informazioni e dati concernenti l'organizzazione dell'amministrazione, le sue attivit&agrave; e le relative modalit&agrave; di realizzazione. ( Decreto Legislativo 14 marzo 2013, n.33 - Riordino della disciplina riguardante gli obblighi di pubblicit&agrave;, trasparenza e diffusione di informazioni da parte delle pubbliche amministrazioni - pubblicato in Gazzetta Ufficiale n. 80 in data 05/04/2013 - in vigore dal 20/04/2013).
+</div>	
+<?
+if(moduloAttivo('privacy')){?>
+<div>
+	<em>I dati personali pubblicati sono riutilizzabili solo alle condizioni previste dalla normativa vigente sul riuso dei dati pubblici (direttiva comunitaria 2003/98/CE e D.lgs. 36/2006 di recepimento della stessa), in termini compatibili con gli scopi per i quali sono stati raccolti e registrati, e nel rispetto della normativa in materia di protezione dei dati personali.</em>
+</div>	
+<?}
+?>	
+<? } else { 
+	echo $entePubblicato['testo_welcome'];
+} ?> 
+	

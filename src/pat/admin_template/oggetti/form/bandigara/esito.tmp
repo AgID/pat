@@ -1,0 +1,247 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		var editorDesc = CKEDITOR.replace( 'dettagli' );
+		
+		jQuery.validator.addMethod("cfCheck", function(value) {
+			var regex = /^([A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([A-Za-z]{6}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([0-9]{11,11})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		}, 'Il codice fiscale dell\'amministrazione aggiudicatrice non � valido');
+		
+		jQuery.validator.addMethod("floatCheck", function(value) {
+			var regex = /^((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
+			//vecchio controllo
+			//var regex = /^(([1-9][0-9]*|[0-9])([.]{1}[0-9]{1,2})?)?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		});
+
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if(element.hasClass('cig-multipli')) {
+					error.appendTo( element.parents('.tabellaCig').parent() );
+				} else if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR $datiUser['id_ente_admin']==142) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				//bando_collegato: "required",
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				oggetto: "required",
+				data_attivazioneVis: "required",
+				dati_aggiudicatrice: {
+					/* required: true, */
+					cfCheck: true
+				},
+				valore_importo_aggiudicazione: "floatCheck",
+				importo_liquidato: "floatCheck"
+			},
+			messages: {
+				<? // scelta ente
+				if ($datiUser['permessi']==10 AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				} ?>
+				oggetto: "Devi inserire l'oggetto",
+				//bando_collegato: "Selezionare la procedura alla quale fa riferimento l'esito",
+				data_attivazioneVis: "Devi inserire la data di pubblicazione",
+				valore_importo_aggiudicazione: "Inserire un importo (es. 123.456,00)",
+				importo_liquidato: "Inserire un importo (es. 123.456,00)",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+		});
+
+		jQuery('#valore_importo_aggiudicazione').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+		//jQuery('#importo_liquidato').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+
+	});
+
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Bandi, Gare e Contratti</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> Esito di gara
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./pat/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if ($datiUser['permessi']==10 AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			
+			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"esiti\" />";
+			?>
+			
+			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<?
+			if($id and $istanzaOggetto['cig'] != '') {
+				creaFormTrasp('Codice CIG','testo', 'cig', '', $istanzaOggetto['cig'], '','',0,'', 0, 0,false);
+			}
+			?>
+			
+			<? creaFormTrasp('Bando di gara relativo','bandogara_from_esito', 'bando_collegato', '', $istanzaOggetto['bando_collegato'], '','input-xxlarge',0,'', 0, 0,false); ?>
+			
+			<? creaFormTrasp('Altre procedure','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false); ?>
+			
+			<? creaFormTrasp('Struttura proponente','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
+			
+			<?
+			if($id and $istanzaOggetto['valore_base_asta'] != '') {
+				creaFormTrasp('Valore Importo a base asta (al netto dell\'IVA)','decimale', 'valore_base_asta', '', $istanzaOggetto['valore_base_asta'], '','input-medium');
+				?>
+				<script type="text/javascript">
+				jQuery(document).ready(function() {
+					jQuery('#valore_base_asta').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+				});
+				</script>
+				<?
+			}
+			?>			
+			
+			<? creaFormTrasp('Valore Importo di aggiudicazione (al netto dell\'IVA)','decimale', 'valore_importo_aggiudicazione', '', $istanzaOggetto['valore_importo_aggiudicazione'], '','input-medium'); ?>
+			
+			<?
+			if($id and $istanzaOggetto['importo_liquidato'] != '') {
+				creaFormTrasp('Valore Importo liquidato (al netto dell\'IVA)','decimale', 'importo_liquidato', '', $istanzaOggetto['importo_liquidato'], '','input-medium',0,'',0,0,false,false,$attributiValore);
+				?>
+				<script type="text/javascript">
+				jQuery(document).ready(function() {
+					jQuery('#importo_liquidato').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+				});
+				</script>
+				<?
+			}
+			?>
+			
+			<? creaFormTrasp('Partecipanti alla gara','fornitori', 'elenco_partecipanti', '', $istanzaOggetto['elenco_partecipanti'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Aggiudicatari della gara','fornitori', 'elenco_aggiudicatari', '', $istanzaOggetto['elenco_aggiudicatari'], '','input-xxlarge'); 
+			
+			//////// NON MODIFICARE (TEMPORANEO PER RAPALLO)
+			if ($enteAdmin['id']==11 OR $enteAdmin['id']==22) {
+				echo "<div style=\"margin:-30px 0px 0px 240px;\">Aggiudicatario testuale: ".$istanzaOggetto['txt_beneficiario']."</div>";;
+			}
+			?>
+			
+			<?
+			if($id and $istanzaOggetto['scelta_contraente'] != '') {
+				creaFormTrasp('Procedura di scelta del contraente','selezione', 'scelta_contraente', '01-PROCEDURA APERTA,02-PROCEDURA RISTRETTA,03-PROCEDURA NEGOZIATA PREVIA PUBBLICAZIONE DEL BANDO,04-PROCEDURA NEGOZIATA SENZA PREVIA PUBBLICAZIONE DEL BANDO,05-DIALOGO COMPETITIVO,06-PROCEDURA NEGOZIATA SENZA PREVIA INDIZIONE DI GARA ART. 221 D.LGS. 163/2006,07-SISTEMA DINAMICO DI ACQUISIZIONE,08-AFFIDAMENTO IN ECONOMIA - COTTIMO FIDUCIARIO,14-PROCEDURA SELETTIVA EX ART 238 C.7 D.LGS. 163/2006,17-AFFIDAMENTO DIRETTO EX ART. 5 DELLA LEGGE N.381/91,21-PROCEDURA RISTRETTA DERIVANTE DA AVVISI CON CUI SI INDICE LA GARA,22-PROCEDURA NEGOZIATA DERIVANTE DA AVVISI CON CUI SI INDICE LA GARA,23-AFFIDAMENTO IN ECONOMIA - AFFIDAMENTO DIRETTO,24-AFFIDAMENTO DIRETTO A SOCIETA\' IN HOUSE,25-AFFIDAMENTO DIRETTO A SOCIETA\' RAGGRUPPATE/CONSORZIATE O CONTROLLATE NELLE CONCESSIONI DI LL.PP,26-AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE,27-CONFRONTO COMPETITIVO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE,28-PROCEDURA AI SENSI DEI REGOLAMENTI DEGLI ORGANI COSTITUZIONALI', $istanzaOggetto['scelta_contraente'], '','input-xxlarge',0,'', 0, 0,false);
+			}
+			?>
+
+			<? creaFormTrasp('Data di pubblicazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Data di scadenza','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '',''); ?>
+			
+			<? creaFormTrasp('Data di effettivo inizio dei lavori o forniture','data', 'data_inizio_lavori', '', $istanzaOggetto['data_inizio_lavori'], '',''); ?>
+			
+			<? creaFormTrasp('Data di ultimazione dei lavori o forniture','data', 'data_lavori_fine', '', $istanzaOggetto['data_lavori_fine'], '',''); ?>
+			
+			<? creaFormTrasp('Maggiori informazioni','html', 'dettagli', '', $istanzaOggetto['dettagli'], '',''); ?>
+			
+			<? // file allegati 
+			
+			creaFormTrasp('File allegato','file', 'allegato1', '', $istanzaOggetto['allegato1'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato2', '', $istanzaOggetto['allegato2'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato3', '', $istanzaOggetto['allegato3'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato4', '', $istanzaOggetto['allegato4'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato5', '', $istanzaOggetto['allegato5'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato6', '', $istanzaOggetto['allegato6'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato7', '', $istanzaOggetto['allegato7'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato8', '', $istanzaOggetto['allegato8'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato9', '', $istanzaOggetto['allegato9'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato10', '', $istanzaOggetto['allegato10'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato11', '', $istanzaOggetto['allegato11'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato12', '', $istanzaOggetto['allegato12'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato13', '', $istanzaOggetto['allegato13'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato14', '', $istanzaOggetto['allegato14'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato15', '', $istanzaOggetto['allegato15'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato16', '', $istanzaOggetto['allegato16'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato17', '', $istanzaOggetto['allegato17'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato18', '', $istanzaOggetto['allegato18'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato19', '', $istanzaOggetto['allegato19'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato20', '', $istanzaOggetto['allegato20'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato21', '', $istanzaOggetto['allegato21'], '',''); 
+			creaFormTrasp('File allegato','file', 'allegato22', '', $istanzaOggetto['allegato22'], '',''); 
+			
+			?>
+				
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				?>
+				<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Bandi, Gare e Contratti</a> 
+<? } ?>

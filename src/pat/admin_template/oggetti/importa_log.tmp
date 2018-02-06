@@ -1,0 +1,59 @@
+<div class="widgetbox box-inverse">
+
+	<div class="headtitle">
+		<div class="btn-group">
+			<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
+			<ul class="dropdown-menu">
+				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=importa"><i class="iconsweets-excel"></i> &nbsp;Torna alla pagina di importazione</a></li>
+				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista"><i class="iconfa-table"></i> &nbsp;Torna a gestione archivio</a></li>
+				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=aggiungi"><i class="iconfa-plus-sign"></i> &nbsp;<? echo $funzioneSottoMenu['azioneNuova']; ?></a></li>
+				<li class="divider"></li>
+				<li><a href="export_oggetti.php?classe_doc=documento&id=<? echo $idOggetto; ?>"><i class="iconsweets-excel"></i> &nbsp;Esporta dati in excel</a></li>
+			</ul>
+		</div>
+		<h4 class="widgettitle">
+			Importazione <? echo $funzioneSottoMenu['nomePagina']; ?>
+		</h4>
+	</div>
+	<div class="widgetcontent wc1">
+		<div class="alert alert-block">
+			<h4><span class="iconfa-exclamation-sign"></span> Esito dell'operazione</h4>
+			<p style="margin: 8px 0">
+				<? echo $txtLog; ?>
+				
+			</p>
+		</div>	
+
+		<?	if ($txtMsg != '' and ($numImport+$numError)<1000) { ?>
+			<div class="alert alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Log importazione</h4>
+				<p style="margin: 8px 0;color:#323232;">
+					<? echo $txtMsg; ?>
+					
+				</p>
+			</div>			
+		<? } else if ($numError) { ?>
+			<div class="alert alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Log importazione</h4>
+				<p style="margin: 8px 0">
+					<strong>Hai importato un elevato numero di record</strong>: verrà mostrato solamente il report degli errori
+				</p>
+				<p style="margin: 8px 0;color:#323232;">
+						<? echo $txtMsgErr; ?>
+				</p>
+			</div>			
+	
+		<? } else if ($txtLog != '' and ($numImport or $numError)) { ?>
+			<div class="alert alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Log importazione</h4>
+				<p style="margin: 8px 0">
+					<strong>Tutti i record sono stati importati con successo</strong>
+				</p>
+			</div>		
+		<? } ?>
+		
+	</div>
+</div>

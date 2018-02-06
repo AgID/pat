@@ -1,0 +1,241 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+	
+		<? if ($menu == 'configurazione') { ?>
+		// includo gestione delle notifiche delle operazioni
+		<? include_once("./pat/admin_template/operazioni_alert.tmp"); ?>
+		<? } ?>
+		
+		<? if ($id) { ?>
+		// menu tabs accordion
+		jQuery('.accordion').accordion({
+			heightStyle: "content"
+		});
+		<? } ?>
+		
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+
+		var editorWelc = CKEDITOR.replace( 'testo_welcome'<? echo $opzEditor; ?>);
+		var editorFooter = CKEDITOR.replace( 'testo_footer'<? echo $opzEditor; ?>);
+		
+		jQuery("#form1").validate({
+			ignore: [],
+			rules: {
+				nome_completo_ente: "required",
+				nome_breve_ente: "required",
+				tipo_ente: "required",
+				email: {
+					required: true,
+					email: true
+				},
+				email_certificata: {
+					required: true,
+					email: true
+				},
+				url_etrasparenza: {
+					url: true
+				},
+				url_sitoistituzionale: {
+					required: true,
+					url: true
+				},
+				url_albopretorio: {
+					required: true,
+					url: true
+				},
+				indirizzo_via: "required",
+				indirizzo_cap: "required",
+				indirizzo_comune: "required",
+				indirizzo_provincia: "required",
+				p_iva: "required",
+				telefono: "required"
+
+			},
+			
+			messages: {
+				nome_completo_ente: "Inserisci il nome completo dell'ente",
+				nome_breve_ente: "Inserisci il nome breve dell'ente",
+				nome_breve_ente: "Devi specificare la tipologia di ente",
+				email: "Inserisci un indirizzo email valido",
+				email_certificata: "Inserisci un indirizzo email valido",
+				url_etrasparenza: "Se inserito, l'url deve essere in un formato valido",
+				url_sitoistituzionale: "Inserisci l'indirizzo del sito istituzionale dell'ente: l'url deve essere in un formato valido",
+				url_albopretorio: "Inserisci l'indirizzo dell'albo pretorio online dell'ente: l'url deve essere in un formato valido",
+				indirizzo_via: "Inserisci l'indirizzo del Comune",
+				indirizzo_cap: "Inserisci il CAP del Comune",
+				indirizzo_provincia: "Inserisci la provincia dell'Ente",
+				telefono: "Inserisci un numero di telefono",
+				p_iva: "Inserisci la partita IVA dell'ente",
+				indirizzo_comune: "Inserisci il Comune relativo alla sede dell'ente"
+			},
+			
+			highlight: function(label) {
+				jQuery('.accordion').accordion( "option", "active", 
+					parseInt(jQuery(label).closest('.ui-accordion-content')
+						.attr('id')
+						.replace('ui-accordion-1-panel-', '')
+					)
+				);
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+		
+		
+		
+	});
+</script>
+<?
+// verifico variabile per i campi da escludere quando utilizzati dall'ente
+$disable = false;
+if ($menu == 'configurazione') {
+	$disable = true;
+}
+?>
+
+<? if ($menu != 'configurazione') { ?>
+<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a> 
+<? } ?>
+
+<? // in aggiunta non uso accordion
+$classeForm = "accordion";
+$divFormStart = "";
+$divFormEnd = "";
+$classeTit = '';
+if (!$id) { 
+	$classeForm = "widgetbox box-inverse";
+	
+	$classeTit = 'titoloForm';
+	$divFormStart = "<h4 class=\"widgettitle title-primary\">Aggiunta ente</h4><div class=\"widgetcontent\">";
+	$divFormEnd = "</div>";
+} ?>
+
+
+<div>
+	<? if ($menu!='configurazione') { ?>
+	<form id="form1" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+	<? } else { ?>
+	<form id="form1" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=avanzata&amp;azionesec=modifica&amp;id=<? echo $id; ?>">
+	<? } ?>
+	
+		<input type="hidden" name="rispostaForm" value="1" />				
+		<input type="hidden" name="stato" value="<? echo $istanzaOggetto['stato']; ?>" />	
+		
+		
+		<div class="<? echo $classeForm; ?>">
+			<? echo $divFormStart; ?>
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-search"></span> Dati Generali</a></h4>
+			<div>
+				<? creaFormTrasp('Nome completo ente','testo', 'nome_completo_ente', '', $istanzaOggetto['nome_completo_ente'], '','input-xxlarge',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('Partita iva','testo', 'p_iva', '', $istanzaOggetto['p_iva'], '','input-large',0,'', 0, 0,true); ?>	
+				<? creaFormTrasp('Indirizzo email normale','testo', 'email', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('Indirizzo email certificata','testo', 'email_certificata', '', $istanzaOggetto['email_certificata'], '','input-xxlarge',0,'', 0, 0,true); ?>				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-cogs"></span> Configurazione e moduli gestibili</a></h4>
+			<div>		
+				<? creaFormTrasp('Logo ente semplice','file', 'file_logo_semplice', '', $istanzaOggetto['file_logo_semplice'], '',''); ?>	
+				<? creaFormTrasp('Url portale istituzionale','link', 'url_sitoistituzionale', '', $istanzaOggetto['url_sitoistituzionale'], '','input-xxlarge',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('Url Albo Pretorio','link', 'url_albopretorio', '', $istanzaOggetto['url_albopretorio'], '','input-xxlarge',0,'', 0, 0,true); ?>
+
+					<input type="hidden" name="id_ente_albo" value="<? echo $istanzaOggetto['id_ente_albo']; ?>" />
+
+
+				<? creaFormTrasp('Mostra la data di ultimo aggiornamento dei contenuti','casella', 'mostra_data_aggiornamento', '1', $istanzaOggetto['mostra_data_aggiornamento'], '1','','',0,'',0); ?>	
+				<? creaFormTrasp('Ruoli aggiuntivi per il personale ente(separati con virgola)','areatesto', 'personale_ruoli', '', $istanzaOggetto['personale_ruoli'], '','input-xxlarge'); ?>					
+				
+				<? creaFormTrasp('Archivio Provvedimenti','casella', 'oggetto_provvedimenti', '1', $istanzaOggetto['oggetto_provvedimenti'], '1',''); ?>						
+				<? creaFormTrasp('Archivio Incarichi e Consulenze','casella', 'oggetto_incarichi', '1', $istanzaOggetto['oggetto_incarichi'], '1',''); ?>
+				<? creaFormTrasp('Archivio Sovvenzioni e Vantaggi economici','casella', 'oggetto_sovvenzioni', '1', $istanzaOggetto['oggetto_sovvenzioni'], '1',''); ?>
+				<? creaFormTrasp('Archivio Normativa','casella', 'oggetto_normativa', '1', $istanzaOggetto['oggetto_normativa'], '1',''); ?>
+				<? creaFormTrasp('Archivio Concorsi','casella', 'oggetto_concorsi', '1', $istanzaOggetto['oggetto_concorsi'], '1',''); ?>	
+				<? creaFormTrasp('Archivio Bandi Gare e Contratti','casella', 'oggetto_bandi_gara', '1', $istanzaOggetto['oggetto_bandi_gara'], '1',''); ?>		
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Amministrazione aggiudicatrice','testo', 'bandi_gara_amm_agg', '', $istanzaOggetto['bandi_gara_amm_agg'], '','input-large'); ?>	
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Codice Fiscale Amministrazione','testo', 'bandi_gara_cod_fisc', '', $istanzaOggetto['bandi_gara_cod_fisc'], '','input-large'); ?>	
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Tipo di amministrazione','selezione', 'bandi_gara_tipo_amm', 'Organi istituzionali,Ministeri,Organi giurisdizionali e avvocatura,Amministrazioni indipendenti,Regioni,Aziende speciali regionalizzate,Province,Aziende speciali provincializzate,Comuni,Enti di previdenza e prevenzione,Enti preposti ad attivit� sportive,Enti scientifici di ricerca e sperimentazione,Enti di promozione culturale e artistica,Aziende speciali municipalizzate,Istituti autonomi case popolari,Aziende del servizio sanitario nazionale,Autorit� di bacino,Comunit� montane,Enti di bonifica e di sviluppo agricolo,Consorzi di industrializzazione,Consorzi autonomi di regioni province e comuni,Consorzi enti ed autorit� portuali,Universit� ed altri enti,Istituzioni europee,Istituti bancari e finanziari,Enti ed istituti religiosi,Concessionari e imprese di gestione reti e infrastrutture,Associazioni di imprese,Imprese a partecipazione pubblica,Consorzi di imprese,Imprese ed altri soggetti privati non in forma associata,Associazioni di categoria e organizzazioni sindacali,Camere di commercio,Soggetti esterni,Provveditorato regionale alle opere pubbliche,Organismi di diritto pubblico,Altri soggetti pubblici e privati,Ente pubblico non economico', $istanzaOggetto['bandi_gara_tipo_amm'], '','input-xlarge',1); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Provincia','selezione', 'bandi_gara_prov', 'AG,AL,AN,AO,AR,AP,AT,AV,BA,BT,BL,BN,BG,BI,BO,BZ,BS,BR,CA,CL,CB,CI,CE,CT,CZ,CH,CO,CS,CR,KR,CN,EN,FM,FE,FI,FG,FC,FR,GE,GO,GR,IM,IS,SP,AQ,LT,LE,LC,LI,LO,LU,MC,MN,MS,MT,ME,MI,MO,MB,NA,NO,NU,OT,OR,PD,PA,PR,PV,PG,PU,PE,PC,PI,PT,PN,PZ,PO,RG,RA,RC,RE,RI,RN,RM,RO,SA,VS,SS,SV,SI,SR,SO,TA,TE,TR,TO,OG,TP,TN,TV,TS,UD,VA,VE,VB,VC,VR,VV,VI,VT', $istanzaOggetto['bandi_gara_prov'], '','input-small',1); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Comune','testo', 'bandi_gara_comune', '', $istanzaOggetto['bandi_gara_comune'], '','input-large'); ?>	
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Indirizzo','testo', 'bandi_gara_indirizzo', '', $istanzaOggetto['bandi_gara_indirizzo'], '','input-large'); ?>					
+				
+				<?
+				if($enteAdmin['moduli_attivi']['immagine_organigramma']) {
+					creaFormTrasp('Rappresentazione grafica organigramma','file', 'file_organigramma', '', $istanzaOggetto['file_organigramma'], '','');
+				}
+				?>
+				
+				<?if($id > 0){?>
+					<input type="hidden" name="aggiorna_avcp" id="aggiorna_avcp" value="<? echo $istanzaOggetto['aggiorna_avcp']; ?>" />
+				<?}else{?>
+					<input type="hidden" name="aggiorna_avcp" id="aggiorna_avcp" value="0" />
+				<?}?>
+				
+				<?
+				//creaFormTrasp('Dataset ANAC - Aggiornamento automatico del file','casella', 'aggiorna_avcp', '1', $istanzaOggetto['aggiorna_avcp'], '1','','',0,'',0);
+				?>
+				<? 
+				//if($idEnteAdmin==1 OR $idEnteAdmin==33){
+					creaFormTrasp('Google Analitycs','html', 'google_analitycs', '', $istanzaOggetto['google_analitycs'], '','input-xxlarge'); 
+				//}
+				?>	
+			</div>
+			
+			<? if ($menu != 'configurazione') { ?>
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-cogs"></span> Impostazioni di sistema</a></h4>
+			<div>
+				<? creaFormTrasp('Url portale '.$configurazione['denominazione_etrasparenza'],'link', 'url_etrasparenza', '', $istanzaOggetto['url_etrasparenza'], '','input-xxlarge',0,'', 0, $disable,true); ?>	
+				
+				<? creaFormTrasp('Nome breve ente','testo', 'nome_breve_ente', '', $istanzaOggetto['nome_breve_ente'], '','input-large',0,'', 0, $disable,true); ?>
+				<? creaFormTrasp('Tipo di ente','tipoente', 'tipo_ente', '', $istanzaOggetto['tipo_ente'], '','input-xlarge',0,'', 0, $disable,true); ?>
+			
+				<?			
+				creaFormTrasp('Data di attivazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','input-small',0,'',0,$disable); 	
+				creaFormTrasp('Data di scadenza','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '','input-small',0,'',0,$disable); 			
+				creaFormTrasp('Cookie - Dominio','testo', 'cookie_dominio', '', $istanzaOggetto['cookie_dominio'], '','',0,'',0,$disable); 			
+				creaFormTrasp('Cookie - Nome','testo', 'cookie_nome', '', $istanzaOggetto['cookie_nome'], '','',0,'',0,$disable); 
+				?>
+				
+				<? creaFormTrasp('Canale Open Data','casella', 'canale_opendata', '1', $istanzaOggetto['canale_opendata'], '1','','',0,'',0,$disable); ?>			
+				<? creaFormTrasp('Testata '.$configurazione['denominazione_etrasparenza'],'file', 'file_logo_etrasp', '', $istanzaOggetto['file_logo_etrasp'], '','','',0,'',0,$disable); ?>				
+				
+			</div>
+			<? } ?>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-facebook"></span> Social Network</a></h4>	
+			<div>	
+				<? creaFormTrasp('Url pagina Facebook','link', 'url_social_facebook', '', $istanzaOggetto['url_social_facebook'], '','input-xlarge'); ?>				
+				<? creaFormTrasp('Url pagina Twitter','link', 'url_social_twitter', '', $istanzaOggetto['url_social_twitter'], '','input-xlarge'); ?>				
+				<? creaFormTrasp('Url pagina You Tube','link', 'url_social_youtube', '', $istanzaOggetto['url_social_youtube'], '','input-xlarge'); ?>				
+				<? creaFormTrasp('Url pagina Google Plus','link', 'url_social_google', '', $istanzaOggetto['url_social_google'], '','input-xlarge'); ?>				
+				<? creaFormTrasp('Url pagina Flickr','link', 'url_social_flickr', '', $istanzaOggetto['url_social_flickr'], '','input-xlarge'); ?>	
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-phone"></span> Recapiti dell'ente</a></h4>
+			<div>			
+				<? creaFormTrasp('Indirizzo','testo', 'indirizzo_via', '', $istanzaOggetto['indirizzo_via'], '','input-xxlarge',0,'', 0, 0,true); ?>		
+				<? creaFormTrasp('Comune','testo', 'indirizzo_comune', '', $istanzaOggetto['indirizzo_comune'], '','input-xlarge',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('CAP','testo', 'indirizzo_cap', '', $istanzaOggetto['indirizzo_cap'], '','input-small',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('Provincia','testo', 'indirizzo_provincia', '', $istanzaOggetto['indirizzo_provincia'], '','input-small',0,'', 0, 0,true); ?>			
+				<? creaFormTrasp('Recapito telefonico principale','testo', 'telefono', '', $istanzaOggetto['telefono'], '','',0,'', 0, 0,true); ?>
+			</div>
+
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-info-sign"></span> Altre informazioni</a></h4>
+			<div>				
+				<? creaFormTrasp('Responsabile del procedimento di pubblicazione','testo', 'responsabile_pubblicazione', '', $istanzaOggetto['responsabile_pubblicazione'], '','input-xlarge'); ?>	
+				<? creaFormTrasp('Testo iniziale homepage','html', 'testo_welcome', '', $istanzaOggetto['testo_welcome'], '','input-xxlarge'); ?>				
+				<? creaFormTrasp('Testo nel footer '.$configurazione['denominazione_etrasparenza'],'html', 'testo_footer', '', $istanzaOggetto['testo_footer'], '','input-xxlarge'); ?>	
+			</div>	
+		<? echo $divFormEnd; ?>			
+		</div>
+		<p class="stdformbutton">
+			<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+		</p>	
+	</form>
+</div>
+<? if ($menu != 'configurazione') { ?>
+<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a> 
+<? } ?>
