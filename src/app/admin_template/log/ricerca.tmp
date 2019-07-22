@@ -1,0 +1,107 @@
+<script type="text/javascript">		
+	var validatore;	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});	
+	});		
+	function visualizzaCercaTabella()  { 
+		jQuery('#cercainattivo').toggle('fast', function ()  { 
+			jQuery('#cercattivo').toggle('fast', function ()  { 
+			});	
+		});	
+	} 
+	function eventiCercaTabella()  { 
+		jQuery('#utente').on('change', '', function () {
+			valTipo = jQuery(this).val();
+			//alert ('filtro per tipo: '+valTipo);
+			tabellaDinamica.fnFilter( valTipo, 0, false, true, false );
+		} );
+		jQuery('#data_startVis').datepicker("option", "onSelect", function(){
+			valTipo = jQuery(this).val();
+			tabellaDinamica.fnFilter( valTipo, 1, false, true, false );
+		});	
+		jQuery('#data_endVis').datepicker("option", "onSelect", function(){
+			valTipo = jQuery(this).val();
+			tabellaDinamica.fnFilter( valTipo, 2, false, true, false );
+		});	
+		jQuery('#oggetto').on('change', '', function () {
+			valTipo = jQuery(this).val();
+			//alert ('filtro per tipo: '+valTipo);
+			tabellaDinamica.fnFilter( valTipo, 3, false, true, false );
+		} );
+	} 	
+</script>
+
+<div class="boxricercaTabella navbar-inner">
+	<div id="cercainattivo">
+		<a onclick="visualizzaCercaTabella()" style="" class="btn"><span><i class="icon icon-search"></i> &nbsp;Attiva filtri</span></a>
+	</div>
+	<div id="cercattivo" style="display:none;">
+		<button onclick="visualizzaCercaTabella()" class="close" type="button">&times;</button>
+		<input type="hidden" id="menusec" value="<?php echo $menuSecondario; ?>" />
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Utente</span>	
+			<? creaFormTrasp('','utente', 'utente', '', 'qualunque', '','input-large',1,'', 1, 0,false,0,''); ?>
+		</div>
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Data attività</span>
+			<? 
+			creaFormTrasp('','data', 'data_start', '', '', '','input-small',1,'Seleziona una data', 1, 0,false); 
+			echo "&nbsp; fino a &nbsp;";
+			creaFormTrasp('','data', 'data_end', '','' , '','input-small',1,'Seleziona una data', 1, 0,false); 			
+			?>
+		</div>
+		<?
+		$styleOggetti = '';
+		if($menuSecondario == 'log_utenti') {
+			$styleOggetti = 'display: none;';
+		}
+		?>
+		<div class="ricercaTabella" style="<?php echo $styleOggetti; ?>">
+			<span><i class="icon icon-search"></i> &nbsp;Archivio</span>	
+			<?
+			$etiObj = array();
+			$idObj = array();
+			foreach((array)$oggettiTrasparenza as $obj) {
+				$etiObj[] = $obj['nomeMenu'];
+				$idObj[] = $obj['idOggetto'];
+			}
+			$etiObj[] = 'Pagine generiche';
+			$idObj[] = '33';
+			
+			$etiObj[] = 'Allegati';
+			$idObj[] = '57';
+			
+			$disabilitato = 0;
+			if($id) {
+				$disabilitato = 1;	
+			}
+			
+			creaFormTrasp('','selezione', 'oggetto', implode(',', $idObj), '', implode(',', $etiObj),'input-xlarge',0,'', 1, 0,true);
+			?>
+		</div>
+		<!--
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Stato attivit&agrave;</span>		
+			<? creaFormTrasp('','selezione', 'stato_act', 'nuova,aperta,terminata,in corso,in attesa', 'qualunque', '','input-medium',1,'', 1, 0,false,0,''); ?>
+		</div>			
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Attivita svolta</span>		
+			<? creaFormTrasp('','attivita', 'attivita', '', 'qualunque', '','input-large',1,'', 1, 0,false,0,''); ?>
+		</div>
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Area</span>		
+			<? creaFormTrasp('','selezione', 'area', 'produzione,sviluppo,supporto,commerciale,amministrativa,memo', 'qualunque', '','input-medium',1,'', 1, 0,false,0,''); ?>
+		</div>		
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Ticket</span>		
+			<? creaFormTrasp('','ticket', 'ticket', '', '', '','input-xlarge',1,'', 1, 0,false,0,''); ?>
+		</div>
+		<div class="ricercaTabella">
+			<span><i class="icon icon-search"></i> &nbsp;Prodotti e servizi</span>	
+			<? creaFormTrasp('','prodotto', 'prodotto', '', '', '','input-xlarge',1,'', 1, 0,false,0,''); ?>
+		</div>
+		-->
+	</div>
+</div>

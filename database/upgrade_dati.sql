@@ -30,6 +30,7 @@ DELETE FROM `configurazione`;
 /*!40000 ALTER TABLE `configurazione` DISABLE KEYS */;
 INSERT INTO `configurazione` (`nome`, `valore`, `amministrazione`, `descrizione`) VALUES
 	('autenticazione', 'proprietario', 0, NULL),
+	('ars_src', '0', 0, NULL),
 	('autologin', '0', 0, NULL),
 	('avvisa_autorizzati', '1', 0, NULL),
 	('avvisa_autorizzati_oggetti', '1', 0, NULL),

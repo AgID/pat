@@ -1,64 +1,30 @@
 <?php
+
+/*
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/*
-	* Copyright 2015,2017 - AgID Agenzia per l'Italia Digitale
-	*
-	* Concesso in licenza a norma dell'EUPL, versione 1.1 o
-	successive dell'EUPL (la "Licenza")– non appena saranno
-	approvate dalla Commissione europea;
-	* Non è possibile utilizzare l'opera salvo nel rispetto
-	della Licenza.
-	* È possibile ottenere una copia della Licenza al seguente
-	indirizzo:
-	*
-	* https://joinup.ec.europa.eu/software/page/eupl
-	*
-	* Salvo diversamente indicato dalla legge applicabile o
-	concordato per iscritto, il software distribuito secondo
-	i termini della Licenza è distribuito "TAL QUALE",
-	* SENZA GARANZIE O CONDIZIONI DI ALCUN TIPO,
-	esplicite o implicite.
-	* Si veda la Licenza per la lingua specifica che disciplina
-	le autorizzazioni e le limitazioni secondo i termini della
-	Licenza.
-	*/ 
-	/**
-	 * @file
-	 * ajax_paginazionetable_new.php
-	 * 
-	 * @Descrizione
-	 * File di risposta ajax alla paginazione del plugin DataTables
-	 *
-	 */	
 
-// Queste funzioni possono richiedere molta RAM, in caso di un database particolarmente pesante aumentare il limite impostato 
-//ini_set('memory_limit','512M'); 
+PAT - Portale Amministrazione Trasparente
+Copyright AgID Agenzia per l'Italia Digitale
 
-// inclusione configurazione 
-include ('./inc/config.php'); // configurazione ISWEB
+Concesso in licenza a norma dell'EUPL(la "Licenza"), versione 1.2;
+*/
 
-// eseguo inizializzazione ambiente backoffice ISWEB
+
+//ini_set('memory_limit','512M');
+include ('./inc/config.php');
 include ('./inc/inizializzazione_admin.php');
 
-/*********************************************INIZIALIZZO AMBIENTE E VARIABILI*********************************/
-/* 
-inizializzazione e sanitizzazione di tutte le variabili principali del sistema viene effettuata dal servizio di inizializzazione di ISWEB
-*/ 
-
-// inizializzo le variabili dedicate a PAT
+// REINIZIALIZZO LA VARIABILE MENU E TROVO I DATI SULLA FUNZIONE SCELTA
 $menu = isset ($_GET['menu']) ? forzaStringa($_GET['menu']) : 'desktop';
-$_GET['sSearch'] = isset($_GET['sSearch']) ? forzaStringa($_GET['sSearch']);
 $menuSecondario = isset ($_GET['menusec']) ? forzaStringa($_GET['menusec']) : '';
-$azione = isset ($_GET['azione']) ? forzaStringa($_GET['azione']) : 'lista'; // attenzione, sovrascrive eventuale variabile ISWEB
-$azioneSecondaria = isset ($_GET['azionesec']) ? forzaStringa($_GET['azionesec']) : ''; // attenzione, sovrascrive eventuale variabile ISWEB
-$id = is_numeric($_GET['id']) ? forzaNumero($_GET['id']) : 0; $idIstanza = $id; // attenzione, sovrascrive eventuale variabile ISWEB
-$idOggetto = is_numeric($_GET['id_ogg']) ? forzaNumero($_GET['id_ogg']) : 0; // attenzione, sovrascrive eventuale variabile ISWEB
-$idCategoria = is_numeric($_GET['id_cat']) ? forzaNumero($_GET['id_cat']) : 0; // attenzione, sovrascrive eventuale variabile ISWEB
-
+$azione = isset ($_GET['azione']) ? forzaStringa($_GET['azione']) : 'lista';
+$azioneSecondaria = isset ($_GET['azionesec']) ? forzaStringa($_GET['azionesec']) : '';
+$id = is_numeric($_GET['id']) ? forzaNumero($_GET['id']) : 0;
+$idOggetto = is_numeric($_GET['id_ogg']) ? forzaNumero($_GET['id_ogg']) : 0;
+$idCategoria = is_numeric($_GET['id_cat']) ? forzaNumero($_GET['id_cat']) : 0;
+$idIstanza = $id;
 
 // qui costruisco la pagina
 $datiUser = refreshSessione($ipUser, $idSezione);
@@ -69,7 +35,9 @@ if ($datiUser['sessione_idlingua'] == 0 or $datiUser['sessione_idlingua'] == '')
 $lingua = caricaLingua($datiUser['sessione_idlingua']);
 $idLingua = $lingua['id'];
 
-include ('./pat/config_pat.php');
+$archiviAdminEsclusi = explode(',', $tipoEnte['archivi_esclusi']);
+
+include ('./app/config_pat.php');
 
 // ELABORO LE VARIABILI DEL MENU
 foreach ((array)$funzioniMenu as $funzione) {
@@ -93,22 +61,29 @@ header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
 header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 header("Cache-Control: no-store, no-cache, must-revalidate");  // HTTP/1.1
 header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");    
+header("Pragma: no-cache");
+header("X-Frame-Options: sameorigin");
 
-/* 
-Carico dai dati della sessione utente l'ente selezionato, nel caso di un installazione multi-ente
-*/
-$idEnte = is_numeric($datiUser['id_ente']) ? $datiUser['id_ente'] : 0; // ente scelto in navigazione
-$idEnteAdmin = is_numeric($datiUser['id_ente_admin']) ? $datiUser['id_ente_admin'] : 0; // ente scelto in amministrazione
+////////////////// ENTE IN NAVIGAZIONE
+$idEnte = is_numeric($datiUser['id_ente']) ? $datiUser['id_ente'] : 0;
 if ($idEnte) {
-	// carico ente scelto nella variabile di sessione
+	// carico ente richiamato
 	$entePubblicato = datoEnte($idEnte);
 }
+
+////////////////// ENTE IN AMMINISTRAZIONE
+$idEnteAdmin = is_numeric($datiUser['id_ente_admin']) ? $datiUser['id_ente_admin'] : 0;
 if ($idEnteAdmin) {
 	// carico ente richiamato
-	$enteAdmin = datoEnte($idEnteAdmin);	
+	$enteAdmin = datoEnte($idEnteAdmin);
 }
+// carico il tipo di ente in amministrazione
 $tipoEnte = datoTipoEnte($enteAdmin['tipo_ente']);
+
+//ripeto inclusione di configurazioni personalizzate
+include ('./codicepers/config.php');
+
+$configurazione['__tags_concorsi'] = prendiTagsConcorsi(false, true);
 
 // qui pubblico il template html
 if ($datiUser['sessione_loggato']) {
@@ -118,15 +93,35 @@ if ($datiUser['sessione_loggato']) {
 	
 		// controllo utente
 		include('./inc/controllo_user.php');
-		include('./pat/controllo_user.php');
+		include('./app/controllo_user.php');
 
 		// importo la classe di amministrazione oggetti
 		require('classi/admin_oggetti.php');
-		$oggOgg = new oggettiAdmin($idOggetto);			
-
+		$oggOgg = new oggettiAdmin($idOggetto);
+		
 		// analizzo quali campi visualizzare in amministrazione, prendendoli dalla struttura IsWEB
 		$campiVisualizzati = array();
 		$struttura = $oggOgg->parsingStruttura('si');
+		
+		//filtri per le strutture
+		$ufficiFiltro = array();
+		$filtraRecordUffici = false;
+		if($idOggetto == 11) {
+			$ufficiUtente = explode(',', $datiUser['uffici_selezionabili']);
+			foreach((array)$struttura as $campo) {
+				if(($campo['tipocampo'] == 'campoggetto' or $campo['tipocampo'] == 'campoggetto_multi') and $campo['valorecampo'] == 13 and $configurazione['fitra_record_strutture']) {
+					//filtro gli elementi in base alla struttura/strutture
+					$ufficiFiltro[$campo['nomecampo']] = array();
+					$ufficiFiltro[$campo['nomecampo']]['__tipo'] = $campo['tipocampo'];
+					foreach((array)$ufficiUtente as $u) {
+						if($u>0) {
+							$ufficiFiltro[$campo['nomecampo']][$u] = $u;
+							$filtraRecordUffici = true;
+						}
+					}
+				}
+			}
+		}
 		
 		$colonneJs = array('id');
 		if ($datiUser['permessi']==10) {
@@ -195,6 +190,7 @@ if ($datiUser['sessione_loggato']) {
 		 */
 		$condizione = "";
 		if ( isset($_GET['sSearch']) && $_GET['sSearch'] != "" ) {
+			$_GET['sSearch'] = htmlentities((strtolower($_GET['sSearch'])));
 			$condizione = "(";
 			for ( $i=0 ; $i<count($colonneJs) ; $i++ ) {
 				if ($colonneJs[$i] != '') {
@@ -234,6 +230,16 @@ if ($datiUser['sessione_loggato']) {
 						foreach ((array)$arrayId as $associato) {
 							$condizione .= $colonneJs[$i]." = '".$associato['id']."' OR ".$colonneJs[$i]." LIKE '".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id']."' OR ";
 						}						
+					} else if ($tipoCampo == 'camposezione') {
+						$sql = "SELECT id FROM ".$dati_db['prefisso']."sezioni WHERE nome LIKE '%".mysql_real_escape_string( $_GET['sSearch'] )."%' ";
+						if( !($result = $database->connessioneConReturn($sql)) ) {
+							die("errore in caricamento campo associato filtrato");
+						}
+						$arrayId = $database->sqlArrayAss($result);
+						//in questo caso, la condizione e' multipla
+						foreach ((array)$arrayId as $associato) {
+							$condizione .= $colonneJs[$i]." = '".$associato['id']."' OR ".$colonneJs[$i]." LIKE '".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id']."' OR ";
+						}
 					} else if ($tipoCampo == 'data_calendario') {
 						//////////////// devo trasformare la data in valore numerico
 					} else if ($tipoCampo == 'campoutente') {
@@ -257,7 +263,7 @@ if ($datiUser['sessione_loggato']) {
 		}
 	
 		/*
-		// filtro individuale #NON UTILIZZARE
+		// filtro individuale
 		for ( $i=0 ; $i<count($colonneJs); $i++ ) {
 			if ($colonneJs[$i] != '') {
 				if ( isset($_GET['bSearchable_'.$i]) && $_GET['bSearchable_'.$i] == "true" && $_GET['sSearch_'.$i] != '' ) {
@@ -275,6 +281,136 @@ if ($datiUser['sessione_loggato']) {
 		}	
 		*/
 		
+		if(moduloAttivo('bandigara') and $idOggetto == 11) {
+			//////////////FILTRI BANDI
+			$condizioneFiltri = '';
+			if($_GET['sSearch_0'] != '') {
+				$fil = $_GET['sSearch_0'];
+				if($fil == 'filtro[errori_anac]') {
+					$condizioneFiltri = ' __errori_anac > 0 ';
+				}
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			
+			if($_GET['sSearch_1'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_1']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' data_attivazione >= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_2'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_2']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' data_attivazione <= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_3'] != '') {
+				$fil = $_GET['sSearch_3'];
+				$condizioneFiltri = " tipologia = '".$fil."' ";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_4'] != '') {
+				$fil = $_GET['sSearch_4'];
+				$condizioneFiltri = " struttura = ".$fil." ";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			//file_put_contents('temp/queryBandi.html', $condizione.' - '.$condizioneFiltri.' - '.$_GET['sSearch_1'].' - '.$_GET['sSearch_2'].'<br />');
+		} else if(moduloAttivo('bandigara') and $idOggetto == 41) {
+			//////////////FILTRI FORNITORI
+			$condizioneFiltri = '';
+			if($_GET['sSearch_0'] != '') {
+				$fil = $_GET['sSearch_0'];
+				if($fil == 'filtro[errori_anac]') {
+					$condizioneFiltri = ' __errori_anac > 0 ';
+				}
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			
+		} else if($idOggetto == 4) {
+			//////////////FILTRI INCARICHI
+			$condizioneFiltri = '';
+			if($_GET['sSearch_0'] != '') {
+				$fil = $_GET['sSearch_0'];
+				$condizioneFiltri = " tipologia = '".$fil."' ";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_1'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_1']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' inizio_incarico >= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_2'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_2']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' inizio_incarico <= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+		} else if($idOggetto == 38) {
+			//////////////FILTRI SOVVENZIONI
+			$condizioneFiltri = '';
+			if($_GET['sSearch_0'] != '') {
+				$fil = $_GET['sSearch_0'];
+				$condizioneFiltri = " tipologia = '".$fil."' ";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+		} else if($idOggetto == 28) {
+			//////////////FILTRI PROVVEDIMENTI
+			$condizioneFiltri = '';
+			if($_GET['sSearch_0'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_0']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' data >= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_1'] != '') {
+				$dataDal = explode('/',$_GET['sSearch_1']);
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').' data <= '.mktime(2,0,0,$dataDal[1], $dataDal[0], $dataDal[2]);
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_2'] != '') {
+				$fil = $_GET['sSearch_2'];
+				$condizioneFiltri = " tipo = '".$fil."' ";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+			if($_GET['sSearch_3'] != '') {
+				$fil = $_GET['sSearch_3'];
+				$condizioneFiltri = " ( struttura = '".$fil."' OR struttura LIKE '".$fil.",%' OR struttura LIKE '%,".$fil.",%' OR struttura LIKE '%,".$fil."' )";
+				$condizioneFiltri = (trim($condizione) != '' ? ' AND ' : '').$condizioneFiltri;
+				$condizione .= $condizioneFiltri;
+			}
+		}
+		
+		if($filtraRecordUffici) {
+			//applicare la query di ricerca con $ufficiFiltro
+			//lognormale('',$ufficiFiltro);die();
+			$condsUffici = array();
+			
+			foreach((array)$ufficiFiltro as $nomecampo => $ids) {
+				$tipocampo = $ids['__tipo'];
+				foreach((array)$ids as $idUfficio) {
+					if($idUfficio>0) {
+						if($tipocampo == 'campoggetto_multi') {
+							$condsUffici[] = " ".$nomecampo." = '".$idUfficio."' OR ".$nomecampo." LIKE '".$idUfficio.",%' OR ".$nomecampo." LIKE '%,".$idUfficio.",%' OR ".$nomecampo." LIKE '%,".$idUfficio."' ";
+						} else {
+							$condsUffici[] = " ".$nomecampo." = ".$idUfficio." ";
+						}
+					}
+				}
+			}
+			$cu  = '';
+			if(count($condsUffici)) {
+				$cu = implode(' OR ', $condsUffici);
+				$cu .= ' OR id_proprietario='.$datiUser['id'].' ';
+			}
+			$condizione .= (trim($condizione) != '' ? ' AND ' : '').$cu;
+		}
+		
+		if($datiUser['filtraRecordProprietario']) {
+			$condizione .= (trim($condizione) != '' ? ' AND ' : '').' (id_proprietario='.$datiUser['id'].') ';
+		}
 
 		/*
 		 * Eseguo query
@@ -288,10 +424,16 @@ if ($datiUser['sessione_loggato']) {
 		$visualizzaInterfaccia = true;
 		$outputArray = array();
 		
+		/*
+		echo "<pre>";
+		print_r($campiVisualizzati);
+		echo "</pre>";
+		*/
+		
 		$numChiave = 0;
 		foreach ((array)$listaTabella as $istanzaOggetto) {		
 			// includo renderizzazione in array della riga
-			include ('./pat/admin_template/oggetti/tab_row_ajax.tmp');
+			include ('./app/admin_template/oggetti/tab_row_ajax.tmp');
 			$numChiave++;
 		}	
 		

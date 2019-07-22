@@ -1,0 +1,186 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editorDesc = CKEDITOR.replace( 'desc_cont' );
+		CKEDITOR.replaceClass = 'htmlEditor';
+
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: false,
+			focusCleanup: true,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {			
+				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				nome: "required",
+				tipologia_atto: "required",
+				data_emissioneVis: "required"
+			},
+			
+			messages: {
+				
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la normativa\",";
+				} ?>
+				nome: "Devi inserire il titolo della norma",
+				data_emissioneVis: "Devi selezionare la data di emissione",
+				tipologia_atto: "Devi selezionare la tipologia atto",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					jQuery('#a_dati_tab').tab('show');
+				}
+			}
+
+		});
+		
+		
+		
+	});
+</script>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco normativa</a>
+<? } ?>
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> elemento</a>
+			<li class="active">
+				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Gestione informazioni</a>
+			</li>
+			<li>
+				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Gestione allegati</a>
+			</li>
+		</ul>
+	</div>
+</div>
+
+
+<div class="tab-content">
+
+<div class="tab-pane active widgetbox box-inverse" id="dati_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni <!-- <? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> normativa -->
+	</h4> 
+	
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>
+			
+			<? 
+			$tipoAtto = prendiTipologiaNormativa();
+				
+			$valTipoAtto = implode(',',$tipoAtto['valori']);
+			$etiTipoAtto = implode(',',$tipoAtto['etichette']);
+			if($valTipoAtto != '') {
+				creaFormTrasp('Tipologia atto','selezione', 'tipologia_atto', $valTipoAtto, $istanzaOggetto['tipologia_atto'], $etiTipoAtto,'input-xlarge',0,'Seleziona la tipologia', 0, 0,true);
+			}
+			?>
+			
+			<? creaFormTrasp('Numero','testo', 'numero', '', $istanzaOggetto['numero'], '','input-large',0,'', 0, 0,''); ?>
+			<script type="text/javascript">
+			jQuery("#numero").numeric(false);
+			</script>
+			
+			<? creaFormTrasp('Protocollo','testo', 'protocollo', '', $istanzaOggetto['protocollo'], '','input-large',0,'', 0, 0,''); ?>
+			<script type="text/javascript">
+			jQuery("#protocollo").numeric(false);
+			</script>
+			
+			<? creaFormTrasp('Data promulgazione','data', 'data_emissione', '', $istanzaOggetto['data_emissione'], '','',0,'', 0, 0,true); ?>
+			
+			<?
+			$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Componi automaticamente','icona'=>'iconfa-copy', 'id_campo'=>'componi_nome_normativa', 'pulsanteCustom'=>'componiNomeNormativa', 'class' => ''));
+			?>
+			
+			<? creaFormTrasp('Titolo della norma','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<?
+			$arg = prendiArgomentoNormativa();
+			
+			$valArg = implode(',',$arg['valori']);	//'Organizzazione dell\'Ente,Sovvenzioni e contributi,Altro'
+			$etiArg = implode(',',$arg['etichette']);	//'Organizzazione dell\'Ente (pubblica in Riferimenti normativi su organizzazione e attivit&agrave;),Sovvenzioni e contributi (pubblica in Criteri e modalit&agrave;),Altro'
+			creaFormTrasp('Argomento della Normativa','selezione', 'argomento_normativa', $valArg, $istanzaOggetto['argomento_normativa'], $etiArg,'input-xlarge',0,'Seleziona', 0, 0,false);
+			?>
+			
+			<? creaFormTrasp('Valida per le strutture organizzative','strutture', 'uffici', '', $istanzaOggetto['uffici'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Inserisci link a Normattiva','link', 'link', '', $istanzaOggetto['link'], '','input-xlarge'); ?>
+
+			<? creaFormTrasp('Testo di descrizione','html', 'desc_cont', '', $istanzaOggetto['desc_cont'], '',''); ?>
+				
+		</form>
+	</div>
+</div>
+
+<div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Allegati
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?php
+		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
+		?>
+		
+	</div>
+</div>
+
+</div>
+
+<p class="stdformbutton">
+	<?
+	if($statoWfPrecedente['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+		<?
+	}
+	include('app/admin_template/oggetti/btn_workflow.tmp');
+	?>
+	<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>><?php echo $nomeBtn; ?></a>
+	<?
+	if($statoWfSuccessivo['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+		<?
+	}
+	?>
+</p>

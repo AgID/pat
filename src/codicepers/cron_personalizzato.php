@@ -1,41 +1,48 @@
-<?php
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/*
-	* Copyright 2015,2017 - AgID Agenzia per l'Italia Digitale
-	*
-	* Concesso in licenza a norma dell'EUPL, versione 1.1 o
-	successive dell'EUPL (la "Licenza")– non appena saranno
-	approvate dalla Commissione europea;
-	* Non è possibile utilizzare l'opera salvo nel rispetto
-	della Licenza.
-	* È possibile ottenere una copia della Licenza al seguente
-	indirizzo:
-	*
-	* https://joinup.ec.europa.eu/software/page/eupl
-	*
-	* Salvo diversamente indicato dalla legge applicabile o
-	concordato per iscritto, il software distribuito secondo
-	i termini della Licenza è distribuito "TAL QUALE",
-	* SENZA GARANZIE O CONDIZIONI DI ALCUN TIPO,
-	esplicite o implicite.
-	* Si veda la Licenza per la lingua specifica che disciplina
-	le autorizzazioni e le limitazioni secondo i termini della
-	Licenza.
-	*/ 
-	/**
-	 * @file
-	 * codicepers/cron_personalizzato.php
-	 * 
-	 * @Descrizione
-	 * Estensione del cron ISWEB con l'inclusione dell'aggiornamento sui file da inviare all'ANAC
-	 *
-	 */
- 
-//cron per l'esportazione dei dati da comunicare all'avcp (es. 2013.xml)
-include_once('pat/aggiornaFilesAVCP.php');
+<?
 
+
+//NON ABILITARE MAI PIU'
+//cron per l'esportazione dei dati da comunicare all'avcp (es. 2013.xml)
+//include_once('app/aggiornaFilesAVCP.php');
+
+//inserire qui log da far visualizzare in output
+$log = '';
+
+//modificare (ore 7)
+$orarioCron = 7;
+
+if(date('G', mktime()) == $orarioCron and moduloAttivo('notifica_revisione_pagina')) {
+	//verificare le scadenze delle revisioni di pagina modello notifica_revisione_pagina
+	
+	$log .= '<br />Modulo revisone pagina';
+	
+	include_once('./classi/costruisci_mail.php');
+	$mailAvviso = new costruisciMail('vuota', 'Cron \'notifica_revisione_pagina\' presente su '.$configurazione['denominazione_trasparenza'], $configurazione['mail_reparto_tecnico'], $configurazione['mail_sito']);
+	$mailAvviso->assegnaVariabili(array(
+			'NOMESITO' => $configurazione['nome_sito'],
+			'TESTO' => 'Cron \'notifica_revisione_pagina\' presente su '.$configurazione['denominazione_trasparenza']
+	));
+	$mailAvviso->invia();
+	
+	$giorni = 7;
+	include('classi/notifiche_revisione_pagina.php');
+	
+	$giorni = 3;
+	include('classi/notifiche_revisione_pagina.php');
+	
+	$giorni = 0;
+	include('classi/notifiche_revisione_pagina.php');
+}
+
+if($log != '') {
+	echo $log;
+	
+	include_once 'classi/costruisci_mail.php';
+	$mailAvviso = new costruisciMail('vuota', 'Termine cron \'notifica_revisione_pagina\' su '.$configurazione['denominazione_trasparenza'], $configurazione['mail_reparto_tecnico']);
+	$mailAvviso->assegnaVariabili(array(
+			'NOMESITO' => $configurazione['nome_sito'],
+			'TESTO' => $log
+	));
+	$mailAvviso->invia();
+}
 ?>

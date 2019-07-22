@@ -1,0 +1,13 @@
+<?php
+$nomeBtn = 'Salva dati';
+$et = '';
+if($visualizzaPulsanteSalvaIniziale and !$configurazione['escludi_visualizzaPulsanteSalvaIniziale']) {
+	if($istanzaOggetto['stato_workflow_attuale'] != 'iniziale' and $istanzaOggetto['id']) {
+		$et = 'e torna a stato iniziale';
+	}
+	$nomeBtn = 'Salva dati ed avvia workflow';
+	?>
+	<button onclick="jQuery('#stato_workflow_da_assegnare').val('iniziale');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Salva <?php echo $et; ?> senza avviare workflow</button>
+	<?
+}
+?>

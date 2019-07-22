@@ -1,0 +1,38 @@
+<div class="tab-pane tab_protocollo widgetbox box-inverse" id="protocollo_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati del protocollo
+	</h4>
+
+	<div class="widgetcontent wc1">
+			<?
+			if(!$creaFormSistema) {
+				creaFormTrasp('','sistema', '', '', '', '','');
+				$creaFormSistema = true;
+				
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+					creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+				} else {
+					echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+				}
+			}
+			
+			creaFormTrasp('Numero protocollo','testo', 'num_protocollo', '', $istanzaOggetto['num_protocollo'], '','input-large',0,'', 0, 0);
+			
+			creaFormTrasp('Data protocollo','data', 'data_protocollo', '', $istanzaOggetto['data_protocollo'], '','',0,'', 0, 0);
+			
+			if(!moduloAttivo('solo_accessocivico')) {
+				creaFormTrasp('Struttura coinvolta','struttura', 'id_struttura', '', $istanzaOggetto['id_struttura'], '','input-xxlarge');
+				
+				creaFormTrasp('Referente incaricato','referente', 'id_gestore', '', $istanzaOggetto['id_gestore'], '','input-xxlarge');
+			}
+			
+			if($istanzaOggetto['id_proprietario'] <= 0 and $id) {
+				creaFormTrasp('Canale richiesta','testo', 'modo_richiesta', '', $istanzaOggetto['modo_richiesta'], '','input-large',0,'', 0, 0, false, false, $arayReadonly);
+			} else {
+				creaFormTrasp('Canale richiesta','selezione', 'modo_richiesta', 'posta,fax,sportello dell\'ufficio,via telematica,web,identificazione SPID/CIE/CNS,richiesta sottoscritta,PEC', $istanzaOggetto['modo_richiesta'], '','input-large',0,'', 0, 0, false);
+			}
+			?>			
+	</div>
+</div>

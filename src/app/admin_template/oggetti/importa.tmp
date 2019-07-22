@@ -1,0 +1,466 @@
+<script language="JavaScript">
+// FUNZIONI GENERALI
+function GetE( elementId ) {
+	return document.getElementById( elementId )  ;
+}
+
+function logImport(id,tipo,giorni) {
+	if (tipo=='oggetti') {
+		window.alert('ATTENZIONE: sono passati '+giorni+' giorni, ed alcuni record potrebbero essere stati modificati o cancellati rispetto alla data di importazione.');
+	}
+	popup = window.open('log_import.php?id='+id+'&tipo='+tipo,'','height=590,width=720,toolbar=no,scrollbars=yes,status=yes');
+        if(window.focus){
+            popup.focus();
+        }
+}
+
+function nullImport(id,numRecord) {
+	conferma = window.confirm('ATTENZIONE: annullando una importazione, eliminerai tutti i record inseriti dalla stessa, ma non tutti gli altri attualmente presenti. Vuoi continuare ?');
+	if (conferma) {
+		//todo annulla importazione
+		jQuery('#ajax_processing').show();
+		jQuery.ajax({
+			url: 'ajax.php',
+			type: 'get',
+			dataType: 'json',
+			data: {'azione': 'nullImport', 'id': id},
+			success: function(data, abb, bc) {
+				if(data.esito == 'ok') {
+					//submit
+					jQuery('#ajax_processing').hide();
+					window.alert('Operazione completata con successo.');
+				} else {
+					//show error
+					jQuery('#ajax_processing').hide();
+					window.alert('ERRORE: Operazione non riuscita. '+data.messaggio);
+				}
+			},
+			error: function(xhr, desc, err) {
+				jQuery('#ajax_processing').hide();
+				window.alert('ERRORE: Operazione non riuscita.');
+			}
+		});
+		return;
+	}
+}
+
+function refreshImport(id) {
+	conferma = window.confirm('ATTENZIONE: rieseguendo una importazione, eliminerai tutti i record presenti. Vuoi continuare ?');
+	if (conferma) {
+		return;
+	} else {
+		// eseguo annullamento
+	}
+}
+
+// funzione di passaggio lettere alfabeto
+function lettera(n) {
+    var s = "";
+    while(n >= 0) {
+        s = String.fromCharCode(n % 26 + 97) + s;
+        n = Math.floor(n / 26) - 1;
+    }
+    return s;
+}
+
+</script>
+
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});	
+
+		// necessario per i campi ad aumento con freccia
+		jQuery(".input-spinner").spinner({min: 0});		
+
+		jQuery("#formImporta").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: true,
+			errorPlacement: function(error, element) {
+				//alert('anallizzo classe: '+element.parent().parent().attr('class'));
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "radio") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			
+			rules: {
+				reset_dati: "required",
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				file: "required"
+			},
+			
+			messages: {
+				reset_dati: "Seleziona il tipo di importazione da effettuare",
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale effettuare l'importazione\",";
+				} ?>
+				file: "Inserisci il file da importare: deve essere in formato xls"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+
+		// Devo inizializzare il controllo sui campi condizionati
+		jQuery(".input-spinner").change(function(){
+			
+			numero = jQuery(this).attr('id').slice(5);
+			//alert('attributo id è: '+jQuery(this).attr('id')+' | numero riga: '+numero);
+			if (jQuery(this).val() == '0') {
+				// trovo il numero della riga
+				
+				//alert('attributo id è: '+jQuery(this).attr('id')+' | numero riga: '+numero);
+				// se il campo opzioni non è chiuso, lo chiudo
+				if (jQuery("#opzioni"+numero).css('display') == 'block') {
+					jQuery("#opzioni"+numero).toggle('fast');
+				}				
+				// se il campo valori non è aperto, lo apro
+				if (jQuery("#valori"+numero).css('display') != 'block') {
+					jQuery("#valori"+numero).toggle('fast');
+				}
+				
+			} else {
+				// se il campo valori non è chiuso, lo chiudo
+				if (jQuery("#valori"+numero).css('display') == 'block') {
+					jQuery("#valori"+numero).toggle('fast');
+				}
+				// se il campo opzioni non è aperto, lo apro
+				if (jQuery("#opzioni"+numero).css('display') != 'block') {
+					jQuery("#opzioni"+numero).toggle('fast');
+				}	
+			}
+			jQuery('#lettera'+numero).html(lettera(jQuery(this).val()-1));	
+		});
+		
+		
+	});
+</script>
+
+<?
+function lettera($num) {
+	if ($num) {
+		$num = $num+64;
+		return chr($num);
+	} else {
+		return ;
+	}
+}
+
+?>
+
+<div class="alert alert-block">
+	<button data-dismiss="alert" class="close" type="button">&times;</button>
+	<h4><span class="iconfa-time"></span> Storico Importazioni</h4>
+	<p style="margin: 8px 0">
+		<? if (is_array($storicoImport) and count($storicoImport)) { ?>
+		<span>Hai effettuato fino ad ora <b><? echo count($storicoImport); ?> importazioni</b> in questo oggetto: controlla lo <a href="#modaleStorico" data-toggle="modal"><b>storico importazioni precedenti</b></a></span> 
+		<? } else { ?>
+		<span>Lo storico non presenta <b>nessuna importazione</b> di dati effettuata per questo oggetto: stai importando dati per la prima volta.</span> 
+		<? } ?>	
+	</p>
+</div>
+
+
+<!--# inizio modale storico importazioni -->	
+<div aria-hidden="false" aria-labelledby="modaleLabelStorico" role="dialog" class="modal hide fade width85" id="modaleStorico" style="margin-left:-43%;">
+	<div class="modal-header">
+		<button aria-hidden="true" data-dismiss="modal" class="close" type="button">&times;</button>
+		<h3 id="modaleLabelStorico"><span style="color:#757575;" class="iconfa-time"></span> Storico delle importazioni in <? echo $istanzaOggetto['nome']; ?></h3>
+	</div>
+	<div class="modal-body">
+		<table class="table table-bordered">
+			<colgroup>
+				<col class="con0" />
+				<? if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {  ?>
+					<col class="con1 center" />
+				<? } ?>
+				<col class="con1 center" />
+				<col class="con0 center" />
+				<col class="con1 center" />
+				<col class="con0 center" />
+				<col class="con1 center" />
+				<col class="con0 center" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th class="width20">Data importazione</th>
+					<? if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {  ?>
+						<th class="center">Ente</th>
+					<? } ?>
+					<th class="center">Tipo</th>
+					<th class="center">Utente</th>
+					<th class="center">File usato</th>
+					<th class="center">Record importati</th>
+					<th class="center">Errori</th>
+					<th class="center" style="width:128px;"></th>
+				</tr>
+			</thead>
+			<tbody>	
+				<? // ripeto la struttura della riga per ogni campo oggetto installato
+				$num=0; 
+				foreach ($storicoImport as $storico) {  
+					// analizzo caratteristiche import
+					$advFea = $informazioni->importUndo($id,$storico['data_importazione']);
+				?> 
+				<tr>
+					<td style="white-space: nowrap;">
+						<? echo visualizzaData($storico['data_importazione'],'d-m-Y G:i'); ?>
+					</td>
+					<? if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {  ?>
+						<td style="white-space: nowrap;">
+							<? echo datoEnte($storico['id_ente'],'nome_completo_ente'); ?>
+						</td>
+					<? } ?>
+					<td class="center intTooltip">
+						<? if (!$storico['reset_import']) { echo "aggiornamento"; } else { echo "reset"; } ?>
+						<? if ($storico['dati_default']) { echo "<a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questa importazione è utilizzata come default per la struttura dei dati e del file\"><span class=\"iconfa-check\"></span></a>"; } ?>
+					</td>
+					<td class="center">
+						<? echo nomeUserDaId($storico['id_utente'],'nome'); ?>
+					</td>
+					<td class="center">
+						<? echo "<a href=\"".$server_url.$uploadPath.$informazioni->tabellaOggetto."/import/".$storico['id']."_".$storico['file']."\">".$storico['file']."</a>"; ?>
+					</td>
+					<td class="center">
+						<? echo $storico['num_suc']; ?>
+					</td>
+					<td class="center">
+						<? echo $storico['num_err']; ?>
+					</td>
+					<td class="center">
+						<span class="intTooltip">
+							<a href="javascript:logImport('<? echo $storico['id']; ?>','report','0');" data-placement="top" data-rel="tooltip" data-original-title="Visualizza il log di questa importazione" class="btn"><span class="iconfa-search"></span></a>
+							<? if ($advFea) { 
+								$giorni = round((time()-$storico['data_importazione'])/(60*60*24));
+							?>
+							<a href="javascript:logImport('<? echo $storico['id']; ?>','oggetti','<? echo $giorni; ?>');" data-placement="top" data-rel="tooltip" data-original-title="Visualizza tutti i record importati da questo file" class="btn"><span class="iconfa-info-sign"></span></a>
+							<a href="javascript:nullImport('<? echo $storico['id']; ?>', <? echo $storico['num_suc']; ?>);" data-placement="top" data-rel="tooltip" data-original-title="Annulla questa importazione - Cancella tutti i record importati" class="btn"><span class="iconfa-trash"></span></a>
+							<? } else { ?>
+							<a data-placement="top" data-rel="tooltip" data-original-title="Visualizza tutti i record importati da questo file (Non disponibile a causa di importazioni successive di tipo reset)" class="btn disabled"><span class="iconfa-info-sign"></span></a>
+							<a data-placement="top" data-rel="tooltip" data-original-title="Annulla questa importazione - Cancella tutti i record importati (Non disponibile a causa di importazioni successive di tipo reset)" class="btn disabled"><span class="iconfa-trash"></span></a>
+							<? } ?>
+							<? if ($storico['reset_import']) { ?>
+							<!-- <a href="javascript:refreshImport('<? echo $storico['id']; ?>');" data-placement="top" data-rel="tooltip" data-original-title="Riesegui questa importazione" class="btn"><span class="iconfa-refresh"></span></a> -->
+							<? } else { ?>
+							<!-- <a data-placement="top" data-rel="tooltip" data-original-title="Riesegui questa importazione (Non disponibile per le importazioni di tipo aggiornamento)" class="btn disabled"><span class="iconfa-refresh"></span></a> -->
+							<? } ?>
+						</span>
+					</td>
+						
+				</tr> 
+				<? 
+				$num++;
+				} // fine ciclo struttura 
+				?>
+			</tbody>
+		</table>			
+	</div>
+	
+	<div class="modal-footer">
+		<button data-dismiss="modal" class="btn">Chiudi</button>
+	</div>
+</div>			
+<!--# fine modale storico importazioni -->
+
+<? 
+/*
+echo "<pre>"; 
+print_r($settingsDefault); 
+echo "</pre>"; 
+*/ 
+?>
+
+
+
+<div class="widgetbox box-inverse">
+
+	<div id="ajax_processing" class="ajax_processing_fixed" style="display: none;">
+		<div><img src="app/grafica_admin/ajax-loader2.gif"></div>
+		<div>Eliminazione dei dati in corso</div>
+		<div style="font-size:11px;font-weight:normal;">L'operazione potrebbe impiegare qualche secondo</div>
+	</div>
+
+	<div class="headtitle">
+		<div class="btn-group">
+			<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
+			<ul class="dropdown-menu">
+				<li><a href="#modaleStorico" data-toggle="modal"><i class="iconfa-time"></i> &nbsp;Storico importazioni</a></li>
+				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista"><i class="iconfa-table"></i> &nbsp;Torna a gestione archivio</a></li>
+				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=aggiungi"><i class="iconfa-plus-sign"></i> &nbsp;<? echo $funzioneSottoMenu['azioneNuova']; ?></a></li>
+				<li class="divider"></li>
+				<li><a href="export_oggetti.php?classe_doc=documento&id=<? echo $idOggetto; ?>"><i class="iconsweets-excel"></i> &nbsp;Esporta dati in excel</a></li>
+
+				<? if ($oggOgg->idCategoria) { ?>
+				<li class="divider"></li>
+				<li><a href="#"><i class="iconfa-lock"></i> &nbsp;<? echo $funzioneSottoMenu['azioneSposta']; ?></a></li>
+				<? } ?>
+			</ul>
+		</div>
+		<h4 class="widgettitle">
+			Importazione <? echo $funzioneSottoMenu['nomePagina']; ?>
+		</h4>
+	</div>
+
+	<div class="widgetcontent wc1">
+		<form id="formImporta" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=importa&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		
+		<input type="hidden" name="rispostaForm" value="1" />
+		
+		<h4 class="titoloForm"><a href="#"><span class="iconfa-wrench"></span> Opzioni importazione</a></h4>
+		
+		<? // scelta ente
+		if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) { 
+			creaFormTrasp('Importazione per l\'ente','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+		} else {
+			echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+		} ?>
+		
+		<? creaFormTrasp('Tipo di importazione','radio', 'reset_dati', '0,1', $istanzaOggetto['reset_dati'], 'aggiornamento (mantieni dati precedenti),reset (cancella tutti i dati precedenti)','input-xlarge',0,'', 0, 0,true); ?>
+
+		<? creaFormTrasp('File excel da importare','file', 'file', '', $istanzaOggetto['file'], '','',0,'', 0, 0,true);  ?>
+		
+		<? creaFormTrasp('Importa come utente','utente', 'utente', '', $datiUser['id'], '','input-xlarge');  ?>
+        
+        <h4 class="titoloForm"><a href="#"><span class="iconfa-table"></span> Struttura del file</a></h4>
+        <? if ($settingsDefault) { ?>		
+		<div class="alert alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<h4><span class="iconfa-exclamation-sign"></span> Notifica</h4>
+			<p style="margin: 8px 0">
+				<span>I dati sulla <b>posizione delle colonne</b> nel file excel, sono stati caricati dal default impostato in una precedente importazione. 
+				Se la struttura di questo archivio è stata modificata ultimamente, potrebbe essere necessario reimpostare gli eventuali campi coinvolti.</span> 
+			</p>
+		</div>
+        <? } ?>  	   
+		<p style="margin: 8px 0">
+			<span>Usando <strong>0</strong> come colonna excel, il campo non verrà importato.</span>  
+		</p>
+		<table class="table table-bordered">
+			<colgroup>
+				<col class=\"con0\" />
+				<col class=\"con1\" />
+				<col class=\"con0\" />
+				<col class=\"con1\" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th class="width30">Campo di questo archivio</th>
+					<th class="center">Posizione colonna excel</th>
+					<th class="center">Tipo campo</th>				
+					<th class="center">Opzioni di importazione</th>
+				</tr>
+			</thead>
+			<tbody>	  
+			<? // ripeto la struttura della riga per ogni campo oggetto installato
+			$num=0; 
+			foreach ($informazioni->struttura as $campo) {  
+				if ($campo['nomecampo'] != 'id_ente') {
+				?> 
+					<tr>
+						<td>
+							<? echo $campo['etichetta']; if (strpos($campo['tipocampo'],'*') !== false) { echo " <span style=\"opacity:0.7;\" class=\"intTooltip\"><a data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Campo obbligatorio\"><span class=\"icon-ok-circle\"></span></a></span>"; } ?>
+						</td>
+						<?
+						if (isset($settingsDefault[$campo['nomecampo']]) and $settingsDefault) { 
+							$valore = $settingsDefault[$campo['nomecampo']];
+							$stileOpz = "block";
+							$stileVal = "none";					
+						} else if ($settingsDefault) {
+							$valore = "0";
+							$stileOpz = "none";
+							$stileVal = "block";
+						} else {
+							$valore = $num;
+							$stileOpz = "block";
+							$stileVal = "none";
+						} 
+						?>
+						<td class="center">
+
+							<input class="input-small input-spinner" type="text" name="campo<? echo $num; ?>" id="campo<? echo $num; ?>" value="<? echo $valore; ?>">
+							<span class="intTooltip" style="text-transform:uppercase;margin-left:6px;" >
+								<a id="lettera<? echo $num; ?>" class="btn" data-placement="top" data-rel="tooltip" data-original-title="Identificativo colonna excel"><?	echo lettera($valore); ?></a>
+							</span>
+						</td>	
+						<td class="center">
+							<? echo traduciTipoCampo($campo['tipocampo']); ?>
+						</td>						
+						<td class="center">
+							<div style="display:<? echo $stileOpz; ?>" id="opzioni<? echo $num; ?>">
+							<? if ($campo['tipocampo'] == 'data_calendario' or $campo['tipocampo'] == '*data_calendario') {
+								$prop = 'nativo timestamp';
+								if(isset($proprietaDefault[$campo['nomecampo']])) {
+									$prop = $proprietaDefault[$campo['nomecampo']];
+								}
+								echo "".creaOggettoFormPers("select", "campoprop".$num, 'gg/mm/aaaa,gg-mm-aaaa,aaaammgg,nativo timestamp', $prop);
+							} else if ($campo['tipocampo'] == 'editor' or $campo['tipocampo'] == '*editor') {
+								$prop = 3;
+								if(isset($proprietaDefault[$campo['nomecampo']])) {
+									$prop = $proprietaDefault[$campo['nomecampo']];
+								}
+								echo "".creaOggettoFormPers("select", "campoprop".$num, '0,1,2,3',$prop, 'nessuna conversione,converti in entità html,converti e correggi codice,riconverti da entità html');
+							} else if ($campo['tipocampo'] == 'text' or $campo['tipocampo'] == '*text' or $campo['tipocampo'] == 'select' or $campo['tipocampo'] == '*select' or $campo['tipocampo'] == 'textarea' or $campo['tipocampo'] == '*textarea'){
+								// campi normali di testo
+								$prop = 2;
+								if(isset($proprietaDefault[$campo['nomecampo']])) {
+									$prop = $proprietaDefault[$campo['nomecampo']];
+								}
+								echo "".creaOggettoFormPers("select", "campoprop".$num, '0,1,2',$prop, 'nessuna conversione,converti in entità html,riconverti da entità html');
+							} else {
+								echo "<span> nessuna opzione disponibile </span>";
+							} ?>
+							</div>
+							<?
+							$val = '';
+							if(isset($valoriDefault[$campo['nomecampo']])) {
+								$val = $valoriDefault[$campo['nomecampo']];
+							}
+							?>
+							<div style="display:<? echo $stileVal; ?>" id="valori<? echo $num; ?>">
+								<input name="valore<? echo $num; ?>" id="valore<? echo $num; ?>" class="input-large" placeholder="Inserisci un eventuale valore fisso" value="<?php echo $val; ?>" type="text" />
+							</div>
+						</td>
+					</tr> 
+					<? 
+				}
+				$num++;
+			} // fine ciclo struttura 
+			?>	
+			</tbody>
+		</table>
+		
+		<div style="margin:-10px 0px 30px 0px;">
+			<? if ($settingsDefault) { ?>			
+			<input type="checkbox" name="default" id="default" value="1" /> Sostituisci i settaggi default con questi
+			<? } else { ?>	
+			<input type="checkbox" name="default" id="default" value="1" checked="checked" /> Usa questi settaggi come default per le prossime importazioni
+			<? } ?>	
+		</div>
+
+		<p class="stdformbutton">
+			<button class="btn btn-primary">Importa dati</button>
+		</p>	
+		
+		</form>
+	</div>
+</div>
+

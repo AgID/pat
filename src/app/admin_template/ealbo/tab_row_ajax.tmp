@@ -1,0 +1,116 @@
+<? // creo riga di array
+$outputArray[] = array();
+
+$attiInTrasparenza = prendiAttiImportati($istanzaOggetto['id'], $enteAdmin);
+$archiviConAtto = array();
+$idArchiviConAtto = array();
+$ultimaModifica = 0;
+foreach((array)$attiInTrasparenza as $a) {
+	//$archiviConAtto[] = $oggettiTrasparenza[$a['id_oggetto']]['nomeMenu'];
+	$archiviConAtto[] = $a;
+	$idArchiviConAtto[] = $oggettiTrasparenza[$a['id_oggetto']]['idOggetto'];
+	if($ultimaModifica != $a['ultima_modifica']) {
+		$ultimaModifica = $a['ultima_modifica'];
+	}
+}
+$testoTooltip = 'Questo atto &egrave; stato modificato a seguito dell\'importazione negli archivi della trasparenza';
+
+// html per interfaccia di selezione
+if ($visualizzaInterfaccia or $visualizzaInterfacciaSelect) {
+	//$outputArray[$numChiave][] = "";
+	if ($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza['ealbo_import']) {
+		$outputArray[$numChiave][] = "<span class=\"center\"><input type=\"checkbox\" name=\"selRow\" value=\"".$istanzaOggetto['id']."\" ".$checked." /><input type=\"hidden\" id=\"id".$istanzaOggetto['id']."\" /><input type=\"hidden\" id=\"id_ori".$istanzaOggetto['id_ori']."\" /></span>";
+	} else {
+		$outputArray[$numChiave][] = "";
+	}
+} else {
+	$outputArray[$numChiave][] = "";
+}
+
+$outputArray[$numChiave][] = getStatoAtto($istanzaOggetto);
+
+$numCella = 1;
+$numCelle = count($campiVisualizzati);
+$percentuale = round((100/count($campiVisualizzati))+12)."%";
+	
+foreach($campiVisualizzati as $campo) {
+	$outputScreen = '';
+	$percentualina = round((100/count($campiVisualizzati))-(26/count($campiVisualizzati)))."%";
+	//print_r($campo);
+	// separo le proprietà dai valori
+	$prop = explode("|",$campo['proprieta']); 
+	// correzione campi di default oggetto
+	switch ($campo['campo']) {
+		case "data_creazione":
+			$campo['tipo'] = 'data_calendario';
+		break;
+		case "ultima_modifica":
+			$campo['tipo'] = 'data_calendario';
+		break;
+		case "id_proprietario":
+			$campo['tipo'] = 'campoutente';
+		break;
+		case "numero_letture":
+			$campo['tipo'] = 'numerico';
+		break;
+		case "id_sezione":
+			$campo['tipo'] = 'campoggetto';
+		break;
+	}
+	
+	$etichette = explode("}",$campo['titolo']); 
+	$campo['titolo'] = $etichette[0];
+	//echo "Visualizzo ".$campo['campo']."(".$campo['tipo'].") con prop".$prop[0];
+	// analizzo il tipo di campo per risalire all'output
+	if (strpos($campo['campo'],'data') !== false) {
+		// devo visualizzare una data
+		$outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
+	} else {
+		// controllo il comportamento del campo
+		switch($prop[0]) {
+			case "linkreview_modale":
+				$outputScreen = "<a href=\"ajax.php?azione=reviewAtto&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".$istanzaOggetto[$campo['campo']]."</a>";
+				if($campo['campo'] == 'oggetto') {
+					//VERIFICARE SE E' STATO MODIFICATO DOPO UNA IMPORTAZIONE
+					if($ultimaModifica != $istanzaOggetto['ultima_modifica'] and $ultimaModifica != 0) {
+						$outputScreen .= "<br /><span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"".$testoTooltip."\" class=\"btn\"><span class=\"iconfa-warning-sign\" style=\"color: #D50000;\"></span></a></span>";
+					}
+				}
+			break;
+			default:
+				$outputScreen = $istanzaOggetto[$campo['campo']];
+			break;
+		}
+	}
+	$outputArray[$numChiave][] = $outputScreen;
+	$numCella++;
+}
+///////////////////////////////////////// DATA ATTO ////////////////////////////////////
+$dataAtto = date('d/m/Y', $istanzaOggetto['data_atto']);
+$outputArray[$numChiave][] = $dataAtto;
+
+//////////////////////////////////////ATTI IMPORTATI NEGLI OGGETTI DELLA TRASPARENZA///////////////////////////////////
+//$archiviConAtto[] = $oggettiTrasparenza[$a['id_oggetto']]['nomeMenu'];
+$archiviTrasparenza = '<div id="archivi-atto-'.$istanzaOggetto['id'].'"><table id="table-atto-'.$istanzaOggetto['id'].'" class="table table-condensed" style="margin-bottom: 8px; background-color: #F7F7F7;">';
+$archiviTrasparenza .= '<colgroup><col width="80" /><col width="20" aligh="right" /></colgroup>';
+foreach((array)$archiviConAtto as $a) {
+	include('./app/admin_template/ealbo/oggetti_albo.tmp');
+}
+$archiviTrasparenza .= "</table>";
+$archiviTrasparenza .= "</div>";
+if(count($archiviConAtto) == 0) {
+	$archiviTrasparenza .= "Non importato";
+}
+if ($visualizzaInterfaccia) { 
+	$stringaInt = "<span id=\"operazioni-atto-".$istanzaOggetto['id']."\" class=\"intTooltip centeralign\" style=\"float: right; margin-right: 5px;\">";
+	if ($aclTrasparenza['ealbo_import'] OR $datiUser['id']==$istanzaOggetto['id_proprietario']) { 
+		ob_start();
+		include('./app/admin_template/ealbo/operazioni_albo.tmp');
+		$stringaInt .= ob_get_contents();
+		ob_end_clean();
+	}  
+	$stringaInt .= "</span>";
+}
+
+$outputArray[$numChiave][] = $archiviTrasparenza . $stringaInt;
+?>

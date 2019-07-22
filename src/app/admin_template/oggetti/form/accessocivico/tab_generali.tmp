@@ -1,0 +1,48 @@
+<div class="tab-pane tab_generali widgetbox box-inverse" id="generali_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni sulla richiesta
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+			<?
+			if(!$creaFormSistema) {
+				creaFormTrasp('','sistema', '', '', '', '','');
+				$creaFormSistema = true;
+				
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+					creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+				} else {
+					echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+				}
+			}
+			
+			
+			creaFormTrasp('Codice richiesta','testo', 'codice_richiesta', '', $istanzaOggetto['codice_richiesta'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+			creaFormTrasp('Data richiesta','data', 'data_richiesta', '', $istanzaOggetto['data_richiesta'], '','',0,'', 0, 0,true, false, $arayReadonly);
+			
+			creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true, false, $arayReadonly);
+			
+			creaFormTrasp('Richiesta','html', 'richiesta', '', $istanzaOggetto['richiesta'], '','',0,'', 0, 0,true);
+			
+			
+			//	DATI SUL RIESAME
+			$style = '';
+			if($istanzaOggetto['stato_pratica'] != 'conclusa' and $istanzaOggetto['stato_pratica'] != 'richiesto riesame') {
+				$style = 'display:none;';
+			}
+			?>
+			<div style="<?php echo $style; ?>">
+				<?
+				creaFormTrasp('Richiesta di riesame','etichetta', '', '', '', '','',0,'', 0, 0,true);
+			
+				creaFormTrasp('Data richiesta di riesame','data', 'data_riesame', '', $istanzaOggetto['data_riesame'], '','',0,'', 0, 0);
+			
+				creaFormTrasp('Dettagli richiesta di riesame','html', 'richiesta_riesame', '', $istanzaOggetto['richiesta_riesame'], '','',0,'', 0, 0);
+				?>
+			</div>
+	</div>
+</div>

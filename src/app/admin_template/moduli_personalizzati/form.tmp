@@ -1,0 +1,72 @@
+<script type="text/javascript">	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});
+	
+		jQuery("#form1").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {
+				id_ente: "required",
+				data_attivazioneVis: "required",
+				modulo: "required",
+				attivo: "required"
+			},
+			messages: {
+				id_ente: "Devi selezionare l'ente per il quale inserire questo modulo",
+				data_attivazioneVis: "Inserisci la data di attivazione",
+				modulo: "Selezionare il modulo da attivare",
+				attivo: "Selezionare se il modulo è attivo"
+			}
+		});
+	});
+</script>
+
+<a href="?menu=moduli_personalizzati" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco moduli personalizzati</a> 
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> modulo personalizzato
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<form id="form1" class="stdform" method="post" action="?menu=moduli_personalizzati&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		
+			<input type="hidden" name="rispostaForm" value="1" />	
+			
+			<? // scelta ente
+			if ($datiUser['permessi']==10 or $datiUser['permessi']==3) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', $istanzaOggetto['id_ente'], '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$istanzaOggetto['id_ente']."\">";
+			} ?>	
+			
+			<? creaFormTrasp('Data di attivazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Attivo','selezione', 'attivo', '0,1', $istanzaOggetto['attivo'], 'no,si','input-large',0,'', 0, 0,true); ?>	
+			
+			<?
+			$moduliAttivabili = getModuliAttivabili();
+			creaFormTrasp('Modulo','selezione', 'modulo', $moduliAttivabili['val'], $istanzaOggetto['modulo'], $moduliAttivabili['eti'],'input-large',0,'', 0, 0,true);
+			?>
+			
+			<p class="stdformbutton">
+				<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+			</p>
+		</form>
+	</div>
+</div>

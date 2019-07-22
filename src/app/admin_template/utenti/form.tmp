@@ -1,0 +1,406 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});
+		
+		var validator = jQuery("#form1").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			rules: {
+				<? // scelta ente
+				if ($datiUser['permessi']==3 AND !$id) { 
+					echo "id_ente_admin: \"required\",";
+				} ?>
+				nome: "required",
+				<? if (!$id) { ?>
+				username: {
+					required: true 
+				},
+				<? } ?>
+				email: {
+					required: true,
+					email: true
+				},
+				confermaemail: {
+					equalTo: "#email"
+				},
+				confermapassword: {
+					equalTo: "#password"
+				},
+				complessita_password: "required",
+				scadenza_password_giorni: "required",
+				blocco_password_errata: "required",
+				blocco_password_errata_tempo: {
+					required: function(el) {
+						return jQuery("#blocco_password_errata").val() > 0;
+					}
+				},
+				permessi: "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if ($datiUser['permessi']==3 AND !$id) { 
+					echo "id_ente_admin: \"Devi selezionare l'ente per il quale inserire questo utente\",";
+				} ?>
+				username: "Campo obbligatorio",
+				nome: "Inserisci il nome completo dell'utente",
+				email: {
+					required: "Inserisci un indirizzo email",
+					email: "Inserisci un indirizzo email valido"
+				},
+				confermaemail: "Il campo Conferma email deve essere uguale al campo Email",
+				confermapassword: "La conferma della password deve essere uguale alla password inserita",
+				complessita_password: "Campo obbligatorio",
+				scadenza_password_giorni: "Campo obbligatorio",
+				blocco_password_errata: "Campo obbligatorio",
+				blocco_password_errata_tempo: "Campo obbligatorio",
+				permessi: "Seleziona il tipo di utente"
+			},
+
+			submitHandler: function(form) {
+				
+				var password = jQuery('#password').val();
+				if(password != '') {
+					<? /* if(!$id) { */ ?>
+					var complessita_password = jQuery('#complessita_password').val();
+					jQuery('#errPwd').remove();
+					if(complessita_password == 'lunghezza14' && password.length < 14) {
+						jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Lunghezza minima della password di 14 caratteri</label>');
+						jQuery('#password').focus();
+						return false;
+					} else if(complessita_password == 'lunghezza10' && password.length < 10) {
+						jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Lunghezza minima della password di 10 caratteri</label>');
+						jQuery('#password').focus();
+						return false;
+					} else if(complessita_password == 'complex1') {
+						var hasUpperCase = /[A-Z]/.test(password);
+						var hasLowerCase = /[a-z]/.test(password);
+						var hasNumbers = /\d/.test(password);
+						var hasNonalphas = /\W/.test(password);
+						var hasTripple = !(/(.)\1\1/.test(password));
+						if (hasUpperCase + hasLowerCase + hasNumbers + hasNonalphas + hasTripple < 4) {
+							jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Rispettare almeno 4 delle seguenti regole: almeno una lettera maiuscola; almeno una lettera minuscola; almeno un numero; almeno 1 carattere speciale tra i seguenti: @_|#!?; non pi&ugrave; di 2 caratteri uguali consecutivi</label>');
+							jQuery('#password').focus();
+							return false;
+						}
+					} else if(complessita_password == 'complex1_l10' || complessita_password == 'complex1_l14') {
+						var hasUpperCase = /[A-Z]/.test(password);
+						var hasLowerCase = /[a-z]/.test(password);
+						var hasNumbers = /\d/.test(password);
+						var hasNonalphas = /\W/.test(password);
+						var hasTripple = !(/(.)\1\1/.test(password));
+						if (hasUpperCase + hasLowerCase + hasNumbers + hasNonalphas + hasTripple < 4) {
+							jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Rispettare almeno 4 delle seguenti regole: almeno una lettera maiuscola; almeno una lettera minuscola; almeno un numero; almeno 1 carattere speciale tra i seguenti: @_|#!?; non pi&ugrave; di 2 caratteri uguali consecutivi</label>');
+							jQuery('#password').focus();
+							return false;
+						}
+						if(complessita_password == 'complex1_l14' && password.length < 14) {
+							jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Lunghezza minima della password di 14 caratteri</label>');
+							jQuery('#password').focus();
+							return false;
+						}
+						if(complessita_password == 'complex1_l10' && password.length < 10) {
+							jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Lunghezza minima della password di 10 caratteri</label>');
+							jQuery('#password').focus();
+							return false;
+						}
+					}
+					<? /* } */ ?>
+				} else {
+					<? if(!$id) { ?>
+					jQuery('#password').parent().after('<label id="errPwd" for="password" style="float: none;display: block;font-size: 11px;color: #ff0000 !important;text-align: left;clear: both !important;padding: 0;width: auto;margin-left: 240px;z-index: 2;">Password obbligatoria</label>');
+					jQuery('#password').focus();
+					return false;
+					<? } ?>
+				}
+				jQuery('#ajax_processing').show();
+				jQuery.ajax({
+					url: 'ajax.php',
+					type: 'get',
+					dataType: 'json',
+					data: {
+						'azione': 'verificaDatiUser', 
+						'email': jQuery('#email').val(), 
+						'username': jQuery('#username').val(), 
+						'password': jQuery('#password').val(),
+						'impedisci_ripetizioni_password': jQuery('#impedisci_ripetizioni_password').val(),
+						'impedisci_ripetizioni_password6mesi': jQuery('#impedisci_ripetizioni_password6mesi').val(),
+						'impedisci_cambio_pwd_giorno': jQuery('#impedisci_cambio_pwd_giorno').val(),
+						'id': '<? echo $id; ?>'
+					},
+					success: function(data, abb, bc) {
+						if(data.esito == 'ok') {
+							jQuery('#ajax_processing').hide();
+							form.submit();
+						} else {
+							jQuery('#ajax_processing').hide();
+							if(data.err_email) {
+								validator.showErrors({
+									email: "Indirizzo email in uso. Usare un altro indirizzo."
+								});
+								jQuery('#email').focus();
+							}
+							if(data.err_user) {
+								validator.showErrors({
+									username: "Username in uso. Usare un altro."
+								});
+								jQuery('#username').focus();
+							}
+							if(jQuery('#password').val() != '') {
+								if(data.err_password) {
+									validator.showErrors({
+										password: "La nuova password non pu&ograve; essere uguale a quella attuale."
+									});
+									jQuery('#password').focus();
+								}
+								if(data.err_password5) {
+									validator.showErrors({
+										password: "La nuova password non pu&ograve; essere uguale alle precedenti 5."
+									});
+									jQuery('#password').focus();
+								}
+								if(data.err_password180) {
+									validator.showErrors({
+										password: "La nuova password non pu&ograve; essere uguale ad una degli ultimi 6 mesi."
+									});
+									jQuery('#password').focus();
+								}
+								if(data.err_passwordCambio1g) {
+									validator.showErrors({
+										password: "Impossibile modificare la password pi&ugrave; di una volta al giorno."
+									});
+									jQuery('#password').focus();
+								}
+							}
+						}
+					},
+					error: function(xhr, desc, err) {
+						jQuery('#ajax_processing').hide();
+						form.submit();
+					}
+				});
+			}
+
+		});
+		
+		
+		
+	});
+</script>
+
+<a href="?menu=utenti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco utenti</a> 
+<div class="widgetbox box-inverse">
+
+	<div id="ajax_processing" class="ajax_processing_fixed" style="display: none;">
+		<div><img src="app/grafica_admin/ajax-loader2.gif"></div>
+		<div>Verifica dei dati in corso</div>
+		<div style="font-size:11px;font-weight:normal;">L'operazione potrebbe impiegare qualche secondo</div>
+	</div>
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> utente
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<form id="form1" class="stdform" method="post" action="?menu=utenti&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		
+			<input type="hidden" name="rispostaForm" value="1" />	
+			<input type="hidden" name="id_profilo_permessi" value="0" />	
+			<input type="hidden" name="admin_skin" value="classic" />	
+			<input type="hidden" name="admin_accessibile" value="0" />	
+			<input type="hidden" name="admin_interfaccia" value="visualizzata" />	
+			<input type="hidden" name="admin_avvisi" value="visualizza" />	
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				$req = false;
+				if($datiUser['permessi']==3) {
+					$req = true;
+				}
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente_admin', '', '', '','input-xlarge',0,'', 0, 0,$req); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente_admin\" name=\"id_ente_admin\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>	
+			
+			<? creaFormTrasp('Nome utente','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? 
+			$disableCampo = 0;
+			if ($id) {
+				$disableCampo = 1;
+				echo "<input type=\"hidden\" name=\"username\" value=\"".$istanzaOggetto['username']."\">";
+			} 
+			creaFormTrasp('Username','testo', 'username', '', $istanzaOggetto['username'], '','input-large',0,'', 0, $disableCampo,true); ?>	
+			
+			<div class="control-group">
+				<label class="control-label" for="password">
+					<span class="obbliCampo intTooltip">
+						<a data-placement="top" data-rel="tooltip" data-original-title="Campo obbligatorio">
+							<span class="icon-ok-circle"></span>
+						</a>
+					</span>
+					<?
+					if(!$id and $configurazione['password_primo_accesso']) {
+						echo '<span class="obbliCampo intTooltip"><a data-placement="right" data-rel="tooltip" data-original-title="La password di primo accesso sar&agrave; valida 1 giorno."><span class="icon-info-sign"></span></a></span>';
+					}
+					?>
+					<? if ($id) { echo "Password"; } else { echo "Password"; } ?>
+				</label>
+				<div class="controls"><input type="password" name="password" id="password" class="input-large" value="" /></div>
+			</div>
+			
+			<div class="control-group">
+				<label class="control-label" for="confermapassword">
+					<span class="obbliCampo intTooltip">
+						<a data-placement="top" data-rel="tooltip" data-original-title="Campo obbligatorio">
+							<span class="icon-ok-circle"></span>
+						</a>
+					</span>
+					Conferma <? if ($id) { echo "nuova"; } ?> password
+				</label>
+				<div class="controls"><input type="password" name="confermapassword" id="confermapassword" class="input-large" value="" /></div>
+			</div>
+			
+			<?
+			if($enteAdmin['modulo_webservice']) {
+				echo "<div class=\"par control-group\">";
+				echo "<label class=\"control-label\" for=\"token\">Token di autenticazione web service</label>";
+				echo "<div class=\"controls\">";
+				echo "<input placeholder=\"\" type=\"text\" name=\"token\" id=\"token\" readonly=\"readonly\" value=\"".md5($istanzaOggetto['username'].$enteAdmin['cookie_dominio'])."\" class=\"disabled input-xxlarge\" />";
+			}
+			?>
+			
+			<? creaFormTrasp('Email','testo', 'email', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? creaFormTrasp('Conferma email','testo', 'confermaemail', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>	
+			
+			<? creaFormTrasp('Recapito cellulare','testo', 'cellulare', '', $istanzaOggetto['cellulare'], '','input-large'); ?>	
+			
+			<?
+			if ($id==$datiUser['id']) {
+				echo "<input type=\"hidden\" name=\"permessi\" value=\"".$istanzaOggetto['permessi']."\" />";
+			} else {
+				if($datiUser['permessi'] == 10) {
+					creaFormTrasp('Tipo di utente','selezione', 'permessi', '3,2', $istanzaOggetto['permessi'], 'Root,Amministratore','input-large',0,'', 0, 0,true);
+				} else {
+					//creaFormTrasp('Tipo di utente','selezione', 'permessi', '2,0', $istanzaOggetto['permessi'], 'Amministratore,Utente','input-large',0,'', 0, 0,true);
+					echo "<input type=\"hidden\" name=\"permessi\" value=\"2\" />";
+				}
+			}
+			
+			
+			if ($id and $istanzaOggetto['id_ente_admin'] == 0) {
+				echo "<input type=\"hidden\" name=\"acl\" value=\"0\" />";
+				echo "<input type=\"hidden\" name=\"editor_avanzato\" value=\"0\" />";
+			} else if ($aclTrasparenza['ruoli']) {
+				if(moduloAttivo('solo_accessocivico')) {
+					echo "<input type=\"hidden\" name=\"acl\" value=\"".$configurazione['id_acl_accessocivico']."\" />";
+				} else {
+					creaFormTrasp('Profili ACL','ruoli', 'acl', '', $istanzaOggetto['acl'], '','input-xxlarge'); 
+					creaFormTrasp('Usa codice sorgente in editor','casella', 'editor_avanzato', '1', $istanzaOggetto['editor_avanzato'], '1');	
+				}
+			} else {
+				echo "<input type=\"hidden\" name=\"acl\" value=\"".$istanzaOggetto['acl']."\" />";
+				echo "<input type=\"hidden\" name=\"editor_avanzato\" value=\"".$istanzaOggetto['editor_avanzato']."\" />";
+			}
+			
+			if(!$istanzaOggetto['complessita_password']) {
+				$istanzaOggetto['complessita_password'] = 'lunghezza14';
+			}
+			if(!isset($istanzaOggetto['impedisci_ripetizioni_password'])) {
+				$istanzaOggetto['impedisci_ripetizioni_password'] = '0';
+			}
+			if(!isset($istanzaOggetto['impedisci_ripetizioni_password6mesi'])) {
+				$istanzaOggetto['impedisci_ripetizioni_password6mesi'] = '0';
+			}
+			if(!isset($istanzaOggetto['impedisci_cambio_pwd_giorno'])) {
+				$istanzaOggetto['impedisci_cambio_pwd_giorno'] = '0';
+			}
+			if(!isset($istanzaOggetto['disattiva_account_no_use'])) {
+				$istanzaOggetto['disattiva_account_no_use'] = '0';
+			}
+			
+			if(!$istanzaOggetto['scadenza_password_giorni']) {
+				$istanzaOggetto['scadenza_password_giorni'] = $configurazione['scadenza_password_giorni'];
+			}
+			if(!$istanzaOggetto['notifica_accessi_errati']) {
+				$istanzaOggetto['notifica_accessi_errati'] = '0';
+				//$istanzaOggetto['notifica_accessi_errati'] al momento non utilizzato, gli accesso sono scritti sul log
+			}
+			if(!$istanzaOggetto['filtraRecordProprietario']) {
+				$istanzaOggetto['filtraRecordProprietario'] = '0';
+			}
+			
+			if($id!=$datiUser['id'] or $datiUser['permessi']==10 or $datiUser['permessi']==3) {
+				creaFormTrasp('Complessit&agrave; della password','selezione', 'complessita_password', 'lunghezza10,lunghezza14,complex1,complex1_l10,complex1_l14', $istanzaOggetto['complessita_password'], 'minimo 10 caratteri,minimo 14 caratteri,avanzata (4 regole),avanzata (4 regole) + lunghezza minima 10 caratteri,avanzata (4 regole) + lunghezza minima 14 caratteri','input-xxlarge',0,'', 0, 0,true);
+				creaFormTrasp('Validit&agrave; della password','selezione', 'scadenza_password_giorni', '25,50,100,180,365', $istanzaOggetto['scadenza_password_giorni'], '25 giorni,50 giorni,100 giorni,180 giorni,365 giorni','input-large',0,'', 0, 0,true);
+				creaFormTrasp('Impedisci ripetizione delle ultime 5 password','selezione', 'impedisci_ripetizioni_password', '0,1', $istanzaOggetto['impedisci_ripetizioni_password'], 'no,si','input-large',0,'');
+				creaFormTrasp('Impedisci utilizzo di una password usata negli utlimi 6 mesi','selezione', 'impedisci_ripetizioni_password6mesi', '0,1', $istanzaOggetto['impedisci_ripetizioni_password6mesi'], 'no,si','input-large',0,'');
+				creaFormTrasp('Blocco utente dopo ripetuti accessi errati','selezione', 'blocco_password_errata', '0,3,5,10', $istanzaOggetto['blocco_password_errata'], 'no,si dopo 3 tentativi errati,si dopo 5 tentativi errati,si dopo 10 tentativi errati','input-large',0,'', 0, 0,true);
+				creaFormTrasp('Inattivit&agrave; dopo il blocco per accessi errati','selezione', 'blocco_password_errata_tempo', '5,15,30,60', $istanzaOggetto['blocco_password_errata_tempo'], '5 minuti,15 minuti,30 minuti,1 ora','input-large',0,'', 0, 0);
+				echo "<input type=\"hidden\" name=\"notifica_accessi_errati\" value=\"".$istanzaOggetto['notifica_accessi_errati']."\" />";
+				creaFormTrasp('Impedisci il cambio password pi&ugrave; di una volta al giorno','selezione', 'impedisci_cambio_pwd_giorno', '0,1', $istanzaOggetto['impedisci_cambio_pwd_giorno'], 'no,si','input-large',0,'');
+				creaFormTrasp('Disattivazione account per mancato utilizzo','selezione', 'disattiva_account_no_use', '0,25,50,100,180,365', $istanzaOggetto['disattiva_account_no_use'], 'no,dopo 25 giorni,dopo 50 giorni,dopo 100 giorni,dopo 180 giorni,dopo 365 giorni','input-large',0,'', 0, 0);
+				creaFormTrasp('Visualizza i soli elementi dell\'utente','selezione', 'filtraRecordProprietario', '0,1', $istanzaOggetto['filtraRecordProprietario'], 'no,si','input-normal',0,'', 0, 0);
+			} else {
+				echo "<input type=\"hidden\" id=\"complessita_password\" name=\"complessita_password\" value=\"".$istanzaOggetto['complessita_password']."\" />";
+				echo "<input type=\"hidden\" id=\"scadenza_password_giorni\" name=\"scadenza_password_giorni\" value=\"".$istanzaOggetto['scadenza_password_giorni']."\" />";
+				echo "<input type=\"hidden\" id=\"impedisci_ripetizioni_password\" name=\"impedisci_ripetizioni_password\" value=\"".$istanzaOggetto['impedisci_ripetizioni_password']."\" />";
+				echo "<input type=\"hidden\" id=\"impedisci_ripetizioni_password6mesi\" name=\"impedisci_ripetizioni_password6mesi\" value=\"".$istanzaOggetto['impedisci_ripetizioni_password6mesi']."\" />";
+				echo "<input type=\"hidden\" id=\"blocco_password_errata\" name=\"blocco_password_errata\" value=\"".$istanzaOggetto['blocco_password_errata']."\" />";
+				echo "<input type=\"hidden\" id=\"blocco_password_errata_tempo\" name=\"blocco_password_errata_tempo\" value=\"".$istanzaOggetto['blocco_password_errata_tempo']."\" />";
+				echo "<input type=\"hidden\" id=\"notifica_accessi_errati\" name=\"notifica_accessi_errati\" value=\"".$istanzaOggetto['notifica_accessi_errati']."\" />";
+				echo "<input type=\"hidden\" id=\"impedisci_cambio_pwd_giorno\" name=\"impedisci_cambio_pwd_giorno\" value=\"".$istanzaOggetto['impedisci_cambio_pwd_giorno']."\" />";
+				echo "<input type=\"hidden\" id=\"disattiva_account_no_use\" name=\"disattiva_account_no_use\" value=\"".$istanzaOggetto['disattiva_account_no_use']."\" />";
+				echo "<input type=\"hidden\" id=\"filtraRecordProprietario\" name=\"filtraRecordProprietario\" value=\"".$istanzaOggetto['filtraRecordProprietario']."\" />";
+			}
+			
+			if(moduloAttivo('strutture_in_utenti') and $id!=$datiUser['id']) {
+				creaFormTrasp('Strutture organizzative selezionabili / gestibili (vuoto = tutte)','strutture_from_utenti', 'uffici_selezionabili', '', $istanzaOggetto['uffici_selezionabili'], '','input-xxlarge');
+			}
+			
+			if(moduloAttivo('stazioni_appaltanti') and $id!=$datiUser['id']) {
+				creaFormTrasp('Stazioni appaltanti selezionabili (vuoto = tutte)','stazioni_from_utenti', 'stazioni_selezionabili', '', $istanzaOggetto['stazioni_selezionabili'], '','input-xxlarge');
+			}
+			?>
+			
+			<div class="par control-group">
+				<label class="control-label" for="note">Note</label>
+				<div class="controls"><textarea cols="80" rows="5" name="note" class="input-xxlarge" id="note"><?php echo $istanzaOggetto['note']; ?></textarea></div> 
+			</div>
+			
+			<? if (!$id) { ?>
+			<div class="par control-group">
+				<label class="control-label" for="tipoReg">Tipo di registrazione</label>
+				<div class="controls">
+					<select name="tipoReg" class="uniformselect">
+						<option value="normale">Registra utente attivo senza mail di notifica</option>
+						<option value="mail">Registra utente attivo con mail di notifica</option>
+						<option value="bloccata">Registra utente come bloccato ed invia email per l'attivazione</option>
+					</select>
+				</div>
+			</div>	
+			<? } ?>
+				
+			<p class="stdformbutton">
+				<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+			</p>
+		</form>
+	</div>
+</div>

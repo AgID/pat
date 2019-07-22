@@ -1,0 +1,945 @@
+<script type="text/javascript">	
+	
+// attivo la validazione inline del form
+jQuery(document).ready(function(){
+
+	
+
+	// Selezione multipla
+	/*
+	var db = jQuery('#dualselect').find('.ds_arrow button');	//frecce doppia selezione
+	var sel1 = jQuery('#dualselect select:first-child');		//primo elemento select
+	var sel2 = jQuery('#dualselect select:last-child');			//secondo elemento select
+	
+	sel2.empty(); 
+	
+	db.click(function(){
+		var t = (jQuery(this).hasClass('ds_prev'))? 0 : 1;	// 0 per freccia sinistra, altrimenti destra
+		if(t) {
+			sel1.find('option').each(function(){
+				if(jQuery(this).is(':selected')) {
+					jQuery(this).attr('selected',false);
+					var op = sel2.find('option:first-child');
+					sel2.append(jQuery(this));
+				}
+			});	
+		} else {
+			sel2.find('option').each(function(){
+				if(jQuery(this).is(':selected')) {
+					jQuery(this).attr('selected',false);
+					sel1.append(jQuery(this));
+				}
+			});		
+		}
+		return false;
+	});
+	*/
+	
+	<? if ($id) { ?>
+	// menu tabs accordion
+	jQuery('.accordion').accordion({
+		heightStyle: "content"
+	});
+	<? } ?>
+	
+	// necessario per i campi select con ricerca
+	jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+	
+	// necessario per i campi file
+	//jQuery('.uniform-file').uniform();
+	// necessario per i campi select con ricerca
+	
+	jQuery("#form1").validate({
+		ignore: [],
+		ignore: 'input[type="hidden"]',
+		rules: {
+			nome: "required",
+			utenti: "required",
+			ruoli: "required",
+			archiviomedia: "required",
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				echo "id_ente: \"required\",";
+			} ?>
+			descrizione: "required"
+
+		},
+		
+		messages: {
+			nome: "Inserisci il nome completo del ruolo",
+			utenti: "Seleziona il livello di accesso alla gestione utenti",
+			ruoli: "Seleziona il livello di accesso alla gestione dei profili ACL",
+			archiviomedia: "Seleziona il livello di accesso alla gestione di immagini ed allegati",
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				echo "id_ente: \"Devi selezionare l'ente per il quale inserire il ruolo\",";
+			} ?>
+			descrizione: "Inserisci la descrizione del ruolo"
+		},
+		
+		highlight: function(label) {
+			<? if ($id) { ?>
+			jQuery('.accordion').accordion( "option", "active", 
+				parseInt(jQuery(label).closest('.ui-accordion-content')
+					.attr('id')
+					.replace('ui-accordion-1-panel-', '')
+				)
+			);
+			<? } ?>
+			jQuery(label).closest('.control-group').addClass('error');
+		}
+
+	});
+	
+	jQuery('.permesso_gruppo').change(function(){
+		jQuery('.permesso_'+this.id).prop('checked', jQuery(this).prop("checked"));
+		//jQuery.uniform.update();
+	});
+	
+	jQuery('.permesso_sezione').change(function(){
+		jQuery('.permesso_'+this.id).prop('checked', jQuery(this).prop("checked"));
+		//jQuery.uniform.update();
+	});		
+	
+});
+
+var sezioneAperta = '';
+
+function apriSezioni(classe) {
+	
+	// verifico se chiudere qualcosa
+	if (sezioneAperta != '' && classe != sezioneAperta) {
+		if (sezioneAperta=='0') {
+			classeStr = 'altreSezioni';
+		} else {
+			classeStr = 'sezioniId'+sezioneAperta;
+		}
+		jQuery('.'+classeStr).toggle('medium');
+	}
+	
+	// controllo la classe dello span a fianco
+	if (classe=='0') {
+		classeStr = 'altreSezioni';
+	} else {
+		classeStr = 'sezioniId'+classe;
+	}
+	jQuery('.'+classeStr).toggle('slow');	
+	
+	if (sezioneAperta == classe) {
+		sezioneAperta = '';
+		// riporto l'etichetta su più
+		jQuery('#'+classe+' span').removeAttr('class');
+		jQuery('#'+classe+' span').addClass('iconfa-plus-sign');	
+	} else {
+		// metto il meno su quello aperto
+		jQuery('#'+classe+' span').removeAttr('class');
+		jQuery('#'+classe+' span').addClass('iconfa-minus-sign');
+		if (sezioneAperta != '') {
+			// metto il piu su quello chiuso
+			//alert('devo chiudere il menu di #'+sezioneAperta+' span');
+			jQuery('#'+sezioneAperta+' span').removeAttr('class');
+			jQuery('#'+sezioneAperta+' span').addClass('iconfa-plus-sign');
+		}
+		sezioneAperta = classe;
+	}
+	
+}	
+
+</script>
+
+<a href="?menu=ruoli" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco ruoli</a> 
+
+<? 
+function tabellaPermessi($arrayFunzioni, $gruppo) {
+	global $id,$istanzaOggetto;
+
+	echo "<table class=\"table table-bordered\">
+                    <colgroup>
+						<col class=\"con0\" />
+						<col class=\"con1\" />
+                        <col class=\"con0\" />
+                        <col class=\"con1\" />
+                        <col class=\"con0\" />
+                        <col class=\"con1\" />
+                        <col class=\"con0\" />
+						<col class=\"con1\" />
+                        <col class=\"con0\" />
+                        <col class=\"con0\" />
+                    </colgroup><thead>
+					<tr>
+						<th class=\"width25\"></th>
+						<th class=\"center\" style=\"display:none;\"><input id=\"".$gruppo."_workflow\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Workflow</th>
+						<th class=\"center\"><input id=\"".$gruppo."_creazione\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Aggiungi</th>
+						<th class=\"center\"><input id=\"".$gruppo."_lettura\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Leggi</th>
+						<th class=\"center\"><input id=\"".$gruppo."_modifica\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Modifica</th>
+						<th class=\"center\"><input id=\"".$gruppo."_cancellazione\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Cancella</th>
+						<th class=\"center\" style=\"display:none;\"><input id=\"".$gruppo."_stato\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Stato</th>
+						<th class=\"center\" style=\"display:none;\"><input id=\"".$gruppo."_permessi\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Permessi</th>
+						<th class=\"center\"><input id=\"".$gruppo."_avanzate\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Avanzate</th>
+						<th class=\"center\" style=\"display:none;\"><input id=\"".$gruppo."_notifiche_push\" value=\"1\" type=\"checkbox\" class=\"permesso_gruppo\" /> Notifiche Push</th>
+					</tr>
+				</thead><tbody>";
+
+	foreach ($arrayFunzioni as $funzione) {
+		
+		// verifico le selezioni da affettuare nel caso di modifica
+		$cheched = array(
+			'workflow' => '',
+			'lettura' => '',
+			'creazione' => '',
+			'modifica' => '',
+			'cancellazione' => '',
+			'stato' => '',
+			'permessi' => '',
+			'avanzate' => '',
+			'notifiche_push' => ''
+		);
+		if ($id) {
+			//echo "valore work [".$funzione['nome']."]: ".$istanzaOggetto['permessiOggetto'][$funzione['nome']]['workflow'];
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['workflow']) {
+				$cheched['workflow'] = "checked=\"checked\"";
+			}
+
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['creazione']) {
+				$cheched['creazione'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['lettura']) {
+				$cheched['lettura'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['modifica']) {
+				$cheched['modifica'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['cancellazione']) {
+				$cheched['cancellazione'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['stato']) {
+				$cheched['stato'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['permessi']) {
+				$cheched['permessi'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['avanzate']) {
+				$cheched['avanzate'] = "checked=\"checked\"";
+			}
+			if ($istanzaOggetto['permessiOggetto'][$funzione['nome']]['notifiche_push']) {
+				$cheched['notifiche_push'] = "checked=\"checked\"";
+			}
+		}
+	
+	
+		echo "<tr>
+				<td>
+					<div class=\"headerTab\">".$funzione['etichetta']."</div>
+				</td>
+				<td class=\"center\" style=\"display:none;\">
+					<input name=\"".$funzione['nome']."_workflow\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." class=\"permesso_".$gruppo."_workflow\" />
+				</td>
+				<td class=\"center\">
+					<input name=\"".$funzione['nome']."_creazione\" value=\"1\" type=\"checkbox\" ".$cheched['creazione']." class=\"permesso_".$gruppo."_creazione\" />	
+				</td>
+				<td class=\"center\">
+					<input name=\"".$funzione['nome']."_lettura\" value=\"1\" type=\"checkbox\" ".$cheched['lettura']." class=\"permesso_".$gruppo."_lettura\" />	
+				</td>
+				<td class=\"center\">
+					<input name=\"".$funzione['nome']."_modifica\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." class=\"permesso_".$gruppo."_modifica\" />	
+				</td>
+				<td class=\"center\">
+					<input name=\"".$funzione['nome']."_cancellazione\" value=\"1\" type=\"checkbox\" ".$cheched['cancellazione']." class=\"permesso_".$gruppo."_cancellazione\" />	
+				</td>
+				<td class=\"center\" style=\"display:none;\">
+					<input name=\"".$funzione['nome']."_stato\" value=\"1\" type=\"checkbox\" ".$cheched['stato']." class=\"permesso_".$gruppo."_stato\" />	
+				</td>
+				<td class=\"center\" style=\"display:none;\">
+					<input name=\"".$funzione['nome']."_permessi\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." class=\"permesso_".$gruppo."_permessi\" />	
+				</td>
+				<td class=\"center\">
+					<input name=\"".$funzione['nome']."_avanzate\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." class=\"permesso_".$gruppo."_avanzate\" />	
+				</td>
+				<td class=\"center\" style=\"display:none;\">
+					<input name=\"".$funzione['nome']."_notifiche_push\" value=\"1\" type=\"checkbox\" ".$cheched['notifiche_push']." class=\"permesso_".$gruppo."_notifiche_push\" />	
+				</td>
+			</tr>";
+	}
+    echo "</tbody></table>";
+}
+
+function tabellaPermessiSezioni() {
+    global $sezioni,$ruoliClasse,$id,$istanzaOggetto;
+
+	echo "<table class=\"table table-bordered\">
+			<colgroup>
+				<col class=\"con0\" />
+				<col class=\"con1\" />
+				<col class=\"con0\" />
+				<col class=\"con1\" />
+				<col class=\"con0\" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th class=\"width35\"></th>
+					<th class=\"center\">Modifica</th>
+					<th class=\"center\" style=\"display:none;\">Workflow</th>
+					<th class=\"center\" style=\"display:none;\">Permessi</th>
+					<th class=\"center\" style=\"display:none;\">Avanzate</th>
+				</tr>
+			</thead>
+			<tbody>";
+
+	// risalgo alle sezioni della trasparenza
+	$altreSezioni = "";
+	foreach ($sezioni as $sezione) { 
+		if ($sezione['id_riferimento']==18 AND $sezione['permessi_lettura']!='HM' AND $sezione['permessi_lettura']!='H') { 
+		    if ($ruoliClasse->controllaSezione($sezione['id'])) {
+				// la sezione è di snodo, pubblico il nome per aprire il relativo menu, e la sezione di snodo stessa
+				echo "<tr>
+						<td>
+							<div class=\"headerTab\"><a id=\"".$sezione['id']."\" href=\"javascript:apriSezioni('".$sezione['id']."');\">".$sezione['nome']." <span class=\"iconfa-plus-sign\"></span></a></div>
+						</td>
+						<td class=\"center\">
+							<input id=\"".$sezione['id']."_modifica\" value=\"1\" type=\"checkbox\" class=\"permesso_sezione\" />
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input id=\"".$sezione['id']."_workflow\" value=\"1\" type=\"checkbox\" class=\"permesso_sezione\" />
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input id=\"".$sezione['id']."_permessi\" value=\"1\" type=\"checkbox\" class=\"permesso_sezione\" />
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input id=\"".$sezione['id']."_avanzate\" value=\"1\" type=\"checkbox\" class=\"permesso_sezione\" />
+						</td>
+					</tr>";
+					
+				// verifico le selezioni da affettuare nel caso di modifica
+				$cheched = array(
+					'modifica' => '',
+					'workflow' => '',					
+					'permessi' => '',
+					'avanzate' => ''
+				);
+				if ($id) {
+					//echo "valore work [".$sezioneInterna1['id']."]: ".$istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow'];
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['workflow']) {
+						$cheched['workflow'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['modifica']) {
+						$cheched['modifica'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['permessi']) {
+						$cheched['permessi'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['avanzate']) {
+						$cheched['avanzate'] = "checked=\"checked\"";
+					}
+				}
+					
+				echo "<tr style=\"display:none;\" class=\"sezioniId".$sezione['id']."\">
+						<td>
+							<div style=\"padding-left:15px;\" class=\"\"><strong>".$sezione['nome']." (pagina di snodo)</strong></div>
+						</td>
+						<td class=\"center\">
+							<input name=\"sez_modifica_".$sezione['id']."\" id=\"sez_modifica_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." class=\"permesso_".$sezione['id']."_modifica\" />
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input name=\"sez_workflow_".$sezione['id']."\" id=\"sez_workflow_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." class=\"permesso_".$sezione['id']."_workflow\" />	
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input name=\"sez_permessi_".$sezione['id']."\" id=\"sez_permessi_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." class=\"permesso_".$sezione['id']."_permessi\" />	
+						</td>
+						<td class=\"center\" style=\"display:none;\">
+							<input name=\"sez_avanzate_".$sezione['id']."\" id=\"sez_avanzate_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." class=\"permesso_".$sezione['id']."_avanzate\" />	
+						</td>
+					</tr>";
+					
+				
+				foreach ($sezioni as $sezioneInterna1) {
+					if ($sezioneInterna1['id_riferimento']==$sezione['id'] AND $sezioneInterna1['permessi_lettura']!='HM' AND $sezioneInterna1['permessi_lettura']!='H') {
+					    if ($ruoliClasse->controllaSezione($sezioneInterna1['id'])) {
+							/////////////////////////////////////////////////	INIZIO SNODO II
+							// verifico le selezioni da affettuare nel caso di modifica
+							$cheched = array(
+								'modifica' => '',
+								'workflow' => '',					
+								'permessi' => '',
+								'avanzate' => ''
+							);
+							if ($id) {
+								//echo "valore work [".$sezioneInterna1['id']."]: ".$istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow'];
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow']) {
+									$cheched['workflow'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['modifica']) {
+									$cheched['modifica'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['permessi']) {
+									$cheched['permessi'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['avanzate']) {
+									$cheched['avanzate'] = "checked=\"checked\"";
+								}
+							}
+								
+							echo "<tr style=\"display:none;\" class=\"sezioniId".$sezione['id']."\">
+									<td>
+										<div style=\"padding-left:15px;\" class=\"\">".$sezioneInterna1['nome']."</div>
+									</td>
+									<td class=\"center\">
+										<input name=\"sez_modifica_".$sezioneInterna1['id']."\" id=\"sez_modifica_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." class=\"permesso_".$sezione['id']."_modifica\" />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_workflow_".$sezioneInterna1['id']."\" id=\"sez_workflow_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." class=\"permesso_".$sezione['id']."_workflow\" />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_permessi_".$sezioneInterna1['id']."\" id=\"sez_permessi_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." class=\"permesso_".$sezione['id']."_permessi\" />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_avanzate_".$sezioneInterna1['id']."\" id=\"sez_avanzate_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." class=\"permesso_".$sezione['id']."_avanzate\" />	
+									</td>
+								</tr>";
+								
+							foreach((array)$sezioni as $sezioneInterna2) {
+								if ($sezioneInterna1['id'] != 701 AND $sezioneInterna2['id_riferimento']==$sezioneInterna1['id'] AND $sezioneInterna2['permessi_lettura']!='HM' AND $sezioneInterna2['permessi_lettura']!='H') {
+									/////////////////////////////////////////////////	INIZIO SNODO III
+									
+									$cheched = array(
+										'modifica' => '',
+										'workflow' => '',					
+										'permessi' => '',
+										'avanzate' => ''
+									);
+									if ($id) {
+										//echo "valore work [".$sezioneInterna1['id']."]: ".$istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow'];
+										if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow']) {
+											$cheched['workflow'] = "checked=\"checked\"";
+										}
+										if ($istanzaOggetto['permessiSezione'][$sezioneInterna2['id']]['modifica']) {
+											$cheched['modifica'] = "checked=\"checked\"";
+										}
+										if ($istanzaOggetto['permessiSezione'][$sezioneInterna2['id']]['permessi']) {
+											$cheched['permessi'] = "checked=\"checked\"";
+										}
+										if ($istanzaOggetto['permessiSezione'][$sezioneInterna2['id']]['avanzate']) {
+											$cheched['avanzate'] = "checked=\"checked\"";
+										}
+									}
+										
+									echo "<tr style=\"display:none;\" class=\"sezioniId".$sezione['id']."\">
+											<td>
+												<div style=\"padding-left:40px;\" class=\"\">".$sezioneInterna2['nome']."</div>
+											</td>
+											<td class=\"center\">
+												<input name=\"sez_modifica_".$sezioneInterna2['id']."\" id=\"sez_modifica_".$sezioneInterna2['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." class=\"permesso_".$sezione['id']."_modifica\" />
+											</td>
+											<td class=\"center\" style=\"display:none;\">
+												<input name=\"sez_workflow_".$sezioneInterna2['id']."\" id=\"sez_workflow_".$sezioneInterna2['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." class=\"permesso_".$sezione['id']."_workflow\" />	
+											</td>
+											<td class=\"center\" style=\"display:none;\">
+												<input name=\"sez_permessi_".$sezioneInterna2['id']."\" id=\"sez_permessi_".$sezioneInterna2['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." class=\"permesso_".$sezione['id']."_permessi\" />	
+											</td>
+											<td class=\"center\" style=\"display:none;\">
+												<input name=\"sez_avanzate_".$sezioneInterna2['id']."\" id=\"sez_avanzate_".$sezioneInterna2['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." class=\"permesso_".$sezione['id']."_avanzate\" />	
+											</td>
+										</tr>";
+									
+									/////////////////////////////////////////////////	FINE SNODO III
+								}
+							}
+							
+							/////////////////////////////////////////////////	FINE SNODO II
+						} else {
+					
+							// verifico le selezioni da affettuare nel caso di modifica
+							$cheched = array(
+								'modifica' => '',
+								'workflow' => '',					
+								'permessi' => '',
+								'avanzate' => ''
+							);
+							if ($id) {
+								//echo "valore work [".$sezioneInterna1['id']."]: ".$istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow'];
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['workflow']) {
+									$cheched['workflow'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['modifica']) {
+									$cheched['modifica'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['permessi']) {
+									$cheched['permessi'] = "checked=\"checked\"";
+								}
+								if ($istanzaOggetto['permessiSezione'][$sezioneInterna1['id']]['avanzate']) {
+									$cheched['avanzate'] = "checked=\"checked\"";
+								}
+							}
+						
+							echo "<tr style=\"display:none;\" class=\"sezioniId".$sezione['id']."\">
+									<td>
+										<div style=\"padding-left:15px;\" class=\"\">".$sezioneInterna1['nome']."</div>
+									</td>
+									<td class=\"center\">
+										<input name=\"sez_modifica_".$sezioneInterna1['id']."\" id=\"sez_modifica_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." class=\"permesso_".$sezione['id']."_modifica\" />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_workflow_".$sezioneInterna1['id']."\" id=\"sez_workflow_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." class=\"permesso_".$sezione['id']."_workflow\" />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_permessi_".$sezioneInterna1['id']."\" id=\"sez_permessi_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." class=\"permesso_".$sezione['id']."_permessi\" />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_avanzate_".$sezioneInterna1['id']."\" id=\"sez_avanzate_".$sezioneInterna1['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." class=\"permesso_".$sezione['id']."_avanzate\" />	
+									</td>
+								</tr>";
+						}
+					}
+				}
+			} else {
+			
+				// verifico le selezioni da affettuare nel caso di modifica
+				$cheched = array(
+					'modifica' => '',
+					'workflow' => '',					
+					'permessi' => '',
+					'avanzate' => ''
+				);
+				if ($id) {
+					//echo "valore modifica [".$sezione['id']."]: ".$istanzaOggetto['permessiOggetto'][$sezione['id']]['modifica'];
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['workflow']) {
+						$cheched['workflow'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['modifica']) {
+						$cheched['modifica'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['permessi']) {
+						$cheched['permessi'] = "checked=\"checked\"";
+					}
+					if ($istanzaOggetto['permessiSezione'][$sezione['id']]['avanzate']) {
+						$cheched['avanzate'] = "checked=\"checked\"";
+					}
+				}
+			
+			
+				$altreSezioni .= "<tr style=\"display:none;\" class=\"altreSezioni\">
+									<td>
+										<div style=\"padding-left:15px;\" class=\"\">".$sezione['nome']."</div>
+									</td>
+									<td class=\"center\">
+										<input name=\"sez_modifica_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_workflow_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_permessi_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." />	
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_avanzate_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." />	
+									</td>
+								</tr>";
+			}
+		}
+		if($sezione['id'] == 605) {
+			//privacy
+			// verifico le selezioni da affettuare nel caso di modifica
+			$cheched = array(
+					'modifica' => '',
+					'workflow' => '',
+					'permessi' => '',
+					'avanzate' => ''
+			);
+			if ($id) {
+				//echo "valore modifica [".$sezione['id']."]: ".$istanzaOggetto['permessiOggetto'][$sezione['id']]['modifica'];
+				if ($istanzaOggetto['permessiSezione'][$sezione['id']]['workflow']) {
+					$cheched['workflow'] = "checked=\"checked\"";
+				}
+				if ($istanzaOggetto['permessiSezione'][$sezione['id']]['modifica']) {
+					$cheched['modifica'] = "checked=\"checked\"";
+				}
+				if ($istanzaOggetto['permessiSezione'][$sezione['id']]['permessi']) {
+					$cheched['permessi'] = "checked=\"checked\"";
+				}
+				if ($istanzaOggetto['permessiSezione'][$sezione['id']]['avanzate']) {
+					$cheched['avanzate'] = "checked=\"checked\"";
+				}
+			}
+				
+				
+			$altreSezioni .= "<tr style=\"display:none;\" class=\"altreSezioni\">
+									<td>
+										<div style=\"padding-left:15px;\" class=\"\">".$sezione['nome']."</div>
+									</td>
+									<td class=\"center\">
+										<input name=\"sez_modifica_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['modifica']." />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_workflow_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['workflow']." />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_permessi_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['permessi']." />
+									</td>
+									<td class=\"center\" style=\"display:none;\">
+										<input name=\"sez_avanzate_".$sezione['id']."\" value=\"1\" type=\"checkbox\" ".$cheched['avanzate']." />
+									</td>
+								</tr>";
+		}
+	} 
+	echo "<tr>
+			<td colspan=\"5\">
+				<div class=\"headerTab\"><a id=\"0\" href=\"javascript:apriSezioni('0');\">Altre sezioni <span class=\"iconfa-plus-sign\"></span></a></div>
+			</td>
+		</tr>".$altreSezioni;
+    echo "</tbody></table>";
+}
+
+// in aggiunta non uso accordion
+$classeForm = "accordion";
+$divFormStart = "";
+$divFormEnd = "";
+$classeTit = '';
+if (!$id) { 
+	$classeForm = "widgetbox box-inverse";
+	
+	$classeTit = 'titoloForm';
+	$divFormStart = "<h4 class=\"widgettitle title-primary\">Aggiunta ruolo</h4><div class=\"widgetcontent\">";
+	$divFormEnd = "</div>";
+} ?>
+
+
+<div>
+	<form id="form1" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		<input type="hidden" name="rispostaForm" value="1" />				
+		<input type="hidden" name="stato" value="<? echo $istanzaOggetto['stato']; ?>" />	
+		
+		
+		<div class="<? echo $classeForm; ?>">
+		
+			<? echo $divFormStart; ?>
+			
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-search"></span> Dati Generali</a></h4>
+				<div>			
+					<? creaFormTrasp('Nome da assegnare al ruolo','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true); ?>		
+					<? // scelta ente
+					if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+						creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+						creaFormTrasp('Ruolo di sistema condiviso (sovrascrive Ente di appartenenza)','casella', 'ruolo_sistema', '1', '', '','');
+					} else {
+						echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+					} ?>					
+					<? creaFormTrasp('Descrizione','areatesto', 'descrizione', '', $istanzaOggetto['descrizione'], '','input-xxlarge',0,'', 0, 0,true); ?>		
+				</div>
+				
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-cogs"></span> Funzioni di sistema</a></h4>
+				<div>
+				
+					<? creaFormTrasp('Accesso configurazione Ente','casella', 'admin', '1', $istanzaOggetto['admin'], '',''); ?>		
+					
+					<? 
+					if ($datiUser['permessi']==10 OR $aclTrasparenza['utenti'] == 2) {
+						creaFormTrasp('Gestione degli utenti','selezione', 'utenti', '0,1,2', $istanzaOggetto['utenti'], 'nessun accesso,gestione utenti ente,gestione utenti piattaforma','input-xlarge',0,'', 0, 0,true); 
+					} else {
+						creaFormTrasp('Gestione degli utenti','selezione', 'utenti', '0,1', $istanzaOggetto['utenti'], 'nessun accesso,gestione utenti ente','input-xlarge',0,'', 0, 0,true); 
+					}
+					?>
+					
+					<? 
+					if ($datiUser['permessi']==10 OR $aclTrasparenza['ruoli'] == 2) {
+						creaFormTrasp('Gestione dei profili ACL','selezione', 'ruoli', '0,1,2', $istanzaOggetto['ruoli'], 'nessun accesso,gestione profili ACL di ente,gestione profili ACL di piattaforma','input-xlarge',0,'', 0, 0,true); 
+					} else {
+						creaFormTrasp('Gestione dei profili ACL','selezione', 'ruoli', '0,1', $istanzaOggetto['ruoli'], 'nessun accesso,gestione profili ACL ','input-xlarge',0,'', 0, 0,true); 
+					}
+					?>
+					
+					<?
+					if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {
+						creaFormTrasp('Gestione dei workflow','casella', 'gestione_workflow', '1', $istanzaOggetto['gestione_workflow'], '','');
+					}
+					?>
+					
+				</div>
+				
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-briefcase"></span> Organizzazione dell'ente</a></h4>
+				<div>
+					<?
+					$arrayFunzioni = array();
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Strutture organizzative',
+						'nome' => 'strutture'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Personale dell\'ente',
+						'nome' => 'personale'
+					); 
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Tassi di assenza',
+							'nome' => 'tassiassenza'
+					);
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Commissioni e gruppi consiliari',
+						'nome' => 'commissioni'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Enti e societ&agrave; controllate',
+						'nome' => 'societa'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Procedimenti',
+						'nome' => 'procedimenti'
+					); 
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Patrimonio immobiliare',
+							'nome' => 'patrimonio_immobiliare'
+					);
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Canoni di locazione',
+							'nome' => 'canoni_locazione'
+					);
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Controlli e rilievi',
+							'nome' => 'controlli_rilievi'
+					);
+					tabellaPermessi($arrayFunzioni, 'organizzazione');
+					?>
+				</div>
+				
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-download"></span> Documenti e moduli</a></h4>	
+				<div>	
+					<?
+					$arrayFunzioni = array();
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Regolamenti',
+						'nome' => 'regolamenti'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Modulistica',
+						'nome' => 'modulistica'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Normativa',
+						'nome' => 'normativa'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Bilanci',
+						'nome' => 'bilanci'
+					); 
+					tabellaPermessi($arrayFunzioni, 'documentazione');
+					?>
+				</div>
+				
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-legal"></span> Atti e pubblicazioni</a></h4>
+				<div>			
+					<?
+					$arrayFunzioni = array();
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Elenco fornitori',
+						'nome' => 'fornitori'
+					); 
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Elenco stazioni appaltanti',
+							'nome' => 'stazioni'
+					);
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Bandi di Gara',
+						'nome' => 'bandigara'
+					);
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Atti delle amministrazioni',
+							'nome' => 'bandiatti'
+					);
+					$arrayFunzioni[] = array(
+						'etichetta' => 'URL per ANAC',
+						'nome' => 'avcp'
+					);
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Atti di programmazione',
+						'nome' => 'atti_programmazione'
+					);										
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Bandi di Concorso',
+						'nome' => 'bandiconcorso'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Sovvenzioni e vantaggi economici',
+						'nome' => 'sovvenzioni'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Incarichi e consulenze',
+						'nome' => 'incarichi'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Provvedimenti Amministrativi',
+						'nome' => 'provvedimenti'
+					); 
+					$arrayFunzioni[] = array(
+						'etichetta' => 'Oneri informativi',
+						'nome' => 'oneri'
+					); 
+					tabellaPermessi($arrayFunzioni, 'pubblicazioni');
+					?>
+				</div>
+				
+				<?
+				if(moduloAttivo('aggiornamenti') and false) {
+					?>
+					<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-book"></span> Atti di programmazione</a></h4>
+					<div>			
+						<?
+						$arrayFunzioni = array();
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Programma triennale dei lavori',
+							'nome' => 'programmazione3'
+						); 
+						tabellaPermessi($arrayFunzioni, 'attiprog');
+						?>
+					</div>
+					<?
+				}
+				if(moduloAttivo('elezioni-trasparenti') or $datiUser['permessi'] == 10) {
+				    ?>
+					
+					<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-book"></span> Elezioni trasparenti</a></h4>
+					<div>			
+						<?
+						$arrayFunzioni = array();
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Elezioni',
+							'nome' => 'elezioni'
+						); 
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Liste',
+							'nome' => 'elezioni_liste'
+						);
+						$arrayFunzioni[] = array(
+						    'etichetta' => 'Candidati Sindaci/Presidenti',
+						    'nome' => 'elezioni_candidati_sindaci'
+						);
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Candidati',
+							'nome' => 'elezioni_candidati'
+						);					
+						tabellaPermessi($arrayFunzioni, 'elezioni');
+						?>
+					</div>
+				
+				<?
+				}
+				if(moduloAttivo('anticorruzione') or $datiUser['permessi'] == 10) {
+					?>
+					
+					<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-book"></span> Anticorruzione</a></h4>
+					<div>			
+						<?
+						$arrayFunzioni = array();
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Esterni coinvolti nel piano anticorruzione',
+							'nome' => 'soggetti_esterni'
+						); 
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Rischi',
+							'nome' => 'rischi'
+						);
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Misure correttive',
+							'nome' => 'misure'
+						);					
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Modalità di attuazione della rotazione',
+							'nome' => 'rotazione'
+						); 
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Direttive interne anticorruzione',
+							'nome' => 'direttive'
+						);
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Piano anticorruzione',
+							'nome' => 'piani'
+						);  
+						tabellaPermessi($arrayFunzioni, 'anticorruzione');
+						?>
+					</div>
+				
+				<?
+				}
+				if(moduloAttivo('accessocivico') or $datiUser['permessi'] == 10) {
+					?>
+					<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-comments"></span> Accesso Civico</a></h4>
+					<div>			
+						<?
+						$arrayFunzioni = array();
+						$arrayFunzioni[] = array(
+							'etichetta' => 'Accesso civico',
+							'nome' => 'accessocivico'
+						);
+						tabellaPermessi($arrayFunzioni, 'accessocivico');
+						?>
+					</div>
+					<?
+				}
+				?>
+
+				<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-edit"></span> Contenuti trasparenza</a></h4>
+				
+				<div>
+					<? 
+					/*
+					$arrayFunzioni = array();
+					$arrayFunzioni[] = array(
+							'etichetta' => 'Pagine generiche',
+							'nome' => 'pagine'
+					);
+					tabellaPermessi($arrayFunzioni, 'contenuti');
+					*/
+					?>	
+					<? tabellaPermessiSezioni(); ?>
+
+					<div>						
+						<?
+						creaFormTrasp('Gestione immagini ed allegati','selezione', 'archiviomedia', '0,1,2', $istanzaOggetto['archiviomedia'], 'nessun accesso,gestione di tutti i files dell\'ente,gestione solo della cartella personale','input-xlarge',0,'', 0, 0,true);
+						
+						if(moduloAttivo('notifica_revisione_pagina')) {
+							creaFormTrasp('Gestione delle revisioni sulle pagine generiche','selezione', 'revisione_pagina', '0,1', $istanzaOggetto['revisione_pagina'], 'nessun accesso,accesso consentito','input-xlarge',0,'', 0, 0,true);
+						} else {
+							?>
+							<input type="hidden" id="revisione_pagina" name="revisione_pagina" value="<?php echo (isset($istanzaOggetto['revisione_pagina']) ? $istanzaOggetto['revisione_pagina'] : 0); ?>" />
+							<?
+						}
+						?>				
+					</div>
+				</div>
+				
+				<?
+				if(moduloAttivo('ealbo')) {
+					?>
+					<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-edit"></span>
+					<?
+					if($datiUser['id_ente_admin']==139){echo "Atti Amministrativi";}
+					else {echo "eALBO";}
+					?>
+					</a></h4>
+					<div>			
+						<? 
+						if($datiUser['id_ente_admin']==139){
+							creaFormTrasp('Importazione dati Atti Amministrativi','casella', 'ealbo_import', '1', $istanzaOggetto['ealbo_import'], '',''); 
+						} else {
+							creaFormTrasp('Importazione dati eALBO','casella', 'ealbo_import', '1', $istanzaOggetto['ealbo_import'], '',''); 
+						}
+						?>		
+					</div>
+					<?
+				} else {
+					?>
+					<input type="hidden" id="ealbo_import" name="ealbo_import" value="0" />
+					<?
+				}
+				?>
+
+			<? echo $divFormEnd; ?>	
+			
+		</div>
+		
+		<? if($azione != 'visualizza') { ?>
+			<p class="stdformbutton">
+				<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+			</p>
+		<? } ?>
+		
+	</form>
+</div>
+
+<a href="?menu=ruoli" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco ruoli</a> 

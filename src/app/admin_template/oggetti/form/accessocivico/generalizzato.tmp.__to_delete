@@ -1,0 +1,501 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		jQuery('textarea').each(function(index){
+			//CKEDITOR.replace(jQuery(this).attr('id'));
+		});
+		CKEDITOR.replaceClass = 'htmlEditor';
+		
+		jQuery.validator.addMethod("cfCheck", function(value) {
+			var regex = /^([A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([A-Za-z]{6}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([0-9]{11,11})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		}, 'Il codice fiscale/partita iva non è valido');
+		
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if(element.hasClass('cig-multipli')) {
+					error.appendTo( element.parents('.tabellaCig').parent() );
+				} else if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},
+			rules: {
+				<?
+				if(($datiUser['id_ente_admin']==35 OR $datiUser['id_ente_admin']==142) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+					echo "id_proprietario: \"required\",";
+				}
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>
+				data_richiestaVis: "required",
+				oggetto: "required",
+				tipologia: "required",
+				modo_richiesta: "required",
+				stato_pratica: "required",
+				richiesta: {
+					required: function(textarea) {
+						CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+						var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+						return editorcontent.length === 0;
+					}
+				},
+				richiedente_ragsociale: "required",
+				richiedente_cf: {
+					required: true,
+					cfCheck: true
+				},
+				richiedente_email: {
+					required: true,
+					email: true
+				},
+				richiedente_telefono: "required",
+				oggetto_registro: "required",
+				controinteressato_cf: {
+					cfCheck: true
+				},
+				controinteressato_email: {
+					email: true
+				}
+			},
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				}
+				?>
+				data_richiestaVis: "Devi inserire la data della richiesta",
+				oggetto: "Devi inserire l'oggetto",
+				tipologia: "Devi selezionare la tipologia",
+				modo_richiesta: "Devi selezionare il canale della richeista",
+				stato_pratica: "Devi selezionare lo stato della pratica",
+				richiesta: "Devi inserire la richiesta",
+				richiedente_ragsociale: "Devi inserire il cognome e nome/ragione sociale del richiedente",
+				richiedente_cf: {
+					required: "Devi inserire il codice fiscale/partita iva del richiedente"
+				},
+				richiedente_email: {
+					required: "Devi inserire l'indirizzo email del richiedente",
+					email: "Devi inserire un indirizzo email valido",
+				},
+				richiedente_telefono: "Devi inserire il telefono del richiedente",
+				oggetto_registro: "Devi inserire l'oggetto per il registro accessi",
+				controinteressato_email: {
+					email: "Devi inserire un indirizzo email valido",
+				}
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					tab = (validator.errorList[0].element.closest('.tab-pane').id);
+					if(tab != '') {
+						jQuery('#a_'+tab).tab('show');
+					}
+				}
+			}
+		});
+
+		jQuery(document).on('change', '#data_richiestaVis', function() {
+			jQuery('#data_richiestaDummyVis').val(jQuery('#data_richiestaVis').val());
+			jQuery('#data_richiestaDummy').val(jQuery('#data_richiestaVis').val());
+		});
+		jQuery(document).on('change', '#data_esitoVis', function() {
+			jQuery('#data_esitoDummyVis').val(jQuery('#data_esitoVis').val());
+			jQuery('#data_esitoDummy').val(jQuery('#data_esitoVis').val());
+		});
+		jQuery('#data_richiestaVis').datepicker({
+			onSelect: function() {
+				return jQuery(this).trigger('change');
+			}
+		});
+		jQuery('#data_esitoVis').datepicker({
+			onSelect: function() {
+				return jQuery(this).trigger('change');
+			}
+		});
+	});
+	
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Richieste di accesso civico</a> 
+<? } ?>
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;<? if ($id) { echo "Modifica"; } else {  echo "Inserimento"; } ?></a>
+			<li class="active">
+				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Dati generali</a>
+			</li>
+			<li>
+				<a id="a_richiedente_tab" data-toggle="tab" href="#richiedente_tab" role="tab">Richiedente</a>
+			</li>
+			<li>
+				<a id="a_controinteressato_tab" data-toggle="tab" href="#controinteressato_tab" role="tab">Controinteressato</a>
+			</li>
+			<li>
+				<a id="a_registro_tab" data-toggle="tab" href="#registro_tab" role="tab">Registro accessi</a>
+			</li>
+			<li>
+				<a id="a_step_tab" data-toggle="tab" href="#step_tab" role="tab">Eventi pratica</a>
+			</li>
+			<li>
+				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Allegati</a>
+			</li>
+		</ul>
+	</div>
+</div>
+
+<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin_etrasparenza.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>">
+
+<div class="tab-content">
+
+<div class="tab-pane active widgetbox box-inverse" id="dati_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni sulla richiesta
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./etrasparenza/admin_template/oggetti/info_form.tmp'); ?>
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			
+			creaFormTrasp('Numero protocollo','testo', 'num_protocollo', '', $istanzaOggetto['num_protocollo'], '','input-large',0,'', 0, 0);
+				
+			creaFormTrasp('Data protocollo','data', 'data_protocollo', '', $istanzaOggetto['data_protocollo'], '','',0,'', 0, 0);
+			?>
+			
+			<?
+			if(!$id) {
+				$istanzaOggetto['codice_richiesta'] = $idEnte.'-'.date('Yz-His').'-'.rand(1000000,9999999);
+				$istanzaOggetto['tipologia'] = 'generalizzato';
+				$istanzaOggetto['stato_pratica'] = 'in corso';
+			}
+			
+			if(!moduloAttivo('solo_accessocivico')) {
+				creaFormTrasp('Struttura coinvolta','struttura', 'id_struttura', '', $istanzaOggetto['id_struttura'], '','input-xxlarge');
+			
+				creaFormTrasp('Referente pratica','referente', 'id_gestore', '', $istanzaOggetto['id_gestore'], '','input-xxlarge');
+			}
+			
+			creaFormTrasp('Data richiesta','data', 'data_richiesta', '', $istanzaOggetto['data_richiesta'], '','',0,'', 0, 0,true, false);
+			
+			creaFormTrasp('Data richiesta di riesame','data', 'data_riesame', '', $istanzaOggetto['data_riesame'], '','',0,'', 0, 0);
+			
+			creaFormTrasp('Stato pratica','testo', 'stato_pratica', '', $istanzaOggetto['stato_pratica'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+			creaFormTrasp('Codice richiesta','testo', 'codice_richiesta', '', $istanzaOggetto['codice_richiesta'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+			creaFormTrasp('Tipologia accesso','testo', 'tipologia', '', $istanzaOggetto['tipologia'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+			creaFormTrasp('Canale richiesta','selezione', 'modo_richiesta', 'posta,fax,sportello dell\'ufficio,via telematica,web,identificazione SPID/CIE/CNS,richiesta sottoscritta,PEC', $istanzaOggetto['modo_richiesta'], '','input-large',0,'', 0, 0,true);
+			
+			creaFormTrasp('Data conclusione/decisione','data', 'data_esito', '', $istanzaOggetto['data_esito'], '','',0,'', 0, 0);
+			?>
+			
+			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true, false); ?>
+			
+			<? creaFormTrasp('Richiesta','html', 'richiesta', '', $istanzaOggetto['richiesta'], '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Esito','html', 'esito', '', $istanzaOggetto['esito'], '','',0,'', 0, 0); ?>
+			
+			<? creaFormTrasp('Dettagli richiesta di riesame','html', 'richiesta_riesame', '', $istanzaOggetto['richiesta_riesame'], '','',0,'', 0, 0); ?>
+			
+	</div>
+</div>
+
+
+
+
+
+<div class="tab-pane widgetbox box-inverse" id="controinteressato_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni sul soggetto controinteressato
+	</h4>
+
+	<div class="widgetcontent wc1">
+	
+		<?
+		if(!$id) {
+			?>
+			<div class="alert alert-info alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					Una volta caricata la richiesta, sar&agrave; possibile inviare comunicazioni via email al soggetto controinteressato
+				</p>
+			</div>
+			<?
+		}
+		?>
+		
+			<?
+			creaFormTrasp('Cognome e nome/Ragione sociale','testo', 'controinteressato_ragsociale', '', $istanzaOggetto['controinteressato_ragsociale'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Codice fiscale/Partita IVA','testo', 'controinteressato_cf', '', $istanzaOggetto['controinteressato_cf'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Email','testo', 'controinteressato_email', '', $istanzaOggetto['controinteressato_email'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Telefono','testo', 'controinteressato_telefono', '', $istanzaOggetto['controinteressato_telefono'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Altri dettagli/recapiti','html', 'controinteressato_dettagli', '', $istanzaOggetto['controinteressato_dettagli'], '','',0,'', 0, 0);
+			
+			if($id) {
+				creaFormTrasp('Comunicazioni da inviare/inviate','jtable', '__id_comunicazioni_controinteressato', '', $istanzaOggetto['__id_comunicazioni_controinteressato'], '','', 0, '', 0, 0, false, false, array('menu' => '__id_comunicazioni_controinteressato', 'id_ogg' => $idOggetto, 'id_doc' => $id, 'idComunicazione' => $id, 'nome_ogg' => $menuSecondario, 'idAllegatoDinamico' => $idAllegatoDinamico));
+			}
+			?>
+			
+	</div>
+</div>
+
+
+<div class="tab-pane widgetbox box-inverse" id="registro_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati per la pubblicazione del registro degli accessi
+	</h4>
+
+	<div class="widgetcontent wc1">
+	
+		<div class="alert alert-info alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+			<p style="margin: 8px 0;color:#646464;">
+				I dati di questa scheda saranno pubblicati e visibili da tutti i visitatori del portale web
+			</p>
+		</div>
+	
+			<? creaFormTrasp('Data richiesta','data', 'data_richiestaDummy', '', $istanzaOggetto['data_richiesta'], '','',0,'', 0, 0,true, false, array('disabled' => 'disabled')); ?>
+			
+			<? creaFormTrasp('Data della decisione','data', 'data_esitoDummy', '', $istanzaOggetto['data_esito'], '','',0,'', 0, 0,true, false, array('disabled' => 'disabled')); ?>
+			
+			<?
+			$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Copia Oggetto della richiesta','icona'=>'iconfa-copy', 'id_campo'=>'oggetto_registro', 'pulsanteCustom'=>'copiaOggettoAccessoCivico', 'class' => ''));
+			creaFormTrasp('Oggetto','testo', 'oggetto_registro', '', $istanzaOggetto['oggetto_registro'], '','input-xxlarge',0,'', 0, 0,true, false);
+			?>
+			
+			<?
+			$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Copia Esito della richiesta','icona'=>'iconfa-copy', 'id_campo'=>'', 'pulsanteCustom'=>'copiaEsitoAccessoCivico', 'class' => 'btn-2-area-html', 'style' => 'margin-left: 240px;'));
+			creaFormTrasp('Esito','html', 'esito_registro', '', $istanzaOggetto['esito_registro'], '','',0,'', 0, 0);
+			?>
+			
+	</div>
+</div>
+
+
+<div class="tab-pane widgetbox box-inverse" id="step_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Eventi della pratica
+	</h4>
+
+	<div class="widgetcontent wc1">
+	
+		<? creaFormTrasp('Eventi della pratica','jtable', 'eventi_pratica', '', $istanzaOggetto['eventi_pratica'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 61, 'menu' => 'eventi_pratica')); ?>
+		
+	</div>
+</div>
+
+
+<div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Allegati
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?php
+		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
+		?>
+		
+	</div>
+</div>
+
+</div>
+
+</form>
+
+<p class="stdformbutton">
+	
+	<?
+	if($istanzaOggetto['stato_pratica'] != 'conclusa') {
+		?>
+		<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva dati</a>
+		<?
+	} else if($istanzaOggetto['stato_pratica'] == 'conclusa') {
+		?>
+		<a href="javascript:riesame();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva e Richiedi riesame</a>
+		<?
+	} 
+	?>
+	
+	<?
+	if($id and $istanzaOggetto['stato_pratica'] == 'in corso') {
+		?>
+		<button onclick="concludi();" class="btn btn-large btn-primary">Salva e Concludi pratica</button>
+		<?
+	} 
+	?>
+	
+</p>
+<script type="text/javascript">
+	function concludi() {
+		if(jQuery('#data_esitoVis').val() == '' || jQuery('#data_esito').val() == '') {
+			jQuery('<div />').html("Non &egrave; stata inserita la <strong>Data conclusione/decisione</strong>").dialog({
+		        title: 'Attenzione',
+		        modal: true, resizable: false, draggable: false,
+		        width: '600',
+		        close: function() {
+		        	jQuery('#a_dati_tab').tab('show');
+		            jQuery(this).dialog('destroy').remove();
+		        },
+		        buttons: [{
+		            text: "Chiudi",
+		            class: 'btn btn-primary',
+		            click: function() {
+		            	jQuery('#a_dati_tab').tab('show');
+		            	jQuery(this).dialog("close");
+		            }
+		        }]
+			});
+			return;
+		}
+		//verifica esito
+		CKEDITOR.instances['esito'].updateElement(); // aggiorno textarea prima del controllo
+		var editorcontent = document.getElementById('esito').value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+		if(editorcontent.length === 0) {
+			jQuery('<div />').html("Non &egrave; stato inserito l'<strong>Esito/decisione</strong> della richiesta").dialog({
+		        title: 'Attenzione',
+		        modal: true, resizable: false, draggable: false,
+		        width: '600',
+		        close: function() {
+		        	jQuery('#a_dati_tab').tab('show');
+		            jQuery(this).dialog('destroy').remove();
+		        },
+		        buttons: [{
+		            text: "Chiudi",
+		            class: 'btn btn-primary',
+		            click: function() {
+		            	jQuery('#a_dati_tab').tab('show');
+		            	jQuery(this).dialog("close");
+		            }
+		        }]
+			});
+			return;
+		}
+		//verifica esito_registro
+		CKEDITOR.instances['esito_registro'].updateElement(); // aggiorno textarea prima del controllo
+		var editorcontent = document.getElementById('esito_registro').value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+		if(editorcontent.length === 0) {
+			jQuery('<div />').html("Non &egrave; stato inserito l'<strong>Esito/decisione</strong> per il registro").dialog({
+		        title: 'Attenzione',
+		        modal: true, resizable: false, draggable: false,
+		        width: '600',
+		        close: function() {
+		        	jQuery('#a_registro_tab').tab('show');
+		            jQuery(this).dialog('destroy').remove();
+		        },
+		        buttons: [{
+		            text: "Chiudi",
+		            class: 'btn btn-primary',
+		            click: function() {
+		            	jQuery('#a_registro_tab').tab('show');
+		            	jQuery(this).dialog("close");
+		            }
+		        }]
+			});
+			return;
+		}
+		jQuery('<div />').html("Stai per concludere la pratica. Hai inviato una comunciazione al richiedente?").dialog({
+	        title: 'Conclusione pratica',
+	        modal: true, resizable: false, draggable: false,
+	        width: '600',
+	        close: function() {
+	            jQuery(this).dialog('destroy').remove();
+	        },
+	        buttons: [{
+	            text: "Annulla",
+	            class: 'btn btn-primary',
+	            click: function() {
+	            	jQuery(this).dialog("close");
+	            }
+	        },
+	        {
+	            text: "Concludi",
+	            class: 'btn btn-primary',
+	            click: function() {
+	            	jQuery('#stato_pratica').val('conclusa');
+	            	inviaForm=true;
+	            	jQuery(this).dialog("close");
+	            	jQuery('#formOggetto').submit();
+	            }
+	        }]
+	    });
+	}
+	function riesame() {
+		if(jQuery('#data_riesameVis').val() == '' || jQuery('#data_riesame').val() == '') {
+			jQuery('<div />').html("Non &egrave; stata inserita la <strong>Data richiesta di riesame</strong>").dialog({
+		        title: 'Attenzione',
+		        modal: true, resizable: false, draggable: false,
+		        width: '600',
+		        close: function() {
+		        	jQuery('#a_dati_tab').tab('show');
+		            jQuery(this).dialog('destroy').remove();
+		        },
+		        buttons: [{
+		            text: "Chiudi",
+		            class: 'btn btn-primary',
+		            click: function() {
+		            	jQuery('#a_dati_tab').tab('show');
+		            	jQuery(this).dialog("close");
+		            }
+		        }]
+			});
+			return;
+		}
+		jQuery('#stato_pratica').val('richiesto riesame');
+    	inviaForm=true;
+    	jQuery('#formOggetto').submit();
+	}
+</script>

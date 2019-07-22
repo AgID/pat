@@ -4401,6 +4401,139 @@ CREATE TABLE IF NOT EXISTS `utenti` (
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
 
+
+CREATE TABLE `oggetto_allegati` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`stato` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`stato_workflow` VARCHAR(50) NOT NULL DEFAULT 'finale',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`permessi_lettura` ENUM('R','H','N/A') NOT NULL DEFAULT 'N/A',
+	`tipo_proprietari_lettura` ENUM('tutti','utente','gruppo') NULL DEFAULT 'tutti',
+	`id_proprietari_lettura` VARCHAR(255) NOT NULL DEFAULT '-1',
+	`permessi_admin` ENUM('R','H','N/A') NOT NULL DEFAULT 'N/A',
+	`tipo_proprietari_admin` ENUM('tutti','utente','gruppo') NULL DEFAULT 'tutti',
+	`id_proprietari_admin` VARCHAR(255) NOT NULL DEFAULT '-1',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`ultima_modifica` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_sezione` MEDIUMINT(8) NOT NULL DEFAULT '-1',
+	`id_lingua` MEDIUMINT(8) UNSIGNED NOT NULL DEFAULT '0',
+	`numero_letture` MEDIUMINT(8) UNSIGNED NOT NULL DEFAULT '0',
+	`template` VARCHAR(24) NOT NULL DEFAULT 'istanza',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_oggetto` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_documento` MEDIUMINT(9) NULL DEFAULT '0',
+	`__id_allegato_istanza` VARCHAR(255) NULL DEFAULT '',
+	`__temporaneo` VARCHAR(255) NULL DEFAULT '1',
+	`nome` VARCHAR(255) NULL DEFAULT '',
+	`file_allegato` TEXT NULL,
+	`ordine` MEDIUMINT(9) NULL DEFAULT '1',
+	`omissis` MEDIUMINT(9) NULL DEFAULT '0',
+	PRIMARY KEY (`id`),
+	INDEX `stato` (`stato`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `ultima_modifica` (`ultima_modifica`),
+	INDEX `id_sezione` (`id_sezione`),
+	INDEX `id_lingua` (`id_lingua`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+CREATE TABLE `oggetto_allegati_backup` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`id_riferimento` INT(11) NOT NULL DEFAULT '0',
+	`pubblicata` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`bozza` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_oggetto` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_documento` MEDIUMINT(9) NULL DEFAULT '0',
+	`__id_allegato_istanza` VARCHAR(255) NULL DEFAULT '',
+	`__temporaneo` VARCHAR(255) NULL DEFAULT '1',
+	`nome` VARCHAR(255) NULL DEFAULT '',
+	`file_allegato` TEXT NULL,
+	`ordine` MEDIUMINT(9) NULL DEFAULT '1',
+	`omissis` MEDIUMINT(9) NULL DEFAULT '0',
+	PRIMARY KEY (`id`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `id_riferimento` (`id_riferimento`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+CREATE TABLE `oggetto_allegati_workflow` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`id_riferimento` INT(11) NOT NULL DEFAULT '0',
+	`pubblicata` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`bozza` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_oggetto` MEDIUMINT(9) NULL DEFAULT '0',
+	`id_documento` MEDIUMINT(9) NULL DEFAULT '0',
+	`__id_allegato_istanza` VARCHAR(255) NULL DEFAULT '',
+	`__temporaneo` VARCHAR(255) NULL DEFAULT '1',
+	`nome` VARCHAR(255) NULL DEFAULT '',
+	`file_allegato` TEXT NULL,
+	`ordine` MEDIUMINT(9) NULL DEFAULT '1',
+	`omissis` MEDIUMINT(9) NULL DEFAULT '0',
+	PRIMARY KEY (`id`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `id_riferimento` (`id_riferimento`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+
+
+CREATE TABLE `oggetto_altri_contenuti` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`stato` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`stato_workflow` VARCHAR(50) NOT NULL DEFAULT 'finale',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`permessi_lettura` ENUM('R','H','N/A') NOT NULL DEFAULT 'N/A',
+	`tipo_proprietari_lettura` ENUM('tutti','utente','gruppo') NULL DEFAULT 'tutti',
+	`id_proprietari_lettura` VARCHAR(255) NOT NULL DEFAULT '-1',
+	`permessi_admin` ENUM('R','H','N/A') NOT NULL DEFAULT 'N/A',
+	`tipo_proprietari_admin` ENUM('tutti','utente','gruppo') NULL DEFAULT 'tutti',
+	`id_proprietari_admin` VARCHAR(255) NOT NULL DEFAULT '-1',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`ultima_modifica` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_sezione` MEDIUMINT(8) NOT NULL DEFAULT '-1',
+	`id_lingua` MEDIUMINT(8) UNSIGNED NOT NULL DEFAULT '0',
+	`numero_letture` MEDIUMINT(8) UNSIGNED NOT NULL DEFAULT '0',
+	`template` VARCHAR(24) NOT NULL DEFAULT 'istanza',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`titolo` VARCHAR(255) NULL DEFAULT '',
+	`contenuto` TEXT NULL,
+	PRIMARY KEY (`id`),
+	INDEX `stato` (`stato`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `ultima_modifica` (`ultima_modifica`),
+	INDEX `id_sezione` (`id_sezione`),
+	INDEX `id_lingua` (`id_lingua`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+CREATE TABLE `oggetto_altri_contenuti_backup` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`id_riferimento` INT(11) NOT NULL DEFAULT '0',
+	`pubblicata` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`bozza` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`titolo` VARCHAR(255) NULL DEFAULT '',
+	`contenuto` TEXT NULL,
+	PRIMARY KEY (`id`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `id_riferimento` (`id_riferimento`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+CREATE TABLE `oggetto_altri_contenuti_workflow` (
+	`id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+	`id_riferimento` INT(11) NOT NULL DEFAULT '0',
+	`pubblicata` TINYINT(1) UNSIGNED NOT NULL DEFAULT '1',
+	`bozza` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+	`id_proprietario` INT(11) NOT NULL DEFAULT '0',
+	`data_creazione` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+	`id_ente` MEDIUMINT(9) NULL DEFAULT '0',
+	`titolo` VARCHAR(255) NULL DEFAULT '',
+	`contenuto` TEXT NULL,
+	PRIMARY KEY (`id`),
+	INDEX `data_creazione` (`data_creazione`),
+	INDEX `id_riferimento` (`id_riferimento`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 ROW_FORMAT=DYNAMIC;
+
+
 -- L’esportazione dei dati non era selezionata.
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;

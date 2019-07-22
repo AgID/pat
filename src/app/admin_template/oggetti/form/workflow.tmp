@@ -1,0 +1,554 @@
+<style>
+  .column {
+    padding-bottom: 10px;
+  }
+  .portlet {
+    margin: 0 1em 1em 0;
+    padding: 0.3em;
+  }
+  .portlet-header {
+    padding: 0.2em 0.3em;
+    margin-bottom: 0.5em;
+    position: relative;
+  }
+  .portlet-header a {
+    color: #ffffff;
+    cursor: pointer;
+  }
+  .portlet-toggle {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    margin-top: -6px;
+    cursor: pointer;
+  }
+  .portlet-content {
+    padding: 0.4em;
+  }
+  .portlet-placeholder {
+    border: 1px dotted black;
+    margin: 0 1em 1em 0;
+    height: 50px;
+  }
+  .sortWF {
+  	margin-left: 240px;
+  }
+</style>
+<script type="text/javascript">	
+
+	function inArray(needle, haystack) {
+	    var length = haystack.length;
+	    for(var i = 0; i < length; i++) {
+	        if(haystack[i] == needle) return true;
+	    }
+	    return false;
+	}
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		function verificaPagineGeneriche() {
+			console.log('verificaPagineGeneriche');
+			if(jQuery("#id_oggetto option[value='33']").is(":selected")) {
+				jQuery(".cont_box_id_pagine_generiche").show('fast');
+			} else {
+				jQuery(".cont_box_id_pagine_generiche").hide('fast');
+				jQuery("#id_pagine_generiche").val('').trigger("chosen:updated");
+			}
+			jQuery("#id_pagine_generiche").trigger("liszt:updated");
+			jQuery("#id_pagine_generiche").trigger("chosen:updated");
+		}
+		
+
+		// necessario per i campi file
+		////jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			rules: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>
+				nome: "required",
+				"id_oggetto[]": "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire il fornitore\",";
+				} ?>
+				nome: "Devi inserire il nome del workflow",
+				"id_oggetto[]": "Devi selezionare l'archivio"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}, 
+			
+			submitHandler: function(form) {
+				//altre validazioni qui
+				valido = true;
+				if(jQuery("#id_oggetto").chosen().val() != null && jQuery("#id_oggetto").chosen().val().length > 0) {
+					console.log(jQuery("#id_oggetto").chosen().val());
+					v = jQuery("#id_oggetto").chosen().val();
+					v.forEach(function(entry) {
+						console.log('idogg: '+entry);
+						if(entry != '' && entry == 33) {
+							p = jQuery('#id_pagine_generiche').val();
+							val = false;
+							for (i in p) {
+								if(p[i] != '') {
+									val = true;
+								}
+							}
+							if(!val) {
+								valido = false;
+								alert('Errore: selezionare le pagine generiche');
+							}
+					    }
+					});
+				}
+				if(!valido) {
+					return false;
+				}
+				console.log('verifica utenti');
+				console.log(jQuery('#utenti').val());
+				if(jQuery('#utenti').val() == null) {
+					alert('Errore: selezionare almeno un utente iniziale');
+					valido = false;
+					return false;
+				} else {
+					console.log(jQuery('#utenti').val());
+					jQuery.ajax({
+						type: 'GET',
+						url: 'ajax.php?azione=verificaUtentiWorkflow'+
+								'&utenti='+jQuery('#utenti').val()+
+								'&id_oggetti='+jQuery('#id_oggetto').val()+
+								'&id=<? echo $id; ?>'+
+								'&id_pagine_generiche='+jQuery('#id_pagine_generiche').val(),
+						dataType: 'json',
+						async: false,
+						success: function(response) {
+							console.log(this.url);
+							if(response.esito == 'ko') {
+								//alert('Errore: sono già presenti workflow di questo archivio per uno o più utenti iniziali selezionati [Utenti: '+response.utenti+']');
+								jQuery('<div />').html('<ul>'+response.log+'</ul>').dialog({
+							        title: 'ATTENZIONE',
+							        modal: true, resizable: false, draggable: false,
+							        close: function() {
+							            jQuery(this).dialog('destroy').remove();
+							        },
+							        buttons: [{
+							            text: "Chiudi",
+							            click: function() {
+							            	jQuery(this).dialog("close");
+							            }}]
+							    });
+								valido = false;
+								return false;
+							}
+						},
+						error: function(response) {
+							alert('Errore: Si e\' verificato un errore riguardo la tua connessione');
+							valido = false;
+							console.log(response);
+						}
+					});
+					var utentiPresenti = jQuery("#utenti").val();
+					jQuery("input[name='id_wf[]']").each(function(index) {
+						utentiWf = jQuery( '#utenti_wf_' + jQuery(this).val() ).val();
+						if(utentiWf == null) {
+							alert("Attenzione: selezionare uno o più utenti per lo stato "+jQuery("input[name='nome_wf[]']")[index].value);
+							valido = false;
+							return false;
+						} else {
+							for(i=0 ; i<utentiWf.length ; i++) {
+								if( inArray(utentiWf[i], utentiPresenti) ) {
+									alert("Errore: l'utente "+jQuery("#"+jQuery(this).val()+" option[value='"+utentiWf[i]+"']").text()+" è presente più volte per questo workflow");
+									valido = false;
+									return false;
+								} else {
+									utentiPresenti.push(utentiWf[i]);
+								}
+							}
+						}
+					});
+					if(jQuery("input[name='id_wf[]']").length == 0 && jQuery("#id_utenti_finali :selected").length == 0) {
+						alert("Attenzione: inserire almeno uno stato intermedio di workflow oppure almeno un utente per la ricezione della notifica nello stato finale");
+						valido = false;
+					}
+				}
+				if(valido) {
+					form.submit();
+				}
+			}
+
+		});
+
+		jQuery("#id_oggetto").change(function(){
+			verificaPagineGeneriche();
+		});
+		verificaPagineGeneriche();
+		
+		jQuery( ".column" ).sortable({
+	      connectWith: ".column",
+	      handle: ".portlet-header",
+	      cancel: ".portlet-toggle",
+	      placeholder: "portlet-placeholder ui-corner-all",
+	      axis: "y",
+	      change: function( event, ui) {
+	      	console.log(jQuery(".column").sortable('serialize'));
+	      }
+	    });
+	 
+	    jQuery( ".portlet" )
+	    	.addClass( "ui-widget ui-widget-content ui-helper-clearfix ui-corner-all" )
+	      	.find( ".portlet-header" )
+	        	.addClass( "ui-widget-header ui-corner-all" );
+	 
+	    jQuery(".btnAddWF").click(function (e) {
+		    e.preventDefault();
+		    id = makeid(20);
+		    var nome = jQuery("input[name='addWF']").val();
+		    
+		    if(nome.trim() != '') {
+			    jQuery.ajax({
+					type: 'GET',
+					url: 'ajax.php?azione=getCampoWorkflow&id='+id+'&ide=<? echo $idEnteAdmin; ?>&nome='+nome,
+					dataType: 'json',
+					success: function(response){
+						jQuery(".column").append(response.campo);
+						jQuery("#"+id+" .chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+						jQuery(".column").sortable('refresh');
+					    console.log(jQuery(".column").sortable('serialize'));
+					    jQuery("input[name='addWF']").val('');
+					},
+					error: function() {
+						alert('Si e\' verificato un errore riguardo la tua connessione');
+					}
+				});
+		    } else {
+		    	alert('Inserire il nome del nuovo stato');
+		    	jQuery("input[name='addWF']").focus();
+		    }
+		});
+
+	    jQuery(document).on("click", ".modifica-nome-stato", function (e) {
+		    e.preventDefault();
+		    idEl = jQuery(this).attr('data-id');
+		    jQuery('#nome_wf_'+idEl).show();
+		    jQuery('#label_nome_wf_'+idEl).show();
+		    jQuery('#btn_salva_nome_wf_'+idEl).show();
+		});
+	    jQuery(document).on("click", ".conferma-modifica-nome-stato", function (e) {
+		    e.preventDefault();
+		    idEl = jQuery(this).attr('data-id');
+		    jQuery('#nome_wf_'+idEl).hide();
+		    jQuery('#label_nome_wf_'+idEl).hide();
+		    jQuery('#btn_salva_nome_wf_'+idEl).hide();
+		    jQuery('#header_nome_wf_'+idEl).html(jQuery('#nome_wf_'+idEl).val());
+		    console.log('nuovo nome: '+jQuery('#nome_wf_'+idEl).val());
+		});
+		
+		jQuery(document).on("click", ".rimuovi-stato", function (e) {
+		    e.preventDefault();
+		    idRem = jQuery(this).attr('data-id');
+		    jQuery.ajax({
+				type: 'GET',
+				url: 'ajax.php?azione=verificaStatoWorkflow&id='+idRem+'&ide=<? echo $idEnteAdmin; ?>&id_oggetto='+jQuery('#id_oggetto').val(),
+				dataType: 'json',
+				success: function(response){
+					if(response.esito == 'ko') {
+						var stati_intermedi = jQuery('#stati_intermedi').children();
+						var i;
+						var prossimo_stato = '';
+						for(i = 0; i < stati_intermedi.length; i++) {
+							if(jQuery(stati_intermedi[i]).attr('id') == idRem) {
+								try {
+									prossimo_stato = jQuery(stati_intermedi[i+1]).attr('id');
+								} catch (err) {
+									prossimo_stato = 'finale';
+								}
+							}
+						}
+						if(prossimo_stato == '' || prossimo_stato == null || prossimo_stato == 'undefined') {
+							prossimo_stato = 'finale';
+						}
+						if(prossimo_stato == 'finale') {
+							prossimo_stato_text = 'finale';
+						} else {
+							prossimo_stato_text = jQuery('#'+prossimo_stato).attr('data-id');
+						}
+						testo = 'Nel sistema sono presenti '+response.records+' elementi dell\'archivio <strong>'+jQuery('#id_oggetto option:selected').text()+'</strong> nello stato che si sta eliminando.<br /><br />';
+						testo += 'Continuando con l\'eliminazione, lo stato di questi elementi verrà impostato a <strong>'+prossimo_stato_text+'</strong>.<br /><br />';
+						testo += '<strong>L\'operazione sarà immediata ed irreversibile</strong>.<br /><br />Continuare con l\'eliminazione?';
+						jQuery('<div />').html(testo).dialog({
+					        title: 'ATTENZIONE',
+					        modal: true, resizable: false, draggable: false,
+					        close: function() {
+					            jQuery(this).dialog('destroy').remove();
+					        },
+					        buttons: [{
+					            text: "Elimina definitivamente",
+					            click: function() {
+					            	eliminaStato(idRem, prossimo_stato);
+					                jQuery(this).dialog("close");
+					            }},
+					            {
+					            text: "Annulla",
+					            click: function() {
+					            	jQuery(this).dialog("close");
+					            }}]
+					    });
+					} else {
+						jQuery('<div />').html('Eliminare il presente stato?').dialog({
+					        title: 'Conferma eliminazione',
+					        modal: true, resizable: false, draggable: false,
+					        close: function() {
+					            jQuery(this).dialog('destroy').remove();
+					        },
+					        buttons: [{
+					            text: "Elimina definitivamente",
+					            click: function() {
+					            	jQuery('#'+idRem).remove();
+					    			jQuery(".column").sortable('refresh');
+					                jQuery(this).dialog("close");
+					            }},
+					            {
+					            text: "Annulla",
+					            click: function() {
+					            	jQuery(this).dialog("close");
+					            }}]
+					    });
+					}
+				},
+				error: function() {
+					alert('Si e\' verificato un errore riguardo la tua connessione');
+				}
+			});
+		});
+		
+	});
+	
+	function eliminaStato(idRem, prossimo_stato) {
+		console.log('TODO: chiamata ajax che fa l\'update di tutti i record nello stato idRem al successivo stato.');
+		jQuery.ajax({
+			type: 'GET',
+			url: 'ajax.php?azione=eliminaStatoWorkflow&id='+idRem+'&ide=<? echo $idEnteAdmin; ?>&id_oggetto='+jQuery('#id_oggetto').val()+'&id_next='+prossimo_stato,
+			dataType: 'json',
+			success: function(response){
+				if(response.esito == 'ko') {
+					testo = 'Si è verificato un errore. Contattare l\'amministratore del sito.';
+					jQuery('<div />').html(testo).dialog({
+				        title: 'ERRORE',
+				        modal: true, resizable: false, draggable: false,
+				        close: function() {
+				            jQuery(this).dialog('destroy').remove();
+				        },
+				        buttons: [{
+				            text: "Chiudi",
+				            click: function() {
+				            	jQuery(this).dialog("close");
+				            }}]
+				    });
+				} else {
+					jQuery('<div />').html('Eliminazione avvenuta con successo.').dialog({
+				        title: 'Successo',
+				        modal: true, resizable: false, draggable: false,
+				        close: function() {
+				            jQuery(this).dialog('destroy').remove();
+				        },
+				        buttons: [{
+				            text: "Chiudi",
+				            click: function() {
+				            	jQuery('#'+idRem).remove();
+				    			jQuery(".column").sortable('refresh');
+				                jQuery(this).dialog("close");
+				            }}]
+				    });
+				}
+			},
+			error: function() {
+				alert('Si e\' verificato un errore riguardo la tua connessione');
+			}
+		});
+	}
+	
+	function makeid(num) {
+    	var text = "";
+	    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	    for( var i=0; i < num; i++ ) {
+	        text += possible.charAt(Math.floor(Math.random() * possible.length));
+		}
+	    return text;
+	}
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco workflow</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> workflow
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>
+			<?
+			creaFormTrasp('Nome','testo', 'nome', '', $istanzaOggetto['nome'], '','input-xxlarge',0,'', 0, 0,true);
+			
+			
+			$etiObj = array();
+			$idObj = array();
+			foreach((array)$oggettiTrasparenza as $obj) {
+				if($obj['workflow']) {
+					$etiObj[] = $obj['nomeMenu'];
+					$idObj[] = $obj['idOggetto'];
+				}
+			}
+			$etiObj[] = 'Pagine generiche';
+			$idObj[] = 33;
+			
+			$disabilitato = 0;
+			if($id) {
+				$disabilitato = 1;	
+			}
+			creaFormTrasp('Archivio','selezioni', 'id_oggetto', implode(',', $idObj), $istanzaOggetto['id_oggetto'], implode(',', $etiObj),'input-xxlarge',1,'', 0, false,true);
+			
+			creaFormTrasp('Seleziona pagine generiche','paginegeneriche_multi', 'id_pagine_generiche', '', $istanzaOggetto['id_pagine_generiche'], '','input-xxlarge',true,'', 0, 0,true);
+			
+			creaFormTrasp('Utenti iniziali','utenti', 'utenti', '', $istanzaOggetto['utenti'], '','input-xxlarge',0,'', 0, 0,true);
+			?>
+			
+			<div class="par control-group">
+				<label class="control-label" for="workflow"><span class="etichettaLabel">Definizione del workflow</span></label>
+				<div class="controls">
+					<div class="sortWF">
+					
+						<div>
+							Nota: puoi aggiungere uno o pi&ugrave; stati di workflow. Una volta creati, gli stati possono essere spostati (trascinandoli dalla barra del titolo), eliminati o rinominati.<br /><br />
+						</div>
+						
+						<div id="adder">
+							<div><span class="control-label" for="addWF"><span class="etichettaLabel"><strong>Aggiungi un nuovo stato</strong></span></span></div>
+							<div><input type="text" id="addWF" name="addWF" placeholder="Nome stato" class="input-xxlarge" /></div>
+							<div><input class="btnAddWF" type="submit" value="Aggiungi stato" /></div>
+						</div>
+					
+						<div id="wf_start" class="portlet">
+						    <div class="portlet-header">Inizio</div>
+						    <div class="portlet-content"><strong>Stato iniziale</strong>: creazione elemento</div>
+						</div>
+						
+						<div id="stati_intermedi" class="column">
+							<?
+							$sql = "SELECT id,nome,username FROM ".$dati_db['prefisso']."utenti WHERE id_ente_admin=".$idEnteAdmin." ORDER BY nome";
+							if ( !($result = $database->connessioneConReturn($sql)) ) {
+								die('Errore durante il recupero di tutti i utenti (con condizione)'.$sql);
+							}
+							$referenti = $database->sqlArrayAss($result);
+							if($id) {
+								foreach ((array)$referenti as $referente) {
+									// ulteriori info nel nome
+									if ($referente['username'] != '') {
+										$referente['nome'] = $referente['nome']." (".$referente['username'].")";
+									}
+								}
+								
+								$composizione = unserialize(base64_decode($istanzaOggetto['composizione_workflow']));
+								foreach((array)$composizione as $stato) {
+									//lognormale('Stato',$stato);
+									$content = '';
+									$content .= "<div>Utenti</div>";
+									$content .= "<select multiple=\"multiple\" data-placeholder=\"Seleziona o cerca tra gli utenti....\" name=\"utenti_wf_".$stato['id']."[]\" id=\"utenti_wf_".$stato['id']."\" class=\"chzn-select input-xxlarge\"><option value=\"\">Seleziona o cerca tra gli utenti....</option>";
+									
+									foreach ((array)$referenti as $referente) {
+										if (in_array($referente['id'], explode(',', $stato['utenti']))) {
+											$content .="<option selected=\"selected\" value=\"".$referente['id']."\">".$referente['nome']."</option>";
+										} else {
+											$content .="<option value=\"".$referente['id']."\">".$referente['nome']."</option>";
+										}
+									}
+									$content .="</select>";
+							
+									echo "<div id=\"".$stato['id']."\" data-id=\"".$stato['nome']."\" class=\"portlet ui-widget ui-widget-content ui-helper-clearfix ui-corner-all\">"
+							    				."<div class=\"portlet-header ui-widget-header ui-corner-all\"><a data-id=\"".$stato['id']."\" id=\"header_nome_wf_".$stato['id']."\" title=\"Modifica nome stato\" class=\"modifica-nome-stato\">".$stato['nome']."</a> <i class=\"iconfa-edit\"></i><a data-id=\"".$stato['id']."\" title=\"Elimina stato\" class=\"rimuovi-stato\"><i class=\"iconfa-minus portlet-toggle\"></i></a></div>"
+											    ."<div class=\"portlet-content\">"
+											    ."<div id=\"label_nome_wf_".$stato['id']."\" style=\"display:none;\">Nome stato</div><div><input type=\"text\" id=\"nome_wf_".$stato['id']."\" name=\"nome_wf[]\" value=\"".$stato['nome']."\" class=\"input-xxlarge\" style=\"display:none;\" /><input id=\"btn_salva_nome_wf_".$stato['id']."\" data-id=\"".$stato['id']."\" type=\"button\" class=\"btn conferma-modifica-nome-stato\" style=\"display:none;\" value=\"Salva nuovo nome\"/></div>"
+											    ."<input type=\"hidden\" id=\"id_wf_".$stato['id']."\" name=\"id_wf[]\" value=\"".$stato['id']."\" />"
+												.$content
+												."</div></div>";
+									
+								}
+							}
+							?>
+						</div>
+						
+						<div id="wf_stop" class="portlet">
+						    <div class="portlet-header">Fine</div>
+						    <div class="portlet-content">
+						    	<div><strong>Stato finale</strong>: pubblicazione elemento</div>
+							    <? 
+							    $content = '';
+							    $content .= "<div>Notifica la pubblicazione ai seguenti utenti</div>";
+							    $content .= "<select multiple=\"multiple\" data-placeholder=\"Seleziona o cerca tra gli utenti....\" name=\"id_utenti_finali[]\" id=\"id_utenti_finali\" class=\"chzn-select input-xxlarge\"><option value=\"\">Seleziona o cerca tra gli utenti....</option>";
+							    	
+							    foreach ((array)$referenti as $referente) {
+							    	if (in_array($referente['id'], explode(',', $istanzaOggetto['id_utenti_finali']))) {
+							    		$content .="<option selected=\"selected\" value=\"".$referente['id']."\">".$referente['nome']."</option>";
+							    	} else {
+							    		$content .="<option value=\"".$referente['id']."\">".$referente['nome']."</option>";
+							    	}
+							    }
+							    $content .="</select>";
+							    echo $content;
+							    ?>
+							</div>
+						    
+						</div>
+						
+					</div>
+				</div>
+			</div>
+	
+			<p class="stdformbutton">
+				<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+			</p>
+		</form>
+	</div>
+</div>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco workflow</a> 
+<? } ?>

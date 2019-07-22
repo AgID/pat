@@ -1,0 +1,26 @@
+<script type="text/javascript">	
+	resizeIframe=function(){
+		var a=jQuery(window).height()-300+"px";
+		jQuery("#kc_div").css({height:a});
+		jQuery("iframe").css({height:a})
+		//alert('resize del file manager a: '+a);
+	};
+	jQuery(window).load(resizeIframe);
+	jQuery(window).resize(resizeIframe);
+</script>
+
+<?
+if($configurazione['versione_filemanager'] == 'elFinder-2.1.49' && $configurazione['versione_ckeditor'] == '492') {
+	?>
+	<div id="kc_div" style="padding:none">
+		<iframe id="kc_frame" name="kcfinder_alone" src="<?php echo $configurazione['versione_filemanager']; ?>.php?hideSelect=true" frameborder="0" width="100%" height="100%"></iframe>
+	</div>
+	<?
+} else {
+	?>
+	<div id="kc_div" style="border:1px solid #888;padding:none">
+		<iframe id="kc_frame" name="kcfinder_alone" src="./editor/kcfinder-3.12/browse.php?lng=it" frameborder="0" width="100%" height="100%"></iframe>
+	</div>
+	<?
+}
+?>

@@ -1,0 +1,39 @@
+<?
+$archiviTrasparenza .= "<tr id =\"tr-edit-rec-".$a['id_oggetto']."-".$a['id_documento']."\" style=\"border-bottom: 1px solid #CCCCCC;\">";
+$archiviTrasparenza .= "<td style=\"border:0\"><a href=\"ajax.php?azione=review&amp;id_ogg=".$a['id_oggetto']."&amp;id_doc=".$a['id_documento']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".$oggettiTrasparenza[$a['id_oggetto']]['nomeMenu']."</a></td>";
+if(mostraDatoOggetto($a['id_documento'], $a['id_oggetto'], 'stato_pubblicazione') == '40') {
+	$titleTooltipEdit = "Questo elemento non &egrave; ancora pubblicato perch&egrave; proviene da un'importazione dati dall'Albo Online. Modifica questo elemento per integrare la pubblicazione";
+	$colorEditIcon = "#D50000";
+} else {
+	$titleTooltipEdit = "Modifica elemento";
+	$colorEditIcon = "#000000";
+}
+$titleTooltipDelete = 'Elimina elemento';
+$idLink = "a-edit-rec-".$a['id_oggetto']."-".$a['id_documento'];
+$idBtnEdit = "btn-edit-rec-".$a['id_oggetto']."-".$a['id_documento'];
+$linkEdit = "javascript:void()";
+$disabledEdit = 'disabled';
+$cssDelete = "";
+$disabledDelete = 'disabled';
+if ($aclTrasparenza['ealbo_import'] and $aclTrasparenza[$oggettiTrasparenza[$a['id_oggetto']]['menuSec']]['modifica']) {
+	$linkEdit = "admin__pat.php?menu=".$oggettiTrasparenza[$a['id_oggetto']]['menu']."&amp;menusec=".$oggettiTrasparenza[$a['id_oggetto']]['menuSec']."&amp;azione=modifica&amp;id=".$a['id_documento']."&amp;box=1&amp;idBtnEdit=".$idBtnEdit;	
+	$disabledEdit = 'btn-edit-rec';
+} else {
+	$titleTooltipEdit = 'Permesso negato';
+}
+if ($aclTrasparenza['ealbo_import'] and $aclTrasparenza[$oggettiTrasparenza[$a['id_oggetto']]['menuSec']]['cancellazione']) {
+	$cssDelete = "confCanc";
+	$disabledDelete = '';
+} else {
+	$titleTooltipDelete = 'Permesso negato';
+}
+$archiviTrasparenza .= "<td style=\"border:0; text-align: right;\">";
+$archiviTrasparenza .= "<span class=\"intTooltip btn-delete-rec ".$disabledDelete."\"><a href=\"#\" id-oggetto=\"".$a['id_oggetto']."\" href=\"#\" id-doc=\"".$a['id_documento']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"".$titleTooltipDelete."\" class=\"btn ".$cssDelete." ".$disabledDelete."\"><span class=\"iconfa-trash\" style=\"color: #000000;\"></span></a></span>";
+$archiviTrasparenza .= "<span id=\"".$idBtnEdit."\" class=\"intTooltip ".$disabledEdit."\"><a id=\"".$idLink."\" href=\"".$linkEdit."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"".$titleTooltipEdit."\" class=\"btn ".$disabledEdit."\"><span class=\"iconfa-edit\" style=\"color: ".$colorEditIcon.";\"></span></a></span>";
+ob_start();
+//lognormale('',$aclTrasparenza[$oggettiTrasparenza[$a['id_oggetto']]['menuSec']]['modifica']);
+//lognormale('',$aclTrasparenza[$oggettiTrasparenza[$a['id_oggetto']]['menuSec']]['cancellazione']);
+$log = ob_get_contents();
+ob_end_clean();
+$archiviTrasparenza .= $log."</td></tr>";
+?>

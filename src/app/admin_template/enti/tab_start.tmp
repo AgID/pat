@@ -1,0 +1,74 @@
+<script type="text/javascript">
+	var tabellaDinamica;
+    jQuery(document).ready(function(){
+	
+        // dinamicizzo la tabella 
+        tabellaDinamica = jQuery('#dyntable').dataTable({
+            "sPaginationType": "full_numbers",
+            "pageLength": 25,
+            "lengthMenu": [ 10, 25, 50, 75, 100, 200 ],
+            "aaSortingFixed": [[0,'asc']],
+			"oLanguage": {
+                "sUrl": "app/js/jquery.dataTables.italiano.txt"
+            },
+            "fnDrawCallback": function(oSettings) {
+                //jQuery.uniform.update();
+            }
+        });
+		
+		// includo gestione delle selezioni
+		<? include_once("./app/admin_template/operazioni_selezione.tmp"); ?>
+		
+		// includo gestione delle notifiche delle operazioni
+		<? include_once("./app/admin_template/operazioni_alert.tmp"); ?>
+		
+    });
+
+</script>
+
+<? // includo gestione delle cancellazioni
+include_once("./app/admin_template/operazioni_cancella.tmp"); ?>
+
+<div class="headtitle">
+	<div class="btn-group">
+		<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
+		<ul class="dropdown-menu">
+		  <?
+		  if(getEntiAttivabili()) {
+		  	?>
+		  	<li><a href="?menu=enti&amp;azione=aggiungi"><i class="iconfa-plus-sign"></i> &nbsp;Aggiungi un nuovo ente</a></li>
+		  	<li class="divider"></li>
+		  	<?
+		  }
+		  ?>
+		  <li><a href="#" idcanc="0" class="confCanc"><i class="icon-trash"></i> &nbsp;Cancella enti selezionati</a></li>
+		  <li class="divider"></li>
+		  <li><a href="#"><i class="iconfa-lock"></i> &nbsp;Blocca enti selezionati</a></li>
+		  <li><a href="#"><i class="iconfa-unlock"></i> &nbsp;Attiva enti selezionati</a></li>
+		</ul>
+	</div>
+	<h4 class="widgettitle">Enti installati</h4>
+</div>
+<table id="dyntable" class="table table-bordered">
+	<colgroup>
+		<col class="con0" style="align: center; width: 1%" />
+		<col class="con1" />
+		<col class="con0" style="align: center; width: 1%" />
+		<col class="con1" />
+		<col class="con0" />
+		<col class="con1" />
+		<col class="con1" style="align: center; width: 128px;" />
+	</colgroup>
+	<thead>
+		<tr>
+			<th class="head0 nosort"><input type="checkbox" class="checkall" /></th>
+			<th class="head0">Nome completo ente</th>
+			<th class="head1 nosort">Logo</th>
+			<th class="head0">Indirizzo email</th>
+			<th class="head1">Attivo dal</th>
+			<th class="head0">Indirizzo pubblico</th>
+			<th class="head0 nosort"></th>
+		</tr>
+	</thead>
+	<tbody>
+

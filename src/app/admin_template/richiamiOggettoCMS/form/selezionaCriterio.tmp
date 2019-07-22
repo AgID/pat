@@ -1,0 +1,99 @@
+<script type="text/javascript">	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		// necessario per i campi ad aumento con freccia
+		jQuery(".input-spinner").spinner({min: 0});		
+		jQuery("#formCriterio").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			rules: {
+				id_criterio: "required",
+				numero: "required"
+			},
+			messages: {
+				id_criterio: "Devi selezionare un criterio di estrazione dati",
+				numero: "Devi selezionare il numero di istanze da pubblicare"
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+		});
+		
+		jQuery("#tipologia").change(function(){
+			visualizzaNascondiNumero();
+		});
+		visualizzaNascondiNumero();
+	});
+	
+	function visualizzaNascondiNumero() {
+		if (document.getElementById('tipologia').value == 'richiamo_automatico') {
+			jQuery("#numeroIstanzeBox").show();
+		} else {
+			jQuery("#numeroIstanzeBox").hide();
+		}
+	}
+	
+	function saveRegolaOggetto() {
+		var js = jQuery.noConflict();
+		//call = '<? echo $entePubblicato['url_sitoistituzionale']; ?>ajax.php?azione=saveRegolaOggetto';
+		//call = 'http://tecnicois.it/cms/ajax.php?azione=saveRegolaOggetto';
+		call = '<? echo $server_url; ?>/ajax.php?azione=saveRegolaOggettoCMS';
+		//chiamata ajax che salva i dati
+		js.getJSON(call+'&jsonp=?', {
+				id_criterio: js('#id_criterio').val(),
+				numero:  js('#numero').val(),
+				nome:  encodeURIComponent(js('#nome').val()),
+				tipologia:  encodeURIComponent(js('#tipologia').val()),
+				vista_tabella:  js('#vista_tabella').val(),
+				se_vuoto:  encodeURIComponent(js('#se_vuoto').val()),
+				check: '<? echo $check; ?>',
+				ide: '<? echo $idE; ?>',
+				ido: '<? echo $ido; ?>',
+				idro: '<? echo $idro; ?>'
+			},
+			function(data) {
+				if(data == 1) {
+					jAlert('La pubblicazione è stata effettuata.', 'Messaggio di sistema');
+				} else if(data == 0) {
+					jAlert('ERRORE: problemi in fase di salvataggio. Contattare l\'amministratore del sito.', 'Messaggio di sistema');
+				} else if(data == -1) {
+					jAlert('ERRORE: autenticazione errata. Impossibile salvare. Contattare l\'amministratore del sito.', 'Messaggio di sistema');
+				}
+			}, 'json'
+		);
+		
+	}
+</script>
+
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		Oggetto da pubblicare: <? echo $oggOgg->nomeOggetto; ?>
+	</h4>
+	
+	<div class="widgetcontent wc1">
+		<form id="formCriterio" class="stdform" method="post" enctype="multipart/form-data" action="javascript:saveRegolaOggetto();">
+		
+			<? creaFormTrasp('Criterio di estrazione dati','selezione', 'id_criterio', $idCriteri, $idCriterio, $labelCriteri,'input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Regola di pubblicazione','selezione', 'tipologia', 'richiamo_automatico,elenco', $regola['tipologia'], 'Regola di pubblicazione guidata,Elenco completo','input-xxlarge',0,'', 0, 0,true); ?>
+			<? creaFormTrasp('Tipo di visualizzazione','selezione', 'vista_tabella', '0,1,3', $regola['vista_tabella'], 'Visualizzazione classica,Visualizzazione a tabella,Visualizzazione senza contenitori','input-xxlarge',0,'', 0, 0,true); ?>
+			<?
+			echo "<div id=\"numeroIstanzeBox\" style=\"display:block;\">";
+			creaFormTrasp('Numero di istanze da pubblicare','testo', 'numero', '', $regola['numero'], '','input-small input-spinner',0,'', 0, 0,true);
+			echo "</div>";
+			?>
+			
+			<? creaFormTrasp('Titolo del richiamo','testo', 'nome', '', htmlentities($regola['nome']), '','input-xxlarge'); ?>
+			<? creaFormTrasp('Eventuale testo in caso di nessun risultato','testo', 'se_vuoto', '', htmlentities($regola['se_vuoto']), '','input-xxlarge'); ?>
+			
+			<p class="stdformbutton">
+				<button class="btn btn-primary">Salva dati</button>
+			</p>
+		</form>
+	</div>
+</div>

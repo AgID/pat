@@ -1,0 +1,5 @@
+<?php
+/*
+ * Codice meta personalizzato
+ */
+?>

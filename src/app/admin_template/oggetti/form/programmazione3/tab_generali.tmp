@@ -1,0 +1,37 @@
+<div class="tab-pane tab_generali widgetbox box-inverse active" id="generali_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati generali
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			
+			if(!$istanzaOggetto['anno']) {
+				$istanzaOggetto['anno'] = date('Y');
+			}
+			$valoriAnni = array();
+			for($i=(date('Y')+10); $i>=2010;$i--) {
+				$valoriAnni[] = $i;
+			}
+			$valoriAnni = implode(',',$valoriAnni);
+			creaFormTrasp('Anno di inzio','selezione', 'anno', $valoriAnni, $istanzaOggetto['anno'], '','input-medium',0,'', 0, 0,true);
+			
+			creaFormTrasp('Referente del programma','referente_tecni', 'referente', '', $istanzaOggetto['referente'], '','input-xxlarge',0,'', 0, 0,true);
+			
+			
+			?>
+			
+			<? creaFormTrasp('Adozione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Approvazione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+	</div>
+</div>

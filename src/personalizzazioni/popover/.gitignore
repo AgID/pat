@@ -1,8 +1,0 @@
-*.class
-*.pyc
-*.pyo
-.sublime-project
-.sublime-workspace
-.DS_Store
-dev.html
-dev*.html

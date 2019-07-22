@@ -1,0 +1,470 @@
+<script type="text/javascript">	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		//campi decimali (importi)
+		jQuery('.a-num-class').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editorDesc = CKEDITOR.replace( 'dettagli' );
+		<?
+		if($id and $istanzaOggetto['commissione_giudicatrice'] != '') {
+			?>
+			//var editorDesc = CKEDITOR.replace( 'commissione_giudicatrice' );
+			<?
+		}
+		?>
+		CKEDITOR.replaceClass = 'htmlEditor';
+		
+		jQuery.validator.addMethod("cfCheck", function(value) {
+			var regex = /^([A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([A-Za-z]{6}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([0-9]{11,11})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		}, 'Il codice fiscale dell\'amministrazione aggiudicatrice non è valido');
+		
+		jQuery.validator.addMethod("floatCheck", function(value) {
+			var regex = /^((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
+			//vecchio controllo
+			//var regex = /^(([1-9][0-9]*|[0-9])([.]{1}[0-9]{1,2})?)?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		});
+
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if(element.hasClass('cig-multipli')) {
+					error.appendTo( element.parents('.tabellaCig').parent() );
+				} else if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},
+			rules: {
+				<?
+				if(($datiUser['id_ente_admin']==35 OR $datiUser['id_ente_admin']==142) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+					echo "id_proprietario: \"required\",";
+				}
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>
+				oggetto: "required",
+				data_attivazioneVis: "required",
+				denominazione_aggiudicatrice: "required",
+				dati_aggiudicatrice: {
+					required: true,
+					cfCheck: true
+				},
+				<?
+				if(count($configurazione['__tags_gare']) and $configurazione['__tag_gare_obbligatorio']) {
+					?>
+					__tag_gare: "required",
+					<?
+				} 
+				?>
+				anac_anno: "required",
+				scelta_contraente: "required",
+				valore_base_asta: "floatCheck"
+			},
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				}
+				?>
+				oggetto: "Devi inserire l'oggetto",
+				data_attivazioneVis: "Devi inserire la data di pubblicazione",
+				denominazione_aggiudicatrice: "Devi inserire l'amministrazione aggiudicatrice",
+				dati_aggiudicatrice: {
+					required: "Devi inserire il codice fiscale dell'amministrazione aggiudicatrice"
+				},
+				<?
+				if(count($configurazione['__tags_gare']) and $configurazione['__tag_gare_obbligatorio']) {
+					?>
+					__tag_gare: "Campo obbligatorio",
+					<?
+				} 
+				?>
+				anac_anno: "Selezionare l'anno di riferimento della procedura ai fini dell'invio all'ANAC",
+				scelta_contraente: "Selezionare la procedura di scelta del contraente",
+				valore_base_asta: "Inserire un importo (es. 123.456,00)",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			submitHandler: function(form) {
+				if(jQuery('#data_scadenza').val() != '') {
+					console.log(jQuery('#data_attivazione').val());
+					console.log(jQuery('#data_scadenza').val());
+					dpa = jQuery('#data_attivazione').val().split('/');
+					dps = jQuery('#data_scadenza').val().split('/');
+					da = (new Date(dpa[2]+'/'+dpa[1]+'/'+dpa[0]+' 00:00:00').getTime()/1000);
+					ds = (new Date(dps[2]+'/'+dps[1]+'/'+dps[0]+' 00:00:00').getTime()/1000);
+					if((ds-da) >= 0) {
+						form.submit();
+					} else {
+						validator.showErrors({
+							data_scadenzaVis: "La data di scadenza non pu&ograve; essere antecedente alla data di pubblicazione"
+						});					
+					}
+				} else {
+					form.submit();
+				}
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					jQuery('#a_dati_tab').tab('show');
+				}
+			}
+
+		});
+
+		<?
+		if(file_exists('codicepers/ente/'.$configurazione['piattaforma_at'].'/form/bandigara/'.basename(__FILE__, '.tmp').'.js.tmp')) {
+			include('codicepers/ente/'.$configurazione['piattaforma_at'].'/form/bandigara/'.basename(__FILE__, '.tmp').'.js.tmp');
+		}
+		if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/form/bandigara/'.basename(__FILE__, '.tmp').'.js.tmp')) {
+			include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/form/bandigara/'.basename(__FILE__, '.tmp').'.js.tmp');
+		}
+		?>
+
+		
+	});
+	
+	var prossimoCig = 1;
+	function autoNumericValori(indice) {
+		jQuery('#valore_base_asta'+indice).autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+		jQuery('#numRigheCig').val(indice);
+		prossimoCig = indice + 1;
+	}
+	function aggiungiRigaCig() {
+		jQuery.ajax({
+			url: 'ajax.php',
+			type: 'post',
+			async: false,
+			dataType: 'json',
+			data: {'azione': 'aggiungiRigaCig', 'indice': prossimoCig},
+			success: function(data) {
+				jQuery('#fineRigheCig').before(data);
+				autoNumericValori(prossimoCig);
+			},
+			error: function(xhr, desc, err) {
+				console.log(xhr);
+				console.log("Details: " + desc + "\nError:" + err);
+			}
+		});
+	}
+	function rimuoviRigaCig(indice) {
+		jConfirm('Rimuovere il CIG '+jQuery('#cig'+indice).val()+' ?', 'Richiesta di conferma', function(r) {
+			if (r) {
+				jQuery('#tabellaCig'+(indice)).parent().remove();
+			}
+		});
+	}
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Bandi, Gare e Contratti</a> 
+<? } ?>
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> elemento</a>
+			<li class="active">
+				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Gestione informazioni</a>
+			</li>
+			<li>
+				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Gestione allegati</a>
+			</li>
+		</ul>
+	</div>
+</div>
+
+
+<div class="tab-content">
+
+<div class="tab-pane active widgetbox box-inverse" id="dati_tab" role="tabpanel">
+
+	<div id="ajax_processing" class="ajax_processing_fixed" style="display: none;">
+		<div><img src="app/grafica_admin/ajax-loader2.gif"></div>
+		<div>Recupero dei dati in corso</div>
+		<div style="font-size:11px;font-weight:normal;">Recupero delle informazioni della stazione appaltante. L'operazione potrebbe impiegare qualche secondo</div>
+	</div>
+
+	<h4 class="widgettitle">
+		Informazioni <!-- <? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> Bando di gara -->
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			
+			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"bandi ed inviti\" />";
+			
+			$valoriAnni = getAnniLiquidazioni();
+			creaFormTrasp('ANAC - Anno di riferimento','selezione', 'anac_anno', $valoriAnni, $istanzaOggetto['anac_anno'], $etiAnni,'input-large',0,'', 0, 0,true);
+			?>
+			
+			<?
+			if(count($configurazione['__tags_gare'])) {
+				creaFormTrasp('Tipologia informazione','__tags_gare', '__tag_gare', 'bandi ed inviti', $istanzaOggetto['__tag_gare'], '','input-xxlarge',0,'', 0, 0,($configurazione['__tag_gare_obbligatorio'] ? true : false));
+			}
+			?>
+			
+			<? creaFormTrasp('Contratto','selezione', 'contratto', 'lavori,servizi,forniture', $istanzaOggetto['contratto'], 'Lavori,Servizi,Forniture','input-medium'); ?>
+			
+			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<?
+			if(!$id and moduloAttivo('bandigara')) {
+				$numRigaCig = 1;
+				creaFormTrasp('','cig_multipli', '', '', $istanzaOggetto, '','',0,'', 1, 0,false);
+				echo "<input type=\"hidden\" id=\"numRigheCig\" name=\"numRigheCig\" value=\"0\">";
+				?>
+				<div id="fineRigheCig"></div>
+				<script type="text/javascript">
+				jQuery(document).ready(function(){
+					autoNumericValori(1);
+				});
+				</script>
+				<?
+				
+				creaFormTrasp('Senza importo','selezione', 'senza_importo', 'SI,NO', $istanzaOggetto['senza_importo'], 'Si,No','');
+			
+			} else if($id and moduloAttivo('bandigara') and $id == $istanzaOggetto['id_record_cig_principale']) {
+				$lotti = prendiLotti($istanzaOggetto['id_record_cig_principale']);
+				$listaCig = array();
+				$totale = 0;
+				foreach((array)$lotti as $l) {
+					$listaCig[] = $l['cig'];
+					$totale += $l['valore_base_asta'];
+				}
+				
+				$attributiValore = array('readonly' => 'readonly');
+				creaFormTrasp('CIG per questo bando','testo', 'cig_multipli_readonly', '', implode(', ', $listaCig), '','input-xxlarge',0,'',0,0,false,false,$attributiValore);
+				
+				creaFormTrasp('Totale Valore Importo dell\'appalto (al netto dell\'IVA)','decimale', 'valore_base_asta_readonly', '', $totale, '','input-large',0,'',0,0,false,false,$attributiValore);
+			
+			} else {
+				creaFormTrasp('Codice CIG','testo', 'cig', '', $istanzaOggetto['cig'], '','',0,'', 0, 0,false);
+				
+				creaFormTrasp('Valore Importo dell\'appalto (al netto dell\'IVA)','decimale', 'valore_base_asta', '', $istanzaOggetto['valore_base_asta'], '','input-medium');
+				
+				creaFormTrasp('Senza importo','selezione', 'senza_importo', 'SI,NO', $istanzaOggetto['senza_importo'], 'Si,No','');
+			}
+			
+			if($id and $istanzaOggetto['valore_importo_aggiudicazione'] != '') {
+				creaFormTrasp('Valore Importo di aggiudicazione (al lordo degli oneri di sicurezza e al netto dell\'IVA)','decimale', 'valore_importo_aggiudicazione', '', $istanzaOggetto['valore_importo_aggiudicazione'], '','input-medium');
+			}
+			if($id and $istanzaOggetto['importo_liquidato'] != '') {
+				creaFormTrasp('Valore Importo liquidato (al netto dell\'IVA)','decimale', 'importo_liquidato', '', $istanzaOggetto['importo_liquidato'], '','input-medium',0,'',0,0,false,false,$attributiValore);
+			}
+			if($id and trim($istanzaOggetto['elenco_partecipanti']) != '') {
+				creaFormTrasp('Partecipanti alla gara','fornitori', 'elenco_partecipanti', '', $istanzaOggetto['elenco_partecipanti'], '','input-xxlarge');
+			}
+			if($id and trim($istanzaOggetto['elenco_aggiudicatari']) != '') {
+				creaFormTrasp('Aggiudicatari della gara','fornitori', 'elenco_aggiudicatari', '', $istanzaOggetto['elenco_aggiudicatari'], '','input-xxlarge');
+			}
+			
+			creaFormTrasp('Procedura di scelta del contraente','selezione', 'scelta_contraente', '01-PROCEDURA APERTA,02-PROCEDURA RISTRETTA,03-PROCEDURA NEGOZIATA PREVIA PUBBLICAZIONE DEL BANDO,04-PROCEDURA NEGOZIATA SENZA PREVIA PUBBLICAZIONE DEL BANDO,05-DIALOGO COMPETITIVO,06-PROCEDURA NEGOZIATA SENZA PREVIA INDIZIONE DI  GARA ART. 221 D.LGS. 163/2006,07-SISTEMA DINAMICO DI ACQUISIZIONE,08-AFFIDAMENTO IN ECONOMIA - COTTIMO FIDUCIARIO,14-PROCEDURA SELETTIVA EX ART 238 C.7 D.LGS. 163/2006,17-AFFIDAMENTO DIRETTO EX ART. 5 DELLA LEGGE N.381/91,21-PROCEDURA RISTRETTA DERIVANTE DA AVVISI CON CUI SI INDICE LA GARA,22-PROCEDURA NEGOZIATA DERIVANTE DA AVVISI CON CUI SI INDICE LA GARA,23-AFFIDAMENTO IN ECONOMIA - AFFIDAMENTO DIRETTO,24-AFFIDAMENTO DIRETTO A SOCIETA\' IN HOUSE,25-AFFIDAMENTO DIRETTO A SOCIETA\' RAGGRUPPATE/CONSORZIATE O CONTROLLATE NELLE CONCESSIONI DI LL.PP,26-AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE,27-CONFRONTO COMPETITIVO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE,28-PROCEDURA AI SENSI DEI REGOLAMENTI DEGLI ORGANI COSTITUZIONALI,29-PROCEDURA RISTRETTA SEMPLIFICATA,30-PROCEDURA DERIVANTE DA LEGGE REGIONALE,31-AFFIDAMENTO DIRETTO PER VARIANTE SUPERIORE AL 20% DELL\'IMPORTO CONTRATTUALE', $istanzaOggetto['scelta_contraente'], '','input-xxlarge',0,'', 0, 0,true);
+						
+			//stazioni appaltanti
+			if(moduloAttivo('stazioni_appaltanti')) {
+				?>
+				<script type="text/javascript">
+				var showAlertStazione = true;
+				jQuery(document).ready(function() {
+					jQuery("#id_stazione").change(function() {
+						showAlertStazione = false;
+						updateAmmAggiudicatrice('id_stazione');
+						showAlertStazione = true;
+					});
+				});
+				</script>
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Aggiorna dati Amm. aggiudicatrice','icona'=>'iconfa-inbox', 'id_campo'=>'id_stazione', 'funzione'=>'updateAmmAggiudicatrice'));
+				creaFormTrasp('Stazione appaltante','stazioni', 'id_stazione', '', $istanzaOggetto['id_stazione'], '','input-xxlarge');
+			}
+			
+			if (!$id AND $enteAdmin['bandi_gara_amm_agg'] != '') {
+				$istanzaOggetto['denominazione_aggiudicatrice'] = $enteAdmin['bandi_gara_amm_agg'];
+				$istanzaOggetto['dati_aggiudicatrice'] = $enteAdmin['bandi_gara_cod_fisc'];
+				$istanzaOggetto['tipo_amministrazione'] = $enteAdmin['bandi_gara_tipo_amm'];
+				$istanzaOggetto['sede_provincia'] = $enteAdmin['bandi_gara_prov'];
+				$istanzaOggetto['sede_comune'] = $enteAdmin['bandi_gara_comune'];
+				$istanzaOggetto['sede_indirizzo'] = $enteAdmin['bandi_gara_indirizzo'];			 
+				creaFormTrasp('Personalizza dati amministrazione','casella', 'pers_agg', '1', 0, '1','','',0,'',0); 
+				?>
+				<script type="text/javascript">	
+					jQuery(document).ready(function(){
+					
+						// diabilito campi
+						jQuery(".datiAmm").attr("readonly", "readonly");
+						
+						jQuery("#pers_agg").change(function(){
+							if (document.getElementById('pers_agg').checked) {
+								// ho selezionato la sede, rendo abilitati i campi
+								jQuery(".datiAmm").removeAttr("readonly");
+							} else {
+								// diabilito campi
+								jQuery(".datiAmm").attr("readonly", "readonly");
+							}
+						});
+					});
+				</script>
+				<?
+			}
+			
+			creaFormTrasp('Amministrazione aggiudicatrice','testo', 'denominazione_aggiudicatrice', '', $istanzaOggetto['denominazione_aggiudicatrice'], '','input-xxlarge datiAmm',0,'', 0, false,true);
+			
+			creaFormTrasp('Codice Fiscale Amministrazione aggiudicatrice','testo', 'dati_aggiudicatrice', '', $istanzaOggetto['dati_aggiudicatrice'], '','input-xxlarge datiAmm',0,'', 0, false,true);
+			
+			creaFormTrasp('Tipo di amministrazione','selezione', 'tipo_amministrazione', 'Organi istituzionali,Ministeri,Organi giurisdizionali e avvocatura,Amministrazioni indipendenti,Regioni,Aziende speciali regionalizzate,Province,Aziende speciali provincializzate,Comuni,Enti di previdenza e prevenzione,Enti preposti ad attività sportive,Enti scientifici di ricerca e sperimentazione,Enti di promozione culturale e artistica,Aziende speciali municipalizzate,Istituti autonomi case popolari,Aziende del servizio sanitario nazionale,Autorità di bacino,Comunità montane,Enti di bonifica e di sviluppo agricolo,Consorzi di industrializzazione,Consorzi autonomi di regioni province e comuni,Consorzi enti ed autorità portuali,Università ed altri enti,Istituzioni europee,Istituti bancari e finanziari,Enti ed istituti religiosi,Concessionari e imprese di gestione reti e infrastrutture,Associazioni di imprese,Imprese a partecipazione pubblica,Consorzi di imprese,Imprese ed altri soggetti privati non in forma associata,Associazioni di categoria e organizzazioni sindacali,Camere di commercio,Soggetti esterni,Provveditorato regionale alle opere pubbliche,Organismi di diritto pubblico,Altri soggetti pubblici e privati,Ente pubblico non economico', $istanzaOggetto['tipo_amministrazione'], '','input-xlarge datiAmm',1,'',0,false);
+			
+			creaFormTrasp('Sede di gara - Provincia','selezione', 'sede_provincia', 'AG,AL,AN,AO,AR,AP,AT,AV,BA,BT,BL,BN,BG,BI,BO,BZ,BS,BR,CA,CL,CB,CI,CE,CT,CZ,CH,CO,CS,CR,KR,CN,EN,FM,FE,FI,FG,FC,FR,GE,GO,GR,IM,IS,SP,AQ,LT,LE,LC,LI,LO,LU,MC,MN,MS,MT,ME,MI,MO,MB,NA,NO,NU,OT,OR,PD,PA,PR,PV,PG,PU,PE,PC,PI,PT,PN,PZ,PO,RG,RA,RC,RE,RI,RN,RM,RO,SA,VS,SS,SV,SI,SR,SO,TA,TE,TR,TO,OG,TP,TN,TV,TS,UD,VA,VE,VB,VC,VR,VV,VI,VT', $istanzaOggetto['sede_provincia'], '','input-small datiAmm',1,'',0,false);
+			
+			creaFormTrasp('Sede di gara - Comune','testo', 'sede_comune', '', $istanzaOggetto['sede_comune'], '','input-large datiAmm',0,'', 0, false, false);
+			
+			creaFormTrasp('Sede di gara - Indirizzo','testo', 'sede_indirizzo', '', $istanzaOggetto['sede_indirizzo'], '','input-xxlarge datiAmm',0,'', 0, false, false);
+			?>
+			
+			<? creaFormTrasp('Ufficio','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Data di pubblicazione del bando di gara sulla G.U.U.E.','data', 'data_guue', '', $istanzaOggetto['data_guue'], '',''); ?>
+			
+			<? creaFormTrasp('Data di pubblicazione del bando di gara sulla G.U.R.I.','data', 'data_guri', '', $istanzaOggetto['data_guri'], '',''); ?>
+			
+			<? creaFormTrasp('Data dell\'atto','data', 'data_atto', '', $istanzaOggetto['data_atto'], '','',0,'', 0, 0); ?>
+			
+			<? creaFormTrasp('Data di pubblicazione sul sito','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Data di scadenza presentazione offerte','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '',''); ?>
+			
+			<?
+			if($id and $istanzaOggetto['data_scadenza_esito'] != '') {
+				creaFormTrasp('Data di scadenza della pubblicazione dell\'esito','data', 'data_scadenza_esito', '', $istanzaOggetto['data_scadenza_esito'], '','');
+			}
+			if($id and $istanzaOggetto['data_inizio_lavori'] != '') {
+				creaFormTrasp('Data di effettivo inizio dei lavori, servizi o forniture','data', 'data_inizio_lavori', '', $istanzaOggetto['data_inizio_lavori'], '','');
+			}
+			if($id and $istanzaOggetto['data_lavori_fine'] != '') {
+				creaFormTrasp('Data di ultimazione dei lavori, servizi o forniture','data', 'data_lavori_fine', '', $istanzaOggetto['data_lavori_fine'], '','');
+			}
+			?>
+			
+			<? creaFormTrasp('RUP','referente', 'rup', '', $istanzaOggetto['rup'], '','input-xlarge',0,'', 0, 0,false); ?>
+			
+			<?
+			if(moduloAttivo('agid')) {
+				creaFormTrasp('Provvedimento','provvedimento', 'provvedimento', '', $istanzaOggetto['provvedimento'], '','input-xxlarge',0,'', 0, 0,false);
+			}
+			?>
+			
+			<? creaFormTrasp('Altre procedure','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false); ?>
+			
+			<?
+			$classiAggiuntiveContenitore = 'cont_requisiti_qualificazione';
+			creaFormTrasp('Requisiti di qualificazione','requisitogara', 'requisiti_qualificazione', '', $istanzaOggetto['requisiti_qualificazione'], '','input-xxlarge');
+			?>
+			
+			<? creaFormTrasp('Codice CPV','testo', 'codice_cpv', '', $istanzaOggetto['codice_cpv'], '',''); ?>
+			
+			<? creaFormTrasp('Codice SCP','testo', 'codice_scp', '', $istanzaOggetto['codice_scp'], '',''); ?>
+			
+			<? creaFormTrasp('URL di Pubblicazione su www.serviziocontrattipubblici.it','link', 'url_scp', '', $istanzaOggetto['url_scp'], '',''); ?>
+			
+			<? creaFormTrasp('Note','html', 'dettagli', '', $istanzaOggetto['dettagli'], '',''); ?>
+			
+			<?
+			if($id and $istanzaOggetto['commissione_giudicatrice'] != '') {
+				creaFormTrasp('Commissione giudicatrice','html', 'commissione_giudicatrice', '', $istanzaOggetto['commissione_giudicatrice'], '','');
+			}
+			?>
+			
+			<?
+			if($id and $istanzaOggetto['commissione_giudicatrice_incarichi'] != '') {
+				creaFormTrasp('Commissione giudicatrice - seleziona da archivio incarichi e consulenze','incarichi', 'commissione_giudicatrice_incarichi', '', $istanzaOggetto['commissione_giudicatrice_incarichi'], '','input-xxlarge');
+			}
+			?>
+			
+			
+				
+		</form>
+	</div>
+</div>
+
+<div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Allegati
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?php
+		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
+		?>
+		
+	</div>
+</div>
+
+</div>
+
+<p class="stdformbutton">
+	<?
+	if($statoWfPrecedente['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+		<?
+	}
+	include('app/admin_template/oggetti/btn_workflow.tmp');
+	?>
+	<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>><?php echo $nomeBtn; ?></a>
+	<?
+	if($statoWfSuccessivo['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+		<?
+	}
+	?>
+</p>

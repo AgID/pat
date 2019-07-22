@@ -1,45 +1,7 @@
-<?php
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/*
-	* Copyright 2015,2017 - AgID Agenzia per l'Italia Digitale
-	*
-	* Concesso in licenza a norma dell'EUPL, versione 1.1 o
-	successive dell'EUPL (la "Licenza")â€“ non appena saranno
-	approvate dalla Commissione europea;
-	* Non Ã¨ possibile utilizzare l'opera salvo nel rispetto
-	della Licenza.
-	* Ãˆ possibile ottenere una copia della Licenza al seguente
-	indirizzo:
-	*
-	* https://joinup.ec.europa.eu/software/page/eupl
-	*
-	* Salvo diversamente indicato dalla legge applicabile o
-	concordato per iscritto, il software distribuito secondo
-	i termini della Licenza Ã¨ distribuito "TAL QUALE",
-	* SENZA GARANZIE O CONDIZIONI DI ALCUN TIPO,
-	esplicite o implicite.
-	* Si veda la Licenza per la lingua specifica che disciplina
-	le autorizzazioni e le limitazioni secondo i termini della
-	Licenza.
-	*/ 
-	/**
-	 * @file
-	 * codicepers/ricercaSezioni.php
-	 * 
-	 * @Descrizione
-	 * Utility per la ricerca sui contenuti sezione di ISWEB nella sua implementazione PAT
-	 *
-	 */
-
-
+<?
 $tabella = 'sezioni';
 $campo = 'nome';
 $campiRicercabili = array('nome', 'descrizione', 'title_code', 'h1_code', 'h2_code');
-$q = $qSezioni;
 $qRicerca = explode(' ',$q);
 $limite = 20;
 
@@ -80,7 +42,7 @@ $items = array();
 $checkItems = array();
 foreach((array)$composizione as $res) {
 	//per ogni oggetto devo pulire i campi che possono contenere html
-	// e quindi verificare se a quel punto la ricerca ï¿½ andata a buon fine
+	// e quindi verificare se a quel punto la ricerca è andata a buon fine
 	for($i = 0; $i < count($campiRicercabili); $i++) {
 		$c = $campiRicercabili[$i];
 		$contenuto = $res[$c];
@@ -89,18 +51,18 @@ foreach((array)$composizione as $res) {
 			if(strpos(html_entity_decode(trim(strtolower($contenuto))), html_entity_decode(stripslashes(strtolower($qr)))) !== false) {
 				$items[$res['id']] = html_entity_decode(trim($res['campoDefaultTitolo']));
 				$checkItems[] = html_entity_decode(trim(strtolower($res['campoDefaultTitolo'])));
-				$i = count($campiRicercabili); //per uscire dal ciclo piï¿½ interno
+				$i = count($campiRicercabili); //per uscire dal ciclo più interno
 			}
 			*/
 			if(strpos(html_entity_decode(trim(strtolower($contenuto))), html_entity_decode(stripslashes(strtolower($qr)))) !== false) {
 				$items[$res['id']] = html_entity_decode(trim($res['campoDefaultTitolo']));
 				$checkItems[] = html_entity_decode(trim(strtolower($res['campoDefaultTitolo'])));
-				$i = count($campiRicercabili); //per uscire dal ciclo piï¿½ interno
+				$i = count($campiRicercabili); //per uscire dal ciclo più interno
 			} else {
 				//beta assonanza
 				$items[$res['id']] = "<b>Forse cercavi</b> ".html_entity_decode(trim($res['campoDefaultTitolo']));
 				$checkItems[] = html_entity_decode(trim(strtolower($res['campoDefaultTitolo'])));
-				$i = count($campiRicercabili); //per uscire dal ciclo piï¿½ interno
+				$i = count($campiRicercabili); //per uscire dal ciclo più interno
 			}
 			
 		}
@@ -154,7 +116,7 @@ if ($database->sqlNumRighe($risultato) != 0) {
 	foreach((array)$risultatiTempParagrafo as $ris) {
 		$permessiLettura = nomeSezDaId($ris['idSezioneCheck'],'permessi_lettura');
 		if ($permessiLettura == 'N/A' or $permessiLettura == 'HM') {
-			// inserisco la sezione nei risultati solo se ï¿½ visibile
+			// inserisco la sezione nei risultati solo se è visibile
 			if(!isset($items[$ris['idSezioneCheck']])) {
 				$items[$ris['idSezioneCheck']] = html_entity_decode(trim(nomeSezDaId($ris['idSezioneCheck'])));
 			}
@@ -166,6 +128,58 @@ if(count($items) > 0) {
 	$output .= "|<div class=\"".$classeTitolo."\">Pagine del sito</div>|t\n";
 }
 foreach ((array)$items as $key=>$value) {
-	$output .= "pagina".$key."_".pulisciNome(nomeSezDaId($key)).".html|$value|e\n";
+	foreach($tipoEnte['traduzioni_organi'] as $trad) {
+		if($key == $trad['id']) {
+			$value = $trad['nome'];
+		}
+	}
+	/*
+	if ($key==702) {
+		$value = $tipoEnte['org_sindaco'];			
+	}
+	if ($key==703) {
+		$value = $tipoEnte['org_giunta'];			
+	}							
+	if ($key==704) {
+		$value = $tipoEnte['org_presidente'];	
+	}
+	if ($key==705) {
+		$value = $tipoEnte['org_consiglio'];			
+	}
+	if ($key==706) {
+		$value = $tipoEnte['org_direzione'];			
+	}
+	if ($key==707) {
+		$value = $tipoEnte['org_segretario'];				
+	}	
+	if ($key==708) {
+		$value = $tipoEnte['org_commissioni'];			
+	}
+	if ($key==792) {
+		$value = $tipoEnte['org_vicesindaco'];
+	}
+	if ($key==793) {
+		$value = $tipoEnte['org_gruppi_consiliari'];
+	}				
+	if ($key==796) {
+		$value = $tipoEnte['org_commissario'];
+	}
+	if ($key==809) {
+		$value = $tipoEnte['org_ass_sindaci'];
+	}
+	if ($key==810) {
+		$value = $tipoEnte['org_sub_commissario'];
+	}
+	if ($key==827) {
+		$value = $tipoEnte['org_comitato_esecutivo'];
+	}
+	if ($key==828) {
+		$value = $tipoEnte['org_consiglio_sportivo_nazionale'];
+	}
+	if ($key==829) {
+		$value = $tipoEnte['org_giunta_sportiva'];
+	}
+	*/
+	$output .= "pagina".$key."_".pulisciNome($value).".html|$value|e\n";
 }
 ?>

@@ -1,0 +1,32 @@
+<?
+if(!$_GET['tipo']) {
+	if($istanzaOggetto['id']) {
+		//verifica duplicazione
+		$_GET['tipo'] = $istanzaOggetto['tipologia'];
+	} else {
+		//bugfix per albo
+		$_GET['tipo'] = 'sovvenzione';
+	}
+}
+if($_GET['tipo']) {
+	$tipo = $_GET['tipo'];
+	switch($tipo) {
+		case 'sovvenzione':
+			include('app/admin_template/oggetti/form/sovvenzioni/sovvenzione.tmp');
+			break;
+		case 'liquidazione':
+			include('app/admin_template/oggetti/form/sovvenzioni/liquidazione.tmp');
+			break;
+	}
+} else {
+	?>
+	<div class="alert alert-block">
+		<button data-dismiss="alert" class="close" type="button">&times;</button>
+		<h4><span class="iconfa-info-sign"></span> Informazioni di sistema</h4>
+		<p style="margin: 8px 0;color:#646464;">
+			<span>Tipologia della sovvenzione non settata.</span>
+		</p>
+	</div>
+	<?
+}
+?>

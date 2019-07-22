@@ -1,0 +1,18 @@
+<script type="text/javascript">
+// FUNZIONI DI CONTROLLO PER IL FORM
+jQuery(document).ready(function() {
+	jQuery.ajax({
+    	type: "POST",
+    	url: "<? echo $server_url; ?>appRegistration.php?azione=sendPushNotification",
+    	data: { 
+    		id: '<? echo $notificaSalvata; ?>' 
+    	},
+    	success: function(data){
+            console.log('ok');
+        },
+        error: function(e){
+            console.log('ko');
+        }
+    });
+});
+</script>

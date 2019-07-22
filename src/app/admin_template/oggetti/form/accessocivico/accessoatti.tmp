@@ -1,0 +1,180 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editor = CKEDITOR.replace( 'esito_registro' );
+		CKEDITOR.replaceClass = 'htmlEditor';
+
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if(element.hasClass('cig-multipli')) {
+					error.appendTo( element.parents('.tabellaCig').parent() );
+				} else if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR $datiUser['id_ente_admin']==142) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+					echo "id_ente: \"required\",";
+				} ?>
+				data_richiestaVis: "required",
+				data_esitoVis: "required",
+				oggetto_registro: "required",
+				vis_registro: "required",
+				esito_registro: {
+					required: function(textarea) {
+						CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+						var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+						return editorcontent.length === 0;
+					}
+				}
+			},
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				} ?>
+				data_richiestaVis: "Devi inserire la data della richiesta",
+				data_esitoVis: "Devi inserire la data della decisione",
+				oggetto_registro: "Devi inserire l'oggetto",
+				vis_registro: "Campo obbligatorio",
+				esito_registro: "Devi inserire la richiesta"
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					//jQuery('#a_dati_tab').tab('show');
+					tab = (validator.errorList[0].element.closest('.tab-pane').id);
+					if(tab != '') {
+						jQuery('#a_'+tab).tab('show');
+					}
+				}
+			}
+		});
+	});
+	jQuery(document).on('change', '#oggetto_registro', function() {
+		jQuery('#oggetto').val(jQuery('#oggetto_registro').val());
+	});
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Richieste di accesso civico</a> 
+<? } ?>
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> elemento</a>
+			<li class="active">
+				<a id="a_registro_tab" data-toggle="tab" href="#registro_tab" role="tab">Dati per registro accessi</a>
+			</li>
+		</ul>
+	</div>
+</div>
+
+<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>">
+
+<div class="tab-content">
+
+<div class="tab-pane active widgetbox box-inverse" id="registro_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati per la pubblicazione del registro degli accessi di una richiesta di accesso agli atti
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		
+		<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+		
+		<?
+		// scelta ente
+		if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+			creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+		} else {
+			echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+		}
+		
+		creaFormTrasp('Numero protocollo','testo', 'num_protocollo', '', $istanzaOggetto['num_protocollo'], '','input-large',0,'', 0, 0);
+			
+		creaFormTrasp('Data protocollo','data', 'data_protocollo', '', $istanzaOggetto['data_protocollo'], '','',0,'', 0, 0);
+		
+		creaFormTrasp('Visibilit&agrave; nel registro','selezione', 'vis_registro', '0,1', $istanzaOggetto['vis_registro'], 'non visibile,visibile','input-large',0,'', 0, 0,true);
+		
+		if(!$id) {
+			$istanzaOggetto['codice_richiesta'] = $idEnte.'-'.date('Yz-His').'-'.rand(1000000,9999999);
+			$istanzaOggetto['tipologia'] = 'accessoatti';
+			$istanzaOggetto['stato_pratica'] = 'conclusa';
+		}
+		?>
+		
+		<div style="display:none;">
+		
+		<?
+		creaFormTrasp('Stato pratica','testo', 'stato_pratica', '', $istanzaOggetto['stato_pratica'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+		creaFormTrasp('Codice richiesta','testo', 'codice_richiesta', '', $istanzaOggetto['codice_richiesta'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+			
+		creaFormTrasp('Tipologia accesso','testo', 'tipologia', '', $istanzaOggetto['tipologia'], '','input-large',0,'', 0, 0,true, false, array('readonly' => 'readonly'));
+		?>
+		
+		</div>
+	
+		<div class="alert alert-info alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+			<p style="margin: 8px 0;color:#646464;">
+				I dati di questa scheda saranno pubblicati e visibili da tutti i visitatori del portale web
+			</p>
+		</div>
+	
+		<? creaFormTrasp('Data richiesta','data', 'data_richiesta', '', $istanzaOggetto['data_richiesta'], '','',0,'', 0, 0,true, false); ?>
+		
+		<? creaFormTrasp('Data esito','data', 'data_esito', '', $istanzaOggetto['data_esito'], '','',0,'', 0, 0,true, false); ?>
+		
+		<?
+		creaFormTrasp('Oggetto','testo', 'oggetto_registro', '', $istanzaOggetto['oggetto_registro'], '','input-xxlarge',0,'', 0, 0,true, false);
+		
+		echo "<input type=\"hidden\" id=\"oggetto\" name=\"oggetto\" value=\"".$istanzaOggetto['oggetto']."\" />";
+		?>
+		
+		<?
+		creaFormTrasp('Esito','html', 'esito_registro', '', $istanzaOggetto['esito_registro'], '','',0,'', 0, 0, true);
+		?>
+			
+	</div>
+</div>
+
+
+</div>
+
+</form>
+
+<p class="stdformbutton">
+	
+	<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva dati</a>
+	
+</p>

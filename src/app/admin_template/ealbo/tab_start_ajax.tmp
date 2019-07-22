@@ -1,0 +1,445 @@
+<script type="text/javascript">
+	var tabellaDinamica;
+    jQuery(document).ready(function(){
+		
+        // dinamicizzo la tabella 
+        tabellaDinamica = jQuery('#dyntable').dataTable({
+            "sPaginationType": "full_numbers",
+            "pageLength": 25,
+            "lengthMenu": [ 10, 25, 50, 75, 100, 200 ],
+			"aoColumnDefs": [
+				{ "bSortable": false, "aTargets": [ 0, 1, 5, 6 ] }
+			],
+			"oLanguage": {
+                "sUrl": "app/js/jquery.dataTables.italiano.txt"
+            },
+			"bProcessing": true,
+			"bServerSide": true,
+			"sAjaxSource": "ajax_paginazionetable_ealbo.php?menu=<? echo $_GET['menu']; ?>&menusec=<? echo $_GET['menusec']; ?>",
+			"bDeferRender": true,
+            "fnDrawCallback": function(oSettings) {
+                //jQuery.uniform.update();
+
+				// RIPETO INIZIALIZZAZIONE DEI TOOLTIP
+				if(jQuery('table .intTooltip').length > 0) {
+					jQuery('table a[data-rel]').each(function() {
+						jQuery(this).attr('rel', jQuery(this).data('rel'));
+					});
+					jQuery('table .intTooltip').tooltip({selector: "a[rel=tooltip]"});
+				}
+				
+				////////////////////////////////////////////// RIPETO FUNZIONI DI IMPORTAZIONE
+				if(jQuery('.confImport').length > 0) {
+					jQuery('.confImport').click(function(){
+						if(jQuery('.import-multiplo input:checked').length > 0) {
+							var idImport = jQuery(this).attr('idimport');
+							//alert('Attributo da cancellare: '+idCancello);
+							// verifico se usare l'id o le selezioni
+							if (idImport==0) {
+								// cerco tutte le caselle selezionate
+								var numImport = 0;
+								var parentTable = jQuery('#dyntable');	
+								var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+								var idImport = '';
+								ch.each(function(){
+									if ( jQuery(this).attr('checked')) {
+										// casella selezionata
+										if (idImport != '') {
+												idImport = idImport+',';
+										}
+										idImport = idImport+jQuery(this).attr('value');
+										numImport++;
+									}
+								});
+								var numDestinazioni = 0;
+								var dest = jQuery('.import-multiplo input:checked');
+								var idDestinazioni = '';
+								dest.each(function(){
+									// casella selezionata
+									if (idDestinazioni != '') {
+											idDestinazioni = idDestinazioni+',';
+									}
+									idDestinazioni = idDestinazioni+jQuery(this).attr('value');
+									numDestinazioni++;
+								});
+							} else {	
+								var numImport = 1;
+							}
+							
+							if (numImport==0) {
+								jQuery.alerts.dialogClass = 'alert-inverse';
+								jAlert('Nessun elemento selezionato per l\'importazione.', 'Messaggio di sistema', function(){
+									jQuery.alerts.dialogClass = null; // reset to default
+								});
+							} else if (numDestinazioni==0) {
+								jQuery.alerts.dialogClass = 'alert-inverse';
+								jAlert('Nessun archivio selezionato come destinazione dell\'importazione.', 'Messaggio di sistema', function(){
+									jQuery.alerts.dialogClass = null; // reset to default
+								});
+							} else {
+								jConfirm('Sei sicuro di voler proseguire con l\'importazione ? Proseguendo '+numImport+' elementi verranno importati.', 'Richiesta di conferma', function(r) {
+									if (r) {
+										// proseguo con l'import, invio il form con i valori
+										jQuery('#id_import_atti').attr('value',idImport);
+										jQuery('#id_import_destinazione').attr('value',idDestinazioni);
+										jQuery('#formImport').submit();
+									}
+								});
+							}
+						}
+					});
+				}
+				
+				////////////////////////////////////////////// RIPETO FUNZIONI DI CANCELLAZIONE
+				if(jQuery('.confCanc').length > 0) {
+					jQuery('.confCanc').click(function(){
+					
+						var idOggetto = jQuery(this).attr('id-oggetto');
+						var idDocumento = jQuery(this).attr('id-doc');
+						//alert('Attributo da cancellare: '+idCancello);
+						// verifico se usare l'id o le selezioni
+						var numCanc = 0;
+						if (idOggetto > 0 && idDocumento > 0) {
+							numCanc = 1;
+						}
+						
+						if (numCanc==0) {
+							jQuery.alerts.dialogClass = 'alert-inverse';
+							jAlert('Nessun elemento selezionato per la cancellazione.', 'Messaggio di sistema', function(){
+								jQuery.alerts.dialogClass = null; // reset to default
+							});
+						} else {
+							jConfirm('Sei sicuro di voler proseguire con la cancellazione ? Proseguendo '+numCanc+' elementi verranno eliminati.', 'Richiesta di conferma', function(r) {
+								if (r) {
+									// proseguo con la cancellazione, invio il form con i valori
+									jQuery('#id_oggetto_cancello').attr('value',idOggetto);
+									jQuery('#id_doc_cancello').attr('value',idDocumento);
+									jQuery('#formCancella').submit();
+								}
+							});
+						}
+					});
+				}
+				
+				////////////////////////////////////////////// RIPETO FUNZIONI DI ESCLUSIONE DALLA LISTA
+				if(jQuery('.confEsclusione').length > 0) {
+					jQuery('.confEsclusione').click(function(){
+						// cerco tutte le caselle selezionate
+						var numImport = 0;
+						var parentTable = jQuery('#dyntable');
+						var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+						var idImport = '';
+						ch.each(function(){
+							if ( jQuery(this).attr('checked')) {
+								// casella selezionata
+								if (idImport != '') {
+									idImport = idImport+',';
+								}
+								idImport = idImport+jQuery(this).attr('value');
+								numImport++;
+							}
+						});
+						if (numImport==0) {
+							jQuery.alerts.dialogClass = 'alert-inverse';
+							jAlert('Nessun elemento selezionato per l\'esclusione dalla lista.', 'Messaggio di sistema', function(){
+								jQuery.alerts.dialogClass = null; // reset to default
+							});
+						} else {
+							jConfirm('Sei sicuro di voler proseguire con l\'esclusione degli atti dalla lista ?', 'Richiesta di conferma', function(r) {
+								if (r) {
+									// proseguo con l'import, invio il form con i valori
+									jQuery('#id_escludi_atti').attr('value',idImport);
+									jQuery('#formEscludi').submit();
+								}
+							});
+						}
+					});
+				}
+				
+				////////////////////////////////////////////// RIPETO FUNZIONI DI INCLUSIONE DALLA LISTA
+				if(jQuery('.confInclusione').length > 0) {
+					jQuery('.confInclusione').click(function(){
+						// cerco tutte le caselle selezionate
+						var numImport = 0;
+						var parentTable = jQuery('#dyntable');
+						var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+						var idImport = '';
+						ch.each(function(){
+							if ( jQuery(this).attr('checked')) {
+								// casella selezionata
+								if (idImport != '') {
+									idImport = idImport+',';
+								}
+								idImport = idImport+jQuery(this).attr('value');
+								numImport++;
+							}
+						});
+						if (numImport==0) {
+							jQuery.alerts.dialogClass = 'alert-inverse';
+							jAlert('Nessun elemento selezionato per l\'inclusione nella lista.', 'Messaggio di sistema', function(){
+								jQuery.alerts.dialogClass = null; // reset to default
+							});
+						} else {
+							jConfirm('Sei sicuro di voler proseguire con l\'inclusione degli atti nella lista ?', 'Richiesta di conferma', function(r) {
+								if (r) {
+									// proseguo con l'import, invio il form con i valori
+									jQuery('#id_includi_atti').attr('value',idImport);
+									jQuery('#formIncludi').submit();
+								}
+							});
+						}
+					});
+				}
+				
+				jQuery('.btn-edit-rec a').each(function() {
+					jQuery('#'+jQuery(this).attr('id')).colorbox({
+						iframe:true, width:"80%", height:"80%", rel:"nofollow",
+						onClosed: function() {
+							jQuery('#'+jQuery(this).attr('id')).blur();
+						}
+					});
+				});
+				jQuery('.a-import-rec').each(function() {
+					jQuery(jQuery(this)).colorbox({
+						iframe:true, width:"80%", height:"80%", rel:"nofollow"
+					});
+				});
+				
+				if(jQuery("#filtroAtti").length == 0) {
+					jQuery("#dyntable_length").append(
+						'<? echo pulsanteFiltri(); ?><div id="divFiltriAtti" style="display:none;"><? echo filtroAtti().filtroTipologie().filtroStrutture().filtroDate(); ?></div>' );
+					jQuery('#filtroDataDal').datepicker({
+						onSelect: function(data, e) {
+							tabellaDinamica.fnFilter( data, 3, false, true, false );
+						}
+					});
+					jQuery('#filtroDataAl').datepicker({
+						onSelect: function(data, e) {
+							tabellaDinamica.fnFilter( data, 4, false, true, false );
+						}
+					});
+					jQuery('#filtroAtti').on('change', '', function () {
+						valAtto = jQuery(this).val();
+						tabellaDinamica.fnFilter( valAtto, 0, false, true, false );
+					} );
+					jQuery('#filtroTipologie').on('change', '', function () {
+						valTipo = jQuery(this).val();
+						tabellaDinamica.fnFilter( valTipo, 1, false, true, false );
+					} );
+					jQuery('#filtroStrutture').on('change', '', function () {
+						valStruttura = jQuery(this).val();
+						tabellaDinamica.fnFilter( valStruttura, 2, false, true, false );
+					} );
+					jQuery('.filtriAtti').on('click', '', function () {
+						jQuery("#divFiltriAtti").toggle();
+						if (jQuery("#divFiltriAtti").css('display') == 'none') {
+							jQuery(".btn-filtriAtti").html('Visualizza filtri');
+						} else {
+							jQuery(".btn-filtriAtti").html('Nascondi filtri');
+						}
+					} );
+				}
+            }
+        });
+		
+		// rimuovo il contenuto quando cambio modale di review
+		jQuery('body').on('hidden', '.modal', function () {
+			jQuery(this).removeData('modal');
+		});
+		
+		// includo gestione delle selezioni
+		<? include_once("./app/admin_template/operazioni_selezione.tmp"); ?>
+		
+		// includo gestione delle notifiche delle operazioni
+		<? include_once("./app/admin_template/operazioni_alert.tmp"); ?>
+		
+		jQuery('.dropdown-menu-form').on('click', function(e) {
+			e.stopPropagation();
+		});
+		
+		jQuery('.checkbox-import-multiplo').on('click', function(e) {
+			var n = jQuery('.import-multiplo input:checked').length;
+			if(n > 0) {
+				jQuery('#btn-import-atti').removeClass('disabled');
+			} else {
+				jQuery('#btn-import-atti').addClass('disabled');
+			}
+		});
+		
+    });
+	
+	function aggiornaImportazioneRecord(idDocAlbo) {
+		jQuery.ajax({
+			url: "ajaxEalbo.php",
+			type: "GET",
+			data: {azione: 'aggiornaRecordAtto', id: idDocAlbo},
+			dataType: "json",
+			success: function(result) {
+				jQuery('#table-atto-'+idDocAlbo).html(result.oggetti);
+				jQuery('#operazioni-atto-'+idDocAlbo).html(result.operazioni);
+				jQuery('.btn-edit-rec a').each(function() {
+					jQuery('#'+jQuery(this).attr('id')).colorbox({
+						iframe:true, width:"80%", height:"80%", rel:"nofollow"
+					});
+				});
+				jQuery('.a-import-rec').each(function() {
+					jQuery(jQuery(this)).colorbox({
+						iframe:true, width:"80%", height:"80%", rel:"nofollow"
+					});
+				});
+				////////////////////////////////////////////// RIPETO FUNZIONI DI CANCELLAZIONE
+				if(jQuery('.confCanc').length > 0) {
+					jQuery('.confCanc').click(function(){
+					
+						var idOggetto = jQuery(this).attr('id-oggetto');
+						var idDocumento = jQuery(this).attr('id-doc');
+						//alert('Attributo da cancellare: '+idCancello);
+						// verifico se usare l'id o le selezioni
+						var numCanc = 0;
+						if (idOggetto > 0 && idDocumento > 0) {
+							numCanc = 1;
+						}
+						
+						if (numCanc==0) {
+							jQuery.alerts.dialogClass = 'alert-inverse';
+							jAlert('Nessun elemento selezionato per la cancellazione.', 'Messaggio di sistema', function(){
+								jQuery.alerts.dialogClass = null; // reset to default
+							});
+						} else {
+							jConfirm('Sei sicuro di voler proseguire con la cancellazione ? Proseguendo '+numCanc+' elementi verranno eliminati.', 'Richiesta di conferma', function(r) {
+								if (r) {
+									// proseguo con la cancellazione, invio il form con i valori
+									jQuery('#id_oggetto_cancello').attr('value',idOggetto);
+									jQuery('#id_doc_cancello').attr('value',idDocumento);
+									jQuery('#formCancella').submit();
+								}
+							});
+						}
+					});
+				}
+			},
+			error: function(richiesta, stato, errori) {
+				console.log('Errore ajax (stato: ' + stato + ')');
+			}
+		});
+	}
+
+</script>
+
+<? // includo gestione delle cancellazioni e delle importazioni
+include_once("./app/admin_template/operazioni_importa_atti.tmp"); ?>
+
+<!--# inizio modale review -->	
+<div aria-hidden="false" aria-labelledby="modaleLabelReview" role="dialog" class="modal hide fade width60" id="modaleReview" style="margin-left:-26%;">
+	<div class="modal-header">
+		<button aria-hidden="true" data-dismiss="modal" class="close" type="button">&times;</button>
+		<h3 id="modaleLabelStorico"><span style="color:#757575;" class="iconfa-search"></span> Dettagli</h3>
+	</div>
+	<div class="modal-body">
+			
+	</div>
+	
+	<div class="modal-footer">
+		<button data-dismiss="modal" class="btn">Chiudi</button>
+	</div>
+</div>			
+<!--# fine modale review -->
+
+<div class="headtitle">
+	<div class="btn-group">
+		<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Importa la selezione in <span class="caret"></span></button>
+		<ul class="dropdown-menu dropdown-menu-form import-multiplo">
+			<?
+			if ($aclTrasparenza['ealbo_import']) {
+				foreach((array)$oggettiTrasparenza as $oggettoTrasparenza) {
+					if($oggettoTrasparenza['importAtto'] and $aclTrasparenza[$oggettoTrasparenza['menuSec']]['creazione']) {
+						?>
+						<li>
+							<label class="checkbox">
+								<input type="checkbox" name="checkbox-import-<? echo $oggettoTrasparenza['idOggetto']; ?>" value="<? echo $oggettoTrasparenza['idOggetto']; ?>" class="checkbox-import-multiplo" />
+								&nbsp; <? echo $oggettoTrasparenza['nomeMenu']; ?>
+							</label>
+						</li>
+						<?
+					}
+				}
+			}
+			?>
+			<li class="divider"></li>
+			<li id="btn-import-atti" class="disabled btn-import-atti">
+				<a role="menuitem" idimport="0" tabindex="-1" href="#" class="confImport"><i class="iconsweets-cabinet"></i> &nbsp;Importa selezione</a>
+			</li>
+		</ul>
+	</div>
+	
+	<div class="btn-group">
+		<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
+		<ul class="dropdown-menu dropdown-menu-form import-multiplo">
+			<li id="btn-escludi-atti" class="btn-escludi-atti">
+				<a role="menuitem" idimport="0" tabindex="-1" href="#" class="confEsclusione"><i class="iconsweets-outgoing"></i> &nbsp;Escludi gli atti selezionati dalla lista</a>
+			</li>
+			<li id="btn-includi-atti" class="btn-includi-atti">
+				<a role="menuitem" idimport="0" tabindex="-1" href="#" class="confInclusione"><i class="iconsweets-incoming"></i> &nbsp;Includi gli atti selezionati nella lista</a>
+			</li>
+		</ul>
+	</div>
+	
+	<h4 class="widgettitle">
+	<?
+	//CASSINO
+	if($datiUser['id_ente_admin']==139) {
+		echo "Atti";
+	}else{
+		echo "Atti dell'Albo Online";
+	}
+	?>	
+
+	</h4>
+</div>
+
+<table id="dyntable" class="table table-bordered">
+	<colgroup>
+		<col class="con1" style="align: center; width: 1%" />
+		<col class="con0" />
+		<? 
+		foreach($campiVisualizzati as $campo) {
+			if($numConto & 1) {
+				echo "<col class=\"con0\" />";
+			} else {
+				echo "<col class=\"con1\" />";
+			}
+			$numConto++;
+		}
+		?>
+		<col class="con0" />
+		<col class="con1" />
+	</colgroup>
+	<thead>
+		<tr>
+			<th class="head0 nosort"><input type="checkbox" class="checkall" /></th>
+			<th class="head0">Stato</th>
+			<?
+			$numConto = 0;
+			foreach($campiVisualizzati as $campo) {
+				$etichette = explode("}",$campo['etichetta']); 
+				$campo['etichetta'] = $etichette[0];	
+				if($numConto & 1) {				
+					echo "<th class=\"head0\">";
+				} else {
+					echo "<th class=\"head1\">";
+				}
+				if ($campo['etichetta'] != '') {
+					echo $campo['etichetta'];
+				} else {
+					echo "&nbsp;";
+				}
+				echo "</th>";
+				$numConto++;
+			}
+			?>
+			<th class="head0 nosort">Data</th>
+			<th class="head0 nosort">Archivi Trasparenza</th>
+		</tr>
+	</thead>
+	<tbody>
+

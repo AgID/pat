@@ -1,0 +1,164 @@
+.containerTestataAdmin {
+	padding:0px 0px 0px 0px;	
+	width:100%;
+	background: #ee7c17 url(../grafica_admin/logo_sfondo_icona.png) no-repeat bottom left; 
+	top:0px;
+	z-index:2222;
+}
+
+#adminTrasp .logo { float: left; padding:16px 0 12px 28px;}
+
+.userloggedinfo { color: #FFFFFF; float:right;padding:16px 18px 12px 0;}
+.userloggedinfo img { padding: 2px; background-color: #FFFFFF; float: left; vertical-align:middle;}
+
+.userloggedinfo .userinfo { float: left; margin-left: 11px; margin-top:4px; font-weight: bold;}
+.userloggedinfo .userinfo small { font-size: 11px; opacity: 0.6; color: #FFFFFF; font-style: italic; }
+
+.userloggedinfo a { float:left; padding: 4px 5px 3px 5px; color: #FFFFFF; line-height: normal; background: rgba(255,255,255,0.1); font-size:11px;margin-left: 11px;margin-top:4px; }
+.userloggedinfo a:hover, .userloggedinfo a:visited { color: #FFFFFF; text-decoration: none; background: rgba(255,255,255,0.2); }
+
+/* TipTip CSS - Version 1.2 */
+#tiptip_holder {
+	display: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 99999;
+	
+}
+
+#tiptip_holder.tip_top {
+	padding-bottom: 5px;
+}
+
+#tiptip_content {
+	font-size:76%;
+	line-height:1.1;
+	color: #FFFFFF;
+	padding: 8px 12px;
+	border: 2px solid #FFFFFF;
+	background-color: #2C6387;
+	border-radius: 3px;
+	-webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
+}
+
+#tiptip_arrow, #tiptip_arrow_inner {
+	position: absolute;
+	border-color: transparent;
+	border-style: solid;
+	border-width: 8px;
+	height: 0;
+	width: 0;
+}
+
+#tiptip_holder.tip_top #tiptip_arrow_inner {
+	margin-top: -10px;
+	margin-left: -12px;
+	border-top-color: rgb(10,54,99);
+	border-top-color: rgba(10,54,99,1);
+}
+.noIstanze {
+	margin:10px;
+	font-weight:bold;
+}
+.ac_results {
+	padding: 0px;
+	border: 1px solid #E0E0E0;
+	background-color: #FFFFFF;
+	/* lo z-inedx non va usato*/
+	/* margin-left: -240px; */
+}
+.ac_results ul {
+	width: auto;
+	list-style-position: outside;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+}
+.ac_results iframe {
+	display:none;/*sorry for IE5*/
+	display/**/:block;/*sorry for IE5*/
+	position:absolute;
+	top:0;
+	left:0;
+	z-index:-1;
+	width:3000px;
+	height:3000px;
+}
+.ac_results li {
+	margin: 0px;
+	padding: 2px 5px;
+	cursor: pointer;
+	display: block;
+	font-size: 72%;
+}
+.ac_loading {
+	background : #FFFFFF url('../../grafica/loader.gif') right center no-repeat;
+}
+.ac_over {
+	background-color: #E0E0E0;
+	color: #6C0202;
+}
+.divTitoloAC {
+	font-weight: bold;
+	font-size: 110%;
+	color: #6C0202;
+}
+.liRisultato {
+	float: left;
+	width: 250px;
+}
+.testoDescPannelloCerca {
+	font-size: 86%;
+	margin: 3px 5px;
+}
+.titoloTestiPannelloCercaHome {
+	color: #6C0202;
+	font-weight: bold;
+	margin-bottom: 4px;
+	display: block;
+}
+
+.titNorma {
+	font-size:120%;
+	margin: 0px 0px 8px 0px;
+}
+input.ui-autocomplete-loading {
+	background-color: #E0E0E0 !important;
+	background-image: url('../../../grafica/loader.gif') !important;
+	background-repeat: no-repeat;
+	background-position: right center !important;
+}
+.ui-tooltip,
+.ui-autocomplete {
+	font-size: 14px;
+	background-color: #FFFFFF;
+	max-width: 80vh;
+    max-height: 60vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    border: 1px solid #D2D2D2;
+    z-index: 9999;
+}
+.ui-widget-content a {
+    text-decoration: none;
+}
+#form_login label {
+    margin: 5px 0px 0px 0px;
+    display: block;
+}
+#form_login .pulsante {
+    margin-top: 10px;
+}
+.contenutoModello table {
+    border-spacing: 0px;
+    border-color: #E0E0E0;
+}
+.contenutoModello table td{
+	padding: 5px;
+}
+.no-margin {
+	margin: 0px;
+}

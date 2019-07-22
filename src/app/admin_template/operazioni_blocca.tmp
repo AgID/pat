@@ -1,0 +1,182 @@
+<script type="text/javascript">
+function bloccaElemento(idB, numB) {
+	elemento = 'utente';
+	testo = 'verrà bloccato';
+	if(numB > 1) {
+		elemento = 'utenti';
+		testo = 'verranno bloccati';
+	}
+	jQuery('<div />').html('Proseguendo <strong>'+numB+'</strong> '+elemento+' '+testo+'. <strong>Procedere?</strong>').dialog({
+        title: 'Blocco '+elemento,
+        modal: true, resizable: false, draggable: false,
+        width: '600',
+        close: function() {
+            jQuery(this).dialog('destroy').remove();
+        },
+        buttons: [{
+            text: "Annulla",
+            class: 'btn btn-primary',
+            click: function() {
+            	jQuery(this).dialog("close");
+            }
+        },
+        {
+            text: "Blocca "+elemento,
+            class: 'btn btn-primary',
+            click: function() {
+				jQuery('#id_blocca_tabella').attr('value',idB);
+            	jQuery(this).dialog("close");
+				jQuery('#formBlocca').submit();
+            }
+        }]
+    });
+}
+function attivaElemento(idB, numB) {
+	elemento = 'utente';
+	testo = 'verrà attivato';
+	if(numB > 1) {
+		elemento = 'utenti';
+		testo = 'verranno attivati';
+	}
+	jQuery('<div />').html('Proseguendo <strong>'+numB+'</strong> '+elemento+' '+testo+'. <strong>Procedere?</strong>').dialog({
+        title: 'Attva '+elemento,
+        modal: true, resizable: false, draggable: false,
+        width: '600',
+        close: function() {
+            jQuery(this).dialog('destroy').remove();
+        },
+        buttons: [{
+            text: "Annulla",
+            class: 'btn btn-primary',
+            click: function() {
+            	jQuery(this).dialog("close");
+            }
+        },
+        {
+            text: "Attiva "+elemento,
+            class: 'btn btn-primary',
+            click: function() {
+				jQuery('#id_attiva_tabella').attr('value',idB);
+            	jQuery(this).dialog("close");
+				jQuery('#formAttiva').submit();
+            }
+        }]
+    });
+}
+
+jQuery(document).ready(function(){	
+	function initBlocca() {
+		// funzioni di cancellazione con richiesta di conferma
+		if(jQuery('.confBlocca').length > 0) {
+			
+			jQuery('.confBlocca').click(function(){
+			
+				var idB = jQuery(this).attr('idb');
+				// verifico se usare l'id o le selezioni
+				if (idB==0) {
+					// cerco tutte le caselle selezionate
+					var numB = 0;
+					var parentTable = jQuery('#dyntable');	
+					var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+					var idCancello = '';
+					ch.each(function(){
+						if ( jQuery(this).attr('checked')) {
+							// casella selezionata
+							if (idB != '') {
+								idB = idB+',';
+							}
+							idB = idB+jQuery(this).attr('value');
+							numB++;
+						}
+					});							
+				} else {	
+					var numB = 1;
+				}
+				
+				if (numB==0) {
+					jQuery('<div />').html("Nessun elemento selezionato per il blocco utente.").dialog({
+				        title: 'Attenzione',
+				        modal: true, resizable: false, draggable: false,
+				        width: '600',
+				        close: function() {
+				            jQuery(this).dialog('destroy').remove();
+				        },
+				        buttons: [{
+				            text: "Chiudi",
+				            class: 'btn btn-primary',
+				            click: function() {
+				            	jQuery(this).dialog("close");
+				            }
+				        }]
+				    });
+				} else {
+					bloccaElemento(idB, numB);
+				}
+			});
+		}	
+	}
+	function initAttiva() {
+		// funzioni di cancellazione con richiesta di conferma
+		if(jQuery('.confAttiva').length > 0) {
+			
+			jQuery('.confAttiva').click(function(){
+			
+				var idB = jQuery(this).attr('idb');
+				// verifico se usare l'id o le selezioni
+				if (idB==0) {
+					// cerco tutte le caselle selezionate
+					var numB = 0;
+					var parentTable = jQuery('#dyntable');	
+					var ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+					var idCancello = '';
+					ch.each(function(){
+						if ( jQuery(this).attr('checked')) {
+							// casella selezionata
+							if (idB != '') {
+								idB = idB+',';
+							}
+							idB = idB+jQuery(this).attr('value');
+							numB++;
+						}
+					});							
+				} else {	
+					var numB = 1;
+				}
+				
+				if (numB==0) {
+					jQuery('<div />').html("Nessun elemento selezionato per l\'attivazione utente.").dialog({
+				        title: 'Attenzione',
+				        modal: true, resizable: false, draggable: false,
+				        width: '600',
+				        close: function() {
+				            jQuery(this).dialog('destroy').remove();
+				        },
+				        buttons: [{
+				            text: "Chiudi",
+				            class: 'btn btn-primary',
+				            click: function() {
+				            	jQuery(this).dialog("close");
+				            }
+				        }]
+				    });
+				} else {
+					attivaElemento(idB, numB);
+				}
+			});
+		}	
+	}
+	initBlocca();
+	initAttiva();
+});
+	
+</script>
+
+<?  
+/////////////////// FORM NASCOSTO
+echo "<form name=\"formBlocca\" id=\"formBlocca\" method=\"post\" action=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azionesec=blocca\">"; 
+echo "<input type=\"hidden\" value=\"\" name=\"id_blocca_tabella\" id=\"id_blocca_tabella\" />";
+echo "</form>";
+echo "<form name=\"formAttiva\" id=\"formAttiva\" method=\"post\" action=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azionesec=attiva\">";
+echo "<input type=\"hidden\" value=\"\" name=\"id_attiva_tabella\" id=\"id_attiva_tabella\" />";
+echo "</form>";
+?>

@@ -1,0 +1,25 @@
+<div class="tab-pane tab_eventi widgetbox box-inverse" id="step_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Eventi della pratica
+	</h4>
+
+	<div class="widgetcontent wc1">
+	
+		<?
+		if(!$creaFormSistema) {
+			creaFormTrasp('','sistema', '', '', '', '','');
+			$creaFormSistema = true;
+			
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+		}
+		?>
+	
+		<? creaFormTrasp('Eventi della pratica','jtable', 'eventi_pratica', '', $istanzaOggetto['eventi_pratica'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 61, 'menu' => 'eventi_pratica')); ?>
+		
+	</div>
+</div>

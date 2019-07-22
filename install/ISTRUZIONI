@@ -1,9 +1,7 @@
 PAT - Portale Amministrazione Trasparente
-Copyright 2015 - AgID Agenzia per l'Italia Digitale
+Copyright AgID Agenzia per l'Italia Digitale
 
-Concesso in licenza a norma dell'EUPL, versione 1.1 o
-successive dell'EUPL (la "Licenza")– non appena saranno
-approvate dalla Commissione europea;
+Concesso in licenza a norma dell'EUPL(la "Licenza"), versione 1.2;
 
 Non è possibile utilizzare l'opera salvo nel rispetto
 della Licenza.
@@ -47,7 +45,8 @@ Licenza.
 	a) install.php
 	b) pat.zip
 3 - Lanciare direttamente dalla barra degli indirizzi di un browser il link http://dominioISWEB/install.php ed attendere il termine della procedura
-4 - Lanciare direttamente dalla barra degli indirizzi di un browser il link http://dominioISWEB/staff ed inserire i seguenti dati di accesso: 
+4 - Dopo averlo utilizzato, è opportuno eliminare il file install.php
+5 - Lanciare direttamente dalla barra degli indirizzi di un browser il link http://dominioISWEB/staff ed inserire i seguenti dati di accesso: 
     username: patadmin
 	password: patadmin
 	Dopo aver effettuato il primo accesso, sarà possibile procedere al cambio di password per l'amministrazione principale, e l'attivazione di altri utenti amministratori.

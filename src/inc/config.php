@@ -1,82 +1,36 @@
-<?php
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/*
-	* Copyright 2015,2017 - AgID Agenzia per l'Italia Digitale
-	*
-	* Concesso in licenza a norma dell'EUPL, versione 1.1 o
-	successive dell'EUPL (la "Licenza")â€“ non appena saranno
-	approvate dalla Commissione europea;
-	* Non Ã¨ possibile utilizzare l'opera salvo nel rispetto
-	della Licenza.
-	* Ãˆ possibile ottenere una copia della Licenza al seguente
-	indirizzo:
-	*
-	* https://joinup.ec.europa.eu/software/page/eupl
-	*
-	* Salvo diversamente indicato dalla legge applicabile o
-	concordato per iscritto, il software distribuito secondo
-	i termini della Licenza Ã¨ distribuito "TAL QUALE",
-	* SENZA GARANZIE O CONDIZIONI DI ALCUN TIPO,
-	esplicite o implicite.
-	* Si veda la Licenza per la lingua specifica che disciplina
-	le autorizzazioni e le limitazioni secondo i termini della
-	Licenza.
-	*/ 
-	/**
-	 * @file
-	 * inc/config.php
-	 * 
-	 * @Descrizione
-	 * File di configurazione variabili di connessione DB e di raggiungibilita del servizio. Copia a scopo didattivo della versione standard inclusa in ISWEB.
-	 * E' possibile copiare queste impostazioni dalla configurazione attiva sulla piattaforma ISWEB utilizzata per l'installazione di PAT
-	 *
-	 */
+<?
 
-
-/*********************************************VARIABILI ACCESSO DBMS*********************************/ 
-/* 
-Editare la seguente matrice con i dati per accedere al DBMS
-*/ 
+// configurazione dati principali sul database
 $dati_db = array(
-	'tipo' => 'mysql', // tipo di dbms utilizzato. Non editare, al momento supportato solo MySQL
-	'host' => 'localhost', // indirizzo del server su cui risiede il servizio DBMS
-	'user' => '', // nome utente per l'accesso al DBMS
-	'password' => '', // password per l'accesso al DBMS
-	'database' => '', // nome database utilizzato
-	'database_offline' => '', // NON EDITARE, non utilizzato in PAT
-	'persistenza' => FALSE, // utilizzo di connessioni persistenti, consigliato FALSE
-	'prefisso' => '', // eventuale previsso delle tabelle ISWEB quando il database ISWEB Ã¨ condiviso con altri applicativi
-	'like' => 'LIKE' // NON EDITARE, non utilizzato in PAT
+	'tipo' => 'mysql',
+	'host' => 'localhost',
+	'user' => '',
+	'password' => '',
+	'database' => '',
+	'database_offline' => '',
+	'persistenza' => FALSE,
+	'prefisso' => '',
+	'like' => 'LIKE'
 );
 
+// verifico se usare protezione anti CSRF
+$usaCSRF = true;
 
-/*********************************************VARIABILI ACCESSO DBMS*********************************/ 
-/* 
-Editare le seguenti variabili per configurare la piattaforma a rispondere al dominio principale
-*/ 
-$dominio = "localhost";
-$server_url = "http://www.nomesito.it/";      // nota lo slash finale
-$server_s_url = "https://www.nomesito.it/";      // nota lo slash finale
-$usaCSRF = TRUE; // configurare per attivare protezione anti CSRF
+$dominio = "miodominio.it";
+$server_url = "https://www.miodominio.it/";      // nota lo slash finale
+$server_s_url = "https://www.miodominio.it/";      // nota lo slash finale
 
-/* 
-Variabili da non editare
-*/ 
-$uploadPath = "./download/";  // non editare
-$archiviomedia = "./archiviofile/"; // non editare
-$media_su_db = TRUE; // non editare, non utilizzato in PAT
-$file_su_db = FALSE; // non editare, non utilizzato in PAT
-$utentiCondivisi = FALSE; // non editare, non utilizzato in PAT
+//NOTA: da modificare per il funzionamento del controllo dell'URL chiamato in sessioni.php
+$dominio_query_sessioni = 'www.miodominio.it';
 
+$uploadPath = "./download/";
+$archiviomedia = "archiviofile/";
+$media_su_db = TRUE;
+$file_su_db = FALSE;
+$utentiCondivisi = FALSE;
+$pwd_encrypt = FALSE;
 
-/*********************************************COSTANTI DI SISTEMA ISWEB*********************************/ 
-/* 
-Non editare queste configurazioni
-*/ 
+// Identificativi Pagine
 define('PAGINA_INDEX', 0);
 define('PAGINA_LOGIN', -1);
 define('PAGINA_CERCA', -2);
@@ -85,22 +39,22 @@ define('PAGINA_PROFILO', -4);
 define('PAGINA_LISTAUTENTI', -5);
 define('PAGINA_REVIEW', -6);
 
+// Identificativi Utenti, non modificare user anonimo e superadmin
 define('USER_ANONIMO', -1);
 define('USER', 0);
 define('USER_POWER', 1);
 define('USER_ADMIN', 2);
 define('USER_SUPERADMIN', 10);
 
+// costanti transazioni sql
 define('BEGIN_TRANSACTION', 1);
 define('END_TRANSACTION', 2);
 
+// configurazioni avanzate
 define('FILE_ERRORE_MYSQL', "personalizzazioni/erroreDatabase.html");
 define('PANNELLO_SISTEMA_SEPARATORE', "<!-- PERSONALIZZATO_SISTEMA -->");
 
-/*********************************************ATTRIBUTI PER FAMIGLIE DI STILI ISWEB*********************************/ 
-/* 
-Non editare queste configurazioni
-*/ 
+/////////////////////////////////////////CONFIGURAZIONE FAMIGLIA STILI///////////////////////////////
 $stiliInibiti = array();
 $stiliInibiti[] = array(
 	'famiglia' => 'zona',
@@ -264,16 +218,21 @@ $stiliInibiti[] = array(
 $arrayElementiTitoloBreve = array(
 	'breadcrumbs' => 'Pannello Breadcrumbs',
 	'titolo_pagina' => 'Pannello titolo della sezione',
-	'menu_auto' => 'Pannello menï¿½ di navigazione automatico',
-	'menu_normale' => 'Menï¿½ del sito'
+	'menu_auto' => 'Pannello menù di navigazione automatico',
+	'menu_normale' => 'Menù del sito'
 );
 
 
-/*********************************************VERIFICHE COMPATIBILITA' PHP*********************************/ 
-/* 
-Non editare queste configurazioni
-*/ 
+//////////////////////
+// OPZIONI SPECIALI //
+//////////////////////
+$option['ip-zone']=0;   // 1 usa il database degli IP per il riconoscimento dei paesi.
+// DEVE ESSERE INSTALLATO A PARTE!
 
+// forzature configurazione PHP
+//ini_set("magic_quotes_gpc",1);
+
+// se nel php.ini non è abilitato il "magic_quotes_gpc"
 if (!get_magic_quotes_gpc() AND !function_exists('magicSlashes')) {
     // funzione ricorsiva per l'aggiunta degli slashes ad un array
     function magicSlashes($element) {
@@ -285,16 +244,43 @@ if (!get_magic_quotes_gpc() AND !function_exists('magicSlashes')) {
     // Aggiungo gli slashes a tutti i dati GET/POST/COOKIE
     if (isset ($_GET)     && count($_GET))    $_GET    = array_map("magicSlashes", $_GET);
     if (isset ($_POST)    && count($_POST))   $_POST   = array_map("magicSlashes", $_POST);
-    if (isset ($_COOKIES) && count($_COOKIES))$_COOKIE = array_map("magicSlashes", $_COOKIE);
+    if (isset ($_COOKIE) && count($_COOKIE))$_COOKIE = array_map("magicSlashes", $_COOKIE);
 	
 	$HTTP_GET_VARS = $_GET;
 	$HTTP_POST_VARS = $_POST;
-	$HTTP_COOKIES_VARS = $_COOKIES;
+	$HTTP_COOKIES_VARS = $_COOKIE;
 	$HTTP_FILES_VARS = $_FILES;
 
 }
+function htmlentities_54($string, $ent=ENT_COMPAT, $charset='ISO-8859-1') {
+	return htmlentities($string, $ent, $charset);
+}
 
-// sanitizzo forzatamente variabile host
+function forzaStringa($string, $preg = '/[^a-zA-Z0-9-.:,_&=\' \/]+/') {
+	$string = html_entity_decode($string, ENT_COMPAT, 'ISO-8859-1');
+	$string = strip_tags($string);
+	$string = preg_replace($preg, '', $string);
+	return htmlentities($string, ENT_COMPAT, 'ISO-8859-1');
+}
+function forzaPercorso($string) {
+	// verifico presenza di doppio punto per tornare indietro
+	if (stripos($string, "..") !== false){
+		//echo "<p>!!!!!! CORRISPONDENZA ".$input."</p>";
+		return '';
+	}	
+	$string = html_entity_decode($string, ENT_COMPAT, 'ISO-8859-1');
+	$string = strip_tags($string);
+	$string = preg_replace('/[^a-zA-Z0-9-_.,\/]+/', '', $string);	
+	return htmlentities($string, ENT_COMPAT, 'ISO-8859-1');
+}
+function forzaNumero($string) {
+	$string = html_entity_decode($string, ENT_COMPAT, 'ISO-8859-1');
+	$string = strip_tags($string);
+	$string = preg_replace('/[^0-9-]+/', '', $string);	
+	return htmlentities($string, ENT_COMPAT, 'ISO-8859-1');
+}
+
+// verifico variabili server
 $z = strtolower($_SERVER['HTTP_HOST']);
 $z = preg_replace('/[^a-z0-9-.]+/', '', $z);
 $_SERVER['HTTP_HOST'] = trim($z);

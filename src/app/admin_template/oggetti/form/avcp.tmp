@@ -1,0 +1,237 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		////jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editorDesc = CKEDITOR.replace( 'descrizione' );
+
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: true,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			rules: {
+				
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				anno: "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire l'URL\",";
+				} ?>
+				anno: "Devi inserire l'anno di riferimento per la generazione del relativo URL"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+		
+		<?
+		if($configurazione['dominio_file_anac_completo']) {
+			$dominioFile = $configurazione['dominio_file_anac'];
+		} else {
+			$dominioFile = $enteAdmin['nome_breve_ente'].".".$configurazione['dominio_file_anac'];
+		}
+		?>
+		jQuery("#anno").change(function() {
+			updateUrl();
+		});
+		
+		
+		jQuery('.logAVCP').expander({
+			slicePoint:       0, 
+			expandPrefix:     " ... ",
+			expandText:       " visualizza il log completo degli errori", 
+			collapseTimer:    0, // re-collapses after 5 seconds; default is 0, so no re-collapsing		
+			expandEffect: 'slideDown',
+			expandSpeed: 600,
+			collapseEffect: 'slideUp',
+			collapseSpeed: 600,
+			userCollapseText: '[nascondi il log completo delgi errori]'  
+		});		
+		
+	});
+
+	function updateUrl() {
+		var id_stazione = 0;
+		var url_stazione = '';
+		<?
+		if(moduloAttivo('stazioni_appaltanti')) {
+			?>
+			id_stazione = jQuery("#id_stazione").val();
+			if(id_stazione > 0) {
+				url_stazione = 's'+id_stazione+'_';
+			}
+			<?
+		}
+		?>
+		if(jQuery("#anno").val() > 0) {
+			<?
+			if($configurazione['dominio_file_anac_completo']) {
+				?>
+				jQuery("#url").val('<? echo $dominioFile; ?>avcp/<? echo $datiUser['id_ente_admin']; ?>/'+url_stazione+jQuery("#anno").val()+'.xml');
+				<?
+			} else {
+				?>
+				jQuery("#url").val('http://<? echo $dominioFile; ?>/avcp/<? echo $datiUser['id_ente_admin']; ?>/'+url_stazione+jQuery("#anno").val()+'.xml');
+				<?
+			}
+			?>
+		} else {
+			jQuery("#url").val('');
+		}
+	}
+</script>
+
+<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco URL per ANAC</a> 
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> URL
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			echo "<input type=\"hidden\" id=\"__personalizzato\" name=\"__personalizzato\" value=\"0\">";
+			?>
+			
+			<?
+			if($id) {
+				echo "<input type=\"hidden\" id=\"url_precedente\" name=\"url_precedente\" value=\"".$istanzaOggetto['url']."\">";
+			}
+			$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_url_avcp WHERE id_ente = ".$datiUser['id_ente_admin'];
+			if($result = $database->connessioneConReturn($sql)) {
+				$result = $database->sqlArrayAss($result);
+			}
+			$anniAvcp = array();
+			foreach((array)$result as $annoAvcp) {
+				$anniAvcp[] = $annoAvcp['anno'];
+			}
+			$annoStart = 2014;
+			if($configurazione['sblocca_anac_anno']) {
+				$annoEnd = date('Y');
+			} else {
+				$annoEnd = date('Y')-1;
+			}
+			if(!in_array(2013, $anniAvcp) or 2013 == $istanzaOggetto['anno']) {
+				$valoriAnni = '2013';
+				$etiAnni = '2013 (include dicembre 2012)';
+			}
+			for($a = $annoStart; $a <= $annoEnd; $a++) {
+				if(!in_array($a, $anniAvcp) or $a == $istanzaOggetto['anno'] or moduloAttivo('stazioni_appaltanti')) {
+					if($valoriAnni != '') {
+						$valoriAnni .= ','.$a;
+						$etiAnni .= ','.$a;
+					} else {
+						$valoriAnni .= $a;
+						$etiAnni .= $a;
+					}
+				}
+			}
+			creaFormTrasp('Anno di riferimento','selezione', 'anno', $valoriAnni, $istanzaOggetto['anno'], $etiAnni,'input-xxlarge',0,'', 0, 0,true);
+			?>
+			
+			<?
+			//stazioni appaltanti
+			if(moduloAttivo('stazioni_appaltanti')) {
+				?>
+				<script type="text/javascript">
+				jQuery(document).ready(function() {
+					jQuery("#id_stazione").change(function() {
+						updateUrl();
+					});
+				});
+				</script>
+				<?
+				creaFormTrasp('Stazione appaltante','stazioni', 'id_stazione', '', $istanzaOggetto['id_stazione'], '','input-xxlarge');
+			}
+			
+			
+			echo "<div class=\"par control-group\">";
+			echo "<label class=\"control-label\" for=\"url\">URL per ANAC</label>";
+			echo "<div class=\"controls\">";
+			echo "<input placeholder=\"\" type=\"text\" name=\"url\" id=\"url\" readonly=\"readonly\" value=\"".$istanzaOggetto['url']."\" class=\"disabled input-xxlarge\" />";
+			?>
+				
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id'] and !$istanzaOggetto['__bloccato']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				
+				if(!$istanzaOggetto['__bloccato']) {
+					?>
+					<button onclick="inviaForm=true;" class="btn btn-primary">Salva dati</button>
+					<?
+				}
+				
+				if($statoWfSuccessivo['id'] and !$istanzaOggetto['__bloccato']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+			
+			<?
+			$urlStazione = '';
+			if($istanzaOggetto['id_stazione'] > 0) {
+				$urlStazione = 's'.$istanzaOggetto['id_stazione'].'_';
+			}
+			if ($istanzaOggetto['id'] and file_exists('./avcp/'.$istanzaOggetto['id_ente'].'/'.$urlStazione.$istanzaOggetto['anno'].'.xml')) { 
+				include_once('app/funzioniAVCP.php');
+				$testoErrori = visualizzaDettaglioErroriAvcp($istanzaOggetto);
+				if($testoErrori != '') {
+					?>
+					<div class="alert alert-block">
+						<h4><span class="iconfa-info-sign"></span> Errori presenti nel file xml per l'ANAC</h4>
+						<p style="margin: 8px 0;color:#646464;">
+							<span><? echo $testoErrori; ?></span>
+						</p>
+						<div class="logAVCP">
+							<? echo visualizzaLogCompletoErroriAvcp($istanzaOggetto); ?>
+						</div>
+					</div>
+					<? 
+				} 
+			}	
+			?>
+			
+		</form>
+	</div>
+</div>
+<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco URL per ANAC</a> 

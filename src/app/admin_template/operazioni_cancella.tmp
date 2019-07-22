@@ -1,0 +1,186 @@
+<script type="text/javascript">
+var numCanc,idCancello,parentTable,ch,testo;
+function showDialogCancella(num,txt,dettagli,multiplo) {
+	width = 600;
+	height = 220;
+	if(dettagli) {
+		width = jQuery(window).width()*80/100;
+		height = jQuery(window).height()/2;
+	}
+	console.log('altezza: '+height);
+	jQuery('<div />').html('Proseguendo <strong>'+num+'</strong> '+elemento+' '+txt+'<br /><strong>Procedere con l\'eliminazione?</strong>').dialog({
+        title: 'Eliminazione '+elemento,
+        modal: true, resizable: false, draggable: false,
+        width: width,
+        height: height,
+        close: function() {
+            jQuery(this).dialog('destroy').remove();
+        },
+        buttons: [{
+            text: "Annulla",
+            class: 'btn btn-primary',
+            click: function() {
+            	jQuery(this).dialog("close");
+            }
+        },
+        {
+            text: "Elimina",
+            class: 'btn btn-primary',
+            click: function() {
+            	// proseguo con la cancellazione, invio il form con i valori
+				jQuery('#id_cancello_tabella').attr('value',idCancello);
+				//alert('Questi sono gli ID che cancello: '+jQuery('#id_cancello_tabella').attr('value'));
+            	jQuery(this).dialog("close");
+				jQuery('#formCancella').submit();
+            }
+        }]
+    });
+}
+function showDettagliRec(id) {
+	jQuery.ajax({
+		url: 'ajax.php',
+		type: 'get',
+		dataType: 'json',
+		data: {'azione': 'verificaCorrelazioniOnDelete', 'id': id, 'idOggetto': '<? echo $idOggetto; ?>'},
+		success: function(data, abb, bc) {
+			if(data.esito == 'ok') {
+				console.log(data);
+				if(data.testo != '') {
+					jQuery('#contentDettagliRec'+id).html(data.testo);
+				} else {
+					jQuery('#contentDettagliRec'+id).html('Nessun contenuto collegato.');
+				}
+			}
+			jQuery('#contentDettaglioLoaded'+id).val(1);
+			jQuery('#dettagliRec'+id).show();
+		},
+		error: function(xhr, desc, err) {
+			jQuery('#contentDettaglioLoaded'+id).val(1);
+			jQuery('#contentDettagliRec'+id).html('Nessun contenuto collegato.');
+			jQuery('#dettagliRec'+id).show();
+		}
+	});
+}
+function hideDettagliRec(id) {
+	jQuery('#dettagliRec'+id).hide();
+}
+function eliminaElemento(idCanc, numCanc) {
+	idCancello = idCanc;
+	elemento = 'elemento';
+	testo = 'verrà eliminato';
+	if(numCanc > 1) {
+		elemento = 'elementi';
+		testo = 'verranno eliminati';
+	}
+	<?
+	if($idOggetto == 46) {
+		?>
+		testo += '<br /><br /><strong>ATTENZIONE: verranno pubblicati tutti gli eventuali elementi attualmente presenti in uno degli stati intermedi dei workflow in eliminazione.</strong><br /><br />';
+		<?
+	}
+	if($idOggetto == 4 and moduloAttivo('incarichiPerlaPA')) {
+	    ?>
+		testo += '<br /><br /><strong>ATTENZIONE: verranno cancellati tutti gli eventuali incarichi comunicati a PerlaPA.</strong><br /><br />';
+		<?
+	}
+	?>
+	if(numCanc > 1) {
+		var idsCancello = idCancello.split(',');
+		if(idsCancello.length>0) {
+			testo += '<br /><br /><ol>';
+			for (i = 0; i < idsCancello.length; i++) { 
+		    	testo += '<li><strong>'+jQuery('#campo_default_'+idsCancello[i]).html()+'</strong> <a href="javascript:showDettagliRec('+idsCancello[i]+');">[dettagli]</a>';
+		    	testo += '<div id="dettagliRec'+idsCancello[i]+'" class="alert alert-warning" style="display:none;">';
+		    	testo += '<button onclick="hideDettagliRec('+idsCancello[i]+')" class="close" type="button">&times;</button>';
+		    	testo += '<div id="contentDettagliRec'+idsCancello[i]+'">Verifica dei collegamenti in corso...</div>';
+		    	testo += '</div>';
+		    	testo += '</li>';
+			}
+			testo += '</ol>';
+		}
+		showDialogCancella(numCanc, testo, true, true);
+	} else {
+		jQuery.ajax({
+			url: 'ajax.php',
+			type: 'get',
+			dataType: 'json',
+			data: {'azione': 'verificaCorrelazioniOnDelete', 'id': idCancello, 'idOggetto': '<? echo $idOggetto; ?>'},
+			success: function(data, abb, bc) {
+				dettagli = false;
+				if(data.esito == 'ok') {
+					testo += '<br /><br />'+data.testo;
+					if(data.testo != '') {
+						dettagli = true;
+						console.log(data.testo);
+					}
+				}
+				showDialogCancella(numCanc, testo, dettagli, false);
+			},
+			error: function(xhr, desc, err) {
+				showDialogCancella(numCanc, testo, false, false);
+			}
+		});
+	}
+}
+
+jQuery(document).ready(function(){	
+	function initCancella() {
+		//alert('Init canc');
+		// funzioni di cancellazione con richiesta di conferma
+		if(jQuery('.confCanc').length > 0) {
+			
+			jQuery('.confCanc').click(function(){
+			
+				idCancello = jQuery(this).attr('idcanc');
+				// verifico se usare l'id o le selezioni
+				if (idCancello==0) {
+					// cerco tutte le caselle selezionate
+					numCanc = 0;
+					parentTable = jQuery('#dyntable');	
+					ch = jQuery('input[type=checkbox]', tabellaDinamica.fnGetNodes());
+					idCancello = '';
+					ch.each(function(){
+						if ( jQuery(this).attr('checked')) {
+							// casella selezionata
+							if (idCancello != '') {
+									idCancello = idCancello+',';
+							}
+							idCancello = idCancello+jQuery(this).attr('value');
+							numCanc++;
+						}
+					});							
+				} else {	
+					numCanc = 1;
+				}
+				
+				if (numCanc==0) {
+					jQuery('<div />').html("Nessun elemento selezionato per la cancellazione.").dialog({
+				        title: 'Attenzione',
+				        modal: true, resizable: false, draggable: false,
+				        width: '600',
+				        close: function() {
+				            jQuery(this).dialog('destroy').remove();
+				        },
+				        buttons: [{
+				            text: "Chiudi",
+				            class: 'btn btn-primary',
+				            click: function() {
+				            	jQuery(this).dialog("close");
+				            }
+				        }]
+				    });
+				} else {
+					eliminaElemento(idCancello, numCanc);
+				}
+			});
+		}	
+	}
+	initCancella();
+});
+</script>
+<?  
+/////////////////// FORM CANCELLAZIONE NASCOSTO
+echo "<form name=\"formCancella\" id=\"formCancella\" method=\"post\" action=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azionesec=cancella\">"; 
+echo "<input type=\"hidden\" value=\"\" name=\"id_cancello_tabella\" id=\"id_cancello_tabella\" />";
+echo "</form>";
+?>

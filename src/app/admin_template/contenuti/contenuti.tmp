@@ -1,0 +1,850 @@
+<script type="text/javascript">	
+	<? if ($id) { ?>
+	var contenutoAperto = 'sez<? echo $id; ?>';
+	<? } else { ?>
+	var contenutoAperto = '';
+	<? } ?>
+	
+	var nome = '';
+	var idSezione = '';
+	
+	
+	function vediContenuto( id ) {
+		console.log('vedi contenuto: '+id);
+		elemento = document.getElementById(id);
+		// memorizzo id aperto
+		if (contenutoAperto == id) {
+			// elemento già aperto, non faccio nulla ed esco
+			return false;
+		} else {
+			// elemento da aprire, verifico che non ce ne siano già aperti
+			if (contenutoAperto != '') {
+				jQuery('#'+contenutoAperto).fadeOut('fast', function(){
+					jQuery('#'+id).fadeIn();
+				});
+			} else {
+				jQuery('#'+id).fadeIn();			
+			}
+			
+			contenutoAperto = id;
+		}
+	}
+
+	jQuery(document).ready(function(){
+	
+		// menu tabs accordion
+		jQuery('.accordion').accordion({
+			heightStyle: "content",
+			collapsible: true,
+			active: false
+		});
+		
+		// inizializzo la troncatura del testo della guida
+		jQuery('.testoTroncato').expander({
+			slicePoint:       560, 
+			expandPrefix:     " ... ",
+			expandText:       " leggi tutto", 
+			collapseTimer:    12000, // re-collapses after 5 seconds; default is 0, so no re-collapsing		
+			expandEffect: 'slideDown',
+			expandSpeed: 600,
+			collapseEffect: 'slideUp',
+			collapseSpeed: 600,
+			userCollapseText: '[nascondi il testo extra]'  
+		});		
+		
+		// inizializzo le popover normative
+		jQuery('.tipHelpCont').popover({html: true,placement:"top",trigger:"hover"});
+		
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per"});
+		
+		jQuery("#menuAlbero").jstree({
+			"themes" : { "theme" : 'classic',"dots" : true,"icons": false },
+			"plugins" : ["themes","html_data","ui","crrm","hotkeys"],
+			"core" : { "initially_open" : [ "" ] }
+		}).bind("loaded.jstree", function (event, data) {
+			// you get two params - event & data - check the core docs for a detailed description
+		});
+
+		
+		// pulsante di visualizzazione editor
+		jQuery('.cancellaContenuto').click(function(){
+			
+			// operazioni per l'apertura del campo di modifica
+			var id = jQuery(this).attr('id').slice(4);
+			
+			//alert('funzione ancora non disponibile');
+			/*
+			jQuery('#boxCont'+id).attr('display','none;');		
+			jQuery('#boxForm'+id).attr('display','block;');
+			*/
+			
+			// risalgo al nome di sezione
+			var nome = jQuery(this).attr('nomesezione');
+			
+			// chiedo conferma della cancellazione
+			jConfirm('Sei sicuro di voler proseguire con la cancellazione ? Proseguendo il contenuto editabile di "<strong>'+nome+'</strong>" verrà eliminato.', 'Richiesta di conferma', function(r) {
+				if (r) {
+					// proseguo con la cancellazione, invio il form con i valori
+					jQuery('#id_cancello_contenuto').attr('value',id);
+					jQuery('#formCancella').attr('action',"?menu=contenuti&menusec=normali&azione=cancellacont&id="+id);
+					//alert('Questi sono gli ID che cancello: '+jQuery('#id_cancello_tabella').attr('value'));
+					jQuery('#formCancella').submit();
+				}
+			});						
+			
+		});
+		
+		// pulsante di visualizzazione editor
+		jQuery('.visualizzaContenuto').click(function(){
+			
+			// operazioni per l'apertura del campo di modifica
+			var id = jQuery(this).attr('id').slice(3);
+			
+			//alert('click: '+id);
+			/*
+			jQuery('#boxCont'+id).attr('display','none;');		
+			jQuery('#boxForm'+id).attr('display','block;');
+			*/
+			jQuery('#boxCont'+id).toggle("fast");		
+			jQuery('#boxForm'+id).toggle("fast");
+			
+			jQuery.ajax({
+				type: 'GET',
+				url: 'ajax.php?azione=getModelloContenuto&id='+id+'&ide=<? echo $idEnteAdmin; ?>',
+				dataType: 'json',
+				success: function(response){
+					//jQuery('#contenutoSezione'+id).val(response);
+					jQuery('#contenutoSezione'+id).val(jQuery("<div/>").html(response).text());
+					CKEDITOR.replace('contenutoSezione'+id);
+				},
+				error: function() {
+					jAlert('Si e\' verificato un errore riguardo la tua connessione', 'Attenzione');
+				}
+			});
+			
+			// nascondo il pulsante di visualizzazione
+			jQuery('#livis'+id).css("display",'none');
+			// visualizzo editing
+			jQuery('#limod'+id).css("display",'block');
+			
+		});
+		
+		// pulsante di visualizzazione editor
+		jQuery('.modificaContenuto').click(function(){
+			
+			// operazioni per l'apertura del campo di modifica
+			var id = jQuery(this).attr('id').slice(3);
+			
+			//alert('click: '+id);
+			/*
+			jQuery('#boxCont'+id).attr('display','none;');		
+			jQuery('#boxForm'+id).attr('display','block;');
+			*/
+			jQuery('#boxCont'+id).toggle("fast");		
+			jQuery('#boxForm'+id).toggle("fast");	
+			
+			jQuery.ajax({
+				type: 'GET',
+				url: 'ajax.php?azione=getModelloContenuto&id='+id+'&ide=<? echo $idEnteAdmin; ?>',
+				dataType: 'json',
+				success: function(response){
+					jQuery('#contenutoSezione'+id).val(jQuery("<div/>").html(response).text());
+					CKEDITOR.replace('contenutoSezione'+id);
+				},
+				error: function() {
+					jAlert('Si e\' verificato un errore riguardo la tua connessione', 'Attenzione');
+				}
+			});
+			
+			// nascondo il pulsante di visualizzazione
+			jQuery('#livis'+id).css("display",'block');
+			// visualizzo editing
+			jQuery('#limod'+id).css("display",'none');
+			
+		});
+		
+		// pulsante di visualizzazione editor
+		jQuery('.creaCont').click(function(){
+			
+			// operazioni per l'apertura del campo di modifica
+			var id = jQuery(this).attr('id').slice(3);
+			
+			//alert('click: '+id);
+			/*
+			jQuery('#boxCont'+id).attr('display','none;');		
+			jQuery('#boxForm'+id).attr('display','block;');
+			*/
+			jQuery('#boxCont'+id).toggle("fast");		
+			jQuery('#boxForm'+id).toggle("fast");	
+			CKEDITOR.replace('contenutoSezione'+id);
+		});
+		
+		// pulsante di visualizzazione dei richiami
+		jQuery('.modRichiami').click(function(){
+			
+			// verifico se devo chiudere un form precedentemente aperto
+			if (idSezione!='') {
+				jQuery('#'+nome+idSezione+'form').toggle("fast");		
+				jQuery('#'+nome+idSezione+'view').toggle("fast");	
+			}
+			// trovo il separatore (_)
+			pos = jQuery(this).attr('id').indexOf("_");
+			nome = jQuery(this).attr('id').slice(0,pos);
+			idSezione = jQuery(this).attr('id').slice(pos+1);
+			
+			label = jQuery('#'+nome+idSezione+'ph_label').val();
+			tipo = jQuery('#'+nome+idSezione+'ph_tipo').val();
+			nomeInput = jQuery('#'+nome+idSezione+'ph_nome').val();
+			valoreVero = jQuery('#'+nome+idSezione+'ph_valoreVero').val();
+			//console.log('ajaxPers.php?azione=getFormTrasp&label='+label+'&tipo='+tipo+'&nome='+nomeInput+'&valoreVero='+valoreVero);
+			jQuery.ajax({
+				type: 'GET',
+				url: 'ajaxPers.php?azione=getFormTrasp&label='+label+'&tipo='+tipo+'&nome='+nomeInput+'&valoreVero='+valoreVero,
+				success: function(response){
+					//console.log(response);
+					jQuery('#'+nome+idSezione+'ph').html(response);
+					//jQuery('#'+idSezione+'_'+nome).chosen({no_results_text: "Nessun risultato per"});
+					// chiudo la visualizzazione aperta
+					jQuery('#'+nome+idSezione+'form').toggle("fast");		
+					jQuery('#'+nome+idSezione+'view').toggle("fast");				
+				},
+				error: function() {
+					jAlert('Si e\' verificato un errore riguardo la tua connessione', 'Attenzione');
+				}
+			});
+			
+		});
+		
+		jQuery('.close').click(function(){
+			// chiudo la visualizzazione aperta
+			jQuery('#'+nome+idSezione+'form').toggle("fast");		
+			jQuery('#'+nome+idSezione+'view').toggle("fast");	
+			nome = '';
+			idSezione = '';
+		});
+ 
+		
+		
+		// ALERT DELLE OPERAZIONI
+		<? if (isset ($operazione) and $operazione !== '') { ?>
+		<? if (!$operazione) { ?>
+			// errore
+			jQuery.alerts.dialogClass = 'alert-warning';
+			jAlert('<? echo $operazioneTesto; ?>', 'Messaggio di errore', function(){
+				jQuery.alerts.dialogClass = null; // reset to default
+			});
+		<? } else { ?>
+			// successo
+			jQuery.alerts.dialogClass = 'alert-success';
+			jAlert('<? echo $operazioneTesto; ?>', 'Messaggio di successo', function(){
+				jQuery.alerts.dialogClass = null; // reset to default
+			});
+		<? } ?>
+		<? } ?>
+		
+		// RIPETO INIZIALIZZAZIONE DEI TOOLTIP
+		if(jQuery('table .intTooltip').length > 0) {
+			jQuery('table a[data-rel]').each(function() {
+				jQuery(this).attr('rel', jQuery(this).data('rel'));
+			});
+			jQuery('table .intTooltip').tooltip({selector: "a[rel=tooltip]"});
+		}
+		
+	});
+	
+	// rimuovo il contenuto quando cambio modale di review
+	jQuery('body').on('hidden', '.modal', function () {
+		jQuery(this).removeData('modal');
+	});
+</script>
+
+<? /////////////// FUNZIONI DI CONSTRUZIONE FORM //////////
+function costruisciGuida($sezione,$testoHelp,$helpNorma,$snodo=false) {
+	global $sezioni,$sezAdmin,$id,$istanzaOggetto;
+	
+	echo "<div class=\"alert alert-block\">
+			<button data-dismiss=\"alert\" class=\"close\" type=\"button\">&times;</button>
+			<h4 style=\"margin-top:0px;\"><i class=\"iconfa-question-sign\"></i> Guida ai contenuti</h4><div style=\"margin-bottom:15px;\"></div>";		
+	
+	if ($snodo) {
+		echo "<p style=\"color:#646464;\">La pagina \"<strong>".$sezione['nome']."</strong>\" è una sezione snodo usata per organizzare altri contenuti.</p>";
+		echo "<h5 class=\"subtitle\">Operazioni consigliate</h4>";
+		echo "<p style=\"color:#646464;\">Non è necessario editare alcun contenuto per le pagine di snodo.</p>";
+	} else {
+		if (!is_array($testoHelp)) {
+			// avviso che ancora non è presente questo testo
+			echo "<p style=\"color:#646464;\"> La guida di questo contenuto non è per il momento disponibile.</p>";
+		} else {
+			// pubblico il testo
+			// sostituisco i paragarfi con i div
+			
+			//$testoHelp['testo_html'] = str_replace('<p>', '<div>', $testoHelp['testo_html']);
+			//$testoHelp['testo_html'] = str_replace('</p>', '</div>', $testoHelp['testo_html']);
+			echo "<div style=\"color:#646464;\" class=\"testoTroncato\">".$testoHelp['testo_html']."</div>";
+
+			if (trim($testoHelp['tipo_cont']) != '' and $testoHelp['tipo_cont'] != 0) {
+				// devo pubblicare tutti i nomi dell'oggetto
+				$idOggMulti = explode(',', $testoHelp['tipo_cont']);
+				$outputScreen = '';
+				echo "<h5 class=\"subtitle\">Tipo di contenuti da pubblicare</h4>";
+				foreach ($idOggMulti as $idOggTmp) {
+					$nomeOgg = mostraDatoOggetto($idOggTmp, 37);
+
+					if (trim($nomeOgg) != '') {
+						if ($outputScreen != '') {
+							$outputScreen .= ', ';
+						}
+						$outputScreen .= $nomeOgg;
+					}
+				}
+				echo "<p style=\"color:#646464;\">".$outputScreen."</p>";
+			}
+
+			echo "<h5 class=\"subtitle\">Operazioni consigliate</h5>";
+			
+			switch($testoHelp['operazioni']) {		
+				case "sezione ospitante oggetti":
+					echo "<p style=\"color:#646464;\">Per la pagina \"<strong>".$sezione['nome']."</strong>\" non è normalmente necessario editare del contenuto libero, poichè la sezione ospita già dei contenuti di pubblicazione automatica.</p>";
+				break;
+				
+				case "sezione snodo":
+					echo "<p  style=\"color:#646464;\">Per la pagina \"<strong>".$sezione['nome']."</strong>\" non è normalmente necessario editare del contenuto libero, poichè la sezione è di snodo verso gli altri contenuti.</p>";
+				break;
+				
+				case "non editare contenuto di sezione":
+				echo "<p  style=\"color:#646464;\">Per la pagina \"<strong>".$sezione['nome']."</strong>\" non è necessario editare alcun contenuto.</p></p>";
+				break;
+				
+				case "editare contenuto di sezione":
+				echo "<p  style=\"color:#646464;\">Per la pagina \"<strong>".$sezione['nome']."</strong>\" è necessario editare il contenuto richiesto dalla pagina.</p>";
+				break;
+			}
+			if (count($helpNorma)) {
+				echo "<h5 class=\"subtitle\">Riferimenti normativi</h4>";
+				foreach ($helpNorma as $norma) { 
+					echo "<div  style=\"color:#646464;\"><i class=\"iconfa-legal\"></i> 
+							<a data-placement=\"top\" data-rel=\"tooltip\" data-content=\"".htmlentities($norma['testo_norma'])."\" title=\"Articolo ".$norma['num_art']." ".$norma['commi']."\" class=\"tipHelpCont large\">
+								Articolo ".$norma['num_art']." ".$norma['commi']."
+							</a>
+						</div>";
+				}
+			}
+		}
+	}
+	echo "</div>";
+}
+
+function costruisciObjEdit($idSezione,$nome,$modello) {
+	global $dati_db,$database,$oggetti,$idEnteAdmin;
+
+	$tipoCampo = $nome;
+	switch($tipoCampo) {
+		case "normativa":
+			$tipoCampo = "normative";
+			$idObj = 27;
+		break;
+		case "referenti":
+			$tipoCampo = "referenti";
+			$idObj = 3;
+		break;
+		case "strutture":
+			$idObj = 13;
+		break;
+		case "regolamenti":
+			$idObj = 19;
+		break;
+		case "modulistica":
+			$idObj = 5;
+		break;
+		case "provvedimenti":
+			$idObj = 28;
+		break;
+		case "procedimenti":
+			$idObj = 16;
+		break;
+		case "incarichi":
+			$idObj = 4;
+		break;
+	}
+
+	echo "<h4 class=\"subtitle2\">".$nome."</h4>";
+
+	if (!is_array($modello) OR $modello[$nome] == '') {
+		// modello ancora non presente
+		
+		echo "<div id=\"".$nome.$idSezione."view\">
+			<table class=\"table table-bordered table-invoice\">
+				<tr>
+					<td class=\"\">Nessuna informazione viene attualmente richiamata da ".$nome."</td>
+					<td class=\"intTooltip\" style=\"width:1%;\">
+						<a id=\"".$nome."_".$idSezione."\" iddata-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Richiama nuove informazioni da ".$nome."\" class=\"btn modRichiami\"><span class=\"iconfa-edit\"></span></a>	
+					</td>
+				</tr>
+			</table>
+		</div>";
+	} else {	
+
+		if (trim($modello[$nome]) != '' and $modello[$nome] != 0) {
+			// devo pubblicare tutti i nomi dell'oggetto
+			$idOggMulti = explode(',', $modello[$nome]);
+			$outputScreen = '';
+			foreach ($idOggMulti as $idOggTmp) {
+				$nomeOgg = mostraDatoOggetto($idOggTmp, $idObj);
+				if (trim($nomeOgg) != '') {
+					if ($outputScreen != '') {
+						$outputScreen .= ', ';
+					}
+					$outputScreen .= $nomeOgg;
+				}
+			}
+		}	
+	
+		echo "<div id=\"".$nome.$idSezione."view\">
+			<table class=\"table table-bordered table-invoice\">
+				<tr>
+					<td class=\"width30\">".$modello[$nome."_tit"]."</td>
+					<td class=\"\">
+						".$outputScreen."
+					</td>
+					<td class=\"intTooltip\" style=\"width:1%;\">
+						<a id=\"".$nome."_".$idSezione."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Modifica le informazioni richiamate da ".$nome."\" class=\"btn modRichiami\"><span class=\"iconfa-edit\"></span></a>	
+					</td>
+				</tr>
+			</table>
+		</div>";
+	}
+	
+	// pubblico il form di gestione dei richiami
+	echo "<div id=\"".$nome.$idSezione."form\" class=\"bordoFalso\" style=\"display:none;\">";
+	echo "<button class=\"close\" type=\"button\">&times;</button>";
+	echo "<form id=\"".$nome.$idSezione."formInput\" class=\"stdform\" method=\"post\" enctype=\"multipart/form-data\" action=\"?menu=contenuti&amp;menusec=normali&amp;azione=editaobj&amp;id=".$idSezione."&amp;nome=".$nome."\">";
+	
+	creaFormTrasp('Titolo di questo richiamo','testo', $idSezione."_".$nome."_tit", '', $modello[$nome."_tit"], '','input-xlarge'); 
+	echo "<div id=\"".$nome.$idSezione."ph\"></div>";
+	echo "<input type=\"hidden\" id=\"".$nome.$idSezione."ph_label\" value=\"".$nome." da richiamare\" />";
+	echo "<input type=\"hidden\" id=\"".$nome.$idSezione."ph_tipo\" value=\"".$tipoCampo."\" />";
+	echo "<input type=\"hidden\" id=\"".$nome.$idSezione."ph_nome\" value=\"".$idSezione."_".$nome."\" />";
+	echo "<input type=\"hidden\" id=\"".$nome.$idSezione."ph_valoreVero\" value=\"".$modello[$nome]."\" />";
+	//creaFormTrasp($nome.' da richiamare',$tipoCampo, $idSezione."_".$nome, '', $modello[$nome], '','input-xxlarge'); 
+	creaFormTrasp('Opzioni di visualizzazione','selezione', $idSezione."_".$nome."_opz", '', '', '','input-large',0,'nessuna opzione disponibile'); 
+	
+	echo "<p class=\"stdformbutton\">";
+	echo "<button onclick=\"inviaForm=true;\" class=\"btn btn-primary\">Salva il contenuto</button>";
+	echo "</p>";
+	
+	echo "</form>";
+	echo "</div>";
+	
+	
+	
+}
+
+function costruisciContEdit($sezione,$modello,$testoHelp) {
+	global $idEnteAdmin;
+
+	echo "<div class=\"widgetbox box-inverse\">
+			<div class=\"headtitle\">
+				<div class=\"btn-group\">
+					<button data-toggle=\"dropdown\" class=\"btn dropdown-toggle\"><i class=\"iconfa-th\"></i> Operazioni <span class=\"caret\"></span></button>
+					<ul class=\"dropdown-menu\">";
+						echo "<li style=\"display:none;\" id=\"livis".$sezione['id']."\"><a href=\"#\" id=\"vis".$sezione['id']."\" class=\"visualizzaContenuto\" ><i class=\"iconfa-search\"></i> &nbsp;Visualizza il contenuto</a></li>";
+						echo "<li id=\"limod".$sezione['id']."\"><a href=\"#\" id=\"mod".$sezione['id']."\" class=\"modificaContenuto\"><i class=\"iconfa-edit\"></i> &nbsp;Edita il contenuto</a></li>";
+						if ($modello['html_generico'] != '' AND is_array($modello)) {
+							echo "<li class=\"divider\"></li>
+								<li><a href=\"#\" id=\"canc".$sezione['id']."\" nomesezione=\"".$sezione['nome']."\" class=\"cancellaContenuto\"><i class=\"iconfa-trash\"></i> &nbsp;Elimina il contenuto</a></li>";
+						}
+				echo "</ul>
+				</div>
+				<h4 class=\"widgettitle\">Contenuto editabile</h4>
+			</div>
+			<div class=\"widgetcontent wc1\">";
+
+			echo "<div class=\"ulNormali\" id=\"boxCont".$sezione['id']."\">";									
+			if (!is_array($modello) OR $modello['html_generico']=='') {
+				// avviso che ancora non è presente questo testo
+				echo "<div class=\"alert-block\">
+						<h4 style=\"margin-top:0px;\"><i class=\"iconfa-info-sign\"></i> Contenuto non presente</h4>";							
+				echo "<p style=\"color:#646464;\">Nessun contenuto editabile inserito per questa pagina.<a id=\"cre".$sezione['id']."\" class=\"btn btn-rounded modificaContenuto\" style =\"margin-left:15px !important;\" href=\"#\"><span class=\"iconfa-edit\"></span> Edita questo contenuto</a></p>";
+				echo "</div>";
+			} else {
+				// pubblico il testo
+				echo tagliaContHtml($modello['html_generico'], 300);
+			}
+			echo "</div>";
+			
+			// pubblico il form editor di gestione dei contenuti
+			echo "<div id=\"boxForm".$sezione['id']."\" style=\"display:none;\">";
+			echo "<form id=\"formContenuti".$sezione['id']."\" method=\"post\" enctype=\"multipart/form-data\" action=\"?menu=contenuti&amp;menusec=normali&amp;azione=edita&amp;id=".$sezione['id']."\">";
+			echo "<textarea name=\"contenutoSezione".$sezione['id']."\" id=\"contenutoSezione".$sezione['id']."\">";
+			
+			echo "</textarea>"; 
+			echo "<p class=\"stdformbutton\">";
+			echo "<button class=\"btn btn-primary\" onclick=\"inviaForm=true;\">Salva il contenuto</button>";
+			echo "</p>";
+			echo "</form>";
+			echo "</div>";
+	
+	echo "</div></div>";	
+	
+	$objPrevisti = array();
+	if (trim($testoHelp['tipo_cont']) != '' and $testoHelp['tipo_cont'] != 0) {
+		// devo pubblicare tutti i nomi dell'oggetto
+		$objPrevisti = explode(',', $testoHelp['tipo_cont']);
+	}
+	foreach ($objPrevisti as $previsto) {
+
+		switch ($previsto) {			
+			case "5":
+				costruisciObjEdit($sezione['id'],'modulistica',$modello);
+			break;
+	
+			case "6":
+				costruisciObjEdit($sezione['id'],'regolamenti',$modello);
+			break;
+			
+			case "12":
+				costruisciObjEdit($sezione['id'],'normativa',$modello);
+			break;
+			
+			case "14":
+				costruisciObjEdit($sezione['id'],'strutture',$modello);
+			break;
+			
+			case "2":
+				costruisciObjEdit($sezione['id'],'referenti',$modello);
+			break;
+			
+			case "3":
+				costruisciObjEdit($sezione['id'],'procedimenti',$modello);
+			break;
+			
+			case "4":
+				costruisciObjEdit($sezione['id'],'provvedimenti',$modello);	
+			break;
+
+			case "8":
+				costruisciObjEdit($sezione['id'],'incarichi',$modello);	
+			break;
+
+			}
+	}
+}
+
+$modelli = array();
+
+?>
+
+<div class="row-fluid">
+	<div class="span4 profile-left">
+	
+		<div class="widgetbox menuPagine">
+			<h4 class="widgettitle">Scegli la pagina da amministrare</h4>
+			<div class="widgetcontent">
+				<div id="menuAlbero">	
+					<ul>
+					<? // ciclo le sezioni
+					foreach ($sezioni as $sezione) {
+						if ($sezione['id_riferimento']==18 AND $sezione['permessi_lettura']!='HM' AND $sezione['permessi_lettura']!='H') { 
+							// recupero il contenuto amministrativo di presentazione
+							$testoHelp = datoGuidaTrasp($sezione['id']);			
+							// testo modello
+							$modello = datoModelloTrasp($idEnteAdmin,$sezione['id']);		
+							$modelli[$sezione['id']] = $modello;
+							?>
+							<li id="menuSez<? echo $sezione['id']; ?>"><a href="#" onclick="vediContenuto('sez<? echo $sezione['id']; ?>');"><? echo $sezione['nome']; ?></a>
+								<ul>						
+									<?
+									foreach ($sezioni as $sezioneInterna1) {
+										if ($sezioneInterna1['id_riferimento']==$sezione['id'] AND $sezioneInterna1['permessi_lettura']!='HM' AND $sezioneInterna1['permessi_lettura']!='H') {
+											?>							
+											<li id="menuSottoSez<? echo $sezioneInterna1['id']; ?>"><a href="#" onclick="vediContenuto('sez<? echo $sezioneInterna1['id']; ?>');"><? echo $sezioneInterna1['nome']; ?></a>
+												<?
+												if($sezioneInterna1['id'] == 701 and moduloAttivo('agid')) {
+													?>
+													<ul>
+														<li id="menuSottoSottoSez705"><a href="#" onclick="vediContenuto('sez705');">Collegio dei revisori dei conti</a>
+														<li id="menuSottoSottoSez703"><a href="#" onclick="vediContenuto('sez703');">Comitato di Indirizzo</a>
+													</ul>
+													<?
+												} else if($sezioneInterna1['id'] != 701) {
+													?>
+													<ul>
+													<?
+													foreach ($sezioni as $sezioneInterna2) {
+														if ($sezioneInterna2['id_riferimento']==$sezioneInterna1['id'] AND $sezioneInterna2['permessi_lettura']!='HM' AND $sezioneInterna2['permessi_lettura']!='H') {
+															?>
+															<li id="menuSottoSottoSez<? echo $sezioneInterna2['id']; ?>"><a href="#" onclick="vediContenuto('sez<? echo $sezioneInterna2['id']; ?>');"><? echo $sezioneInterna2['nome']; ?></a>
+															<?
+														}
+													}
+													?>
+													</ul>
+													<?
+												}
+												?>
+											</li>
+											<?
+										} 
+									}
+									?>
+								</ul>
+							</li>
+							<?
+						}
+					}
+					?>
+					</ul>
+				</div>
+				<div style="clear:both;"></div>
+			</div>
+		</div>	
+
+	</div>
+
+	<!--# inizio modale review -->	
+	<div aria-hidden="false" aria-labelledby="modaleLabelReview" role="dialog" class="modal hide fade width60" id="modaleReview" style="margin-left:-26%;">
+		<div class="modal-header">
+			<button aria-hidden="true" data-dismiss="modal" class="close" type="button">&times;</button>
+			<h3 id="modaleLabeliFrame"><span style="color:#757575;" class="iconfa-search"></span> Dettagli</h3>
+		</div>
+		<div class="modal-body">
+				
+		</div>
+		
+		<div class="modal-footer">
+			<button data-dismiss="modal" class="btn">Chiudi</button>
+		</div>
+	</div>			
+	<!--# fine modale review -->
+
+	 <div class="span8">
+		<div class="widgetbox contPagine">
+			<h4 class="widgettitle"></h4>
+			<div class="widgetcontent">	 
+	 
+				<div id="schedaBox">
+					<? // ciclo le sezioni
+					foreach ($sezioni as $sezione) {
+						if ($sezione['id_riferimento']==18 AND $sezione['permessi_lettura']!='HM' AND $sezione['permessi_lettura']!='H') { 
+							// recupero il contenuto amministrativo di presentazione
+							$testoHelp = datoGuidaTrasp($sezione['id']);			
+							// testo modello
+							if(isset($modelli[$sezione['id']])) {
+								$modello = $modelli[$sezione['id']];
+							} else {
+								$modello = datoModelloTrasp($idEnteAdmin,$sezione['id']);
+								$modelli[$sezione['id']] = $modello;
+							}
+							
+							//////////////////////////////////////////////////////////HELP NORMATIVO (basato sulle sezioni)
+							$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_norma WHERE sezioni='".$sezione['id']."' OR sezioni LIKE '%,".$sezione['id']."' OR sezioni LIKE '%,".$sezione['id'].",%' OR sezioni LIKE '".$sezione['id'].",%'";
+							if ( !($result = $database->connessioneConReturn($sql)) ) {
+								die('Errore durante il recupero del help norma'.$sql);
+							}
+							$helpNorma = $database->sqlArrayAss($result);		
+							
+							// verifico sottosezioni
+							$sottoSezioni = controllaSezione($sezione['id']);
+							
+							$stringaStile = "";
+							if ($id!=$sezione['id']) {
+								$stringaStile = "style=\"display:none;\" "; 
+							}
+							?>
+					
+							<div class="scheda" <? echo $stringaStile; ?>id="sez<? echo $sezione['id']; ?>">
+								<h3>
+									<?
+									echo $sezione['nome'];
+									echo " <a href=\"ajax.php?azione=log&amp;id_ogg=33&amp;id_doc=".$modello['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Log delle attivit&agrave;\" class=\"btn\"><span class=\"iconfa-list\"></span></a>";
+									?>
+								</h3>
+								
+								<?
+								// verifico se sono in una sezione di snodo
+								if (!$sottoSezioni) {								
+									costruisciGuida($sezione,$testoHelp,$helpNorma); 
+								} else {
+									costruisciGuida($sezione,$testoHelp,$helpNorma,true); 
+								}	
+								
+								// verifico se pubblicare gli strumenti di amministrazione oppure no
+								if ($aclTrasparenza['contenuti'][$sezione['id']]['modifica']) {
+									costruisciContEdit($sezione,$modello,$testoHelp);
+								} else {
+									motoreLogTrasp('permessonegato', 'Non hai i permessi necessari per modificare il contenuto della pagina '.$sezione['nome'].'.');
+								}
+								?>
+							
+							</div>
+										
+							<?
+							// ripeto il contenuto per le sezioni interne
+							foreach ((array)$sottoSezioni as $sezioneInterna1) { 
+								if ($sezioneInterna1['id_riferimento']==$sezione['id'] AND $sezioneInterna1['permessi_lettura']!='HM' AND $sezioneInterna1['permessi_lettura']!='H') { 
+									// recupero il contenuto amministrativo di presentazione
+									$testoHelpInterno = datoGuidaTrasp($sezioneInterna1['id']);			
+									// testo modello
+									$modelloInterno = datoModelloTrasp($idEnteAdmin,$sezioneInterna1['id']);	
+									
+									//////////////////////////////////////////////////////////HELP NORMATIVO (basato sulle sezioni)
+									$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_norma WHERE sezioni='".$sezioneInterna1['id']."' OR sezioni LIKE '%,".$sezioneInterna1['id']."' OR sezioni LIKE '%,".$sezioneInterna1['id'].",%' OR sezioni LIKE '".$sezioneInterna1['id'].",%'";
+									if ( !($result = $database->connessioneConReturn($sql)) ) {
+										die('Errore durante il recupero del help norma'.$sql);
+									}
+									$helpNormaInterna = $database->sqlArrayAss($result);
+									$stringaStile = "";	
+									
+									if ($id != $sezioneInterna1['id']) {
+										$stringaStile = "style=\"display:none;\" "; 
+									}
+									?>
+																
+									<div class="scheda" <? echo $stringaStile; ?>id="sez<? echo $sezioneInterna1['id']; ?>">
+										<h3>
+											<?
+											echo $sezioneInterna1['nome'];
+											echo " <a href=\"ajax.php?azione=log&amp;id_ogg=33&amp;id_doc=".$modelloInterno['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Log delle attivit&agrave;\" class=\"btn\"><span class=\"iconfa-list\"></span></a>";
+											?>
+										</h3>
+
+										<?
+										costruisciGuida($sezioneInterna1,$testoHelpInterno,$helpNormaInterna);
+										
+										// verifico se pubblicare gli strumenti di amministrazione oppure no
+										if ($aclTrasparenza['contenuti'][$sezioneInterna1['id']]['modifica']) {
+											costruisciContEdit($sezioneInterna1,$modelloInterno,$testoHelpInterno); 
+										} else {
+											motoreLogTrasp('permessonegato', 'Non hai i permessi necessari per modificare il contenuto della pagina '.$sezioneInterna1['nome'].'.');
+										}
+										?>
+										
+									</div>
+									<? 
+									if($sezioneInterna1['id'] == 701 and moduloAttivo('agid')) {
+										// recupero il contenuto amministrativo di presentazione
+										$testoHelpInterno = datoGuidaTrasp(705);			
+										// testo modello
+										$modelloInterno = datoModelloTrasp($idEnteAdmin,705);	
+										
+										//////////////////////////////////////////////////////////HELP NORMATIVO (basato sulle sezioni)
+										$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_norma WHERE sezioni='705' OR sezioni LIKE '%,705' OR sezioni LIKE '%,705,%' OR sezioni LIKE '705,%'";
+										if ( !($result = $database->connessioneConReturn($sql)) ) {
+											die('Errore durante il recupero del help norma'.$sql);
+										}
+										$helpNormaInterna = $database->sqlArrayAss($result);
+										$stringaStile = "";	
+										
+										if ($id != 705) {
+											$stringaStile = "style=\"display:none;\" "; 
+										}
+										?>							
+										<div class="scheda" <? echo $stringaStile; ?>id="sez705">
+											<h3><? echo $sezioneInterna1['nome']; ?></h3>
+	
+											<?
+											$sezione705 = caricaSezioneDb(705);
+											costruisciGuida($sezione705,$testoHelpInterno,$helpNormaInterna);
+											
+											// verifico se pubblicare gli strumenti di amministrazione oppure no
+											costruisciContEdit($sezione705,$modelloInterno,$testoHelpInterno);
+											?>										
+	
+										</div>
+										<?
+										// recupero il contenuto amministrativo di presentazione
+										$testoHelpInterno = datoGuidaTrasp(703);			
+										// testo modello
+										$modelloInterno = datoModelloTrasp($idEnteAdmin,703);	
+										
+										//////////////////////////////////////////////////////////HELP NORMATIVO (basato sulle sezioni)
+										$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_norma WHERE sezioni='703' OR sezioni LIKE '%,703' OR sezioni LIKE '%,703,%' OR sezioni LIKE '703,%'";
+										if ( !($result = $database->connessioneConReturn($sql)) ) {
+											die('Errore durante il recupero del help norma'.$sql);
+										}
+										$helpNormaInterna = $database->sqlArrayAss($result);
+										$stringaStile = "";	
+										
+										if ($id != 703) {
+											$stringaStile = "style=\"display:none;\" "; 
+										}
+										?>							
+										<div class="scheda" <? echo $stringaStile; ?>id="sez703">
+											<h3><? echo $sezioneInterna1['nome']; ?></h3>
+	
+											<?
+											$sezione703 = caricaSezioneDb(703);
+											costruisciGuida($sezione703,$testoHelpInterno,$helpNormaInterna);
+											
+											// verifico se pubblicare gli strumenti di amministrazione oppure no
+											costruisciContEdit($sezione703,$modelloInterno,$testoHelpInterno);
+											?>										
+	
+										</div>
+										<?
+									} else if($sezioneInterna1['id'] != 701) {
+										//////////////////////////////////////////	INIZIO SEZIONI III LIVELLO
+										$sottoSottoSezioni = controllaSezione($sezioneInterna1['id']);
+										foreach ((array)$sottoSottoSezioni as $sezioneInterna2) {
+											if ($sezioneInterna2['id_riferimento']==$sezioneInterna1['id'] AND $sezioneInterna2['permessi_lettura']!='HM' AND $sezioneInterna2['permessi_lettura']!='H') { 
+												// recupero il contenuto amministrativo di presentazione
+												$testoHelpInterno = datoGuidaTrasp($sezioneInterna2['id']);			
+												// testo modello
+												$modelloInterno = datoModelloTrasp($idEnteAdmin,$sezioneInterna2['id']);	
+												
+												//////////////////////////////////////////////////////////HELP NORMATIVO (basato sulle sezioni)
+												$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_norma WHERE sezioni='".$sezioneInterna2['id']."' OR sezioni LIKE '%,".$sezioneInterna2['id']."' OR sezioni LIKE '%,".$sezioneInterna2['id'].",%' OR sezioni LIKE '".$sezioneInterna2['id'].",%'";
+												if ( !($result = $database->connessioneConReturn($sql)) ) {
+													die('Errore durante il recupero del help norma'.$sql);
+												}
+												$helpNormaInterna = $database->sqlArrayAss($result);
+												$stringaStile = "";	
+												
+												if ($id != $sezioneInterna2['id']) {
+													$stringaStile = "style=\"display:none;\" "; 
+												}
+												?>
+																			
+												<div class="scheda" <? echo $stringaStile; ?>id="sez<? echo $sezioneInterna2['id']; ?>">
+													<h3>
+														<?
+														echo $sezioneInterna2['nome'];
+														echo " <a href=\"ajax.php?azione=log&amp;id_ogg=33&amp;id_doc=".$modelloInterno['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Log delle attivit&agrave;\" class=\"btn\"><span class=\"iconfa-list\"></span></a>";
+														?>
+													</h3>
+			
+													<?
+													costruisciGuida($sezioneInterna2,$testoHelpInterno,$helpNormaInterna);
+													
+													// verifico se pubblicare gli strumenti di amministrazione oppure no
+													if ($aclTrasparenza['contenuti'][$sezioneInterna2['id']]['modifica']) {
+														costruisciContEdit($sezioneInterna2,$modelloInterno,$testoHelpInterno); 
+													} else {
+														motoreLogTrasp('permessonegato', 'Non hai i permessi necessari per modificare il contenuto della pagina '.$sezioneInterna2['nome'].'.');
+													}
+													?>
+													
+												</div>
+												<? 
+											} 
+										}
+										//////////////////////////////////////////	FINE SEZIONI III LIVELLO
+									}
+								} 
+							}
+						} 
+					}
+					?>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<?  
+/////////////////// FORM CANCELLAZIONE NASCOSTO
+echo "<form name=\"formCancella\" id=\"formCancella\" method=\"post\" action=\"?menu=contenuti&amp;menusec=normali&amp;azione=cancellacont\">"; 
+echo "<input type=\"hidden\" value=\"\" name=\"id_cancello_contenuto\" id=\"id_cancello_contenuto\" />";
+echo "</form>";
+?>

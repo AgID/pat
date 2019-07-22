@@ -1,0 +1,223 @@
+<?
+$campoCompensoErogato = 'compenso_erogato';
+if($enteAdmin['importi_numerici']) {
+	$campoCompensoErogato .= '_valore';
+}
+?>
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		//campi decimali (importi)
+		jQuery('.a-num-class').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
+
+		//var editorDesc = CKEDITOR.replace( 'note' );		
+		CKEDITOR.replaceClass = 'htmlEditor';
+
+		jQuery.validator.addMethod("floatCheck", function(value) {
+			//var regex = /^((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
+			var regex = /^([\+\-])*((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
+			//vecchio controllo
+			//var regex = /^(([1-9][0-9]*|[0-9])([.]{1}[0-9]{1,2})?)?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		});
+		
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				id_incarico: "required",
+				<? echo $campoCompensoErogato; ?>: {
+					required: true,
+					floatCheck: true
+				},
+				data_compenso_erogato: "required",
+				data_liquidazioneVis: "required"
+			},
+			
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente\",";
+				} ?>
+				id_incarico: "Selezionare l\'incarico al quale fa riferimento la somma liquidata",
+				<? echo $campoCompensoErogato; ?>: "Inserire un importo valido (es. 123.456,00)",
+				data_compenso_erogato: "Seleziona la data di erogazione del compenso",
+				data_liquidazioneVis: "Seleziona la data di riferimento",
+				id_proprietario: "Devi selezionare l'utente proprietario"
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					jQuery('#a_dati_tab').tab('show');
+				}
+			}
+
+		});
+
+		jQuery(document).on('change', '#data_liquidazioneVis', function() {
+			console.log('impostare anno');
+			console.log(jQuery(this).val());
+			d = jQuery(this).val().split('/');
+			if(d[2] != '' && d[2] != undefined) {
+				jQuery('#data_compenso_erogato').val(d[2]);
+			}
+		});
+		jQuery('#data_liquidazioneVis').datepicker({
+			onSelect: function() {
+				return jQuery(this).trigger('change');
+			}
+		});
+		
+	});
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco incarichi e consulenze</a> 
+<? } ?>
+
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> elemento</a>
+			<li class="active">
+				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Gestione informazioni</a>
+			</li>
+			<li>
+				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Gestione allegati</a>
+			</li>
+		</ul>
+	</div>
+</div>
+
+
+<div class="tab-content">
+
+<div class="tab-pane active widgetbox box-inverse" id="dati_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni <!-- <? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> incarichi e consulenze -->
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<?
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+			//import atto da albo online
+			if($azione == 'importAtto' and $atto['id'] > 0) {
+				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
+			}
+			
+			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"liquidazione\" />";
+			?>
+
+			<? creaFormTrasp('Incarico relativo','incarico_from_liquidazione', 'id_incarico', '', $istanzaOggetto['id_incarico'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<?
+			creaFormTrasp('Compenso erogato','decimale', $campoCompensoErogato, '', $istanzaOggetto[$campoCompensoErogato], '','input-medium',0,'', 0, 0,true);
+			?>
+			
+			<?
+			if($configurazione['nascondi_anno_liquidazione']) {
+				?>
+				<input type="hidden" id="data_compenso_erogato" name="data_compenso_erogato" value="<?php echo $istanzaOggetto['data_compenso_erogato']; ?>" />
+				<?
+			} else {
+				$valoriAnni = '';
+				$annoEnd = 2010;
+				$annoStart = date('Y');
+				for($a = $annoStart; $a >= $annoEnd; $a--) {
+					if($valoriAnni != '') {
+						$valoriAnni .= ','.$a;
+					} else {
+						$valoriAnni .= $a;
+					}
+				}
+				creaFormTrasp('Anno di liquidazione','selezione', 'data_compenso_erogato', $valoriAnni, $istanzaOggetto['data_compenso_erogato'], '','',0,'',0,0,true);
+			}
+			?>
+			
+			<? creaFormTrasp('Data di riferimento','data', 'data_liquidazione', '', $istanzaOggetto['data_liquidazione'], '','input-small',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Note','html', 'note', '', $istanzaOggetto['note'], '',''); ?>
+			
+		</form>
+	</div>
+</div>
+
+<div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Allegati
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?php
+		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
+		?>
+		
+	</div>
+</div>
+
+
+</div>
+
+<p class="stdformbutton">
+	<?
+	if($statoWfPrecedente['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+		<?
+	}
+	include('app/admin_template/oggetti/btn_workflow.tmp');
+	?>
+	<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>><?php echo $nomeBtn; ?></a>
+	<?
+	if($statoWfSuccessivo['id']) {
+		?>
+		<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;jQuery('#formOggetto').submit();" class="btn btn-large btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+		<?
+	}
+	?>
+</p>

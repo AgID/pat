@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
+///////////////////////////////////////versione 1.9 - //////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #######################################################################################
@@ -21,7 +21,7 @@ materiale per l'installazione della piattaforma PAT
 sorgenti e struttura di cartelle della piattaforma PAT
 
 --utility
-script utili per test o esecuzioni esterna di funzioni
+script utili per test o esecuzione esterna di funzioni
 
 ## REQUISITI DEL SISTEMA
 
@@ -34,11 +34,9 @@ script utili per test o esecuzioni esterna di funzioni
 #######################################################################################
 
 PAT - Portale Amministrazione Trasparente
-Copyright 2015 - AgID Agenzia per l'Italia Digitale
+Copyright AgID Agenzia per l'Italia Digitale
 
-Concesso in licenza a norma dell'EUPL, versione 1.1 o
-successive dell'EUPL (la "Licenza")– non appena saranno
-approvate dalla Commissione europea;
+Concesso in licenza a norma dell'EUPL(la "Licenza"), versione 1.2;
 
 Non è possibile utilizzare l'opera salvo nel rispetto
 della Licenza.

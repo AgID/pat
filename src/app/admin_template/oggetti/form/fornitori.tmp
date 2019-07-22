@@ -1,0 +1,291 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		////jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editorDesc = CKEDITOR.replace( 'descrizione' );
+		
+		jQuery.validator.addMethod("cfCheck", function(value) {
+			
+			if(jQuery("input[name='tipologia']:checked").val() == 'raggruppamento') {
+				return true;
+			}
+			
+			if(jQuery('#fiscale_estero').val().trim() != '') {
+				return true;
+			}
+			var regex = /^[A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1}?/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^[A-Za-z]{6}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{3}[A-Za-z]{1}?/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^[0-9]{11,11}$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		}, 'Il codice fiscale del fornitore non è valido');
+
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},	
+			
+			rules: {
+				<?if(($datiUser['id_ente_admin']==35 OR $datiUser['id_ente_admin']==142) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
+						echo "id_proprietario: \"required\",";
+				}?>		
+				
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>
+				tipologia: "required",
+				nominativo: "required",
+				codice_fiscale: {
+					required: function(element) {
+						if(jQuery("input[name='tipologia']:checked").val() == 'fornitore singolo' && jQuery('#fiscale_estero').val() == '') {
+							return true;
+						} else {
+							return false;
+						}
+					},
+					cfCheck: true
+				}
+			},
+			
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire il fornitore\",";
+				} ?>
+				tipologia: "Seleziona la tipologia",
+				nominativo: "Devi inserire il nominativo e la ragione sociale del fornitore",
+				nominativo_raggruppamento: "Devi inserire il nominativo del raggruppamento",
+				id_proprietario: "Devi selezionare l'utente proprietario",
+				codice_fiscale: {
+					required: "Devi inserire il codice fiscale o l'identificativo fiscale estero del fornitore"
+				}
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+
+			submitHandler: function(form) {
+				if(jQuery('#tipologia:checked').val() == 'fornitore singolo' && <? echo $enteAdmin['verifica_cf_duplicato_fornitore']; ?>) {
+					jQuery('#ajax_processing').show();
+					jQuery.ajax({
+						url: 'ajax.php',
+						type: 'get',
+						dataType: 'json',
+						data: {'azione': 'verificaCFDuplicato', 'cf': jQuery('#codice_fiscale').val(), 'id': '<? echo $id; ?>'},
+						success: function(data, abb, bc) {
+							if(data.esito == 'ok') {
+								//submit
+								jQuery('#ajax_processing').hide();
+								form.submit();
+							} else {
+								jQuery('#ajax_processing').hide();
+								<?
+								if($enteAdmin['consenti_cf_duplicato_fornitore']) {
+									?>
+									jQuery('<div />').html('Il codice fiscale inserito &egrave; gi&agrave; presente in archivio<br /><strong>Procedere con il salvataggio?</strong>').dialog({
+								        title: 'Attenzione',
+								        modal: true, resizable: false, draggable: false,
+								        width: 600,
+								        height: 220,
+								        close: function() {
+								            jQuery(this).dialog('destroy').remove();
+								        },
+								        buttons: [{
+								            text: "Annulla",
+								            class: 'btn btn-primary',
+								            click: function() {
+								            	jQuery(this).dialog("close");
+								            }
+								        },
+								        {
+								            text: "Salva",
+								            class: 'btn btn-primary',
+								            click: function() {
+								            	jQuery(this).dialog("close");
+								            	form.submit();
+								            }
+								        }]
+								    });
+									<?
+								} else {
+									?>
+									//show error
+									validator.showErrors({
+										codice_fiscale: "Il codice fiscale inserito &egrave; gi&agrave; presente in archivio"
+									});
+									<?
+								}
+								?>
+							}
+						},
+						error: function(xhr, desc, err) {
+							jQuery('#ajax_processing').hide();
+							form.submit();
+						}
+					});
+				} else {
+					form.submit();
+				}
+			}
+
+		});
+		
+		<?
+		if(moduloAttivo('bandigara')) {
+			?>
+			visualizzaSingoloRaggruppamento();
+			<?
+		}
+		?>
+		
+	});
+	
+	function visualizzaSingoloRaggruppamento() {
+		if(jQuery("input[name='tipologia']:checked").val() == 'fornitore singolo') {
+			jQuery("label[for='nominativo'] > .etichettaLabel").html('Nominativo e ragione sociale');
+			jQuery("#singoloBox").css('display','block');
+			jQuery("#raggruppamentoBox").css('display','none');
+		} else if(jQuery("input[name='tipologia']:checked").val() == 'raggruppamento') {
+			jQuery("label[for='nominativo'] > .etichettaLabel").html('Nominativo del raggruppamento');
+			jQuery("#singoloBox").css('display','none');
+			jQuery("#raggruppamentoBox").css('display','block');
+		}
+	}
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco fornitori</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<div id="ajax_processing" class="ajax_processing_fixed" style="display: none;">
+		<div><img src="app/grafica_admin/ajax-loader2.gif"></div>
+		<div>Verifica dei dati in corso</div>
+		<div style="font-size:11px;font-weight:normal;">L'operazione potrebbe impiegare qualche secondo</div>
+	</div>
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> fornitore
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>
+			
+			<?
+			if(moduloAttivo('bandigara')) {
+				if($istanzaOggetto['tipologia'] == '') {
+					$istanzaOggetto['tipologia'] = 'fornitore singolo';
+				}
+				creaFormTrasp('Tipologia fornitore','radio', 'tipologia', 'fornitore singolo,raggruppamento', $istanzaOggetto['tipologia'], '','input-xxlarge',0,'', 0, 0,true);
+				?>
+				<script type="text/javascript">	
+				// attivo la validazione inline del form
+				jQuery(document).ready(function(){
+					jQuery("input[name='tipologia']").change(function() {
+						visualizzaSingoloRaggruppamento();
+					});
+				});
+				</script>
+				<?
+			} else {
+				echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"fornitore singolo\" />";
+			}
+			
+			creaFormTrasp('Nominativo e ragione sociale','testo', 'nominativo', '', $istanzaOggetto['nominativo'], '','input-xxlarge',0,'', 0, 0,true);
+			
+			echo "<div id=\"singoloBox\">";
+			
+			creaFormTrasp('Codice fiscale','testo', 'codice_fiscale', '', $istanzaOggetto['codice_fiscale'], '','input-xxlarge',0,'', 0, 0,false);
+			
+			creaFormTrasp('Identificativo fiscale estero','testo', 'fiscale_estero', '', $istanzaOggetto['fiscale_estero'], '','input-xxlarge');
+			
+			creaFormTrasp('Indirizzo email','testo', 'email', '', $istanzaOggetto['email'], '','input-xlarge');
+			
+			creaFormTrasp('Indirizzo sede','testo', 'indirizzo', '', $istanzaOggetto['indirizzo'], '','input-xxlarge');
+			
+			creaFormTrasp('Recapito telefonico','testo', 'telefono', '', $istanzaOggetto['telefono'], '','input-large');
+			
+			creaFormTrasp('Recapito fax','testo', 'fax', '', $istanzaOggetto['fax'], '','input-large');
+			
+			echo "</div>";
+			
+			echo "<div id=\"raggruppamentoBox\">";
+			
+			creaFormTrasp('Capogruppo','fornitore_singolo', 'capogruppo', '', $istanzaOggetto['capogruppo'], '','input-xxlarge');
+			
+			creaFormTrasp('Mandante','fornitore_singolo', 'mandante', '', $istanzaOggetto['mandante'], '','input-xxlarge');
+			
+			creaFormTrasp('Mandataria','fornitore_singolo', 'mandataria', '', $istanzaOggetto['mandataria'], '','input-xxlarge');
+			
+			creaFormTrasp('Associata','fornitore_singolo', 'associata', '', $istanzaOggetto['associata'], '','input-xxlarge');
+			
+			creaFormTrasp('Consorziata','fornitore_singolo', 'consorziata', '', $istanzaOggetto['consorziata'], '','input-xxlarge');
+			
+			echo "</div>";
+			?>
+	
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				include('app/admin_template/oggetti/btn_workflow.tmp');
+				?>
+				<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>><?php echo $nomeBtn; ?></a>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco fornitori</a> 
+<? } ?>

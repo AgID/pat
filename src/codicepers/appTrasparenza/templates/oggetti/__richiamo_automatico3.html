@@ -1,0 +1,19 @@
+<!-- personale -->
+
+<div class="list card" ng-show="elem.listaDocumenti.length > 0">
+	
+	<a href="#/app/trasparenza/detail/riferimenti/{{istanza.id}}" ng-repeat="istanza in elem.listaDocumenti" class="item item-positive item-icon-right">
+		
+		<i class="icon ion-arrow-right-c"></i>
+		
+		<h2 class="light">{{istanza.referente}}</h2>
+	
+	</a>
+	
+	<ion-infinite-scroll class="content-positive"
+    	ng-if="elem.listaDocumenti.length > 0 && elem.ultimaChiamataLista"
+    	on-infinite="loadMore(elem.id_regola)"
+    	distance="1%">
+  	</ion-infinite-scroll>
+	
+</div>

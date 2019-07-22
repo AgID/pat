@@ -1,0 +1,585 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+	
+		// menu tabs accordion
+		jQuery('.accordion').accordion({
+			heightStyle: "content"
+		});
+		
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+
+		//editor = CKEDITOR.replace( 'premessa');
+		//editor = CKEDITOR.replace( 'pa_descrizione');
+		//editor = CKEDITOR.replace( 'pa_si_descrizione');
+		//editor = CKEDITOR.replace( 'pa_se_descrizione');
+		//editor = CKEDITOR.replace( 'pa_canali_descrizione');
+		//editor = CKEDITOR.replace( 'gr_descrizione');
+		//editor = CKEDITOR.replace( 'gr_aree_descrizione');
+		//editor = CKEDITOR.replace( 'gr_metodo_valutazione');
+		//editor = CKEDITOR.replace( 'mo_ptpc_descrizione');
+		//editor = CKEDITOR.replace( 'mo_mpc_descrizione');
+		//editor = CKEDITOR.replace( 'mo_at_descrizione');
+		//editor = CKEDITOR.replace( 'mo_cc_descrizione');
+		//editor = CKEDITOR.replace( 'mo_rp_descrizione');
+		//editor = CKEDITOR.replace( 'mo_oaci_descrizione');
+		//editor = CKEDITOR.replace( 'mo_cai_descrizione');
+		//editor = CKEDITOR.replace( 'mo_iid_descrizione');
+		//editor = CKEDITOR.replace( 'mo_ippd_descrizione');
+		//editor = CKEDITOR.replace( 'mo_ascs_descrizione');
+		//editor = CKEDITOR.replace( 'mo_fcau_descrizione');
+		//editor = CKEDITOR.replace( 'mo_dpsi_descrizione');
+		//editor = CKEDITOR.replace( 'mo_fdp_descrizione');
+		//editor = CKEDITOR.replace( 'mo_pia_descrizione');
+		//editor = CKEDITOR.replace( 'mo_asrsc_descrizione');
+		//editor = CKEDITOR.replace( 'mo_mtp_descrizione');
+		//editor = CKEDITOR.replace( 'mo_mrase_descrizione');
+		//editor = CKEDITOR.replace( 'ptt_intro_descrizione');
+		//editor = CKEDITOR.replace( 'ptt_pn_descrizione');
+		//editor = CKEDITOR.replace( 'peap_os_descrizione');
+		//editor = CKEDITOR.replace( 'peap_cp_descrizione');
+		//editor = CKEDITOR.replace( 'peap_mcs_descrizione');
+		//editor = CKEDITOR.replace( 'peap_tma_descrizione');
+		//editor = CKEDITOR.replace( 'ict_isc_descrizione');
+		//editor = CKEDITOR.replace( 'ict_ora_descrizione');
+		//editor = CKEDITOR.replace( 'pap_idr_descrizione');
+		//editor = CKEDITOR.replace( 'pap_idrp_descrizione');
+		//editor = CKEDITOR.replace( 'pap_iert_descrizione');
+		//editor = CKEDITOR.replace( 'pap_mo_descrizione');
+		//editor = CKEDITOR.replace( 'pap_mmv_descrizione');
+		//editor = CKEDITOR.replace( 'pap_str_descrizione');
+		//editor = CKEDITOR.replace( 'pap_mae_descrizione');
+		//editor = CKEDITOR.replace( 'pap_de_descrizione');
+		//editor = CKEDITOR.replace( 'ccp_descrizione');
+		//editor = CKEDITOR.replace( 'form_intro_descrizione');
+		//editor = CKEDITOR.replace( 'form_sef_descrizione');
+		//editor = CKEDITOR.replace( 'form_cfa_descrizione');
+		//editor = CKEDITOR.replace( 'form_cse_descrizione');
+		//editor = CKEDITOR.replace( 'form_qog_descrizione');
+		//editor = CKEDITOR.replace( 'cca_ai_descrizione');
+		//editor = CKEDITOR.replace( 'cca_imd_descrizione');
+		//editor = CKEDITOR.replace( 'cca_iuc_descrizione');
+		//editor = CKEDITOR.replace( 'ai_descrizione');
+		//editor = CKEDITOR.replace( 'se_descrizione');
+		CKEDITOR.replaceClass = 'htmlEditor';
+		
+		
+		jQuery("#form1").validate({
+			ignore: [],
+			rules: {
+				/*
+				nome_completo_ente: "required",
+				nome_breve_ente: "required",
+				tipo_ente: "required",
+				email: {
+					required: true,
+					email: true
+				},
+				email_certificata: {
+					required: true,
+					email: true
+				},
+				url_etrasparenza: {
+					url: true
+				},
+				url_sitoistituzionale: {
+					required: true,
+					url: true
+				},
+				url_albopretorio: {
+					required: true,
+					url: true
+				},
+				indirizzo_via: "required",
+				indirizzo_cap: "required",
+				indirizzo_comune: "required",
+				indirizzo_provincia: "required",
+				p_iva: "required",
+				telefono: "required"
+				*/
+				<?
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo ",id_ente: \"required\"";
+				}
+				?>
+			},
+			
+			messages: {
+				/*
+				nome_completo_ente: "Inserisci il nome completo dell'ente",
+				nome_breve_ente: "Inserisci il nome breve dell'ente",
+				nome_breve_ente: "Devi specificare la tipologia di ente",
+				email: "Inserisci un indirizzo email valido",
+				email_certificata: "Inserisci un indirizzo email valido",
+				url_etrasparenza: "Se inserito, l'url deve essere in un formato valido",
+				url_sitoistituzionale: "Inserisci l'indirizzo del sito istituzionale dell'ente: l'url deve essere in un formato valido",
+				url_albopretorio: "Inserisci l'indirizzo dell'albo pretorio online dell'ente: l'url deve essere in un formato valido",
+				indirizzo_via: "Inserisci l'indirizzo del Comune",
+				indirizzo_cap: "Inserisci il CAP del Comune",
+				indirizzo_provincia: "Inserisci la provincia dell'Ente",
+				telefono: "Inserisci un numero di telefono",
+				p_iva: "Inserisci la partita IVA dell'ente",
+				indirizzo_comune: "Inserisci il Comune relativo alla sede dell'ente"
+				*/
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo ",id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\"";
+				}
+				?>
+			},
+			
+			highlight: function(label) {
+				jQuery('.accordion').accordion( "option", "active", 
+					parseInt(jQuery(label).closest('.ui-accordion-content')
+						.attr('id')
+						.replace('ui-accordion-1-panel-', '')
+					)
+				);
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+		
+		
+		
+	});
+</script>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco piani anticorruzione</a> 
+<? }
+
+// in aggiunta non uso accordion
+$classeForm = "accordion";
+$classeTit = '';
+?>
+
+
+<div>
+	<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+	<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+	
+		<div class="<? echo $classeForm; ?>">
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Premessa</a></h4>
+			<div>
+				<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+				} else {
+					echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+				}
+				?>
+				
+				<? creaFormTrasp('Premessa','html', 'premessa', '', $istanzaOggetto['premessa'], '','',0,''); ?>
+								
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Processo di adozione del Piano</a></h4>
+			<div>		
+			
+				<? creaFormTrasp('Data e documento di approvazione del Piano da parte degli organi di indirizzo politico amministrativo','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'pa_descrizione', '', $istanzaOggetto['pa_descrizione'], '','',0,''); ?>
+				
+				<? creaFormTrasp('Provvedimento Organo Politico','provvedimento', 'pa_provvedimento', '', $istanzaOggetto['pa_provvedimento'], '','input-xxlarge'); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Soggetti coinvolti</a></h4>
+			<div>
+				
+				<? creaFormTrasp('Individuazione degli attori interni all\'amministrazione che hanno partecipato alla predisposizione del Piano nonchè dei canali e degli strumenti di partecipazione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'pa_si_descrizione', '', $istanzaOggetto['pa_si_descrizione'], '','',0,''); ?>
+				
+				<? creaFormTrasp('Attori interni','jtable', 'pa_si_soggetti', '', $istanzaOggetto['pa_si_soggetti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pa_si_soggetti')); ?>
+				
+				<? creaFormTrasp('Strutture organizzative','jtable', 'pa_si_uffici', '', $istanzaOggetto['pa_si_uffici'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pa_si_uffici')); ?>
+				
+				<? creaFormTrasp('Individuazione degli attori esterni all\'amministrazione che hanno partecipato alla predisposizione del Piano nonchè dei canali e degli strumenti di partecipazione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'pa_se_descrizione', '', $istanzaOggetto['pa_se_descrizione'], '','',0,''); ?>
+				
+				<? creaFormTrasp('Attori esterni','jtable', 'pa_se_soggetti', '', $istanzaOggetto['pa_se_soggetti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pa_se_soggetti')); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Canali, strumenti e iniziative di comunicazione dei contenuti del Piano</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Descrizione','html', 'pa_canali_descrizione', '', $istanzaOggetto['pa_canali_descrizione'], '','',0,''); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Gestione del rischio</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Descrizione','html', 'gr_descrizione', '', $istanzaOggetto['gr_descrizione'], '','',0,''); ?>
+				
+				<? creaFormTrasp('Mappa dei rischi','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'gr_aree_descrizione', '', $istanzaOggetto['gr_aree_descrizione'], '','',0,''); ?>
+				
+				<? //creaFormTrasp('Aree di rischio','aree_rischio', 'gr_aree_aree', '', $istanzaOggetto['gr_aree_aree'], '','input-xxlarge'); ?>
+				
+				<? creaFormTrasp('Aree di rischio','jtable', 'gr_aree_aree', '', $istanzaOggetto['gr_aree_aree'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'gr_aree_aree')); ?>
+				
+				<? creaFormTrasp('Metodologia utilizzata per effettuare la valutazione del rischio','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'gr_metodo_valutazione', '', $istanzaOggetto['gr_metodo_valutazione'], '','',0,''); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Misure obbligatorie ed ulteriori</a></h4>
+			<div>
+				
+				<? creaFormTrasp('Piano triennale di prevenzione della corruzione - Adozione del P.T.P.C.','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ptpc_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ptpc_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ptpc_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_ptpc_descrizione', '', $istanzaOggetto['mo_ptpc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Modelli di prevenzione della corruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mpc_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mpc_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mpc_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_mpc_descrizione', '', $istanzaOggetto['mo_mpc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Adempimenti di trasparenza','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_at_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_at_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_at_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_at_descrizione', '', $istanzaOggetto['mo_at_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Codice di comportamento','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cc_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cc_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cc_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_cc_descrizione', '', $istanzaOggetto['mo_cc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Rotazione del personale','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_rp_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_rp_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_rp_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_rp_descrizione', '', $istanzaOggetto['mo_rp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Obbligo di astensione in caso di conflitto di interesse','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_oaci_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_oaci_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_oaci_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_oaci_descrizione', '', $istanzaOggetto['mo_oaci_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Conferimento e autorizzazione incarichi','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cai_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cai_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_cai_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_cai_descrizione', '', $istanzaOggetto['mo_cai_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Inconferibilità per incarichi dirigenziali','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_iid_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_iid_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_iid_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_iid_descrizione', '', $istanzaOggetto['mo_iid_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Incompatibilità per particolari posizioni dirigenziali','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ippd_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ippd_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ippd_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_ippd_descrizione', '', $istanzaOggetto['mo_ippd_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Attività successive alla cessazione dal servizio','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ascs_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ascs_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_ascs_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_ascs_descrizione', '', $istanzaOggetto['mo_ascs_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Formazione di commissioni, assegnazione agli uffici, conferimento di incarichi in caso di condanna per delitti contro la P.A.','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fcau_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fcau_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fcau_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_fcau_descrizione', '', $istanzaOggetto['mo_fcau_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Tutela del dipendente pubblico che segnala gli illeciti','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_dpsi_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_dpsi_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_dpsi_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_dpsi_descrizione', '', $istanzaOggetto['mo_dpsi_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Formazione del personale','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fdp_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fdp_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_fdp_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_fdp_descrizione', '', $istanzaOggetto['mo_fdp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Patti di integrità negli affidamenti','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_pia_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_pia_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_pia_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_pia_descrizione', '', $istanzaOggetto['mo_pia_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Azione di sensibilizzazione e rapporto con la società civile','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_asrsc_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_asrsc_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_asrsc_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_asrsc_descrizione', '', $istanzaOggetto['mo_asrsc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Monitoraggio tempi procedimentali','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mtp_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mtp_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mtp_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_mtp_descrizione', '', $istanzaOggetto['mo_mtp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Monitoraggio dei rapporti amministrazione/soggetti esterni','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mrase_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mrase_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'mo_mrase_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'mo_mrase_descrizione', '', $istanzaOggetto['mo_mrase_descrizione'], '',''); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Piano triennale della Trasparenza</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Introduzione: organizzazione e funzioni dell\'amministrazione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_intro_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_intro_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_intro_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'ptt_intro_descrizione', '', $istanzaOggetto['ptt_intro_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Le principali novità','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_pn_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Misura correttiva','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_pn_descrizione', 'pulsanteCustom'=>'scegliMisuraPianoAC', 'class' => 'btn-2-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Modalità di rotazione','icona'=>'iconfa-inbox', 'id_campo'=>'ptt_pn_descrizione', 'pulsanteCustom'=>'scegliModalitaRotazioneAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Descrizione','html', 'ptt_pn_descrizione', '', $istanzaOggetto['ptt_pn_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Procedimento di elaborazione e adozione del programma','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Obiettivi strategici in materia di trasparenza posti dagli organi di vertice degli atti di indirizzo','html', 'peap_os_descrizione', '', $istanzaOggetto['peap_os_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Collegamenti con il Piano della performance o con analoghi strumenti di programmazione previsti da normative di settore','html', 'peap_cp_descrizione', '', $istanzaOggetto['peap_cp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Dirigenti coinvolti per l\'individuazione dei contenuti del programma','jtable', 'peap_dirigenti', '', $istanzaOggetto['peap_dirigenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'peap_dirigenti')); ?>
+				
+				<? creaFormTrasp('Strutture organizzative coinvolte per l\'individuazione dei contenuti del programma','jtable', 'peap_uffici', '', $istanzaOggetto['peap_uffici'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'peap_uffici')); ?>
+				
+				<? creaFormTrasp('Modalità di coinvolgimento degli stakeholder e i risultati di tale coinvolgimento','html', 'peap_mcs_descrizione', '', $istanzaOggetto['peap_mcs_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Termini e le modalità di adozione del Programma da parte degli organi di vertice','html', 'peap_tma_descrizione', '', $istanzaOggetto['peap_tma_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Iniziative di comunicazione della trasparenza','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Iniziative e strumenti di comunicazione per la diffusione dei contenuti del Programma e dei dati pubblicati','html', 'ict_isc_descrizione', '', $istanzaOggetto['ict_isc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Organizzazione e risultati attesi delle Giornate della trasparenza','html', 'ict_ora_descrizione', '', $istanzaOggetto['ict_ora_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Processo di attuazione del Programma','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Individuazione dei dirigenti responsabili della trasmissione dei dati','html', 'pap_idr_descrizione', '', $istanzaOggetto['pap_idr_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Dirigenti responsabili della trasmissione','jtable', 'pap_idr_dirigenti', '', $istanzaOggetto['pap_idr_dirigenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pap_idr_dirigenti')); ?>
+				
+				<? creaFormTrasp('Individuazione dei dirigenti responsabili della pubblicazione e dell\'aggiornamento dei dati','html', 'pap_idrp_descrizione', '', $istanzaOggetto['pap_idrp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Dirigenti responsabili della pubblicazione','jtable', 'pap_idrp_dirigenti', '', $istanzaOggetto['pap_idrp_dirigenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pap_idrp_dirigenti')); ?>
+				
+				<? creaFormTrasp('Individuazione di eventuali referenti per la trasparenza e specificazione delle modalità di coordinamento con il Responsabile della trasparenza','html', 'pap_iert_descrizione', '', $istanzaOggetto['pap_iert_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Referenti','jtable', 'pap_iert_referenti', '', $istanzaOggetto['pap_iert_referenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'pap_iert_referenti')); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mo_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Provvedimento','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mo_descrizione', 'pulsanteCustom'=>'scegliProvvedimentoPianoAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Misure organizzative volte ad assicurare la regolarità e la tempestività dei flussi informativi','html', 'pap_mo_descrizione', '', $istanzaOggetto['pap_mo_descrizione'], '',''); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mmv_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Provvedimento','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mmv_descrizione', 'pulsanteCustom'=>'scegliProvvedimentoPianoAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Misure di monitoraggio e di vigilanza sull\'attuazione degli obblighi di trasparenza a supporto dell\'attività di controllo dell\'adempimento da parte del responsabile della trasparenza','html', 'pap_mmv_descrizione', '', $istanzaOggetto['pap_mmv_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Strumenti e tecniche di rilevazione dell\'effettivo utilizzo dei dati da parte degli utenti della sezione "Amministrazione Trasparente"','html', 'pap_str_descrizione', '', $istanzaOggetto['pap_str_descrizione'], '',''); ?>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Direttiva interna AC','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mae_descrizione', 'pulsanteCustom'=>'scegliDirettivaPianoAC', 'class' => 'btn-area-html'));
+				$funzioneAggiuntivaCampo.= creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Provvedimento','icona'=>'iconfa-inbox', 'id_campo'=>'pap_mae_descrizione', 'pulsanteCustom'=>'scegliProvvedimentoPianoAC', 'class' => 'btn-2-area-html'));
+				?>
+			
+				<? creaFormTrasp('Misure per assicurare l\'efficacia dell’istituto dell\'accesso civico','html', 'pap_mae_descrizione', '', $istanzaOggetto['pap_mae_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Dati ulteriori','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'pap_de_descrizione', '', $istanzaOggetto['pap_de_descrizione'], '',''); ?>
+			
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Coordinamento con il ciclo delle performance</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Descrizione','html', 'ccp_descrizione', '', $istanzaOggetto['ccp_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Regolamenti','jtable', 'ccp_regolamenti', '', $istanzaOggetto['ccp_regolamenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'ccp_regolamenti')); ?>
+			
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Formazione</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Descrizione','html', 'form_intro_descrizione', '', $istanzaOggetto['form_intro_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Individuazione dei soggetti cui viene erogata la formazione in tema di anticorruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Formazione del personale interno','jtable', 'form_personale', '', $istanzaOggetto['form_personale'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'form_personale')); ?>
+				
+				<? creaFormTrasp('Individuazione dei soggetti che erogano la formazione in tema di anticorruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'form_sef_descrizione', '', $istanzaOggetto['form_sef_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Indicazione dei contenuti della formazione in tema di anticorruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'form_cfa_descrizione', '', $istanzaOggetto['form_cfa_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Indicazione di canali e strumenti di erogazione della formazione in tema di anticorruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'form_cse_descrizione', '', $istanzaOggetto['form_cse_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Quantificazione di ore/giornate dedicate alla formazione in tema di anticorruzione','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'form_qog_descrizione', '', $istanzaOggetto['form_qog_descrizione'], '',''); ?>
+			
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Codici di comportamento adottati</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Adozione delle integrazioni al codice di comportamento dei dipendenti pubblici','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'cca_ai_descrizione', '', $istanzaOggetto['cca_ai_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Regolamenti','jtable', 'cca_ai_regolamenti', '', $istanzaOggetto['cca_ai_regolamenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'cca_ai_regolamenti')); ?>
+				
+				<? creaFormTrasp('Indicazione dei meccanismi di denuncia delle violazioni del codice di comportamento','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'cca_imd_descrizione', '', $istanzaOggetto['cca_imd_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Indicazione dell\'ufficio competente a emanare pareri sulla applicazione del codice di comportamento','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
+				
+				<? creaFormTrasp('Descrizione','html', 'cca_iuc_descrizione', '', $istanzaOggetto['cca_iuc_descrizione'], '',''); ?>
+				
+				<? creaFormTrasp('Strutture organizzative','jtable', 'cca_iuc_uffici', '', $istanzaOggetto['cca_iuc_uffici'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 52, 'id_doc' => $id, 'menu' => 'cca_iuc_uffici')); ?>
+			
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Altre iniziative</a></h4>
+			<div>
+			
+				<? creaFormTrasp('Descrizione','html', 'ai_descrizione', '', $istanzaOggetto['ai_descrizione'], '',''); ?>
+				
+			</div>
+			
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-file-alt"></span> Sanzioni emanate</a></h4>
+			<div>
+				
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Inserisci Provvedimento','icona'=>'iconfa-inbox', 'id_campo'=>'se_descrizione', 'pulsanteCustom'=>'scegliProvvedimentoPianoAC', 'class' => 'btn-area-html'));
+				?>
+				
+				<? creaFormTrasp('Descrizione','html', 'se_descrizione', '', $istanzaOggetto['se_descrizione'], '',''); ?>
+				
+			</div>
+				
+					
+		</div>
+		<p class="stdformbutton">
+			<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
+		</p>	
+	</form>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco piani anticorruzione</a> 
+<? } ?>

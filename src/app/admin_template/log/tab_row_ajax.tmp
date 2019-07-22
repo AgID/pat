@@ -1,0 +1,11 @@
+<? // creo riga di array
+$outputArray[] = array();
+
+//TODO pubblicazione campi
+$outputArray[$numChiave][] = nomeUserDaId($istanzaOggetto['id_utente'], 'nome');
+$outputArray[$numChiave][] = date('d/m/Y H:i:s', $istanzaOggetto['data_azione']);
+$outputArray[$numChiave][] = $logAzioni->showIp($istanzaOggetto['ip']);
+$outputArray[$numChiave][] = $logAzioni->getNomeArea($istanzaOggetto['area'], unserialize($istanzaOggetto['altri_valori']));
+$outputArray[$numChiave][] = $logAzioni->nomeAzione($istanzaOggetto['azione']).' '.$logAzioni->getNomeArea($istanzaOggetto['area'], unserialize($istanzaOggetto['altri_valori']));
+$outputArray[$numChiave][] = stripslashes($logAzioni->dettagliAzione($istanzaOggetto))."<br />".stripslashes($logAzioni->dettaglioWorkflow($istanzaOggetto));
+?>

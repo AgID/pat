@@ -1,59 +1,18 @@
-<?php
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////PAT - Portale Amministrazione Trasparente////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////versione 1.5 - //////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	/*
-	* Copyright 2015,2017 - AgID Agenzia per l'Italia Digitale
-	*
-	* Concesso in licenza a norma dell'EUPL, versione 1.1 o
-	successive dell'EUPL (la "Licenza")â€“ non appena saranno
-	approvate dalla Commissione europea;
-	* Non Ã¨ possibile utilizzare l'opera salvo nel rispetto
-	della Licenza.
-	* Ãˆ possibile ottenere una copia della Licenza al seguente
-	indirizzo:
-	*
-	* https://joinup.ec.europa.eu/software/page/eupl
-	*
-	* Salvo diversamente indicato dalla legge applicabile o
-	concordato per iscritto, il software distribuito secondo
-	i termini della Licenza Ã¨ distribuito "TAL QUALE",
-	* SENZA GARANZIE O CONDIZIONI DI ALCUN TIPO,
-	esplicite o implicite.
-	* Si veda la Licenza per la lingua specifica che disciplina
-	le autorizzazioni e le limitazioni secondo i termini della
-	Licenza.
-	*/ 
-	/**
-	 * @file
-	 * codicepers/ricercaOggetti.php
-	 * 
-	 * @Descrizione
-	 * Utility per la ricerca sui contenuti degli oggetti di ISWEB nelle loro implementazioni PAT
-	 *
-	 */
-
-
-$minChars = $_GET['minChars'];
-if($minChars == 0) {
-	$minChars = 3;
-}
-$condizioneLimite = '';
+<?
+/*
+$minChars = 3;
+$condizioneLimite = ' LIMIT 0,3';
 if ($numero != 0) {
 	$condizioneLimite = ' LIMIT 0,'.($numero + 1);
 }
-// forzatura per le evntuali istanze non autorizzate se attivato il workflow
-$condizioneAuth = '';
-if (($o->auth != 'nessuna' and $datiUser['permessi'] > 1 and $datiUser['sessione_admininfo']) or $o->proprieta == 'esterna') {
-	$condizioneAuth = '';
-} else {
-	$condizioneAuth = ' AND stato != 0';
-}
+
+$condizioneAuth = ' AND stato = 1 ';
+
 //workflow
 if ($o->idOggetto > 1) {
-	$condizioneAuth .= ' AND stato_workflow=\'finale\' ';
+	if(!$configurazione['includi_istanze_workflow']) {
+		$condizioneAuth .= ' AND stato_workflow=\'finale\' ';
+	}
 }
 
 //la ricerca la faccio su ogni parola: ricerca in OR
@@ -72,10 +31,10 @@ foreach((array)$o->struttura as $c) {
 		}
 	}
 }
-$campiRicerca = implode(' OR ', $arrayCampiRicerca);
+$campiRicerca = implode(' AND ', $arrayCampiRicerca);
 $campiSelect = implode(',',$arrayCampiSelect);
 
-$sql = "SELECT id, ".$campo." AS campoDefaultTitolo, ".$campiSelect." FROM ".$dati_db['prefisso'].$o->tabella." WHERE permessi_lettura != 'H' AND (id_lingua=".$o->id_lingua." or id_lingua=0) ".$condizioneAuth." AND ".$campoIdEnte." = ".$idEnte." AND (";
+$sql = "SELECT id, ".$campo." AS campoDefaultTitolo, ".$campiSelect." FROM ".$dati_db['prefisso'].$o->tabella." WHERE permessi_lettura = 'N/A' ".$condizioneAuth." AND id_ente = ".$idEnte." AND (";
 $sql .= $campiRicerca;
 $sql .=") ";
 $sql .=" ".$condizioniAggiuntive." ";
@@ -86,51 +45,54 @@ if($ordinamentoPersonalizzato != '') {
 }
 $sql .=$condizioneLimite;
 
-//lognormale($sql);
-/*
-$f = fopen('temp/test.txt', 'a+');
-fwrite($f, $sql."\n\r");
-fclose($f);
-*/
 if (!($result = $database -> connessioneConReturn($sql))) {
 	$composizione = array();
 } else {
 	$composizione = $database -> sqlArrayAss($result);
 }
+*/
+
+$composizione = array();
+if ($database->sqlNumRighe($risultato) != 0) {
+	$composizione = $database->sqlArrayAss($risultato);
+}
+
 $items = array();
 $checkItems = array();
 
+/*
 foreach((array)$composizione as $res) {
 	//per ogni oggetto devo pulire i campi che possono contenere html
-	// e quindi verificare se a quel punto la ricerca ï¿½ andata a buon fine
+	// e quindi verificare se a quel punto la ricerca è andata a buon fine
 	for($i = 0; $i < count($o->struttura); $i++) {
 		$c = $o->struttura[$i];
 		//lognormale('verifico campo '.$c['nomecampo']);
 		if($c['ordinamento'] and ($c['tipoinput'] == 'string' or $c['tipoinput'] == 'blob' or $c['tipoinput'] == 'text')) {
-			//ho un campo su cui ï¿½ stata effettuata la ricerca
+			//ho un campo su cui è stata effettuata la ricerca
 			$contenuto = $res[$c['nomecampo']];
 			if($c['tipocampo'] == 'editor') {
 				//elimino tags html
 				$contenuto = strip_tags($contenuto);
 			}
-			/** altro controllo effettuato sulla ricerca
-			 * il controllo ï¿½ effettuato perchï¿½ la sola query potrebbe trovare risultati
-			 * nei campi editor html prima di aver pulito i tags con lo striptags
-			 */
 			foreach((array)$qRicerca as $qr) {
 				if(strpos(html_entity_decode(trim(strtolower($contenuto))), html_entity_decode(stripslashes(strtolower($qr)))) !== false) {
 					$items[$res['id']] = html_entity_decode(trim($res['campoDefaultTitolo']));
 					$checkItems[] = html_entity_decode(trim(strtolower($res['campoDefaultTitolo'])));
-					$i = count($o->struttura); //per uscire dal ciclo piï¿½ interno
+					$i = count($o->struttura); //per uscire dal ciclo più interno
 				}
 			}
 		}
 	}
 }
+*/
+foreach((array)$composizione as $res) {
+	$items[$res['id']] = html_entity_decode(trim($res['campoDefaultTitolo']));
+	$checkItems[] = html_entity_decode(trim(strtolower($res['campoDefaultTitolo'])));
+}
 
 if(count($items) > 0) {
 	$response[] = array(
-		'label' => $nomeOggetto,
+		'label' => $oggetto['nome'],
 		'objName' => 1
 	);
 }
@@ -144,9 +106,9 @@ if($tipoRicercaAuto == 'admin') {
 }
 foreach ((array)$items as $key=>$value) {
 	if($i < $numero) {
-		$urlLC = "archivio".$idOggetto."_".pulisciNome($o->nome)."_0_".$key."_".$sezioneNavigazione['template'].".html";
+		$urlLC = $base_url."archivio".$oggetto['id']."_".pulisciNome($o->nome)."_0_".$key.".html";
 		if($tipoRicercaAuto == 'admin' and $permessiModifica) {
-			if($idOggetto == 11 and moduloAttivo('bandigara')) {
+			if($oggetto['id'] == 11 and moduloAttivo('bandigara')) {
 				$tipo = mostraDatoOggetto($key, 11, 'tipologia');
 				$value = '['.$tipo.'] '.$value;
 				switch($tipo) {
@@ -173,26 +135,43 @@ foreach ((array)$items as $key=>$value) {
 						$link = '&tipo=liquidazione';
 					break;
 				}
-				$urlLC = "admin_pat.php?menu=".$menu."&menusec=".$menuSecondario."&azione=modifica&id=".$key.$link;
+				$sottotipo = mostraDatoOggetto($key, 11, 'sottotipo');
+				if($sottotipo != '') {
+					$link .= '&sottotipo='.$sottotipo;
+				}
+				$urlLC = "admin__pat.php?menu=".$menu."&menusec=".$menuSecondario."&azione=modifica&id=".$key.$link;
 			} else {
-				$urlLC = "admin_pat.php?menu=".$menu."&menusec=".$menuSecondario."&azione=modifica&id=".$key;
+				$urlLC = "admin__pat.php?menu=".$menu."&menusec=".$menuSecondario."&azione=modifica&id=".$key;
 			}
 		}
+		/*
+		Per il momento commento su segnalazione di frosinone: se si cerca 'scimè' la 'è' finale viene visualizzata male
+		Stessa cosa per altri oggetti: verificare se funziona nel tempo
+		Questa modifica è stata fatta in data 05/11/2015
+		Vedi anche ajax_personalizzato.php
+		*/
+		/*
 		$response[] = array(
 			'label' => utf8_encode(tagliaContHtml($value, $limitaCaratteriOutput)),
 			'value' => utf8_encode(tagliaContHtml($value, $limitaCaratteriOutput)),
 			'url' => $urlLC
 		);
+		*/
+		$response[] = array(
+			'label' => utf8_encode(htmlentities(tagliaContHtml($value, $limitaCaratteriOutput))),
+			'value' => utf8_encode(htmlentities(tagliaContHtml($value, $limitaCaratteriOutput))),
+			'url' => $urlLC
+		);
 	}
 	$i++;
 }
-/*
-if(count($items) > $numero) {
+
+$urlVediTutti = $base_url."index.php?azione=cerca&amp;ricfil=2&amp;obiettivo=".$oggetto['id']."&amp;id_sezione=".$sezioneNavigazione['id']."&amp;ordineRis=&amp;sezioneRicerca=0&amp;oggettiRicerca=&amp;tipo=".$oggetto['id']."&amp;strcerca=".$q;
+if(count($items) >= 3 and $tipoRicercaAuto != 'admin') {
 	$response[] = array(
-		'label' => 'Vedi tutti i risultati',
+		'label' => 'Vedi tutti i risultati...',
 		'objName' => 2,
-		'url' => "pagina0_home.html"
+		'url' => $urlVediTutti
 	);
 }
-*/
 ?>

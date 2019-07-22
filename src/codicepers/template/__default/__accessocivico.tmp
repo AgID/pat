@@ -1,0 +1,65 @@
+<body class="">
+    <?
+	include('./moduli/admin_template_corpo.php'); 
+	
+	// QUI VERIFICO SE L'UTENTE E' UN AMMINISTRATORE NORMALE
+	$stileAggTemp = '';
+	if ($datiUser['permessi'] > 1 AND $datiUser['permessi'] != 10 AND $datiUser['sessione_loggato']) {
+		// inserisco la barra di strumenti eTRASPARENZA 
+		$stileAggTemp = 'style="margin-top:55px;"';
+		?>
+		<div class="containerTestataAdmin">
+			<div id="adminTrasp">
+				<div class="logo">
+					<a href="./admin__pat.php"><img style="border:none;" src="app/grafica_admin/<? echo $configurazione['logo_etrasp']; ?>" alt="" /></a>
+				</div>
+				<div class="userloggedinfo">
+					<? if ($idEnteAdmin) {
+						echo "<img src=\"".$base_url."moduli/output_media.php?file=enti_trasparenza/".$enteAdmin['file_logo_semplice']."&amp;altezza=28\" style=\"border:0px;\" />"; 
+					} else {
+						echo "<img src=\"app/grafica_admin/logo_user_default.gif\" height=\"28\" alt=\"Internet Soluzioni\" style=\"border:0px;\" />";
+					} ?>
+					<div class="userinfo">
+						<? echo $datiUser['nome']; ?> <small>- <? echo $datiUser['email']; ?></small>
+					</div>
+					<? if ($idEnteAdmin) { ?>
+					<a href="admin__pat.php">Entra in amministrazione</a>
+					<? } ?>
+					<a href="index.php?azione=logout">Effettua il logout</a>
+				</div>
+			
+				<div class="reset"></div>
+			</div>
+		</div>
+		<?
+	}
+	?>    
+
+  
+  
+
+
+
+
+	<div class="layout-container">  
+					
+		<div id="block-content">
+			<div class="isweb-container">
+			    <!-- inizio colonna centrale -->
+				<?
+				$zonaTemp = "centro"; 
+				?>
+				<div>
+					<? include('./moduli/admin_template_zona.php'); ?>
+					<?
+					//inserisco amministrazione ZONA
+					include('./template/zona.tmp');
+					?>
+				</div>
+				<!-- fine colonna centrale -->
+		    </div>
+		</div>
+
+	</div>        
+
+</body>

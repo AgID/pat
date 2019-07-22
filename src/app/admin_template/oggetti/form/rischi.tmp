@@ -1,0 +1,142 @@
+<script type="text/javascript">	
+	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
+		
+		// Devo inizializzare il campo editor col nuovo ckEditor
+		//var editorDescRischio = CKEDITOR.replace( 'rischio' );
+		//var editorDescIndicazioneRischio = CKEDITOR.replace( 'indicazione_rischio' );
+		CKEDITOR.replaceClass = 'htmlEditor';
+		
+		jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},				
+			
+			rules: {
+								<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				} ?>
+				area: "required",
+				sottoarea: "required",
+				attivita: "required",
+				indici_probabilita: "required",
+				indici_impatto: "required",
+				classificazione_rischio: "required",
+			},
+			
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente associato alla persona\",";
+				} ?>
+				area: "Inserire il nome dell'area",
+				sottoarea: "Inserire il nome della sottoarea",
+				attivita: "Selezionare l'attivit&agrave;",
+				indici_probabilita: "Calcolare l'indice di valutazione della probabilit&agrave;",
+				indici_impatto: "Calcolare l'indice di valutazione dell'impatto",
+				classificazione_rischio: "Calcolare la classificazione del rischio",
+			},
+			
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			}
+
+		});
+			
+	});
+</script>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco aree di rischio</a> 
+<? } ?>
+<div class="widgetbox box-inverse">
+
+	<h4 class="widgettitle">
+		<? if ($id) { echo "Modifica"; } else {  echo "Aggiunta"; } ?> rischio
+	</h4>
+
+	
+	<div class="widgetcontent wc1">
+		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
+		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
+		
+			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
+			
+			<? // scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			} ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Seleziona','icona'=>'iconfa-inbox', 'id_campo'=>'area', 'funzione'=>'scegliAreaAC')); ?>
+			
+			<? creaFormTrasp('Area','testo', 'area', '', $istanzaOggetto['area'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Seleziona','icona'=>'iconfa-inbox', 'id_campo'=>'sottoarea', 'funzione'=>'scegliSottoareaAC')); ?>
+			
+			<? creaFormTrasp('Sottoarea','testo', 'sottoarea', '', $istanzaOggetto['sottoarea'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? creaFormTrasp('Settore','struttura', 'settore', '', $istanzaOggetto['settore'], '','input-xxlarge'); ?>
+			
+			<? creaFormTrasp('Responsabile','referente', 'responsabile', '', $istanzaOggetto['responsabile'], '','input-xxlarge'); ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Seleziona','icona'=>'iconfa-inbox', 'id_campo'=>'rischio', 'funzione'=>'scegliRischioAC', 'class' => 'btn-area-html')); ?>
+			
+			<? creaFormTrasp('Descrizione del rischio','html', 'rischio', '', $istanzaOggetto['rischio'], '',''); ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Seleziona','icona'=>'iconfa-inbox', 'id_campo'=>'attivita', 'funzione'=>'scegliAttivitaAC')); ?>
+			
+			<? creaFormTrasp('Attività','testo', 'attivita', '', $istanzaOggetto['attivita'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Calcola','icona'=>'iconfa-edit', 'id_campo'=>'indici_probabilita', 'funzione'=>'calcolaIndiceProbabilitaAC')); ?>
+			
+			<? creaFormTrasp('Indice di valutazione della probabilità','testo', 'indici_probabilita', '', $istanzaOggetto['indici_probabilita'], '','input-xlarge',0,'', 0, 0,true, false, array('readonly' => 'readonly')); ?>
+			
+			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Calcola','icona'=>'iconfa-edit', 'id_campo'=>'indici_impatto', 'funzione'=>'calcolaIndiceImpattoAC')); ?>
+			
+			<? creaFormTrasp('Indice di valutazione dell\'impatto','testo', 'indici_impatto', '', $istanzaOggetto['indici_impatto'], '','input-xlarge',0,'', 0, 0,true, false, array('readonly' => 'readonly')); ?>
+			
+			<? creaFormTrasp('Classificazione del rischio','testo', 'classificazione_rischio', '', $istanzaOggetto['classificazione_rischio'], '','input-xlarge',0,'', 0, 0, true, false, array('readonly' => 'readonly')); ?>
+			
+			<? creaFormTrasp('Indicazione delle fasi di rischio','html', 'indicazione_rischio', '', $istanzaOggetto['indicazione_rischio'], '',''); ?>
+			
+			<p class="stdformbutton">
+				<?
+				if($statoWfPrecedente['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfPrecedente['id']; ?>');inviaForm=true;" class="btn btn-primary">Torna allo stato precedente (<? echo $statoWfPrecedente['nome']; ?>)</button>
+					<?
+				}
+				include('app/admin_template/oggetti/btn_workflow.tmp');
+				?>
+				<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>><?php echo $nomeBtn; ?></a>
+				<?
+				if($statoWfSuccessivo['id']) {
+					?>
+					<button onclick="jQuery('#stato_workflow_da_assegnare').val('<? echo $statoWfSuccessivo['id']; ?>');inviaForm=true;" class="btn btn-primary">Vai allo stato successivo (<? echo $statoWfSuccessivo['nome']; ?>)</button>
+					<?
+				}
+				?>
+			</p>
+		</form>
+	</div>
+</div>
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco aree di rischio</a> 
+<? } ?>

@@ -1,0 +1,54 @@
+<div class="tab-pane tab_controinteressato widgetbox box-inverse" id="controinteressato_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni sul soggetto controinteressato
+	</h4>
+
+	<div class="widgetcontent wc1">
+	
+		<?
+		if(!$creaFormSistema) {
+			creaFormTrasp('','sistema', '', '', '', '','');
+			$creaFormSistema = true;
+			
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+		}
+		?>
+	
+		<?
+		if(!$id) {
+			?>
+			<div class="alert alert-info alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					Una volta caricata la richiesta, sar&agrave; possibile inviare comunicazioni via email al soggetto controinteressato
+				</p>
+			</div>
+			<?
+		}
+		?>
+		
+			<?
+			creaFormTrasp('Cognome e nome/Ragione sociale','testo', 'controinteressato_ragsociale', '', $istanzaOggetto['controinteressato_ragsociale'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Codice fiscale/Partita IVA','testo', 'controinteressato_cf', '', $istanzaOggetto['controinteressato_cf'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Email','testo', 'controinteressato_email', '', $istanzaOggetto['controinteressato_email'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Telefono','testo', 'controinteressato_telefono', '', $istanzaOggetto['controinteressato_telefono'], '','input-xlarge',0,'', 0, 0);
+			
+			creaFormTrasp('Altri dettagli/recapiti','html', 'controinteressato_dettagli', '', $istanzaOggetto['controinteressato_dettagli'], '','',0,'', 0, 0);
+			
+			if($id) {
+				creaFormTrasp('Comunicazioni da inviare/inviate','jtable', '__id_comunicazioni_controinteressato', '', $istanzaOggetto['__id_comunicazioni_controinteressato'], '','', 0, '', 0, 0, false, false, array('menu' => '__id_comunicazioni_controinteressato', 'id_ogg' => $idOggetto, 'id_doc' => $id, 'idComunicazione' => $id, 'nome_ogg' => $menuSecondario, 'idAllegatoDinamico' => $idAllegatoDinamico));
+			}
+			?>
+			
+	</div>
+</div>

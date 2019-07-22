@@ -1,0 +1,54 @@
+<div class="tab-pane tab_richiedente widgetbox box-inverse" id="richiedente_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Informazioni sul richiedente
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?
+		if(!$creaFormSistema) {
+			creaFormTrasp('','sistema', '', '', '', '','');
+			$creaFormSistema = true;
+			
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+		}
+		?>
+		
+		<?
+		if(!$id) {
+			?>
+			<div class="alert alert-info alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					Una volta caricata la richiesta, sar&agrave; possibile inviare comunicazioni via email al richiedente
+				</p>
+			</div>
+			<?
+		}
+		?>
+		
+			<?
+			creaFormTrasp('Cognome e nome/Ragione sociale','testo', 'richiedente_ragsociale', '', $istanzaOggetto['richiedente_ragsociale'], '','input-xlarge',0,'', 0, 0,true, false, $arayReadonly);
+			
+			creaFormTrasp('Codice fiscale/Partita IVA','testo', 'richiedente_cf', '', $istanzaOggetto['richiedente_cf'], '','input-xlarge',0,'', 0, 0,false, false, $arayReadonly);
+			
+			creaFormTrasp('Email','testo', 'richiedente_email', '', $istanzaOggetto['richiedente_email'], '','input-xlarge',0,'', 0, 0,true, false, $arayReadonly);
+			
+			creaFormTrasp('Telefono','testo', 'richiedente_telefono', '', $istanzaOggetto['richiedente_telefono'], '','input-xlarge',0,'', 0, 0,true, false, $arayReadonly);
+			
+			creaFormTrasp('Altri dettagli/recapiti','html', 'richiedente_dettagli', '', $istanzaOggetto['richiedente_dettagli'], '','',0,'', 0, 0,false);
+			
+			if($id) {
+				creaFormTrasp('Comunicazioni da inviare/inviate','jtable', '__id_comunicazioni_richiedente', '', $istanzaOggetto['__id_comunicazioni_richiedente'], '','', 0, '', 0, 0, false, false, array('menu' => '__id_comunicazioni_richiedente', 'id_ogg' => $idOggetto, 'id_doc' => $id, 'idComunicazione' => $id, 'nome_ogg' => $menuSecondario, 'idAllegatoDinamico' => $idAllegatoDinamico));
+			}
+			?>
+			
+	</div>
+</div>

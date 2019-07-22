@@ -1,0 +1,168 @@
+<?
+if ($idIstanza) {
+	?>
+	<div class="alert alert-block">
+		<button data-dismiss="alert" class="close" type="button">&times;</button>
+		<h4><span class="iconfa-info-sign"></span> Informazioni di sistema</h4>
+		<p style="margin: 8px 0;color:#646464;">
+			<?
+			if ($istanzaOggetto['ultima_modifica'] == $istanzaOggetto['data_creazione']) {
+				?>
+				<span>Questa istanza &egrave; stata creata da <strong><? echo nomeUserDaId($istanzaOggetto['id_proprietario'],'nome'); ?></strong> in data <strong><? echo visualizzaData($istanzaOggetto['data_creazione']); ?></strong> e non &egrave; mai stata modificata.</span>
+				<?
+			} else {
+				?>
+				<span>Questa istanza &egrave; stata modificata l'ultima volta in data <strong><? echo visualizzaData($istanzaOggetto['ultima_modifica']); ?></strong> dopo la sua creazione in data <strong><? echo visualizzaData($istanzaOggetto['data_creazione']); ?></strong> da parte di <strong><? echo nomeUserDaId($istanzaOggetto['id_proprietario'], 'nome'); ?></strong>.</span>
+				<?
+			}
+			?>
+		</p>
+		<?
+		if($istanzaOggetto['__archiviata']) {
+			$stileBtnSalva = ' style="display:none;" ';
+			?>
+			<h4><span class="iconfa-folder-close"></span> Elemento archiviato</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					<span>
+						Questo elemento <strong>&egrave; stato archiviato</strong>. Rester&agrave; in pubblicazione fino al <strong><? echo date('d/m/Y', $istanzaOggetto['__archiviata_data_fine']); ?></strong>.
+						<span id="remArchivio">Per modificare, <a href="javascript:rimuoviArchiviazione();">rimuovi dall'archivio</a>: L'elemento torner&agrave; in pubblicazione.</span>
+					</span>
+				</p>
+			<?
+		}
+		if(moduloAttivo('ealbo')) {
+			if($istanzaOggetto['stato_pubblicazione'] == '40' and $istanzaOggetto['id_atto_albo']) {
+				?>
+				<h4><span class="iconfa-lock"></span> Elemento in attesa di pubblicazione</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					<span>Questo elemento <strong>non &egrave; ancora pubblicato</strong> perch&egrave; proviene da un'importazione dati dall'Albo Online. <strong>Integrare i dati mancanti per effettuare la pubblicazione</strong>.</span>
+				</p>
+				<?
+			} else if($istanzaOggetto['stato_pubblicazione'] == '100' and $istanzaOggetto['id_atto_albo']) {
+				?>
+				<h4><span class="iconfa-info-sign"></span> Albo Online</h4>
+				<p style="margin: 8px 0;color:#646464;">
+				<?if($datiUser['id_ente_admin']==139){?>
+					<span>Questo elemento proviene da un'<strong>importazione dati da Atti Amministrativi</strong>.</span>
+				<?} else {?>	
+					<span>Questo elemento proviene da un'<strong>importazione dati dall'Albo Online</strong>.</span>
+				<?}?>
+				</p>
+				<?
+			}
+		}
+		if(moduloAttivo('workflow') and $istanzaOggetto['stato_workflow'] != 'finale') {
+			$el = getIstanzaWorkflow($idIstanza, $idOggetto);
+			if($oggettiTrasparenza[$idOggetto]['versioning'] and $statoWfPrecedente['id']) {
+				$istanzaBackup = $oggOgg->caricaUltimaIstanzaVersioning($idIstanza);
+				$testoVersione = '';
+				if($istanzaBackup['id']) {
+					$testoVersione = '&nbsp;<a href="#" class="show_modalIFrame" data-href="admin_at.php?menu='.$menu.'&amp;menusec='.$menuSecondario.'&amp;func=versioning&amp;azione=confronta_workflow&amp;id_ogg='.$idOggetto.'&amp;id='.$istanzaOggetto['id'].'&amp;idv='.$istanzaBackup['id'].'">Visualizza differenze con l\'ultimo salvataggio pubblicato</a>.';
+				}
+			}
+			if(!$el['id'] and !$configurazione['includi_istanze_workflow']) {
+				?>
+				<h4><span class="iconfa-lock"></span> Elemento in workflow: stato <? echo $statoWf['nome']; ?></h4>
+				<p style="margin: 8px 0;color:#646464;">
+					<span>Questo elemento <strong>non &egrave; ancora pubblicato</strong> perch&egrave; si trova nello stato <? echo $statoWf['nome']; ?>.<?php echo $testoVersione; ?></span>
+				</p>
+				<?
+			} else {
+				?>
+				<h4><span class="iconfa-lock"></span> Elemento in workflow: stato <? echo $statoWf['nome']; ?></h4>
+				<p style="margin: 8px 0;color:#646464;">
+					<span>Questo elemento <strong>&egrave; pubblicato</strong> ma si trova nello stato <? echo $statoWf['nome']; ?>.<?php echo $testoVersione; ?></span>
+				</p>
+				<?
+			}
+		}
+		if(moduloAttivo('bandigara') and $oggOgg->idOggetto == 11) {
+			if($istanzaOggetto['id_record_cig_principale'] > 0) {
+				$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_gare_atti WHERE id_record_cig_principale = ".$istanzaOggetto['id_record_cig_principale']." AND id != id_record_cig_principale";
+				if(!($result = $database->connessioneConReturn($sql))) {}
+				$numLotti = $database->sqlNumRighe($result);
+				?>
+				<p style="margin: 8px 0;color:#646464;">
+				<?
+				if($istanzaOggetto['id_record_cig_principale'] == $istanzaOggetto['id']) {
+					?>
+					<span>La presente istanza &egrave; una <strong>procedura con più CIG</strong> (<? echo $numLotti; ?> lotti totali).</span>
+					<?
+				} else {
+					?>
+					<span>Il presente lotto fa parte di una <strong>procedura con più CIG</strong> (<? echo $numLotti; ?> lotti totali).</span>
+					<?
+				}
+				?>
+				</p>
+				<?
+			}
+		}
+		if($oggOgg->idOggetto == 11 and ($_GET['tipo'] == 'avviso' or $istanzaOggetto['tipologia'] == 'avviso')) {
+			?>
+			<div class="alert alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<p style="margin: 8px 0;color:#646464;">
+					<span><strong>NOTA:</strong> La presente procedura, <strong>NON</strong> verr&agrave; inserita nei dati <strong>URL per ANAC</strong>.</span>
+				</p>
+			</div>
+			<?
+		} else if($oggOgg->idOggetto == 11 and ($_GET['tipo'] == 'determina_32' or $istanzaOggetto['tipologia'] == 'determina_32')) {
+			?>
+			<div class="alert alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<p style="margin: 8px 0;color:#646464;">
+					<span><strong>NOTA:</strong> La presente procedura, <strong>NON</strong> verr&agrave; inserita nei dati <strong>URL per ANAC</strong>.</span>
+				</p>
+			</div>
+			<?
+		}
+		?>
+	</div>
+	<?
+} else {
+	//nuovo record
+	if(moduloAttivo('workflow') and $statoWf['id']) {
+		?>
+		<div class="alert alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<h4><span class="iconfa-lock"></span> Elemento in workflow: stato iniziale</h4>
+			<p style="margin: 8px 0;color:#646464;">
+				<span>Questo elemento <strong>non verr&agrave; pubblicato al salvataggio</strong> perch&egrave; si trova nello stato iniziale.</span>
+			</p>
+		</div>
+		<?
+	}
+	if($oggOgg->idOggetto == 11 and $_GET['tipo'] == 'avviso') {
+		?>
+		<div class="alert alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<p style="margin: 8px 0;color:#646464;">
+				<span><strong>NOTA:</strong> La presente procedura, <strong>NON</strong> verr&agrave; inserita nei dati <strong>URL per ANAC</strong>.</span>
+			</p>
+		</div>
+		<?
+	} else if($oggOgg->idOggetto == 11 and $_GET['tipo'] == 'determina_32') {
+		?>
+		<div class="alert alert-block">
+			<button data-dismiss="alert" class="close" type="button">&times;</button>
+			<p style="margin: 8px 0;color:#646464;">
+				<span><strong>NOTA:</strong> La presente procedura, <strong>NON</strong> verr&agrave; inserita nei dati <strong>URL per ANAC</strong>.</span>
+			</p>
+		</div>
+		<?
+	}
+}
+if (($oggOgg->autorizzazione == 'root' and ($datiUser['permessi'] != 3 and $datiUser['permessi'] != 10)) OR ($oggOgg->autorizzazione == 'redattore' and !$datiUser['redattore']) ) {
+	?>
+	<div class="avvisino" style="margin:-10px 0px 14px 0px;">
+		<img src="grafica/admin_skin/<? echo $datiUser['admin_skin']; ?>/alert.gif" align="absmiddle" hspace="3">
+		<? if ($idIstanza) { ?>
+			<span>Ricorda che questa modific&agrave; dovr&agrave; essere autorizzata prima di essere pubblicata.</span>
+		<? } else { ?>
+			<span>Ricorda che la nuova istanza creata dovr&agrave; essere autorizzata prima di essere pubblicata.</span>
+		<? } ?>
+	</div> 
+	<?
+}
+?>
