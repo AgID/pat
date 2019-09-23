@@ -1,0 +1,109 @@
+# This repository adheres to the publiccode.yml standard by including this 
+# metadata file that makes public software easily discoverable.
+# More info at https://github.com/italia/publiccode.yml
+
+publiccodeYmlVersion: '0.2'
+name: PAT - Portale Amministrazione Trasparente
+url: 'https://github.com/AgID/pat'
+releaseDate: '2019-07-22'
+softwareVersion: '1.9'
+developmentStatus: stable
+platforms:
+  - windows
+  - web
+  - linux
+softwareType: standalone/web
+categories:
+  - document-management
+  - office
+  - productivity-suite
+  - website-builder
+maintenance:
+  type: contract
+  contacts:
+    - name: Alessandro Bianchi
+      email: a.bianchi@isweb.it
+      phone: '+390863441163'
+  contractors:
+    - name: ISWEB S.p.A.
+      until: '2022-07-31'
+      website: 'https://www.isweb.it'
+legal:
+  license: EPL-2.0
+  mainCopyrightOwner: AgID - Agenzia per l'Italia Digitale
+  repoOwner: AgID - Agenzia per l'Italia Digitale
+localisation:
+  localisationReady: false
+  availableLanguages:
+    - it
+it:
+  conforme:
+    lineeGuidaDesign: true
+    misureMinimeSicurezza: true
+    modelloInteroperabilita: true
+    gdpr: true
+  piattaforme:
+    spid: false
+description:
+  it:
+    genericName: Portale Amministrazione Trasparente
+    shortDescription: >-
+      La soluzione applicativa per adempiere in modo semplice ed efficace alle
+      disposizioni del d.lgs. 33/2013 (Amministrazione Trasparente)
+    longDescription: >
+      PAT (Portale Amministrazione Trasparente) è la soluzione applicativa
+      dedicata alla gestione e alla pubblicazione delle informazioni richieste
+      dal quadro normativo che permette agli enti pubblici di ogni ordine e
+      grado di adempiere agli **OBBLIGHI DI PUBBLICITÀ’, TRASPARENZA E
+      DIFFUSIONE DELLE INFORMAZIONI **in conformità alle disposizioni del
+      Decreto Legislativo del 14 marzo 2013, n.33 (Amministrazione Trasparente),
+      in attuazione della Legge 6 novembre 2012, n. 190 (Anticorruzione).
+
+
+      PAT è disponibile anche con una configurazione dedicata per le Società e
+      gli Enti pubblici in conformità alla delibera ANAC n. 1134 del 08/11/2017.
+
+
+      L'AgID ha affidato a ISWEB l'insieme delle attività di avvio e di
+      manutenzione di PAT, ivi inclusi gli interventi di adeguamento necessari
+      per essere sempre a norma rispetto all'evolversi del quadro normativo di
+      riferimento. 
+    features:
+      - >-
+        WEB BASED, non necessita di installazione di alcun applicativo sul pc
+        dei redattori;
+      - >-
+        SEMPLICISSIMA da utilizzare, è caratterizzata da un ambiente di gestione
+        dotato di PROCEDURE GUIDATE che consentono l’inserimento dei dati e
+        delle informazioni anche da parte di redattori privi della totale
+        conoscenza del quadro normativo;
+      - >-
+        STRUMENTI AUTOMATICI DI CONTROLLO DELLA COMPLETEZZA dei contenuti
+        inseriti, che includono promemoria ai redattori relativi all’avvicinarsi
+        delle scadenze fissate dalla normativa;
+      - >-
+        STRUMENTI OPERATIVI richiesti e/o necessari (ad esempio la generazione
+        automatica del file XML ai fini della comunicazione obbligatoria
+        all’ANAC (art.1 comma 32 Legge n.190/2012), con specifici strumenti di
+        controllo che mettono al riparo dalle sanzioni previste dalla legge,
+        garantendo la validità formale;
+      - >-
+        Generazione automatica dei FILE IN FORMATO APERTO (OPEN DATA), resi
+        pubblici sul Portale della Trasparenza in relazione al contenuto in
+        navigazione;
+      - >-
+        MOTORE DI RICERCA A COMPILAZIONE SUGGERITA, con suddivisione dei
+        risultati per aree omogenee;
+      - >-
+        WEBSERVICES completi e documentati volti all'interoperabilità con
+        applicativi e basi dati preesistenti per garantire il caricamento
+        automatico dai dati e delle informazioni;
+      - >-
+        Gestione puntuale degli UTENTI e dei relativi ambiti operativi mediante
+        PROFILI personalizzabili in ogni dettaglio;
+      - GRAFICAMENTE INTEGRABILE con siti preesistenti;
+      - >-
+        Dispone di APP dedicata, resa disponibile sui market personalizzata per
+        l’Ente;
+      - 'ACCESSIBILE, in conformità alla legge 4/04 (Legge Stanca)'
+      - Conforme allo Standard DUBLIN CORE (delibera CIVIT 105/2010)
