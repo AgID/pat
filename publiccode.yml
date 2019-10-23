@@ -37,6 +37,9 @@ localisation:
   availableLanguages:
     - it
 it:
+  countryExtensionVersion: '0.2'
+  riuso:
+    codiceIPA: agid
   conforme:
     lineeGuidaDesign: true
     misureMinimeSicurezza: true
