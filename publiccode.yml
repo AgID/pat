@@ -29,7 +29,7 @@ maintenance:
       until: '2022-07-31'
       website: 'https://www.isweb.it'
 legal:
-  license: EUPL 1.2
+  license: EUPL-1.2
   mainCopyrightOwner: AgID - Agenzia per l'Italia Digitale
   repoOwner: AgID - Agenzia per l'Italia Digitale
 localisation:
