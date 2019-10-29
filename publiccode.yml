@@ -12,6 +12,45 @@ platforms:
   - windows
   - web
   - linux
+usedBy:
+  - AgID Agenzia per l'Italia Digitale
+  - Ministero delle Infrastrutture e dei Trasporti
+  - Equitalia Giustizia S.p.A.
+  - ENAC Ente Nazionale per l'Aviazione Civile
+  - IPZS Istituto Poligrafico e Zecca dello Stato
+  - ACI Automobile Club d'Italia
+  - Autodromo Nazionale di Monza SIAS spa 
+  - Città Metropolitana di Roma Capitale 
+  - Consiglio della Provincia Autonoma di Trento 
+  - Provincia Autonoma di Trento 
+  - Gallerie degli Uffizi 
+  - Teatro Pubblico Pugliese 
+  - Autostrada Pedemontana Lombarda S.p.A.
+  - Milano Serravalle Milano Tangenziali S.p.A.
+  - Roma Servizi per la Mobilità   
+  - Università degli Studi della Calabria 
+  - Università Mediterranea di Reggio Calabria 
+  - ASL Napoli 1 Centro 
+  - Azienda Ospedaliero Universitaria San Giovanni di Dio e Ruggi d'Aragona di Salerno 
+  - Autorità Portuale del Mare Adriatico Centro Settentrionale 
+  - Autorità Portuale del Mar Tirreno Centro Settentrionale 
+  - Agenzia Mobilità Ambiente e Territorio Milano AMAT 
+  - Agenzia Regionale per la Prevenzione e la Protezione dell'Ambiente 
+  - Ales Arte Lavoro e Servizi S.p.A. 
+  - Risorse Ambiente Palermo S.p.A 
+  - ATER Padova 
+  - ATC Piemonte Centrale 
+  - Casa ATC Servizi Srl 
+  - Comunità di Primiero   
+  - Comune di Prato
+  - Comune di Frosinone
+  - Comune di Palestrina (RM) 
+  - Comune di Civitavecchia (RM)
+  - Comune di Carmignano
+  - Comune di Ceprano (FR)
+  - Comune di Ostuni (BR)
+  - Comune di Francavilla Fontana (BR)
+  - Ordine delle Professioni Infermieristiche di Brescia 
 softwareType: standalone/web
 categories:
   - document-management
