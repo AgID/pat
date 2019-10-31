@@ -7,6 +7,7 @@ name: PAT - Portale Amministrazione Trasparente
 url: 'https://github.com/AgID/pat'
 releaseDate: '2019-07-22'
 softwareVersion: '1.9'
+logo: src/app/grafica/pat_semplice.png
 developmentStatus: stable
 platforms:
   - windows
@@ -23,34 +24,134 @@ usedBy:
   - Città Metropolitana di Roma Capitale 
   - Consiglio della Provincia Autonoma di Trento 
   - Provincia Autonoma di Trento 
+  - Provincia di Salerno
   - Gallerie degli Uffizi 
   - Teatro Pubblico Pugliese 
   - Autostrada Pedemontana Lombarda S.p.A.
   - Milano Serravalle Milano Tangenziali S.p.A.
-  - Roma Servizi per la Mobilità   
+  - Roma Servizi per la Mobilità  
+  - AEQUA ROMA  
   - Università degli Studi della Calabria 
   - Università Mediterranea di Reggio Calabria 
   - ASL Napoli 1 Centro 
+  - Istituto Nazionale Tumori IRCCS Fondazione Pascale
   - Azienda Ospedaliero Universitaria San Giovanni di Dio e Ruggi d'Aragona di Salerno 
-  - Autorità Portuale del Mare Adriatico Centro Settentrionale 
-  - Autorità Portuale del Mar Tirreno Centro Settentrionale 
+  - Autorità di Sistema Portuale del Mare Adriatico Centro Settentrionale 
+  - Autorità di Sistema Portuale del Mare Adriatico Centrale
+  - Autorità di Sistema Portuale del Mar Tirreno Centro Settentrionale 
   - Agenzia Mobilità Ambiente e Territorio Milano AMAT 
   - Agenzia Regionale per la Prevenzione e la Protezione dell'Ambiente 
   - Ales Arte Lavoro e Servizi S.p.A. 
+  - Ministero del Lavoro e delle Politiche Sociali
   - Risorse Ambiente Palermo S.p.A 
   - ATER Padova 
   - ATC Piemonte Centrale 
   - Casa ATC Servizi Srl 
   - Comunità di Primiero   
-  - Comune di Prato
+  - Comune di Prato 
   - Comune di Frosinone
   - Comune di Palestrina (RM) 
   - Comune di Civitavecchia (RM)
-  - Comune di Carmignano
+  - Comune di Carmignano (PO)
   - Comune di Ceprano (FR)
   - Comune di Ostuni (BR)
   - Comune di Francavilla Fontana (BR)
   - Ordine delle Professioni Infermieristiche di Brescia 
+  - A Tutta Rete S.r.l.
+  - ACI GEST SRL
+  - ACI Global S.p.A.
+  - ACI Infomobility
+  - Aciservice Reggio S.r.l
+  - Agenzia di Sviluppo della C.C.I.A.A. di Chieti Pescara
+  - ASMare S.r.l.
+  - ASMia S.r.l.
+  - Azienda Servizi Mortara S.p.A.
+  - Capitale Lavoro S.p.A.
+  - CASALP S.p.A. Casa Livorno e Provincia
+  - CLARA S.p.A.
+  - CMV ENERGIA & IMPIANTI S.r.l.
+  - CMV RACCOLTA S.r.l.
+  - CMV Servizi S.r.l.
+  - Co.S.I.La.M.
+  - Port Security Piombino S.r.l.u.
+  - Automobile Club Alessandria
+  - Automobile Club Ancona
+  - Automobile Club Aosta
+  - Automobile Club Ascoli Piceno Fermo
+  - Automobile Club Asti
+  - Automobile Club Avellino
+  - Automobile Club Bari
+  - Automobile Club Belluno
+  - Automobile Club Benevento
+  - Automobile Club Bergamo
+  - Automobile Club Biella
+  - Automobile Club Bologna
+  - Automobile Club Brescia
+  - Automobile Club Cagliari
+  - Automobile Club Campobasso
+  - Automobile Club Caserta
+  - Automobile Club Catania
+  - Automobile Club Chieti
+  - Automobile Club Como
+  - Automobile Club Cuneo
+  - Automobile Club Firenze
+  - Automobile Club Foggia
+  - Automobile Club Forlì Cesena
+  - Automobile Club Frosinone
+  - Automobile Club Genova
+  - Automobile Club Gorizia
+  - Automobile Club Grosseto
+  - Automobile Club Imperia
+  - Automobile Club Isernia
+  - Automobile Club Ivrea
+  - Automobile Club L'Aquila
+  - Automobile Club Latina
+  - Automobile Club Lecce
+  - Automobile Club Lecco
+  - Automobile Club Lucca
+  - Automobile Club Macerata
+  - Automobile Club Mantova
+  - Automobile Club Massa Carrara
+  - Automobile Club Matera
+  - Automobile Club Messina
+  - Automobile Club Milano
+  - Automobile Club Napoli
+  - Automobile Club Novara
+  - Automobile Club Nuoro
+  - Automobile Club Oristano
+  - Automobile Club Padova
+  - Automobile Club Pavia
+  - Automobile Club Perugia
+  - Automobile Club Pesaro e Urbino
+  - Automobile Club Pescara
+  - Automobile Club Pisa
+  - Automobile Club Pistoia
+  - Automobile Club Ponente Ligure
+  - Automobile Club Pordenone
+  - Automobile Club Potenza
+  - Automobile Club Prato
+  - Automobile Club Rieti
+  - Automobile Club Rimini
+  - Automobile Club Roma
+  - Automobile Club Rovigo
+  - Automobile Club Salerno
+  - Automobile Club Sanremo
+  - Automobile Club Sassari
+  - Automobile Club Siena
+  - Automobile Club Siracusa
+  - Automobile Club Sondrio
+  - Automobile Club Teramo
+  - Automobile Club Terni
+  - Automobile Club Torino
+  - Automobile Club Trento
+  - Automobile Club Treviso
+  - Automobile Club Trieste
+  - Automobile Club Varese
+  - Automobile Club Venezia
+  - Automobile Club Verbano Cusio Ossola
+  - Automobile Club Verona
+  - Automobile Club Vicenza
+  - Automobile Club Viterbo  
 softwareType: standalone/web
 categories:
   - document-management
