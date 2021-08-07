@@ -1,9 +1,9 @@
 <div align="center">
- <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="./src/app/grafica/pat_logo_trasp_dialog.png" width="400"></a>
+ <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="./src/app/grafica/pat_logo_trasp_dialog.png"></a>
 </div>
 
 <div align="center">
-  <a href="https://github.com/AgID/pat/blob/master/eupl_v1.2_it.pdf"><img src="https://it.wikipedia.org/wiki/European_Union_Public_Licence#/media/File:Eupl.png" alt="License"></a>
+  <a href="https://github.com/AgID/pat/blob/master/eupl_v1.2_it.pdf"><img src="https://it.wikipedia.org/wiki/European_Union_Public_Licence#/media/File:Eupl.png" alt="Licenza EUPL v1.2"></a>
 </div>
 
 # PAT - Portale Amministrazione Trasparente
