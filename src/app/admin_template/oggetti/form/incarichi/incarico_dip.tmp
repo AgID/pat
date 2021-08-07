@@ -11,15 +11,19 @@ if($id and $istanzaOggetto['nominativo_cognome'] == '' and $istanzaOggetto['nomi
 	$istanzaOggetto['nominativo_nome'] = trim($nome);
 }
 
+
 $campoCompenso = 'compenso';
+$campoCompensoErogato = 'compenso_erogato';
 if($enteAdmin['importi_numerici']) {
-	$campoCompenso .= '_valore';
+    $campoCompenso .= '_valore';
+    $campoCompensoErogato .= '_valore';
 }
 ?>
 <script type="text/javascript" src="./app/js/codiceFiscale/codiceFiscale.js"></script>
-<script type="text/javascript">	
+<script type="text/javascript">
 	function changeTipoConferente() {
 		tc = jQuery('#tipologia_conferente').val();
+
 		if(tc == 1) {
 			//pa
 			jQuery('#conferente_pf_codiceFiscale').val('').closest('.control-group').hide();
@@ -33,6 +37,9 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('#conferente_pg_denominazione').val('').closest('.control-group').hide();
 			jQuery('.cont_box_conferente_pa_codicePalpa').show();
 			jQuery('.cont_box_conferente_pa_codiceFiscalePa').show();
+
+            jQuery('#conferente_pf_dataNascitaVis').rules('remove');
+
 		} else if(tc == 2 || tc == 3) {
 			//pf
 			jQuery('.cont_box_conferente_pf_codiceFiscale').show();
@@ -45,6 +52,11 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('#conferente_pg_denominazione').val('').closest('.control-group').hide();
 			jQuery('#conferente_pa_codicePalpa').val('').closest('.control-group').hide();
 			jQuery('#conferente_pa_codiceFiscalePa').val('').closest('.control-group').hide();
+
+            jQuery('#conferente_pf_dataNascitaVis').rules('add',{
+                required: true, messages: { required: "Campo obbligatorio" }
+            });
+
 		} else if(tc == 4 || tc == 5) {
 			//pg
 			jQuery('#conferente_pf_codiceFiscale').val('').closest('.control-group').hide();
@@ -58,7 +70,10 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('.cont_box_conferente_pg_denominazione').show();
 			jQuery('#conferente_pa_codicePalpa').val('').closest('.control-group').hide();
 			jQuery('#conferente_pa_codiceFiscalePa').val('').closest('.control-group').hide();
-		} else {
+
+            jQuery('#conferente_pf_dataNascitaVis').rules('remove');
+
+        } else {
 			jQuery('#conferente_pf_codiceFiscale').val('').closest('.control-group').hide();
 			jQuery('#conferente_pf_cognome').val('').closest('.control-group').hide();
 			jQuery('#conferente_pf_nome').val('').closest('.control-group').hide();
@@ -70,14 +85,12 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('#conferente_pg_denominazione').val('').closest('.control-group').hide();
 			jQuery('#conferente_pa_codicePalpa').val('').closest('.control-group').hide();
 			jQuery('#conferente_pa_codiceFiscalePa').val('').closest('.control-group').hide();
+
+            jQuery('#conferente_pf_dataNascitaVis').rules('remove');
+
 		}
 	}
 	jQuery(document).ready(function(){
-
-		changeTipoConferente();
-		jQuery(document).on('change', '#tipologia_conferente', function() {
-			changeTipoConferente();
-		});
 
 		jQuery('#nominativo_cod_comune').autocomplete({
 			minLength: 3,
@@ -122,7 +135,7 @@ if($enteAdmin['importi_numerici']) {
 		// necessario per i campi select con ricerca
 		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
 		//campi decimali (importi)
-		jQuery('.a-num-class').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});		
+		jQuery('.a-num-class').autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99'});
 
 		function fine_incaricoNonDisponibile() {
 			if(jQuery("#fine_incarico_non_disponibile").attr('checked') == 'checked') {
@@ -150,11 +163,11 @@ if($enteAdmin['importi_numerici']) {
 				jQuery("#fine_incarico_non_disponibile_text").val("");
 			}
 		}
-		
+
 		jQuery("#fine_incarico_non_disponibile").change(function(){
 			fine_incaricoNonDisponibile();
 		});
-		
+
 		jQuery.validator.addMethod("allegatoCheck", function(value , element) {
 			if('<? echo $id; ?>' != '') {
 				//modifica
@@ -180,7 +193,7 @@ if($enteAdmin['importi_numerici']) {
 				}
 			}
 		}, 'Inserisci il file allegato');
-		
+
 		jQuery.validator.addMethod("floatCheck", function(value) {
 			var regex = /^((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
 			//vecchio controllo
@@ -190,7 +203,7 @@ if($enteAdmin['importi_numerici']) {
 			}
 			return false;
 		});
-		
+
 		// Devo inizializzare il campo editor col nuovo ckEditor
 		CKEDITOR.replaceClass = 'htmlEditor';
 
@@ -225,19 +238,21 @@ if($enteAdmin['importi_numerici']) {
 				} else {
 					error.appendTo( element.parent().parent() );
 				}
-			},	
-			
+			},
+
 			rules: {
 				<?if(($datiUser['id_ente_admin']==35 OR ($datiUser['id_ente_admin']==142 AND $datiUser['acl']==3)) AND $aclTrasparenza[$menuSecondario]['modifica'] AND $aclTrasparenza[$menuSecondario]['creazione'] AND $_GET['azione'] != 'aggiungi') {
 						echo "id_proprietario: \"required\",";
-				}?>		
+				}?>
 				nominativo_cognome: "required",
 				nominativo_nome: "required",
 				<? // scelta ente
-				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
 					echo "id_ente: \"required\",";
 				} ?>
 				oggettoPerlaPA: "required",
+                conferente_pf_dataNascitaVis: "required",
+                perlapa_struttura: "required",
 				<? echo $campoCompenso; ?>: {
 					required: true,
 					floatCheck: true
@@ -257,21 +272,23 @@ if($enteAdmin['importi_numerici']) {
 					dateMoreThan: '31/12/2017'
 				}
 			},
-			
+
 			messages: {
 				nominativo_cognome: "Campo obbligatorio",
 				nominativo_nome: "Campo obbligatorio",
 				<? // scelta ente
-				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
 					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
 				} ?>
 				oggettoPerlaPA: "Inserisci l'oggetto dell'incarico",
+                conferente_pf_dataNascitaVis: "Campo obbligatorio",
+                perlapa_struttura: "Campo obbligatorio",
 				<? echo $campoCompenso; ?>: "Inserisci il compenso previsto, comprensivo di eventuali parti variabili (es. 123.456,00)",
 				estremi_atti: "Inserire gli estremi atto di conferimento",
 				inizio_incaricoVis: "Seleziona la data di inizio incarico (successiva al 31/12/2017)",
 				id_proprietario: "Devi selezionare l'utente proprietario"
 			},
-			
+
 			highlight: function(label) {
 				jQuery(label).closest('.control-group').addClass('error');
 			},
@@ -287,7 +304,13 @@ if($enteAdmin['importi_numerici']) {
 			}
 
 		});
-		
+
+
+        changeTipoConferente();
+        jQuery(document).on('change', '#tipologia_conferente', function() {
+            changeTipoConferente();
+        });
+
 		fine_incaricoNonDisponibile();
 
 		<?
@@ -313,7 +336,7 @@ if($enteAdmin['importi_numerici']) {
 			        }]
 			    });
 			}
-		
+
 		<?
 		}
 		?>
@@ -323,7 +346,7 @@ if($enteAdmin['importi_numerici']) {
 			include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/form/incarichi/'.basename(__FILE__, '.tmp').'.js.tmp');
 		}
 		?>
-		
+
 	});
 </script>
 
@@ -395,13 +418,13 @@ if($enteAdmin['importi_numerici']) {
 		<form id="formOggetto" class="stdform" method="post"
 				enctype="multipart/form-data"
 				action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
-		
+
 			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
-			
+
 			<?
 			// scelta ente
-			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
-				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
 			} else {
 				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
 			}
@@ -409,89 +432,99 @@ if($enteAdmin['importi_numerici']) {
 			if($azione == 'importAtto' and $atto['id'] > 0) {
 				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
 			}
-			
+
 			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"incarico\" />";
 			echo "<input type=\"hidden\" id=\"tipo_incarico\" name=\"tipo_incarico\" value=\"incarichi dipendenti interni\" />";
-			
+
 			echo "<input type=\"hidden\" id=\"nominativo\" name=\"nominativo\" value=\"".$istanzaOggetto['nominativo']."\" />";
-			
+
 			echo "<input type=\"hidden\" id=\"__perlapa_bonificato\" name=\"__perlapa_bonificato\" value=\"1\" />";
 			?>
-			
-			
+
+
 			<? creaFormTrasp('Amministrazione dichiarante','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
-			
+
+
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco IPA amm. dichiarante','testo', 'dichiarante_codicePalpa', '', $istanzaOggetto['dichiarante_codicePalpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? creaFormTrasp('Cod. fiscale amm. dichiarante','testo', 'dichiarante_codiceFiscalePa', '', $istanzaOggetto['dichiarante_codiceFiscalePa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco Aree Org. Omogenee','testo', 'dichiarante_codiceAoolpa', '', $istanzaOggetto['dichiarante_codiceAoolpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco Unit&agrave; Org.','testo', 'dichiarante_codiceUolpa', '', $istanzaOggetto['dichiarante_codiceUolpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			
+			<?
+                if ($istanzaOggetto['dichiarante_codicePalpa'] != '' and !is_null($istanzaOggetto['dichiarante_codicePalpa'])) {
+                    $codicePaIPA = $istanzaOggetto['dichiarante_codicePalpa'];
+                } else {
+                    $codicePaIPA = $enteAdmin['perlapa_codicePalpa'];
+                }
+                creaFormTrasp('Cod. univoco IPA amm. dichiarante', 'testo', 'dichiarante_codicePalpa', '', $codicePaIPA, '', 'input-xlarge', 0, '', 0, 0);
+            ?>
+
+			<?
+                if ($istanzaOggetto['dichiarante_codiceFiscalePa'] != '' and !is_null($istanzaOggetto['dichiarante_codiceFiscalePa'])) {
+                    $codiceFisDichiar = $istanzaOggetto['dichiarante_codiceFiscalePa'];
+                } else {
+                    $codiceFisDichiar = $enteAdmin['perlapa_codiceFiscalePa'];
+                }
+                creaFormTrasp('Cod. fiscale amm. dichiarante','testo', 'dichiarante_codiceFiscalePa', '', $codiceFisDichiar, '','input-xlarge',0,'', 0, 0);
+            ?>
+
+            <? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
+            <? creaFormTrasp('Struttura Organizzatva', 'struttura', 'perlapa_struttura', '', $istanzaOggetto['perlapa_struttura'], '', 'input-xlarge',0,'',0,0,true); ?>
+
+
 			<? creaFormTrasp('Percettore','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
+
+
 			<? creaFormTrasp('Cognome','testo', 'nominativo_cognome', '', $istanzaOggetto['nominativo_cognome'], '','input-xlarge',0,'', 0, 0,true); ?>
-			
+
 			<? creaFormTrasp('Nome','testo', 'nominativo_nome', '', $istanzaOggetto['nominativo_nome'], '','input-xlarge',0,'', 0, 0,true); ?>
-			
+
 			<? creaFormTrasp('Genere','selezione', 'nominativo_genere', 'M,F', $istanzaOggetto['nominativo_genere'], '','input-small',0,'Seleziona', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data di nascita','data', 'nominativo_data_nascita', '', $istanzaOggetto['nominativo_data_nascita'], '','',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Cod. catastale Comune di nascita/stato estero','testo', 'nominativo_cod_comune', '', $istanzaOggetto['nominativo_cod_comune'], '','input-xlarge',0,'Digita il comune per selezionare il codice', 0, 0); ?>
-			
+
 			<?
 			$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Calcola','icona'=>'iconpat-credit-card', 'id_campo'=>'nominativo_codice_fiscale', 'pulsanteCustom'=>'calcolaCodiceFiscale', 'class' => ''));
 			creaFormTrasp('Codice fiscale','testo', 'nominativo_codice_fiscale', '', $istanzaOggetto['nominativo_codice_fiscale'], '','input-xlarge',0,'', 0, 0);
 			?>
-			
+
 			<? creaFormTrasp('Qualifica','selezione', 'nominativo_qualifica', '1,103', $istanzaOggetto['nominativo_qualifica'], 'Dirigente,Non dirigente','input-xlarge',0,'Seleziona', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Conferente','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
+
+
 			<? creaFormTrasp('Tipologia','selezione', 'tipologia_conferente', '1,2,3,4,5', $istanzaOggetto['tipologia_conferente'], 'Pubblico,Privato - persona fisica con CF rilasciato in Italia,Privato - persona fisica senza CF rilasciato in Italia,Privato - persona giuridica con CF rilasciato in Italia,Privato - persona giuridica senza CF rilasciato in Italia','input-xxlarge',0,'Seleziona', 0, 0); ?>
 
-			
+
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
 			<? creaFormTrasp('Cod. univoco IPA amm. conferente','testo', 'conferente_pa_codicePalpa', '', $istanzaOggetto['conferente_pa_codicePalpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Cod. fiscale amm. conferente','testo', 'conferente_pa_codiceFiscalePa', '', $istanzaOggetto['conferente_pa_codiceFiscalePa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Cognome','testo', 'conferente_pf_cognome', '', $istanzaOggetto['conferente_pf_cognome'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Nome','testo', 'conferente_pf_nome', '', $istanzaOggetto['conferente_pf_nome'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Genere','selezione', 'conferente_pf_genere', 'M,F', $istanzaOggetto['conferente_pf_genere'], '','input-small',0,'Seleziona', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data di nascita','data', 'conferente_pf_dataNascita', '', $istanzaOggetto['conferente_pf_dataNascita'], '','',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Cod. catastale Comune di nascita','testo', 'conferente_pf_codComune', '', $istanzaOggetto['conferente_pf_codComune'], '','input-xlarge',0,'Digita il comune per selezionare il codice', 0, 0); ?>
-			
+
 			<?
 			$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Calcola','icona'=>'iconpat-credit-card', 'id_campo'=>'conferente_pf_codiceFiscale', 'pulsanteCustom'=>'calcolaCodiceFiscalePF', 'class' => ''));
 			creaFormTrasp('Codice fiscale','testo', 'conferente_pf_codiceFiscale', '', $istanzaOggetto['conferente_pf_codiceFiscale'], '','input-xlarge',0,'', 0, 0);
 			?>
-			
-			
+
+
 			<? creaFormTrasp('Cod. fiscale conferente','testo', 'conferente_pg_codiceFiscale', '', $istanzaOggetto['conferente_pg_codiceFiscale'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Denominazione conferente','testo', 'conferente_pg_denominazione', '', $istanzaOggetto['conferente_pg_denominazione'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Incarico','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
+
+
 			<?
 			$val = array();
 			$eti = array();
@@ -502,44 +535,58 @@ if($enteAdmin['importi_numerici']) {
 			creaFormTrasp('Oggetto incarico','selezione', 'oggettoPerlaPA', implode(',', $val), $istanzaOggetto['oggettoPerlaPA'], implode(',', $eti),'input-xxlarge',0,'Seleziona', 0, 0, true);
 			echo "<input type=\"hidden\" id=\"oggetto\" name=\"oggetto\" value=\"".$istanzaOggetto['oggetto']."\" />";
 			?>
-			
-			
+
+
 			<? creaFormTrasp('Data autorizzazione conferimento','data', 'dataAutConferimento', '', $istanzaOggetto['dataAutConferimento'], '','',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data revoca','data', 'dataRevoca', '', $istanzaOggetto['dataRevoca'], '','',0,'', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Struttura organizzativa responsabile','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
-			
+
 			<? creaFormTrasp('Incarico rientrante nei doveri di ufficio','selezione', 'doveriUfficio', 'Y,N', $istanzaOggetto['doveriUfficio'], 'S&igrave;,No','input-small',0,'Seleziona', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Sito web trasparenza','testo', 'sitoWebTrasparenza', '', $istanzaOggetto['sitoWebTrasparenza'], '','input-xxlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data di inizio incarico','data', 'inizio_incarico', '', $istanzaOggetto['inizio_incarico'], '','',0,'', 0, 0,true); ?>
 
-			
+
 			<? creaFormTrasp('Dati economici','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
+
+
 			<? creaFormTrasp('Tipologia compenso','selezione', 'tipoCompenso', '1,2,3', $istanzaOggetto['tipoCompenso'], 'Previsto,Prestunto,Gratuito','input-xxlarge',0,'Seleziona', 0, 0); ?>
-			
+
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
 			<? creaFormTrasp('Compenso','decimale', $campoCompenso, '', $istanzaOggetto[$campoCompenso], '','input-medium',0,'', 0, 0,true); ?>
-			
+
+            <?
+            $totale = 0;
+            $sql = "SELECT compenso_erogato FROM ".$dati_db['prefisso']."oggetto_incarichi WHERE id_ente=".$idEnte." AND id_incarico = ".$istanzaOggetto['id']." ORDER BY data_compenso_erogato DESC";
+            if ( !($result = $database->connessioneConReturn($sql)) ) {}
+            $recs = $database->sqlArrayAss($result);
+            if(count($recs)) {
+                foreach((array)$recs as $t) {
+                    $totale += $t[$campoCompensoErogato];
+                }
+            }
+            $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta' => '', 'icona' => 'iconpat-info-circle', 'id_campo' => '__dummy', 'pulsanteCustom' => 'infoCodiciPA', 'class' => 'infoCodiciPA'));
+            creaFormTrasp('Ammontare Erogato','decimale', 'ammontare_erogato', '', $totale, '','input-medium',0,'', 0, 1);
+            ?>
+
 			<? creaFormTrasp('Componenti variabili del compenso','areatesto', 'compenso_variabile', '', $istanzaOggetto['compenso_variabile'], '','input-xxlarge'); ?>
-			
+
 			<?
 			if($enteAdmin['incarichi_importo_rimborso_spesa']) {
 				creaFormTrasp('Importo rimborso di spesa','decimale', 'importo_rimborso_spesa', '', $istanzaOggetto['importo_rimborso_spesa'], '','input-medium');
 			}
 			?>
-			
+
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
 			<? creaFormTrasp('Incarico saldato','selezione', 'incaricoSaldato', 'Y,N', $istanzaOggetto['incaricoSaldato'], 'S&igrave;,No','input-small',0,'Seleziona', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Data di fine incarico non disponibile','casella', 'fine_incarico_non_disponibile', '1', $istanzaOggetto['fine_incarico_non_disponibile'], '',''); ?>
-			
+
 			<div id="fine_incarico_non_disponibile_textBox">
 			<?
 			if($istanzaOggetto['fine_incarico_non_disponibile_text'] == '') {
@@ -553,11 +600,11 @@ if($enteAdmin['importi_numerici']) {
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
 			<? creaFormTrasp('Data di fine incarico','data', 'fine_incarico', '', $istanzaOggetto['fine_incarico'], '','',0,'', 0, 0,true); ?>
 			</div>
-			
-			
+
+
 			<? creaFormTrasp('Riferimento normativo','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
+
+
 			<?
 			$val = array();
 			$eti = array();
@@ -567,33 +614,33 @@ if($enteAdmin['importi_numerici']) {
 			}
 			creaFormTrasp('Riferimento','selezione', 'riferimento', implode(',', $val), $istanzaOggetto['riferimento'], implode(',', $eti),'input-xlarge',0,'Seleziona', 0, 0);
 			?>
-			
+
 			<? creaFormTrasp('Numero','testo', 'numero', '', $istanzaOggetto['numero'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Articolo','testo', 'articolo', '', $istanzaOggetto['articolo'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Comma','testo', 'comma', '', $istanzaOggetto['comma'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data','data', 'dataNorma', '', $istanzaOggetto['dataNorma'], '','',0,'', 0, 0); ?>
-			
-			
+
+
 			<? creaFormTrasp('Altri dati','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
+
 
 			<? creaFormTrasp('Estremi atto di conferimento','html', 'estremi_atti', '', $istanzaOggetto['estremi_atti'], '','',0,'', 0, 0,true); ?>
-			
+
 			<? creaFormTrasp('Provvedimenti associati','provvedimenti', 'provvedimenti', '', $istanzaOggetto['provvedimenti'], '','input-xxlarge'); ?>
-			
+
 			<?
 			if(moduloAttivo('soc-trasp')) {
 				creaFormTrasp('Tipo di procedura seguita per la selezione del contraente','html', 'tipo_procedura_contraente', '', $istanzaOggetto['tipo_procedura_contraente'], '','');
-			
+
 				creaFormTrasp('Numero di partecipanti alla procedura','testo', 'numero_procedura_contraente', '', $istanzaOggetto['numero_procedura_contraente'], '','');
 			}
 			?>
-			
+
 			<? creaFormTrasp('Note (incarichi, cariche, altre attività)','html', 'note', '', $istanzaOggetto['note'], '',''); ?>
-			
+
 		</form>
 		</div>
 	</div>
@@ -603,11 +650,11 @@ if($enteAdmin['importi_numerici']) {
 		<h4 class="widgettitle">Allegati</h4>
 
 		<div class="widgetcontent wc1">
-		
+
 		<?php
 		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
 		?>
-		
+
 	</div>
 	</div>
 

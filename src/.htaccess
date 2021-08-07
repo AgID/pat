@@ -1,11 +1,15 @@
 AddType text/css .css
 AddDefaultCharset iso-8859-1 
 RewriteEngine On
+
+################ 	DA ABILITARE SU SISTEMI WINDOWS		####################
 #CheckSpelling On
 
+################ 	NON MODIFICARE		####################
 DirectoryIndex ./index.php?id_sezione=0
 RewriteRule ^home-accessocivico ./index.php?id_sezione=770
 RewriteRule ^staff ./index.php?azione=accesso
+RewriteRule ^accessoutentespid ./index.php?id_sezione=933
 RewriteRule ^adminurp ./admin_info.php?menu=urp
 RewriteRule ^urpadmin ./admin_info.php?menu=urp
 RewriteRule ^adminchat ./moduli/chat
@@ -21,31 +25,27 @@ RewriteRule ^pagina([^_]+)_([^_]+)_cat([^_]+)_([^_]+)_([^_]+)_ord([^_]+)-([^-]+)
 RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4&id_sez_ori=$5&template_ori=$6
 RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4&id_sez_ori=$5
 RewriteRule ^archivio([0-9]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_oggetto=$1&nome=$2&id_cat=$3&id_doc=$4 [L]
-#RewriteCond %{REQUEST_FILENAME} !-f
-#RewriteCond %{REQUEST_FILENAME} !-d
-#RewriteRule ^.*$ ./index.php?id_sezione=-404 
 RewriteRule ^rest ./appRest.php
 RewriteRule ^search.json/([a-zA-Z0-9]*)/([\s\S]*)$ ./appSearch.php?token=$1&term=$2
-
 RewriteRule ^purecontent([^_]+).html ./index.php?id_sezione=920&purecontent=1&purecontentID=$1
-
 RewriteRule ^contenuto([^_]+)_([^_]+)_([^_]+).html ./index.php?id_sezione=$3&nome=$2&id=$1&doc=pagina
-#RewriteRule ^contenuto([^_]+)_([^_]+)_([^_]+)_([^_]+).html ./index.php?id_sezione=$3&nome=$2&id=$1&doc=pagina&id_riferimento=$4
-
-
 
 ####################################################
 ################ 	RICERCA		####################
 ####################################################
 RewriteRule ^ricerca([^_]+)-pagina([^_]+)_([^_]+)_([^_]+).html$ ./index.php?gtp=1&cerca_oggetto=$1&id_sezione=$2&inizio=$3&limite=$4&$5 [L,QSA,NC]
-
 RewriteRule ^adm_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([0-9]*).html$ ./admin_etrasparenza.php?menu=$1&menusec=$2&azione=$3&id=$4
 RewriteRule ^adm_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([0-9]*)_([a-zA-Z0-9_]*).html$ ./admin_etrasparenza.php?menu=$1&menusec=$2&azione=$3&id=$4&tipo=$5
 RewriteRule ^adm_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([a-zA-Z0-9]*)_([0-9]*)_([a-zA-Z0-9_]*)_([a-zA-Z0-9_]*).html$ ./admin_etrasparenza.php?menu=$1&menusec=$2&azione=$3&id=$4&tipo=$5&sottotipo=$6
 RewriteRule ^adm_pagina_([0-9]*).html$ ./admin_etrasparenza.php?menu=contenuti&menusec=editpagina&azione=editpagina&id=$1
 
+############################################################################
+################ 	NUOVE REGOLE PER ARCHIVIO FILE		####################
+############################################################################
+RewriteRule ^archiviofile/(.*)$ ./downloadArchivio.php?gtp=1&file=$1 
 
-
-####################################################
-########### 	PERSONALIZZAZIONI		############
-####################################################
+############################################################################
+########### 	PERSONALIZZAZIONI								############
+########### 	inserire qui le istruzioni personalizzate		############
+############################################################################
+############################################################################

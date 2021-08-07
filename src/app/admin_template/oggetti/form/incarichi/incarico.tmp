@@ -156,6 +156,7 @@ if($enteAdmin['importi_numerici']) {
 				<? } else { ?>
 				inizio_incaricoVis: "required",
 				<? } ?>
+				ragione_incarico: "required",
 				tipo_incarico: "required"
 			},
 			
@@ -174,6 +175,7 @@ if($enteAdmin['importi_numerici']) {
 				inizio_incaricoVis: "Seleziona la data di inizio incarico",
 				<? } ?>
 				tipo_incarico: "Seleziona la tipologia",
+				ragione_incarico: "Inserisci la ragione dell'incarico",
 				id_proprietario: "Devi selezionare l'utente proprietario"
 			},
 			
@@ -312,7 +314,7 @@ if($enteAdmin['importi_numerici']) {
 				creaFormTrasp('Modalit&agrave; seguite per l\'individuazione','html', 'modo_individuazione', '', $istanzaOggetto['modo_individuazione'], '','');
 			}
 			?>
-			
+			<? creaFormTrasp('Ragione dell\'incarico','testo', 'ragione_incarico', '', $istanzaOggetto['ragione_incarico'], '','input-xxlarge',0,'', 0, 0,true); ?>
 			<? creaFormTrasp('Note (incarichi, cariche, altre attività)','html', 'note', '', $istanzaOggetto['note'], '',''); ?>
 			
 		</form>

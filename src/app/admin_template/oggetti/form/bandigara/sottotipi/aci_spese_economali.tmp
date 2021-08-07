@@ -249,8 +249,10 @@ jQuery(document).ready(function(){
 			
 			creaFormTrasp('Aggiudicatari della gara','fornitori', 'elenco_aggiudicatari', '', $istanzaOggetto['elenco_aggiudicatari'], '','input-xxlarge'); 
 			
-			
-			creaFormTrasp('Procedura di scelta del contraente','selezione', 'scelta_contraente', '23-AFFIDAMENTO IN ECONOMIA - AFFIDAMENTO DIRETTO,26-AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE', $istanzaOggetto['scelta_contraente'], '','input-xxlarge',0,'', 0, 0,true);
+			if($istanzaOggetto['scelta_contraente'] == '23-AFFIDAMENTO IN ECONOMIA - AFFIDAMENTO DIRETTO') {
+			    $istanzaOggetto['scelta_contraente'] = '23-AFFIDAMENTO DIRETTO';
+			}
+			creaFormTrasp('Procedura di scelta del contraente','selezione', 'scelta_contraente', '23-AFFIDAMENTO DIRETTO,26-AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE', $istanzaOggetto['scelta_contraente'], '','input-xxlarge',0,'', 0, 0,true);
 			
 			
 			if (!$id AND $enteAdmin['bandi_gara_amm_agg'] != '') {

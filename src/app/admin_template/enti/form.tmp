@@ -1,20 +1,20 @@
-<script type="text/javascript">	
-	
+<script type="text/javascript">
+
 	// attivo la validazione inline del form
 	jQuery(document).ready(function(){
-	
+
 		<? if ($menu == 'configurazione') { ?>
 		// includo gestione delle notifiche delle operazioni
 		<? include_once("./app/admin_template/operazioni_alert.tmp"); ?>
 		<? } ?>
-		
+
 		<? if ($id) { ?>
 		// menu tabs accordion
 		jQuery('.accordion').accordion({
 			heightStyle: "content"
 		});
 		<? } ?>
-		
+
 		// necessario per i campi file
 		//jQuery('.uniform-file').uniform();
 		// necessario per i campi select con ricerca
@@ -22,16 +22,17 @@
 
 		var editorWelc = CKEDITOR.replace( 'testo_welcome', {removePlugins: 'stylescombo'});
 		var editorFooter = CKEDITOR.replace( 'testo_footer', {removePlugins: 'stylescombo'});
+		var editorFooter = CKEDITOR.replace( 'testo_accessibilita', {removePlugins: 'stylescombo'});
 
-		jQuery('#nome_breve_ente').bind('keyup blur',function(){ 
+		jQuery('#nome_breve_ente').bind('keyup blur',function(){
 		    var node = jQuery(this);
 		    node.val(node.val().replace(/[^a-z]/g,'') );
 		});
-		jQuery('#cookie_dominio').bind('keyup blur',function(){ 
+		jQuery('#cookie_dominio').bind('keyup blur',function(){
 		    var node = jQuery(this);
-		    node.val(node.val().replace(/[^a-z0-9\.\-_]/g,'') );
+		    node.val(node.val().replace(/[^a-z0-9\.\-_,]/g,'') );
 		});
-		jQuery('#cookie_nome').bind('keyup blur',function(){ 
+		jQuery('#cookie_nome').bind('keyup blur',function(){
 		    var node = jQuery(this);
 		    node.val(node.val().replace(/[^a-z_]/g,'') );
 		});
@@ -77,18 +78,22 @@
 				indirizzo_provincia: "required",
 				p_iva: "required",
 				telefono: "required",
+				data_attivazione: "required",
 				/*
 				utente_responsabile_trasparenza: "required",
 				email_notifiche: "required"
 				*/
+                bandi_gara_istat: {digits:true,minlength:9,maxlength:9},
+                bandi_gara_nuts: {minlength:0,maxlength:20},
 			},
-			
+
 			messages: {
 				nome_completo_ente: "Inserisci il nome completo dell'ente",
 				nome_breve_ente: "Inserisci il nome breve dell'ente",
 				tipo_ente: "Devi specificare la tipologia di ente",
 				cookie_dominio: "Cookie - Dominio obbligatorio",
 				cookie_nome: "Cookie - Nome obbligatorio",
+				data_attivazione: "Inserisci una data di attivazione",
 				email: "Inserisci un indirizzo email valido",
 				email_certificata: "Inserisci un indirizzo email valido",
 				email_notifiche: "Inserisci un indirizzo email valido",
@@ -106,6 +111,8 @@
 				utente_responsabile_trasparenza: "Selezionare l'utente Responsabile della Trasparenza",
 				email_notifiche: "Inserire un indirizzo email"
 				*/
+                bandi_gara_istat: "Il codice Istat deve comprendere le prime tre cifre relative alla regione e le ultime 6 al comune",
+                bandi_gara_nuts: "Il codice NUTS può avere una lunghezza assima di 20 caratteri",
 			},
 
 			submitHandler: function(form) {
@@ -146,10 +153,10 @@
 					}
 				});
 			}
-			
+
 			<? if ($id) { ?>
 			,highlight: function(label) {
-				jQuery('.accordion').accordion( "option", "active", 
+				jQuery('.accordion').accordion( "option", "active",
 					parseInt(jQuery(label).closest('.ui-accordion-content')
 						.attr('id')
 						.replace('ui-accordion-1-panel-', '')
@@ -159,9 +166,9 @@
 			}
 			<? } ?>
 		});
-		
-		
-		
+
+
+
 	});
 </script>
 <?
@@ -173,7 +180,7 @@ if ($menu == 'configurazione') {
 ?>
 
 <? if ($menu != 'configurazione') { ?>
-<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a> 
+<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a>
 <? } ?>
 
 <? // in aggiunta non uso accordion
@@ -181,7 +188,7 @@ $classeForm = "accordion";
 $divFormStart = "";
 $divFormEnd = "";
 $classeTit = '';
-if (!$id) { 
+if (!$id) {
 	$classeForm = "widgetbox box-inverse";
 	$classeTit = 'titoloForm';
 	$divFormStart = "<h4 class=\"widgettitle title-primary\">Aggiunta ente</h4><div class=\"widgetcontent\">";
@@ -195,32 +202,32 @@ if (!$id) {
 	<? } else { ?>
 	<form id="form1" class="stdform" method="post" enctype="multipart/form-data" action="?menu=<? echo $menu; ?>&amp;menusec=avanzata&amp;azionesec=modifica&amp;id=<? echo $id; ?>">
 	<? } ?>
-	
-		<input type="hidden" name="rispostaForm" value="1" />				
-		<input type="hidden" name="stato" value="<? echo $istanzaOggetto['stato']; ?>" />	
-		
+
+		<input type="hidden" name="rispostaForm" value="1" />
+		<input type="hidden" name="stato" value="<? echo $istanzaOggetto['stato']; ?>" />
+
 		<div id="ajax_processing" class="ajax_processing_fixed" style="display: none;">
 			<div><img src="app/grafica_admin/ajax-loader2.gif"></div>
 			<div>Verifica dei dati in corso</div>
 			<div style="font-size:11px;font-weight:normal;">L'operazione potrebbe impiegare qualche secondo</div>
 		</div>
-		
+
 		<div class="<? echo $classeForm; ?>">
 			<? echo $divFormStart; ?>
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-search"></span> Dati Generali</a></h4>
 			<div>
-				<? creaFormTrasp('Nome completo ente','testo', 'nome_completo_ente', '', $istanzaOggetto['nome_completo_ente'], '','input-xxlarge',0,'', 0, 0,true); ?>			
-				<? creaFormTrasp('Partita iva','testo', 'p_iva', '', $istanzaOggetto['p_iva'], '','input-large',0,'', 0, 0,true); ?>	
-				<? creaFormTrasp('Indirizzo email normale','testo', 'email', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>			
-				<? creaFormTrasp('Indirizzo email certificata','testo', 'email_certificata', '', $istanzaOggetto['email_certificata'], '','input-xxlarge',0,'', 0, 0,true); ?>				
+				<? creaFormTrasp('Nome completo ente','testo', 'nome_completo_ente', '', $istanzaOggetto['nome_completo_ente'], '','input-xxlarge',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('Partita iva','testo', 'p_iva', '', $istanzaOggetto['p_iva'], '','input-large',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('Indirizzo email normale','testo', 'email', '', $istanzaOggetto['email'], '','input-xxlarge',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('Indirizzo email certificata','testo', 'email_certificata', '', $istanzaOggetto['email_certificata'], '','input-xxlarge',0,'', 0, 0,true); ?>
 				<? creaFormTrasp('Ente di appartenenza','testo', 'url_livello_superiore_ente_titolo', '', $istanzaOggetto['url_livello_superiore_ente_titolo'], '','input-xxlarge',0,'', 0, 0,false); ?>
 				<? creaFormTrasp('URL ente di appartenenza','testo', 'url_livello_superiore_ente', '', $istanzaOggetto['url_livello_superiore_ente'], '','input-xxlarge',0,'', 0, 0,false); ?>
 			</div>
-			
+
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-cogs"></span> Configurazione e moduli gestibili</a></h4>
-			<div>		
-				<? creaFormTrasp('Logo ente semplice','file', 'file_logo_semplice', '', $istanzaOggetto['file_logo_semplice'], '',''); ?>	
-				<? creaFormTrasp('Url portale istituzionale','link', 'url_sitoistituzionale', '', $istanzaOggetto['url_sitoistituzionale'], '','input-xxlarge',0,'', 0, 0,true); ?>			
+			<div>
+				<? creaFormTrasp('Logo ente semplice','file', 'file_logo_semplice', '', $istanzaOggetto['file_logo_semplice'], '',''); ?>
+				<? creaFormTrasp('Url portale istituzionale','link', 'url_sitoistituzionale', '', $istanzaOggetto['url_sitoistituzionale'], '','input-xxlarge',0,'', 0, 0,true); ?>
 				<? creaFormTrasp('Url Albo Pretorio','link', 'url_albopretorio', '', $istanzaOggetto['url_albopretorio'], '','input-xxlarge',0,'', 0, 0,false); ?>
 				<?
 				if(moduloAttivo('ealbo') and $datiUser['permessi']==10) {
@@ -240,21 +247,21 @@ if (!$id) {
 					<?
 				}
 				?>
-				
+
 				<? creaFormTrasp('Visualizzazione tabellare degli Organi di ind. politico','casella', 'visualizzazione_tabellare_org_ind_pol', '1', $istanzaOggetto['visualizzazione_tabellare_org_ind_pol'], '1','','',0,'',0); ?>
-				<? creaFormTrasp('Mostra la data di ultimo aggiornamento dei contenuti','casella', 'mostra_data_aggiornamento', '1', $istanzaOggetto['mostra_data_aggiornamento'], '1','','',0,'',0); ?>	
+				<? creaFormTrasp('Mostra la data di ultimo aggiornamento dei contenuti','casella', 'mostra_data_aggiornamento', '1', $istanzaOggetto['mostra_data_aggiornamento'], '1','','',0,'',0); ?>
 				<? creaFormTrasp('Mostra la Normativa associata alla Struttura organizzativa visualizzata','casella', 'mostra_normativa_in_struttura', '1', $istanzaOggetto['mostra_normativa_in_struttura'], '1','','',0,'',0); ?>
-				<? creaFormTrasp('Ruoli aggiuntivi per il personale ente (separati con virgola)','areatesto', 'personale_ruoli', '', $istanzaOggetto['personale_ruoli'], '','input-xxlarge'); ?>					
+				<? creaFormTrasp('Ruoli aggiuntivi per il personale ente (separati con virgola)','areatesto', 'personale_ruoli', '', $istanzaOggetto['personale_ruoli'], '','input-xxlarge'); ?>
 				<? creaFormTrasp('Qualifiche aggiuntive per il personale ente (separati con virgola)','areatesto', 'personale_qualifiche', '', $istanzaOggetto['personale_qualifiche'], '','input-xxlarge'); ?>
-				
+
 				<?
 				if($datiUser['permessi'] == 10) {
 					creaFormTrasp('Archivio Procedimenti','casella', 'oggetto_procedimenti', '1', $istanzaOggetto['oggetto_procedimenti'], '1','');
-					creaFormTrasp('Archivio Provvedimenti','casella', 'oggetto_provvedimenti', '1', $istanzaOggetto['oggetto_provvedimenti'], '1','');						
+					creaFormTrasp('Archivio Provvedimenti','casella', 'oggetto_provvedimenti', '1', $istanzaOggetto['oggetto_provvedimenti'], '1','');
 					creaFormTrasp('Archivio Incarichi e Consulenze','casella', 'oggetto_incarichi', '1', $istanzaOggetto['oggetto_incarichi'], '1','');
 					creaFormTrasp('Archivio Sovvenzioni e Vantaggi economici','casella', 'oggetto_sovvenzioni', '1', $istanzaOggetto['oggetto_sovvenzioni'], '1','');
 					creaFormTrasp('Archivio Normativa','casella', 'oggetto_normativa', '1', $istanzaOggetto['oggetto_normativa'], '1','');
-					creaFormTrasp('Archivio Concorsi','casella', 'oggetto_concorsi', '1', $istanzaOggetto['oggetto_concorsi'], '1','');	
+					creaFormTrasp('Archivio Concorsi','casella', 'oggetto_concorsi', '1', $istanzaOggetto['oggetto_concorsi'], '1','');
 					creaFormTrasp('Archivio Bandi Gare e Contratti','casella', 'oggetto_bandi_gara', '1', $istanzaOggetto['oggetto_bandi_gara'], '1','');
 				} else {
 					?>
@@ -268,61 +275,71 @@ if (!$id) {
 					<?
 				}
 				?>
-				<? creaFormTrasp('Bandi Gare e Contratti <br />Amministrazione aggiudicatrice','testo', 'bandi_gara_amm_agg', '', $istanzaOggetto['bandi_gara_amm_agg'], '','input-large'); ?>	
-				<? creaFormTrasp('Bandi Gare e Contratti <br />Codice Fiscale Amministrazione','testo', 'bandi_gara_cod_fisc', '', $istanzaOggetto['bandi_gara_cod_fisc'], '','input-large'); ?>	
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Amministrazione aggiudicatrice','testo', 'bandi_gara_amm_agg', '', $istanzaOggetto['bandi_gara_amm_agg'], '','input-large'); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Codice Fiscale Amministrazione','testo', 'bandi_gara_cod_fisc', '', $istanzaOggetto['bandi_gara_cod_fisc'], '','input-large'); ?>
 				<? creaFormTrasp('Bandi Gare e Contratti <br />Tipo di amministrazione','selezione', 'bandi_gara_tipo_amm', 'Organi istituzionali,Ministeri,Organi giurisdizionali e avvocatura,Amministrazioni indipendenti,Regioni,Aziende speciali regionalizzate,Province,Aziende speciali provincializzate,Comuni,Enti di previdenza e prevenzione,Enti preposti ad attività sportive,Enti scientifici di ricerca e sperimentazione,Enti di promozione culturale e artistica,Aziende speciali municipalizzate,Istituti autonomi case popolari,Aziende del servizio sanitario nazionale,Autorità di bacino,Comunità montane,Comunità di valle,Enti di bonifica e di sviluppo agricolo,Consorzi di industrializzazione,Consorzi autonomi di regioni province e comuni,Consorzi enti ed autorità portuali,Università ed altri enti,Istituzioni europee,Istituti bancari e finanziari,Enti ed istituti religiosi,Concessionari e imprese di gestione reti e infrastrutture,Associazioni di imprese,Imprese a partecipazione pubblica,Consorzi di imprese,Imprese ed altri soggetti privati non in forma associata,Associazioni di categoria e organizzazioni sindacali,Camere di commercio,Soggetti esterni,Provveditorato regionale alle opere pubbliche,Organismi di diritto pubblico,Altri soggetti pubblici e privati,Ente pubblico non economico', $istanzaOggetto['bandi_gara_tipo_amm'], '','input-xlarge',1); ?>
 				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Provincia','selezione', 'bandi_gara_prov', 'AG,AL,AN,AO,AR,AP,AT,AV,BA,BT,BL,BN,BG,BI,BO,BZ,BS,BR,CA,CL,CB,CI,CE,CT,CZ,CH,CO,CS,CR,KR,CN,EN,FM,FE,FI,FG,FC,FR,GE,GO,GR,IM,IS,SP,AQ,LT,LE,LC,LI,LO,LU,MC,MN,MS,MT,ME,MI,MO,MB,NA,NO,NU,OT,OR,PD,PA,PR,PV,PG,PU,PE,PC,PI,PT,PN,PZ,PO,RG,RA,RC,RE,RI,RN,RM,RO,SA,VS,SS,SV,SI,SR,SO,TA,TE,TR,TO,OG,TP,TN,TV,TS,UD,VA,VE,VB,VC,VR,VV,VI,VT', $istanzaOggetto['bandi_gara_prov'], '','input-small',1); ?>
-				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Comune','testo', 'bandi_gara_comune', '', $istanzaOggetto['bandi_gara_comune'], '','input-large'); ?>	
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Comune','testo', 'bandi_gara_comune', '', $istanzaOggetto['bandi_gara_comune'], '','input-large'); ?>
 				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Indirizzo','testo', 'bandi_gara_indirizzo', '', $istanzaOggetto['bandi_gara_indirizzo'], '','input-large'); ?>
-				<? creaFormTrasp('Bandi Gare e Contratti <br />Archiviazione automatica dopo 5 anni','casella', 'condizione_bandi_archiviati', '1', $istanzaOggetto['condizione_bandi_archiviati'], '1',''); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Codice Istat','testo', 'bandi_gara_istat', '', $istanzaOggetto['bandi_gara_istat'], '','input-large'); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Sede di gara - Codice NUTS','testo', 'bandi_gara_nuts', '', $istanzaOggetto['bandi_gara_nuts'], '','input-large',0, '',0,0,false,true); ?>
+				<? creaFormTrasp('Bandi Gare e Contratti <br />Archiviazione automatica dopo 5 anni','casella', 'condizione_bandi_archiviati', '1', $istanzaOggetto['condizione_bandi_archiviati'], '1','',0, '',0,0,false,true); ?>
 				<?
 				if($enteAdmin['moduli_attivi']['immagine_organigramma']) {
 					creaFormTrasp('Rappresentazione grafica organigramma','file', 'file_organigramma', '', $istanzaOggetto['file_organigramma'], '','');
 				}
 				?>
-				
+
 				<?if($id > 0){?>
 					<input type="hidden" name="aggiorna_avcp" id="aggiorna_avcp" value="<? echo $istanzaOggetto['aggiorna_avcp']; ?>" />
 				<?}else{?>
 					<input type="hidden" name="aggiorna_avcp" id="aggiorna_avcp" value="0" />
 				<?}?>
-				
+
 				<?
 				//creaFormTrasp('Dataset ANAC - Aggiornamento automatico del file','casella', 'aggiorna_avcp', '1', $istanzaOggetto['aggiorna_avcp'], '1','','',0,'',0);
 				?>
-				<? 
+				<?
 				//if($idEnteAdmin==1 OR $idEnteAdmin==33){
-					creaFormTrasp('Google Analitycs','html', 'google_analitycs', '', $istanzaOggetto['google_analitycs'], '','input-xxlarge'); 
+					creaFormTrasp('Google Analitycs','html', 'google_analitycs', '', $istanzaOggetto['google_analitycs'], '','input-xxlarge');
 				//}
-				
-					
+
+
 				creaFormTrasp('Indicizzabile dai motori di ricerca','casella', 'indicizzabile', '1', $istanzaOggetto['indicizzabile'], '0','','',0,'',0);
-				
+
 				creaFormTrasp('Responsabile della Trasparenza che ricever&agrave; le notifiche','utente', 'utente_responsabile_trasparenza', '', $istanzaOggetto['utente_responsabile_trasparenza'], '','input-xlarge',0,'', 0, 0);
-				
+
 				creaFormTrasp('Altri utenti che riceveranno le notifiche','utenti', 'utenti_notifiche_sistema', '', $istanzaOggetto['utenti_notifiche_sistema'], '','input-xlarge',0,'', 0, 0,false);
-				
+
 				creaFormTrasp('Email mittente per le notifiche','testo', 'email_notifiche', '', $istanzaOggetto['email_notifiche'], '','input-xlarge',0,'', 0, 0);
-				
+
 				creaFormTrasp('IP in blacklist separati da virgola (valido per il B.O.)','areatesto', 'ip_blacklist', '', $istanzaOggetto['ip_blacklist'], '','input-xxlarge');
+
+				creaFormTrasp('Codice IPA per accesso SPID','testo', 'codice_ipa', '', $istanzaOggetto['codice_ipa'], '','input-xlarge',0,'', 0, 0);
+
+				creaFormTrasp('Email SPID (non personale)','testo', 'email_spid', '', $istanzaOggetto['email_spid'], '','input-xlarge',0,'', 0, 0);
+
+				creaFormTrasp('EntityId SPID','testo', 'entityId', '', $istanzaOggetto['entityId'], '','input-xlarge',0,'', 0, 0);
+
+				creaFormTrasp('Nascondi SPID-Validator','casella', 'esito_collaudo_spid', '1', $istanzaOggetto['esito_collaudo_spid'], '0','','',0,'',0);
 				?>
-				
+
 			</div>
-			
+
 			<? if ($menu != 'configurazione') { ?>
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-cogs"></span> Impostazioni di sistema</a></h4>
 			<div>
-				<? creaFormTrasp('Url portale '.$configurazione['denominazione_trasparenza'],'link', 'url_etrasparenza', '', $istanzaOggetto['url_etrasparenza'], '','input-xxlarge',0,'', 0, $disable,true); ?>	
-				
+				<? creaFormTrasp('Url portale '.$configurazione['denominazione_trasparenza'],'link', 'url_etrasparenza', '', $istanzaOggetto['url_etrasparenza'], '','input-xxlarge',0,'', 0, $disable,true); ?>
+
 				<? creaFormTrasp('Nome breve ente','testo', 'nome_breve_ente', '', $istanzaOggetto['nome_breve_ente'], '','input-large',0,'', 0, $disable,true); ?>
 				<? creaFormTrasp('Tipo di ente','tipoente', 'tipo_ente', '', $istanzaOggetto['tipo_ente'], '','input-xlarge',0,'', 0, $disable,true); ?>
-			
+
 				<?
 				creaFormTrasp('Cookie - Dominio','testo', 'cookie_dominio', '', $istanzaOggetto['cookie_dominio'], '','input-xlarge',0,'',0,$disable,true);
 				creaFormTrasp('Cookie - Nome','testo', 'cookie_nome', '', $istanzaOggetto['cookie_nome'], '','input-xlarge',0,'',0,$disable,true);
-				
+
 				if($datiUser['permessi'] == 10) {
-					creaFormTrasp('Data di attivazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','input-small',0,'',0,$disable,true); 	
+					creaFormTrasp('Data di attivazione','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','input-small',0,'',0,$disable,true);
 					creaFormTrasp('Data di scadenza','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '','input-small',0,'',0,$disable);
 					creaFormTrasp('Canale Open Data','casella', 'canale_opendata', '1', $istanzaOggetto['canale_opendata'], '1','','',0,'',0,$disable);
 				} else {
@@ -331,39 +348,41 @@ if (!$id) {
 					<input type="hidden" name="data_scadenza" id="data_scadenza" value="<?php echo ($id ? $istanzaOggetto['data_scadenza'] : 0); ?>" />
 					<input type="hidden" name="canale_opendata" id="canale_opendata" value="0" />
 					<?
-				} 
+				}
 				?>
 			</div>
-			
+
 			<? } ?>
-			
-			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-facebook"></span> Social Network</a></h4>	
-			<div>	
-				<? creaFormTrasp('Url pagina Facebook','link', 'url_social_facebook', '', $istanzaOggetto['url_social_facebook'], '','input-xlarge'); ?>				
-				<? creaFormTrasp('Url pagina Twitter','link', 'url_social_twitter', '', $istanzaOggetto['url_social_twitter'], '','input-xlarge'); ?>				
-				<? creaFormTrasp('Url pagina You Tube','link', 'url_social_youtube', '', $istanzaOggetto['url_social_youtube'], '','input-xlarge'); ?>				
-				<? creaFormTrasp('Url pagina Google Plus','link', 'url_social_google', '', $istanzaOggetto['url_social_google'], '','input-xlarge'); ?>				
+
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-facebook"></span> Social Network</a></h4>
+			<div>
+				<? creaFormTrasp('Url pagina Facebook','link', 'url_social_facebook', '', $istanzaOggetto['url_social_facebook'], '','input-xlarge'); ?>
+				<? creaFormTrasp('Url pagina Twitter','link', 'url_social_twitter', '', $istanzaOggetto['url_social_twitter'], '','input-xlarge'); ?>
+				<? creaFormTrasp('Url pagina You Tube','link', 'url_social_youtube', '', $istanzaOggetto['url_social_youtube'], '','input-xlarge'); ?>
+				<? creaFormTrasp('Url pagina Google Plus','link', 'url_social_google', '', $istanzaOggetto['url_social_google'], '','input-xlarge'); ?>
 				<? creaFormTrasp('Url pagina Flickr','link', 'url_social_flickr', '', $istanzaOggetto['url_social_flickr'], '','input-xlarge'); ?>
 				<? creaFormTrasp('Url pagina Instagram','link', 'url_social_instagram', '', $istanzaOggetto['url_social_instagram'], '','input-xlarge'); ?>
+				<? creaFormTrasp('Url pagina Linkedin','link', 'url_social_linkedin', '', $istanzaOggetto['url_social_linkedin'], '','input-xlarge'); ?>
 			</div>
-			
+
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-phone"></span> Recapiti dell'ente</a></h4>
-			<div>			
-				<? creaFormTrasp('Indirizzo','testo', 'indirizzo_via', '', $istanzaOggetto['indirizzo_via'], '','input-xxlarge',0,'', 0, 0,true); ?>		
-				<? creaFormTrasp('Comune','testo', 'indirizzo_comune', '', $istanzaOggetto['indirizzo_comune'], '','input-xlarge',0,'', 0, 0,true); ?>			
-				<? creaFormTrasp('CAP','testo', 'indirizzo_cap', '', $istanzaOggetto['indirizzo_cap'], '','input-small',0,'', 0, 0,true); ?>			
-				<? creaFormTrasp('Provincia','testo', 'indirizzo_provincia', '', $istanzaOggetto['indirizzo_provincia'], '','input-small',0,'', 0, 0,true); ?>			
+			<div>
+				<? creaFormTrasp('Indirizzo','testo', 'indirizzo_via', '', $istanzaOggetto['indirizzo_via'], '','input-xxlarge',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('Comune','testo', 'indirizzo_comune', '', $istanzaOggetto['indirizzo_comune'], '','input-xlarge',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('CAP','testo', 'indirizzo_cap', '', $istanzaOggetto['indirizzo_cap'], '','input-small',0,'', 0, 0,true); ?>
+				<? creaFormTrasp('Provincia','testo', 'indirizzo_provincia', '', $istanzaOggetto['indirizzo_provincia'], '','input-small',0,'', 0, 0,true); ?>
 				<? creaFormTrasp('Recapito telefonico principale','testo', 'telefono', '', $istanzaOggetto['telefono'], '','',0,'', 0, 0,true); ?>
 			</div>
 
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-info-sign"></span> Altre informazioni</a></h4>
-			<div>				
-				<? creaFormTrasp('Responsabile del procedimento di pubblicazione','testo', 'responsabile_pubblicazione', '', $istanzaOggetto['responsabile_pubblicazione'], '','input-xlarge'); ?>	
+			<div>
+				<? creaFormTrasp('Responsabile del procedimento di pubblicazione','testo', 'responsabile_pubblicazione', '', $istanzaOggetto['responsabile_pubblicazione'], '','input-xlarge'); ?>
 				<? creaFormTrasp('Url Privacy','link', 'url_privacy', '', $istanzaOggetto['url_privacy'], '','input-xxlarge'); ?>
-				<? creaFormTrasp('Testo iniziale homepage','html', 'testo_welcome', '', $istanzaOggetto['testo_welcome'], '','input-xxlarge'); ?>				
-				<? creaFormTrasp('Testo nel footer','html', 'testo_footer', '', $istanzaOggetto['testo_footer'], '','input-xxlarge'); ?>	
+				<? creaFormTrasp('Testo iniziale homepage','html', 'testo_welcome', '', $istanzaOggetto['testo_welcome'], '','input-xxlarge'); ?>
+				<? creaFormTrasp('Testo nel footer','html', 'testo_footer', '', $istanzaOggetto['testo_footer'], '','input-xxlarge'); ?>
+				<? creaFormTrasp('Testo accessibilità','html', 'testo_accessibilita', '', $istanzaOggetto['testo_accessibilita'], '','input-xxlarge'); ?>
 			</div>
-			
+
 			<? if(moduloAttivo('accessocivico')) { ?>
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-comments-alt"></span> Accesso Civico</a></h4>
 			<div>
@@ -372,12 +391,12 @@ if (!$id) {
 				?>
 			</div>
 			<? } ?>
-			
+
 			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-envelope"></span> Configurazione server SMTP</a></h4>
 			<div>
 				<? creaFormTrasp('SMTP - Username','testo', 'smtp_username', '', $istanzaOggetto['smtp_username'], '','input-xlarge'); ?>
 				<? creaFormTrasp('SMTP - Password','password', 'smtp_password', '', $istanzaOggetto['smtp_password'], '','input-xlarge'); ?>
-				<? creaFormTrasp('SMTP - Indirizzo server','testo', 'smtp_host', '', $istanzaOggetto['smtp_host'], '','input-xlarge'); ?>	
+				<? creaFormTrasp('SMTP - Indirizzo server','testo', 'smtp_host', '', $istanzaOggetto['smtp_host'], '','input-xlarge'); ?>
 				<? creaFormTrasp('SMTP - Porta','testo', 'smtp_port', '', $istanzaOggetto['smtp_port'], '','input-xlarge'); ?>
 				<? creaFormTrasp('SMTP - SSL','selezione', 'smtp_s', '0,1,2', $istanzaOggetto['smtp_s'], 'no,si (ssl),si (tls)','input-xlarge',1); ?>
 				<? creaFormTrasp('SMTP - Usa autenticazione','selezione', 'smtp_auth', '0,1', $istanzaOggetto['smtp_auth'], 'no,si','input-xlarge',1); ?>
@@ -386,13 +405,108 @@ if (!$id) {
 				creaFormTrasp('Test del server<br />inserisci un indirizzo email','testo', 'smtp_testmail', '', '', '','input-xlarge');
 				?>
 			</div>
-		<? echo $divFormEnd; ?>			
+
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><span class="iconfa-envelope"></span> Configurazione server SMTP per PEC</a></h4>
+			<div>
+				<div class="alert alert-info alert-block">
+					<button data-dismiss="alert" class="close" type="button">&times;</button>
+					<h4><span class="iconfa-info-sign"></span> Informazioni sul server SMTP per PEC</h4>
+					<p style="margin: 8px 0;color:#646464;">
+						Il server SMTP per PEC viene utilizzato solamente in alcuni contesti, tra cui i concorsi telematici e le applicazioni dedicate.
+						<br />A meno di esigenze spcifiche quindi, il sistema utilizzer&grave; sempre il normale server SMTP.
+					</p>
+				</div>
+				<?
+				creaFormTrasp('Email mittente per le notifiche PEC','testo', 'email_notifiche_pec', '', $istanzaOggetto['email_notifiche_pec'], '','input-xlarge',0,'', 0, 0);
+				creaFormTrasp('SMTP PEC - Username','testo', 'smtp_username_pec', '', $istanzaOggetto['smtp_username_pec'], '','input-xlarge'); ?>
+				<? creaFormTrasp('SMTP PEC - Password','password', 'smtp_password_pec', '', $istanzaOggetto['smtp_password_pec'], '','input-xlarge'); ?>
+				<? creaFormTrasp('SMTP PEC - Indirizzo server','testo', 'smtp_host_pec', '', $istanzaOggetto['smtp_host_pec'], '','input-xlarge'); ?>
+				<? creaFormTrasp('SMTP PEC - Porta','testo', 'smtp_port_pec', '', $istanzaOggetto['smtp_port_pec'], '','input-xlarge'); ?>
+				<? creaFormTrasp('SMTP PEC - SSL','selezione', 'smtp_s_pec', '0,1,2', $istanzaOggetto['smtp_s_pec'], 'no,si (ssl),si (tls)','input-xlarge',1); ?>
+				<? creaFormTrasp('SMTP PEC - Usa autenticazione','selezione', 'smtp_auth_pec', '0,1', $istanzaOggetto['smtp_auth_pec'], 'no,si','input-xlarge',1); ?>
+				<?
+				$funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'Invia mail pec','icona'=>'iconfa-envelope', 'id_campo'=>'smtp_testmail_pec', 'pulsanteCustom'=>'testSmtpServer_pec', 'class' => ''));
+				creaFormTrasp('Test del server PEC<br />inserisci un indirizzo email (meglio se PEC)','testo', 'smtp_testmail_pec', '', '', '','input-xlarge');
+				?>
+			</div>
+
+			<h4 class="<? echo $classeTit; ?>"><a href="#"><img width="15px" heigth="15px" src="<?echo $server_url?>/grafica/admin_skin/classic/scp-scura.svg"> Configurazione SCP</a></h4>
+			<div>
+                <? if ($aclTrasparenza['scp'] == 1 or moduloAttivo('scp')) {?>
+				<div class="alert alert-info alert-block">
+					<button data-dismiss="alert" class="close" type="button">&times;</button>
+					<h4><span class="iconfa-info-sign"></span> Informazioni sulla procedura di richiesta delle credenziali a SCP</h4>
+					<p style="margin: 8px 0;color:#646464;">
+                        Le credenziali sono rilasciate dal Servizio Contratti Pubblici del <b>Ministero delle Infrastrutture e dei Trasporti</b> - Dipartimento per le infrastrutture, sistemi informativi e statistici - Direzione generale per la regolazione ed i contratti pubblici.
+						<br />&Egrave; possibile richiedere tramite PEC all'indirizzo <b>pubblicazione.bandi@pec.mit.gov.it</b> il modulo per il rilascio delle credenziali, indicando nella richiesta:
+					</p>
+                    <ul>
+                        <li>Nominativo del Referente/Richiedente</li>
+                        <li>Amministrazione e relativo Codice Fiscale</li>
+                        <li>Numero di telefono</li>
+                    </ul>
+				</div>
+
+                <? } else { ?>
+
+                <div class="alert alert-info alert-block">
+                    <button data-dismiss="alert" class="close" type="button">&times;</button>
+                    <h4><span class="iconfa-info-sign"></span> Informazioni sul modulo SCP</h4>
+                    <p style="margin-bottom: 10px;">Scheda dedicata alla configurazione delle credenziali d'accesso alla piattaforma SCP (Servizio Contratti Pubblici) per gli enti che hanno attivo il modulo di interoperabilit&agrave;.</p>
+                    <p style="margin-bottom: 10px;">Per maggiori informazioni o eventuali chiarimenti per tale funzionalit&agrave; &egrave; possibile contattare il reparto commerciale di ISWEB all'indirizzo <a href="https://www.isweb.it/pagina593_modulo-di-contatto-enti-pubblici.html" style="color: #8E2558;">www.isweb.it</a> o al numero verde <a href="tel:800973434" style="color: #8E2558;">800.97.34.34</a></p>
+                </div>
+             <?}?>
+
+				<? if ($datiUser['id'] == 0) {
+                    creaFormTrasp('Piattaforma SCP', 'selezione', 'scp_flag_esercizio', '0,1', $istanzaOggetto['scp_flag_esercizio'], 'Collaudo,Esercizio');
+                }?>
+				<? creaFormTrasp('clientId','testo', 'scp_clientId', '', $istanzaOggetto['scp_clientId'], '','input-xlarge',0,'',0,0,false,true); ?>
+				<? creaFormTrasp('clientKey','testo', 'scp_clientKey', '', $istanzaOggetto['scp_clientKey'], '','input-xlarge',0,'',0,0,false,true); ?>
+
+			</div>
+
+            <h4 class="<? echo $classeTit; ?>"><a href="#"><img width="15px" heigth="15px" src="<?echo $server_url?>/grafica/admin_skin/classic/perlapa.svg"> Configurazione PerlaPA</a></h4>
+            <div>
+                <? if (moduloAttivo('incarichiPerlaPA')) {?>
+                    <div class="alert alert-info alert-block">
+                        <button data-dismiss="alert" class="close" type="button">&times;</button>
+                        <h4><span class="iconfa-info-sign"></span> Informazioni sulla procedura di richiesta delle credenziali a PerlaPA</h4>
+                        <p style="margin: 8px 0;color:#646464;">
+                            Le credenziali sono rilasciate da PerlaPA, per ottenerle &egrave; possibile consultare il manuale al seguente al seguente link: <a href="https://servizi.perlapa.gov.it/WebUtentiPerla2018/Pages/Manuale%20Utente%20Front%20Office%20-%20PerlaPA%202018.pdf" style="color: #8E2558;">Manuale PerlaPA</a>.
+                        </p>
+<!--                        <p style="margin: 8px 0;color:#646464;">-->
+<!--                            &Egrave; importante sapere che per ogni Pubblica Amministrazione (inteso come Codice Fiscale PA) ci pu&ograve; essere un unico Responsabile all'interno del Portale PERLA PA 2018.-->
+<!--                        </p>-->
+                    </div>
+
+                <? } else { ?>
+                    <div class="alert alert-info alert-block">
+                        <button data-dismiss="alert" class="close" type="button">&times;</button>
+                        <h4><span class="iconfa-info-sign"></span> Informazioni sul modulo PerlaPA</h4>
+                        <p style="margin-bottom: 10px;">Scheda dedicata alla configurazione delle credenziali d'accesso alla piattaforma PerlaPA per gli enti che hanno attivo il modulo di interoperabilit&agrave;.</p>
+                        <p style="margin-bottom: 10px;">Per maggiori informazioni o eventuali chiarimenti per tale funzionalit&agrave; &egrave; possibile contattare il reparto commerciale di ISWEB all'indirizzo <a href="https://www.isweb.it/pagina593_modulo-di-contatto-enti-pubblici.html" style="color: #8E2558;">www.isweb.it</a> o al numero verde <a href="tel:800973434" style="color: #8E2558;">800.97.34.34</a></p>
+                    </div>
+                <?}?>
+
+
+                <?
+                    $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA'));
+                    creaFormTrasp('Cod. univoco IPA amm. dichiarante','testo', 'perlapa_codicePalpa', '', $istanzaOggetto['perlapa_codicePalpa'], '','input-xlarge',0,'', 0, 0);
+                ?>
+                <?
+                    $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA'));
+                    creaFormTrasp('Cod. fiscale amm. dichiarante','testo', 'perlapa_codiceFiscalePa', '', $istanzaOggetto['perlapa_codiceFiscalePa'], '','input-xlarge',0,'', 0, 0);
+                ?>
+
+            </div>
+
+		<? echo $divFormEnd; ?>
 		</div>
 		<p class="stdformbutton">
 			<button class="btn btn-primary" onclick="inviaForm=true;">Salva dati</button>
-		</p>	
+		</p>
 	</form>
 </div>
 <? if ($menu != 'configurazione') { ?>
-<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a> 
+<a href="?menu=enti" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco enti</a>
 <? } ?>

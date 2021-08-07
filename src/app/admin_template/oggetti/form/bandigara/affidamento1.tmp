@@ -318,11 +318,13 @@
 					?>
 					
 					<? creaFormTrasp('Codice CPV','testo', 'codice_cpv', '', $istanzaOggetto['codice_cpv'], '',''); ?>
-					
-					<? creaFormTrasp('Codice SCP','testo', 'codice_scp', '', $istanzaOggetto['codice_scp'], '',''); ?>
-					
-					<? creaFormTrasp('URL di Pubblicazione su www.serviziocontrattipubblici.it','link', 'url_scp', '', $istanzaOggetto['url_scp'], '',''); ?>
-					
+
+                    <? if (!moduloAttivo('scp')) {
+                        creaFormTrasp('Codice SCP','testo', 'codice_scp', '', $istanzaOggetto['codice_scp'], '','');
+                        creaFormTrasp('URL di Pubblicazione su www.serviziocontrattipubblici.it','link', 'url_scp', '', $istanzaOggetto['url_scp'], '','');
+                    }
+                    ?>
+                
 					<? creaFormTrasp('Note','html', 'dettagli', '', $istanzaOggetto['dettagli'], '',''); ?>
 					
 					<? creaFormTrasp('Commissione giudicatrice','html', 'commissione_giudicatrice', '', $istanzaOggetto['commissione_giudicatrice'], '',''); ?>

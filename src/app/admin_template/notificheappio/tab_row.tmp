@@ -1,0 +1,42 @@
+<tr class="gradeX">
+	<td class="aligncenter">
+		<? if ($visualizzaInterfaccia) { ?>
+		<span class="center">
+			<input type="checkbox" name="selRow" value="<? echo $istanzaOggetto['id']; ?>" />
+		</span>
+		<? } ?>
+	</td>
+	
+	<td>
+		<? echo $istanzaOggetto['nome']; ?>
+	</td>	
+	<td>
+		<? echo $istanzaOggetto['descrizione']; ?>
+	</td>
+	<td>
+		<? echo visualizzaData($istanzaOggetto['data_creazione'],'d-m-Y H:m'); ?>
+	</td>
+	<td>
+		<?$sql = "SELECT nome FROM ".$dati_db['prefisso']."app_io where id= ".$istanzaOggetto['id_app_io'];;
+            if ( !($result = $database->connessioneConReturn($sql)) ) {
+                die('Errore durante il recupero di tutti gli enti (con condizione)');
+            }
+            $servizi = $database->sqlArrayAss($result);
+        ?>
+		<? echo $servizi[0]['nome']; ?>
+	</td>
+	<td>
+		<? echo $istanzaOggetto['id_oggetto']; ?>
+	</td>
+	<td>
+		<? echo $istanzaOggetto['notifiche_inviate']; ?>
+	</td>	
+	
+	<td class="centeralign intTooltip">
+		<!--
+		<a href="#" idcanc="<? echo $istanzaOggetto['id']; ?>" data-placement="top" data-rel="tooltip" data-original-title="Elimina notifica" class="btn confCanc"><span class="iconfa-trash"></span></a>
+		<a href="?menu=configurazione&amp;menusec=notificheappio&amp;azione=modifica&amp;id=<? echo $istanzaOggetto['id']; ?>" data-placement="top" data-rel="tooltip" data-original-title="Modifica notifica" class="btn"><span class="iconfa-edit"></span></a>		
+		<a href="javascript:duplicaNotifica(<? echo $istanzaOggetto['id_oggetto']; ?>,<? echo $istanzaOggetto['id']; ?>);" data-placement="top" data-rel="tooltip" data-original-title="Duplica questo elemento" class="btn"><span class="iconfa-copy"></span></a>
+		-->		
+	</td>	
+</tr>

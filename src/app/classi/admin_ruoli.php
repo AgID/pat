@@ -4,7 +4,7 @@ class ruoli {
     var $sezioni = array();
     
     // costruttore
-    function ruoli() {
+    public function __construct() {
         global $dati_db,$database,$configurazione;
         
         $dati = "*";
@@ -151,6 +151,7 @@ class ruoli {
 		$arrayValori['admin'] = $arrayValori['admin'] == 1 ? $arrayValori['admin'] : 0;
 		$arrayValori['ealbo_import'] = $arrayValori['ealbo_import'] == 1 ? $arrayValori['ealbo_import'] : 0;
 		$arrayValori['gestione_workflow'] = $arrayValori['gestione_workflow'] == 1 ? $arrayValori['gestione_workflow'] : 0;
+		$arrayValori['notifiche_app_io'] = $arrayValori['notifiche_app_io'] == 1 ? $arrayValori['notifiche_app_io'] : 0;
 		
 		if (isset($arrayValori['ruolo_sistema']) and $arrayValori['ruolo_sistema']==1) {
 			$arrayValori['id_ente'] = 0;
@@ -158,19 +159,19 @@ class ruoli {
 		
 		// creo la query di installazione nuovo ruolo
 		$sql = "INSERT INTO ".$dati_db['prefisso']."etrasp_ruoli (
-					id_ente,nome,descrizione,admin,utenti,ruoli,archiviomedia,gestione_workflow,accessocivico,
+					id_ente,nome,descrizione,admin,utenti,ruoli,archiviomedia,gestione_workflow,accessocivico,econcorsi,econcorsi_requisiti,candidature,calendarioprove,faq,newsavvisi,
 					strutture,personale,tassiassenza,commissioni,societa,procedimenti,elezioni,elezioni_liste,elezioni_candidati,elezioni_candidati_sindaci,
 					regolamenti,modulistica,normativa,bilanci,fornitori,stazioni,bandigara,avcp,atti_programmazione,bandiatti,
-					bandiconcorso,sovvenzioni,incarichi,provvedimenti,oneri,patrimonio_immobiliare,canoni_locazione,controlli_rilievi,
+					bandiconcorso,sovvenzioni,incarichi,provvedimenti,oneri,interventi,patrimonio_immobiliare,canoni_locazione,controllirilievi,
 					soggetti_esterni,rischi,misure,rotazione,direttive,piani,programmazione3,revisione_pagina,
-					contenuti,speciali,ealbo_import
+					contenuti,speciali,ealbo_import,notifiche_app_io
 					) VALUES (
-					".$arrayValori['id_ente'].",'".addslashes($arrayValori['nome'])."','".addslashes($arrayValori['descrizione'])."',".$arrayValori['admin'].",".$arrayValori['utenti'].",".$arrayValori['ruoli'].",".$arrayValori['archiviomedia'].",".$arrayValori['gestione_workflow'].",'".$arrayValori['accessocivico']."',
+					".$arrayValori['id_ente'].",'".addslashes($arrayValori['nome'])."','".addslashes($arrayValori['descrizione'])."',".$arrayValori['admin'].",".$arrayValori['utenti'].",".$arrayValori['ruoli'].",".$arrayValori['archiviomedia'].",".$arrayValori['gestione_workflow'].",'".$arrayValori['accessocivico']."','".$arrayValori['econcorsi']."','".$arrayValori['econcorsi_requisiti']."','".$arrayValori['candidature']."','".$arrayValori['calendarioprove']."','".$arrayValori['faq']."','".$arrayValori['newsavvisi']."',
 					'".$arrayValori['strutture']."','".$arrayValori['personale']."','".$arrayValori['tassiassenza']."','".$arrayValori['commissioni']."','".$arrayValori['societa']."','".$arrayValori['procedimenti']."','".$arrayValori['elezioni']."','".$arrayValori['elezioni_liste']."','".$arrayValori['elezioni_candidati']."','".$arrayValori['elezioni_candidati_sindaci']."',
 					'".$arrayValori['regolamenti']."','".$arrayValori['modulistica']."','".$arrayValori['normativa']."','".$arrayValori['bilanci']."','".$arrayValori['fornitori']."','".$arrayValori['stazioni']."','".$arrayValori['bandigara']."','".$arrayValori['avcp']."','".$arrayValori['atti_programmazione']."','".$arrayValori['bandiatti']."',
-					'".$arrayValori['bandiconcorso']."','".$arrayValori['sovvenzioni']."','".$arrayValori['incarichi']."','".$arrayValori['provvedimenti']."','".$arrayValori['oneri']."','".$arrayValori['patrimonio_immobiliare']."','".$arrayValori['canoni_locazione']."','".$arrayValori['controlli_rilievi']."',
+					'".$arrayValori['bandiconcorso']."','".$arrayValori['sovvenzioni']."','".$arrayValori['incarichi']."','".$arrayValori['provvedimenti']."','".$arrayValori['oneri']."','".$arrayValori['interventi']."','".$arrayValori['patrimonio_immobiliare']."','".$arrayValori['canoni_locazione']."','".$arrayValori['controllirilievi']."',
 					'".$arrayValori['soggetti_esterni']."','".$arrayValori['rischi']."','".$arrayValori['misure']."','".$arrayValori['rotazione']."','".$arrayValori['direttive']."','".$arrayValori['piani']."','".$arrayValori['programmazione3']."',".$arrayValori['revisione_pagina'].",
-					'".$arrayValori['contenuti']."','".$arrayValori['speciali']."',".$arrayValori['ealbo_import']."
+					'".$arrayValori['contenuti']."','".$arrayValori['speciali']."',".$arrayValori['ealbo_import'].",".$arrayValori['notifiche_app_io']."
 					)";
 		if( !($result = $database->connessioneConReturn($sql)) ) {
 			die('Non posso installare ruolo'.$sql);
@@ -184,11 +185,11 @@ class ruoli {
 
 	function modificaRuolo($idRuolo, $arrayValori) {
 		global $dati_db,$database,$datiUser,$sezioni,$arrayFunzioniObj;
-		
+		//lognormale('',$arrayValori);
 		// devo analizzare e mettere insieme i dati relativi ad i permessi (OGGETTI)
 		$permessiOggetto = array();
 		foreach ($arrayFunzioniObj as $funzione) {
-		
+			//lognormale('Analizzo '.$funzione."_lettura",$arrayValori[$funzione."_lettura"]);
 			$permessiOggetto[$funzione] = array(
 				'workflow' => $arrayValori[$funzione."_workflow"]== 1 ? $arrayValori[$funzione."_workflow"] : 0,
 				'lettura' => $arrayValori[$funzione."_lettura"]== 1 ? $arrayValori[$funzione."_lettura"] : 0,
@@ -204,7 +205,7 @@ class ruoli {
 			// serializzo gli array del permesso di funzione specifico		
 			$arrayValori[$funzione]	= addslashes(serialize($permessiOggetto[$funzione]));		
 		}
-		
+		//lognormale('',$arrayValori);
 		// devo analizzare e mettere insieme i dati relativi alle sezioni (CONTENUTI)
 		$permessiSezione = array();
 		foreach ($sezioni as $sezione) { 
@@ -250,8 +251,8 @@ class ruoli {
 				
 				} 
 			}
-			if($sezione['id'] == 605) {
-				//privacy
+			if($sezione['id'] == 605 or $sezione['id'] == 811) {
+				//privacy e cookie policy
 				$permessiSezione[$sezione['id']] = array(
 						'modifica' => $arrayValori["sez_modifica_".$sezione['id']]== 1 ? $arrayValori["sez_modifica_".$sezione['id']] : 0,
 						'workflow' => $arrayValori["sez_workflow_".$sezione['id']]== 1 ? $arrayValori["sez_workflow_".$sezione['id']] : 0,
@@ -272,17 +273,18 @@ class ruoli {
 		$arrayValori['admin'] = $arrayValori['admin'] == 1 ? $arrayValori['admin'] : 0;
 		$arrayValori['ealbo_import'] = $arrayValori['ealbo_import'] == 1 ? $arrayValori['ealbo_import'] : 0;
 		$arrayValori['gestione_workflow'] = $arrayValori['gestione_workflow'] == 1 ? $arrayValori['gestione_workflow'] : 0;
+		$arrayValori['notifiche_app_io'] = $arrayValori['notifiche_app_io'] == 1 ? $arrayValori['notifiche_app_io'] : 0;
 		
 		// modifico il ruolo scelto
-		$strQuery = "nome='".addslashes($arrayValori['nome'])."',descrizione='".addslashes($arrayValori['descrizione'])."',admin=".$arrayValori['admin'].",utenti=".$arrayValori['utenti'].",accessocivico='".$arrayValori['accessocivico']."',
+		$strQuery = "nome='".addslashes($arrayValori['nome'])."',descrizione='".addslashes($arrayValori['descrizione'])."',admin=".$arrayValori['admin'].",utenti=".$arrayValori['utenti'].",accessocivico='".$arrayValori['accessocivico']."',econcorsi='".$arrayValori['econcorsi']."',econcorsi_requisiti='".$arrayValori['econcorsi_requisiti']."',candidature='".$arrayValori['candidature']."',calendarioprove='".$arrayValori['calendarioprove']."',faq='".$arrayValori['faq']."',newsavvisi='".$arrayValori['newsavvisi']."',
 				ruoli=".$arrayValori['ruoli'].",archiviomedia=".$arrayValori['archiviomedia'].",gestione_workflow=".$arrayValori['gestione_workflow'].",strutture='".$arrayValori['strutture']."',personale='".$arrayValori['personale']."',tassiassenza='".$arrayValori['tassiassenza']."',commissioni='".$arrayValori['commissioni']."',societa='".$arrayValori['societa']."',
 				procedimenti='".$arrayValori['procedimenti']."',regolamenti='".$arrayValori['regolamenti']."',modulistica='".$arrayValori['modulistica']."',
                 elezioni='".$arrayValori['elezioni']."',elezioni_liste='".$arrayValori['elezioni_liste']."',elezioni_candidati='".$arrayValori['elezioni_candidati']."',elezioni_candidati_sindaci='".$arrayValori['elezioni_candidati_sindaci']."',
 				normativa='".$arrayValori['normativa']."',bilanci='".$arrayValori['bilanci']."',fornitori='".$arrayValori['fornitori']."',stazioni='".$arrayValori['stazioni']."',bandigara='".$arrayValori['bandigara']."',avcp='".$arrayValori['avcp']."',atti_programmazione='".$arrayValori['atti_programmazione']."',bandiatti='".$arrayValori['bandiatti']."',
 				bandiconcorso='".$arrayValori['bandiconcorso']."',sovvenzioni='".$arrayValori['sovvenzioni']."',incarichi='".$arrayValori['incarichi']."',
-				provvedimenti='".$arrayValori['provvedimenti']."',oneri='".$arrayValori['oneri']."',patrimonio_immobiliare='".$arrayValori['patrimonio_immobiliare']."',canoni_locazione='".$arrayValori['canoni_locazione']."',controlli_rilievi='".$arrayValori['controlli_rilievi']."',
+				provvedimenti='".$arrayValori['provvedimenti']."',oneri='".$arrayValori['oneri']."',interventi='".$arrayValori['interventi']."',patrimonio_immobiliare='".$arrayValori['patrimonio_immobiliare']."',canoni_locazione='".$arrayValori['canoni_locazione']."',controllirilievi='".$arrayValori['controllirilievi']."',
 				soggetti_esterni='".$arrayValori['soggetti_esterni']."',rischi='".$arrayValori['rischi']."',misure='".$arrayValori['misure']."',rotazione='".$arrayValori['rotazione']."',direttive='".$arrayValori['direttive']."',piani='".$arrayValori['piani']."',programmazione3='".$arrayValori['programmazione3']."',
-				contenuti='".$arrayValori['contenuti']."',speciali='".$arrayValori['speciali']."',ealbo_import=".$arrayValori['ealbo_import'].",revisione_pagina=".$arrayValori['revisione_pagina'];
+				contenuti='".$arrayValori['contenuti']."',speciali='".$arrayValori['speciali']."',ealbo_import=".$arrayValori['ealbo_import'].",revisione_pagina=".$arrayValori['revisione_pagina'].",notifiche_app_io=".$arrayValori['notifiche_app_io'];
 
 		
 		$sql = "UPDATE ".$dati_db['prefisso']."etrasp_ruoli SET ".$strQuery." WHERE id = ".$idRuolo;

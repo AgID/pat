@@ -1,0 +1,36 @@
+<div class="tab-pane tab_generali widgetbox box-inverse" id="generali_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati generali concorso telematico
+	</h4>
+
+	<div class="widgetcontent wc1">
+		<script type="text/javascript">	
+		jQuery(document).ready(function(){	
+			jQuery(".input-spinner").spinner({min: 0});	
+		});
+		</script>		
+		<?
+		if(!$creaFormSistema) {
+			creaFormTrasp('','sistema', '', '', '', '','');
+			$creaFormSistema = true;
+			
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+		}
+		
+		creaFormTrasp('Data avvio concorso telematico','data', 'data_inizio', '', $istanzaOggetto['data_inizio'], '','',0,'', 0, 0,true, false, $arayReadonly);
+		creaFormTrasp('Orario avvio','ora', 'ora_inizio', '', $istanzaOggetto['ora_inizio'], '','input-small',0,'', 0, 0); 
+
+		creaFormTrasp('Data termine concorso telematico','data', 'data_fine', '', $istanzaOggetto['data_fine'], '','',0,'', 0, 0,true, false, $arayReadonly);
+		creaFormTrasp('Orario termine','ora', 'ora_fine', '', $istanzaOggetto['ora_fine'], '','input-small',0,'', 0, 0); 
+		creaFormTrasp('Numero massimo di candidature','testo', 'max', '', $istanzaOggetto['max'], '','input-small input-spinner',0,'', 0, 0,true, false, $arayReadonly);
+		creaFormTrasp('Richiesta dati anagrafici','casella', 'anagrafica', '1', $istanzaOggetto['anagrafica'], '1','',0,'', 0, 0,false, false, $arayReadonly);
+		creaFormTrasp('Disabilita invio fino al completamento','casella', 'form_completo', '1', $istanzaOggetto['form_completo'], '1','',0,'', 0, 0,false, false, $arayReadonly);
+		?>
+	</div>
+</div>

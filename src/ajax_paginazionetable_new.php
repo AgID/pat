@@ -62,7 +62,9 @@ header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 header("Cache-Control: no-store, no-cache, must-revalidate");  // HTTP/1.1
 header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
-header("X-Frame-Options: sameorigin");
+if($configurazione['X-Frame-Options']) {
+    header("X-Frame-Options: sameorigin");
+}
 
 ////////////////// ENTE IN NAVIGAZIONE
 $idEnte = is_numeric($datiUser['id_ente']) ? $datiUser['id_ente'] : 0;
@@ -221,7 +223,7 @@ if ($datiUser['sessione_loggato']) {
 							}							
 						}
 						// ora trovo gli id 
-						$sql = "SELECT id FROM ".$tabellaOgg." WHERE ".$campoDefault." LIKE '%".mysql_real_escape_string( $_GET['sSearch'] )."%' ".$condizioneEnteCerca;
+						$sql = "SELECT id FROM ".$tabellaOgg." WHERE ".$campoDefault." LIKE '%".forzaStringa( $_GET['sSearch'] )."%' ".$condizioneEnteCerca;
 						if( !($result = $database->connessioneConReturn($sql)) ) {
 							die("errore in caricamento campo associato filtrato");
 						}
@@ -231,7 +233,7 @@ if ($datiUser['sessione_loggato']) {
 							$condizione .= $colonneJs[$i]." = '".$associato['id']."' OR ".$colonneJs[$i]." LIKE '".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id']."' OR ";
 						}						
 					} else if ($tipoCampo == 'camposezione') {
-						$sql = "SELECT id FROM ".$dati_db['prefisso']."sezioni WHERE nome LIKE '%".mysql_real_escape_string( $_GET['sSearch'] )."%' ";
+						$sql = "SELECT id FROM ".$dati_db['prefisso']."sezioni WHERE nome LIKE '%".forzaStringa( $_GET['sSearch'] )."%' ";
 						if( !($result = $database->connessioneConReturn($sql)) ) {
 							die("errore in caricamento campo associato filtrato");
 						}
@@ -244,7 +246,7 @@ if ($datiUser['sessione_loggato']) {
 						//////////////// devo trasformare la data in valore numerico
 					} else if ($tipoCampo == 'campoutente') {
 						//////////////// devo cercare un utente
-						$sql = "SELECT id FROM utenti WHERE nome LIKE '%".mysql_real_escape_string( $_GET['sSearch'] )."%' ".$condizioneEnteCercaUtenti;
+						$sql = "SELECT id FROM utenti WHERE nome LIKE '%".forzaStringa( $_GET['sSearch'] )."%' ".$condizioneEnteCercaUtenti;
 						if( !($result = $database->connessioneConReturn($sql)) ) {
 							die("errore in caricamento campo utente filtrato");
 						}
@@ -254,7 +256,7 @@ if ($datiUser['sessione_loggato']) {
 							$condizione .= $colonneJs[$i]." = '".$associato['id']."' OR ".$colonneJs[$i]." LIKE '".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id'].",%' OR ".$colonneJs[$i]." LIKE '%,".$associato['id']."' OR ";
 						}							
 					} else {
-						$condizione .= $colonneJs[$i]." LIKE '%".mysql_real_escape_string( $_GET['sSearch'] )."%' OR ";
+						$condizione .= $colonneJs[$i]." LIKE '%".forzaStringa( $_GET['sSearch'] )."%' OR ";
 					}
 				}
 			}

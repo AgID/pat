@@ -87,6 +87,9 @@
 			<li class="active">
 				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Gestione informazioni</a>
 			</li>
+			<li>
+				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Gestione allegati</a>
+			</li>
 		</ul>
 	</div>
 </div>
@@ -126,6 +129,20 @@
 			creaFormTrasp('Ordine di visualizzazione','testo', 'ordine', '', $istanzaOggetto['ordine'], '','input-small input-spinner', 0,'',0,0,true); ?>
 			
 		</form>
+	</div>
+</div>
+
+<div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
+	<h4 class="widgettitle">
+		Allegati
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?php
+		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
+		?>
+		
 	</div>
 </div>
 

@@ -99,6 +99,9 @@
 				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
 					echo "id_ente: \"required\",";
 				} ?>
+				<? if($configurazione['visualizza_codice_struttura']) {
+				    echo "id_ori: \"required\",";
+				} ?>
 				referente: "required",
 				email_riferimento: {
 					required: true,
@@ -120,6 +123,9 @@
 				<? // scelta ente
 				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
 					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la struttura\",";
+				} ?>
+				<? if($configurazione['visualizza_codice_struttura']) {
+				    echo "id_ori: \"Devi inserire il codice struttura\",";
 				} ?>
 				email_riferimento: "Inserisci un indirizzo email valido",
 				referente: "Devi selezionare il responsabile",
@@ -208,9 +214,19 @@
 			} ?>
 			
 			<? creaFormTrasp('Nome struttura','testo', 'nome_ufficio', '', $istanzaOggetto['nome_ufficio'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
-			<? creaFormTrasp('Struttura di appartenenza','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
-			
+
+            <? creaFormTrasp('Struttura di appartenenza','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
+
+
+            <? if (moduloAttivo('incarichiPerlaPA')) {
+                $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA'));
+                creaFormTrasp('Cod. univoco Aree Org. Omogenee','testo', 'perlapa_codiceAoolpa', '', $istanzaOggetto['perlapa_codiceAoolpa'], '','input-xlarge',0,'', 0, 0);
+
+                $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA'));
+                creaFormTrasp('Cod. univoco Unit&agrave; Org.','testo', 'perlapa_codiceUolpa', '', $istanzaOggetto['perlapa_codiceUolpa'], '','input-xlarge',0,'', 0, 0);
+            }?>
+
+
 			<? creaFormTrasp('Responsabile non disponibile','casella', 'responsabile_non_disponibile', '1', $istanzaOggetto['responsabile_non_disponibile'], '',''); ?>
 			
 			<div id="referente_non_disponibile_textBox">
@@ -300,6 +316,19 @@
 			if($id and $istanzaOggetto['__archiviata']) {
 				$stileBtnSalva = ' style="display:none;" ';
 			}
+			
+			
+			if($configurazione['visualizza_codice_struttura']) {
+			    $eti = 'ID origine';
+			    if($configurazione['id_codice_struttura']) {
+			        $eti = $configurazione['id_codice_struttura'];
+			    }
+			    creaFormTrasp($eti,'testo', 'id_ori', '', $istanzaOggetto['id_ori'], '','input-large',0,'', 0, 0,true);
+			    ?>
+    			    <?
+    			}
+			
+			
 			?>
 			
 		</form>

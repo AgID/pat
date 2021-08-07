@@ -148,7 +148,7 @@
 			?>
 			
 			<?
-			if(moduloAttivo('soc-trasp')) {
+			if(moduloAttivo('soc-trasp') and $configurazione['tipo_bilanci_soc_trasp']) {
 				creaFormTrasp('Tipologia','selezione', 'tipologia', 'bilancio di esercizio', $istanzaOggetto['tipologia'], 'Bilancio di esercizio','input-xlarge',0,'Seleziona il tipo di documento', 0, 0,true);
 			} else {
 				creaFormTrasp('Tipologia','selezione', 'tipologia', 'bilancio preventivo,bilancio consuntivo,piano indicatori e risultati,variazioni di bilancio', $istanzaOggetto['tipologia'], 'Bilancio preventivo,Bilancio consuntivo,Piano degli indicatori e risultati attesi,Variazione di Bilancio','input-xlarge',0,'Seleziona il tipo di documento', 0, 0,true);

@@ -45,9 +45,10 @@
 			$condizioneDefaultRuolo = implode(' || ', $condizioneDefaultRuolo);
 			$condizioneDefaultIncPol = implode(' || ', $condizioneDefaultIncPol);
 			*/
+
 			?>
-			
-			// verifico incaricato politico
+
+            // verifico incaricato politico
 			if (<? echo $condizioneDefaultRuolo; ?>) {
 				if (<? echo $condizioneDefaultIncPol; ?>) {
 					jQuery(".cont_box_organo").show('fast');
@@ -72,13 +73,14 @@
 					jQuery(".cont_box_commissioni").hide('fast');
 					jQuery(".cont_box_determinato").show('fast');
 				}
+
 				jQuery(".cont_box_allegato_nomina").show('fast');
 				jQuery(".cont_box_estremi_atto_conferimento").show('fast');
 				jQuery(".cont_box_curriculum").show('fast');
 				jQuery(".cont_box_atto_conferimento").show('fast');
 				jQuery(".cont_box_allegato_nomina").show('fast');
 				jQuery(".cont_box_compensi").show('fast');
-				jQuery(".cont_box_importi_viaggi").show('fast');
+
 				jQuery(".cont_box_altre_cariche").show('fast');
 				jQuery(".cont_box_altri_incarichi").show('fast');
 				jQuery(".cont_box_note").show('fast');
@@ -94,6 +96,53 @@
 				jQuery(".cont_box_patrimonio3").show('fast');
 				jQuery(".cont_box_dic_inconferibilita").show('fast');
 				jQuery(".cont_box_dic_incompatibilita").show('fast');
+
+
+                <? if (moduloAttivo('minlavoro')) { ?>
+                    if (jQuery("#ruolo").val() == "Dirigente") {
+
+                        <? if($datiUser['id_oggetto_riferimenti'] == $istanzaOggetto['id']) { // se dirigente vede la sua scheda?>
+                            jQuery(".cont_box_ruolo").hide('fast');
+                            jQuery(".cont_box_pubblica_in").hide('fast');
+                            jQuery(".cont_box_id_utente").hide('fast');
+                            jQuery(".cont_box_tit").hide('fast');
+                            jQuery(".cont_box_referente").hide('fast');
+                            jQuery(".cont_box_codicefiscale").hide('fast');
+                            jQuery(".cont_box_estremi_atto_conferimento").hide('fast');
+                            jQuery(".cont_box_determinato").hide('fast');
+                            jQuery(".cont_box_uffici").hide('fast');
+                            jQuery(".cont_box_incarico").hide('fast');
+                            jQuery(".cont_box_foto").hide('fast');
+                            jQuery(".cont_box_telefono").hide('fast');
+                            jQuery(".cont_box_fax").hide('fast');
+                            jQuery(".cont_box_mobile").hide('fast');
+                            jQuery(".cont_box_email_non_disponibile").hide('fast');
+                            jQuery(".cont_box_altri_incarichi").hide('fast');
+                            jQuery(".cont_box_email").hide('fast');
+                            jQuery(".cont_box_email_cert").hide('fast');
+                            jQuery(".cont_box_carica_inizio").hide('fast');
+                            jQuery(".cont_box_carica_fine").hide('fast');
+                            jQuery(".cont_box_formazione_personale").hide('fast');
+                            jQuery(".cont_box_compensi").hide('fast');
+                            jQuery(".cont_box_incarichi").hide('fast');
+                            jQuery(".cont_box_vis_elenchi ").hide('fast');
+                            jQuery(".cont_box_priorita").hide('fast');
+                            jQuery(".cont_box_altre_info").hide('fast');
+                            jQuery(".cont_box_archivio_informazioni ").hide('fast');
+                        <? } else { ?>
+                            jQuery(".cont_box_id_utente").show('fast');
+                            jQuery(".cont_box_note").hide('fast');
+                            jQuery("#note").rules( "remove" );
+                        <? }?>
+
+                    } else {
+                        jQuery(".cont_box_id_utente").hide('fast');
+                        jQuery(".cont_box_note").hide('fast');
+                        jQuery("#note").rules( "remove" );
+                    }
+                    jQuery(".cont_box_importi_viaggi").hide('fast'); // sempre nascosto
+                    jQuery("#importi_viaggi").rules( "remove" );
+                <?} ?>
 								
 			} else {
 				jQuery("#organo option").each(function(){
@@ -113,6 +162,7 @@
 				jQuery(".cont_box_allegato_nomina").hide('fast');
 				jQuery(".cont_box_compensi").hide('fast');
 				jQuery(".cont_box_importi_viaggi").hide('fast');
+                jQuery(".cont_box_id_utente").hide('fast');
 				jQuery(".cont_box_altre_cariche").hide('fast');
 				jQuery(".cont_box_altri_incarichi").hide('fast');
 				jQuery(".cont_box_note").hide('fast');
@@ -322,6 +372,64 @@
 					email: true
 					<?}?>
 				},
+				<? if (moduloAttivo('minlavoro')) { ?>
+				compensi: {
+					required: function(textarea) {
+						var ruolo = jQuery("#ruolo").val();
+						if(ruolo==='Dirigente' || ruolo==='Organo politico-amministrativo' || ruolo==='Ministro' || ruolo==='Viceministro' || ruolo==='Sottosegretario') {
+							CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+							var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+							return editorcontent.length === 0;
+						} else {
+							return false;
+						}							
+					}
+				},
+
+				altri_incarichi: {
+					required: function(textarea) {
+						var ruolo = jQuery("#ruolo").val();
+						if(ruolo==='Dirigente' || ruolo==='Organo politico-amministrativo' || ruolo==='Ministro' || ruolo==='Viceministro' || ruolo==='Sottosegretario') {
+							CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+							var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+							return editorcontent.length === 0;
+						} else {
+							return false;
+						}							
+					}
+				},
+                <? if($datiUser['id_oggetto_riferimenti'] == $istanzaOggetto['id']) { // se dirigente vede la sua scheda?>
+                note: {
+					required: function(textarea) {
+						var ruolo = jQuery("#ruolo").val();
+						// if(ruolo==='Dirigente' || ruolo==='Organo politico-amministrativo' || ruolo==='Ministro' || ruolo==='Viceministro' || ruolo==='Sottosegretario') {
+						if(ruolo==='Dirigente') {
+							CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+							var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+							return editorcontent.length === 0;
+						} else {
+							return false;
+						}							
+					}
+				},
+                <? } ?>
+				<? }
+//                else { ?>
+//                importi_viaggi: {
+//                    required: function(textarea) {
+//                        var ruolo = jQuery("#ruolo").val();
+//                        if(ruolo==='Organo politico-amministrativo' || ruolo==='Ministro' || ruolo==='Viceministro' || ruolo==='Sottosegretario') {
+//                            CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+//                            var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+//                            return editorcontent.length === 0;
+//                        } else {
+//                            return ruolo === 'Dirigente';
+//                        }
+//                    }
+//                },
+//                <?//}
+                ?>
+
 				/* "pubblica_in[]": "required", */
 				priorita: "required"
 			},
@@ -342,6 +450,14 @@
 				?>
 				ruolo: "Devi selezionare il ruolo ricoperto",
 				email: "Devi inserire un indirizzo email in un formato valido",
+				<? if (moduloAttivo('minlavoro')) { ?>	
+					compensi: "Devi inserire i Compensi connessi all'assunzione della carica",
+					importi_viaggi: "Devi inserire gli Importi di viaggi di servizio e missioni",
+					altri_incarichi: "Devi inserire gli Altri incarichi con oneri a carico della finanza pubblica e relativi compensi",
+                    <? if($datiUser['id_oggetto_riferimenti'] == $istanzaOggetto['id']) { // se dirigente vede la sua scheda?>
+                        note: "Devi inserire la Documentazione Art. 14 e Art. 47, c. 1, Dlgs n. 33/2013; Art. 1,2,3,4 l. n. 441/1982",
+                    <? } ?>
+				<? } ?>
 				priorita: "Devi inserire un numero per stabilire l'ordine di visualizzazione",
 				/* "pubblica_in[]": "Devi selezionare la/e pagina/e di pubblicazione", */
 				id_proprietario: "Devi selezionare l'utente proprietario"
@@ -408,9 +524,11 @@
 			<li class="active">
 				<a id="a_dati_tab" data-toggle="tab" href="#dati_tab" role="tab">Gestione informazioni</a>
 			</li>
+			<? if( !moduloAttivo('minlavoro') ) { ?>
 			<li>
 				<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Gestione allegati</a>
 			</li>
+			<? } ?>
 		</ul>
 	</div>
 </div>
@@ -427,9 +545,9 @@
 	<div class="widgetcontent wc1">
 		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
 		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>">
-		
+
 			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
-			
+
 			<? // scelta ente
 			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
 				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
@@ -439,7 +557,7 @@
 			
 			<?
 			$ruoli = prendiRuoliPersonale($istanzaOggetto['ruolo']);
-			
+
 			$valRuoli = implode(',',$ruoli['valori']);
 			$etiRuoli = implode(',',$ruoli['etichette']);
 			creaFormTrasp('Ruolo','selezione', 'ruolo', $valRuoli, $istanzaOggetto['ruolo'], $etiRuoli,'input-xlarge',0,'Seleziona il ruolo', 0, 0,true);
@@ -460,8 +578,8 @@
 			creaFormTrasp('Pubblica in','selezioni', 'pubblica_in', $valPubb, $istanzaOggetto['pubblica_in'], $etiPubb,'input-xxlarge',1,'',0,0,false);
 			
 			?>
-			
-			<? creaFormTrasp('Titolo accademico o professionale','selezione', 'tit', 'arch.,avv.,dott.,dott.ssa,ing.,on.le,geom.,prof.,prof.ssa,rag.,sig.,sig.ra,per.', $istanzaOggetto['tit'], '','input-small'); ?>
+
+            <? creaFormTrasp('Titolo accademico o professionale','selezione', 'tit', 'arch.,avv.,dott.,dott.ssa,dr.,ing.,on.le,geom.,prof.,prof.ssa,rag.,sig.,sig.ra,per.', $istanzaOggetto['tit'], '','input-small'); ?>
 			
 			<?
 			if(moduloAttivo('cognome_nome')) {
@@ -481,7 +599,8 @@
 				<?
 			} else {
 				creaFormTrasp('Nome completo<br />(Cognome-Nome)','testo', 'referente', '', $istanzaOggetto['referente'], '','input-xlarge',0,'', 0, 0,true);
-			}
+                creaFormTrasp('Codice fiscale<br />(necessario se RUP)','testo', 'codicefiscale', '', $istanzaOggetto['codicefiscale'], '','input-xlarge',0,'', 0, 0,false);
+            }
 			?>
 			
 			<? // la selezione degli organi politici, dipende dal tipo di ente
@@ -716,18 +835,28 @@
 			
 			?>
 			
-			<? creaFormTrasp('Compensi connessi all\'assunzione della carica','html', 'compensi', '', $istanzaOggetto['compensi'], '',''); ?>
+			<? 
+			if( !moduloAttivo('minlavoro') ) { 
+				creaFormTrasp('Compensi connessi all\'assunzione della carica','html', 'compensi', '', $istanzaOggetto['compensi'], '','');
+				creaFormTrasp('Importi di viaggi di servizio e missioni','html', 'importi_viaggi', '', $istanzaOggetto['importi_viaggi'], '','');
+				creaFormTrasp('Altri incarichi con oneri a carico della finanza pubblica e relativi compensi','html', 'altri_incarichi', '', $istanzaOggetto['altri_incarichi'], '','');
+			} else {
+				creaFormTrasp('Compensi connessi all\'assunzione della carica','html', 'compensi', '', $istanzaOggetto['compensi'], '','',0,'', 0, 0,true);
+				creaFormTrasp('Importi di viaggi di servizio e missioni','html', 'importi_viaggi', '', $istanzaOggetto['importi_viaggi'], '','',0,'', 0, 0,true);
+				creaFormTrasp('Altri incarichi con oneri a carico della finanza pubblica e relativi compensi','html', 'altri_incarichi', '', $istanzaOggetto['altri_incarichi'], '','',0,'', 0, 0,true);
+			}				
+			?>
 
-			<? creaFormTrasp('Importi di viaggi di servizio e missioni','html', 'importi_viaggi', '', $istanzaOggetto['importi_viaggi'], '',''); ?>
-
-			<? creaFormTrasp('Altri incarichi con oneri a carico della finanza pubblica e relativi compensi','html', 'altri_incarichi', '', $istanzaOggetto['altri_incarichi'], '',''); ?>
-			
 			<?
 			$eti = 'Documentazione Art. 14  e Art. 47, c. 1, Dlgs n. 33/2013; Art. 1,2,3,4 l. n. 441/1982';
 			if($configurazione['eti_personale_note'] != '') {
 				$eti = $configurazione['eti_personale_note'];
 			}
-			creaFormTrasp($eti, 'html', 'note', '', $istanzaOggetto['note'], '','');
+			if( !moduloAttivo('minlavoro') ) { 
+				creaFormTrasp($eti, 'html', 'note', '', $istanzaOggetto['note'], '','');
+			} else {
+				creaFormTrasp($eti, 'html', 'note', '', $istanzaOggetto['note'], '','',0,'', 0, 0,true);
+			}
 			?>
 			
 			<? 
@@ -752,9 +881,8 @@
 				creaFormTrasp('Omissis (Privacy)','casella', 'omissis', '1', $istanzaOggetto['omissis'], '','');
 			}
 			*/
-			
-			
-			$stileBtnSalva = '';
+
+            $stileBtnSalva = '';
 			if($id and $istanzaOggetto['__archiviata']) {
 				$stileBtnSalva = ' style="display:none;" ';
 			}
@@ -763,19 +891,65 @@
 	</div>
 </div>
 
+<? if( !moduloAttivo('minlavoro') ) { ?>
 <div class="tab-pane widgetbox box-inverse" id="allegati_tab" role="tabpanel">
 	<h4 class="widgettitle">
 		Allegati
 	</h4>
+<? } ?>
 
 	<div class="widgetcontent wc1">
-		
+
+        <?php if(moduloAttivo('minlavoro') && $_GET['menusec']=='personale' && $datiUser['id_oggetto_riferimenti'] == $istanzaOggetto['id']): ?>
+        <?php
+            $listRuoliShow = [
+                "Organo politico-amministrativo",
+                "Ministro",
+                "Viceministro",
+                "Sottosegretario",
+                "Dirigente",
+                "Funzionario"
+            ];
+        ?>
+        <div id="alert-minlavoro" <?php if(!in_array($istanzaOggetto['ruolo'],$listRuoliShow)): ?>style="display: none;"<?php endif; ?>>
+            <div class="alert alert-block">
+                <button data-dismiss="alert" class="close" type="button">×</button>
+                <h4><span class="iconfa-info-sign"></span> Attenzione</h4>
+                <p style="margin: 8px 0;color:#646464;">
+                    Per poter proseguire  con il salvataggio dei dati &egrave; necessario inserie i seguenti allegati:
+                </p>
+
+                <ul>
+                    <li>
+                        Curriculum vitae;
+                    </li>
+                    <li>
+                        Atto di nomina o di proclamazione, con l'indicazione della durata dell'incarico o del mandato elettivo;
+                    </li>
+
+                    <li>
+                        Dati relativi all'assunzione di altre cariche, presso enti pubblici o privati, e relativi compensi a qualsiasi titolo corrisposti;
+                    </li>
+                    <li>
+                        Copia dell'ultima dichiarazione dei redditi;
+                    </li>
+
+                    <li>
+                        Attestazione concernente le variazioni della situazione patrimoniale intervenute nell'anno precedente,
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <?php endif; ?>
+
 		<?php
 		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
 		?>
 		
 	</div>
+<? if( !moduloAttivo('minlavoro') ) { ?>
 </div>
+<? } ?>
 
 </div>
 

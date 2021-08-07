@@ -1,0 +1,80 @@
+#######################################
+# Release 1.6.1 - 08/02/2021  #
+#######################################
+
+Modifiche:
+ - Sostituzione header di pubblicazione degli allegati per apertura inline in browser (configurabile da modulo)
+ - Corretto un problema sull'importo totale dei bandi di gara in backoffice nel caso di presenza di più lotti
+
+ 
+ 
+#######################################
+# Release 1.6 - 13/01/2021  #
+#######################################
+Nuove funzioni:
+ - Inserita configurabilità del menu di condivisione social nel template front-office standard
+ - Nuove funzioni di importazioni massive per dati excel con affidamenti e liquidazioni congiunti
+ - Nuova gestione delle esclusione di funzioni dal menu backoffice, con possibilità di personalizzare singole voci 
+ - Nuovo archivio dedicato agli avvisi generici pubblicabili in homepage o in altre sezioni del template front-office standard, configurabile ed attivabile da modulo
+ 
+Modifiche:
+ - Gestione diretta del Logo di progetto nella configurazione avanzata
+ - Fix del problema di apertura di nuovi contenuti libere sul menu di navigazione nella colonna di template front-office standard
+ - Fix per apertura di collegamenti da dentro una navigazione modale in back-office
+ - Fix per modulo AC sul problema della compilazione del campo "obiettivi" che impediva il corretto salvataggio
+ - Possibilità di configurare il controllo di obbligatorietà sugli allegati dell'archivio personale in base alla presenza di una o più determinate etichette di file
+ - Estensione delle funzioni di reset dei form di ricerca su tutti i campi disponibili nel template template front-office standard
+ - Impedimento per l'autocomplete dei campi di login utente a livello browser con attributo autocomplete="off"
+ - Upgrade componente Simple HTML DOM 
+ - Impostato limite di 1000 record all'esportazione excel disponibile in back-office su tutti gli archivi
+ - [Pre-release] - Upgrade librerie jQuery - implementazione versione 3.5.1
+ - [Pre-release] - Upgrade librerie jQueryUI - implementazione versione 1.12.1
+ - [Pre-release] - Funzionalità complete di integrazione degli incarichi con PerlaPA 
+ 
+ 
+ 
+#######################################
+# Release 1.5 - 04/08/2020  #
+#######################################
+
+Nuove funzioni:
+ - Nuovo layer DB compatibile PHP 7.3
+ - Compatibilità completa delle componenti con PHP 7.3 
+ - [Pre-release] - Nuovo archivio dedicato agli avvisi generici 
+ 
+Modifiche:
+ - Miglioramento del controllo di aggiunta utente con integrazione di ulteriori controlli backend
+ - Integrazione verifica utente per accesso alle operazioni di log
+ - [Pre-release] - Upgrade librerie Bootstrap - implementazione versione 4
+ 
+ 
+
+#######################################
+# Release PerpetualBeta - 25/06/2020  #
+#######################################
+
+Nuove funzioni:
+ - [Pre-release] - Nuovo layer DB compatibile PHP 7.3 
+
+Modifiche:
+ - Implementato nuovo sistema di crittografia password. Gli algoritmi utilizzati per la crittografia della password sono rispettivamente:
+ 	  - Bcrypt per la generazione della password concatenata con altri dati;
+ 	  - Openssl con metodo AES-256-CBC ed hash sha256 per la chiavi univoca del singolo utente.
+ 	        Funzionamento:
+            L'algoritmo di generazione della password crittografata avviene nel seguento modo:
+            Passo 1: generazione di una chiave univoca per ogni singolo utente;
+            Passo 2: concatenamento della password utente più la chiave interna "ISWEB_KEY";
+            Passo 3: creazione e criptazione delle chiavi univoca per ogni utente, casella e-mail e password;
+            Passo 4: generazione dell'Hash della password con il concatenamento descrritto nel passo 3.
+ - Inibizione esecuzione file eseguibili diretti in cartelle esposte
+ - Pulizia file non necessari in distribuzione CKEDITOR incluse
+ 
+ 
+ 
+#######################################
+# Release PerpetualBeta - 14/06/2020  #
+#######################################
+
+Modifiche e bugfix:
+ - Fix parametro "id_sond" in inizializzazione
+ - Miglioramento componente donwloadfile per nomi file con codifica caratteri diversa da ISO-8859-1

@@ -183,13 +183,25 @@
 			
 			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"determina_32\" />";
 			?>
-			
+
+            <?
+            if (moduloAttivo('scp')) {
+                echo "<input type=\"hidden\" id=\"scp_tipologia_atto\" name=\"scp_tipologia_atto\" value=\"1\" />";
+            }
+            ?>
+
 			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
+
 			<? creaFormTrasp('Codice CIG','testo', 'cig', '', $istanzaOggetto['cig'], '','',0,'', 0, 0,false); ?>
-			
-			<? creaFormTrasp('Altre procedure relative','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false); ?>
-			
+
+            <?
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('Altre procedure relative','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false, true);
+            } else {
+                creaFormTrasp('Altre procedure relative','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false);
+            }
+            ?>
+
 			<?
 			if(count($configurazione['__tags_gare'])) {
 				creaFormTrasp('Tipologia informazione','__tags_gare', '__tag_gare', 'determina_32', $istanzaOggetto['__tag_gare'], '','input-xxlarge',0,'', 0, 0,($configurazione['__tag_gare_obbligatorio'] ? true : false));
@@ -201,9 +213,15 @@
 			<? creaFormTrasp('Data dell\'atto','data', 'data_atto', '', $istanzaOggetto['data_atto'], '','',0,'', 0, 0); ?>
 			
 			<? creaFormTrasp('Data di pubblicazione sul sito','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); ?>
-			
-			<? creaFormTrasp('RUP','referente', 'rup', '', $istanzaOggetto['rup'], '','input-xlarge',0,'', 0, 0,false); ?>
-			
+
+            <?
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('RUP','referente_scp', 'rup', '', $istanzaOggetto['rup'], '','input-xlarge',0, '',0,0,false,true);
+            } else {
+                creaFormTrasp('RUP', 'referente', 'rup', '', $istanzaOggetto['rup'], '', 'input-xlarge', 0, '', 0, 0, false);
+            }
+            ?>
+
 			<?
 			if(moduloAttivo('agid')) {
 				creaFormTrasp('Provvedimento','provvedimento', 'provvedimento', '', $istanzaOggetto['provvedimento'], '','input-xxlarge',0,'', 0, 0,false);

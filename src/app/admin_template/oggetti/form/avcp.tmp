@@ -145,11 +145,9 @@
 			} else {
 				$annoEnd = date('Y')-1;
 			}
-			if(!in_array(2013, $anniAvcp) or 2013 == $istanzaOggetto['anno']) {
-				$valoriAnni = '2013';
-				$etiAnni = '2013 (include dicembre 2012)';
-			}
-			for($a = $annoStart; $a <= $annoEnd; $a++) {
+			
+			for($a = $annoEnd; $a >= $annoStart; $a--) {
+			//for($a = $annoStart; $a <= $annoEnd; $a++) {
 				if(!in_array($a, $anniAvcp) or $a == $istanzaOggetto['anno'] or moduloAttivo('stazioni_appaltanti')) {
 					if($valoriAnni != '') {
 						$valoriAnni .= ','.$a;
@@ -159,6 +157,15 @@
 						$etiAnni .= $a;
 					}
 				}
+			}
+			if(!in_array(2013, $anniAvcp) or 2013 == $istanzaOggetto['anno']) {
+			    if($valoriAnni != '') {
+			        $valoriAnni .= ',2013';
+			        $etiAnni .= ',2013 (include dicembre 2012)';
+			    } else {
+			        $valoriAnni .= '2013';
+			        $etiAnni .= '2013 (include dicembre 2012)';
+			    }
 			}
 			creaFormTrasp('Anno di riferimento','selezione', 'anno', $valoriAnni, $istanzaOggetto['anno'], $etiAnni,'input-xxlarge',0,'', 0, 0,true);
 			?>

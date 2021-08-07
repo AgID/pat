@@ -1,0 +1,35 @@
+<div class="tab-pane tab_concorso widgetbox box-inverse" id="concorso_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Dati relativi al bando di concorso
+	</h4>
+
+	<div class="widgetcontent wc1">
+			<?
+			if(!$creaFormSistema) {
+				creaFormTrasp('','sistema', '', '', '', '','');
+				$creaFormSistema = true;
+				
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+					creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+				} else {
+					echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+				}
+			}
+			
+			creaFormTrasp('Nome proceduta telematica','testo', 'titolo', '', $istanzaOggetto['titolo'], '','input-xxlarge',0,'', 0, 0);
+			
+			if(!moduloAttivo('solo_econcorsi')) {
+				creaFormTrasp('Bando di concorso associato','bandoconcorso', 'id_concorso', '', $istanzaOggetto['id_concorso'], '','input-xxlarge');					
+				creaFormTrasp('Struttura responsabile procedura telematica','strutture', 'id_strutture', '', $istanzaOggetto['id_strutture'], '','input-xxlarge');					
+			}
+			
+			creaFormTrasp('Utente responsabile procedura','utente', 'responsabile', '', $istanzaOggetto['responsabile'], '','input-xxlarge');
+			creaFormTrasp('Contenuto informativo concorso telematico','html', 'contenuto_info', '', $istanzaOggetto['contenuto_info'], '','',0,'', 0, 0);
+			
+			creaFormTrasp('Istruzioni per la compilazione','html', 'istruzioni', '', $istanzaOggetto['istruzioni'], '','',0,'', 0, 0);
+			
+			?>			
+	</div>
+</div>

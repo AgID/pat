@@ -1,7 +1,7 @@
 <?php
 $idOggetto = 33;
 require_once('classi/admin_oggetti.php');
-$oggOgg = new oggettiAdmin($idOggetto); 
+$oggOgg = new oggettiAdmin($idOggetto);
 
 switch ($menuSecondario) {
 
@@ -89,12 +89,16 @@ switch ($menuSecondario) {
 		}
 		
 		if (isset($_POST['id_sezione_nuovocont']) and $azione == 'nuovocont') {
-		
 			$idSezione = $_POST['id_sezione_nuovocont'];
-			
+
+
 			//prendo ultima priorita ed inserisco l'elemento
-			$priorita = getLastPrioritaModelloPagina($idEnteAdmin, $idSezione, $_POST['tipologia']) + 1;
-			
+			if ($_POST['id_modello_padre'] == 0) {
+				$priorita = getLastPrioritaModelloPagina($idEnteAdmin, $idSezione, $_POST['tipologia']) + 1;
+			} else {
+				$priorita = getLastPrioritaDaIdModelloPadre($idEnteAdmin,$idSezione, $_POST['id_modello_padre'], $_POST['tipologia']) + 1;
+			}
+
 			if (aggiungiModelloTraspPagina($idEnteAdmin,$idSezione, $priorita, $_POST)) {
 				// OPERAZIONE ANDATA A BUON FINE
 				$operazione = true;
@@ -107,16 +111,58 @@ switch ($menuSecondario) {
 				$codiceErrore = '#00 - Generico';
 			}
 		}
+		if ($azione == 'duplicaelem' and isset($_POST['tipologia']) and isset($_POST['id_sezione_destinazione']) and isset($_POST['id_sezione_vecchia']) ) {
+
+			$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_etrasp_modello WHERE id_ente=".$idEnte." AND id=".$_POST['id_sezione_vecchia']." LIMIT 0,1";
+			if ( !($result = $database->connessioneConReturn($sql)) ) {
+				die('Errore durante il recupero del modello trasparenza');
+			}
+			$vecchioModello = $database->sqlArray($result);
+
+			$priorita = 1;
+			$idSezione = 0;
+			if (in_array($_POST['id_sezione_destinazione'], array_column($sezioni,'id'))){
+				// var_dump('destinazione - sezione standard');
+				$vecchioModello['id_modello_padre'] = 0;
+				$idSezione = $_POST['id_sezione_destinazione'];
+
+				//prendo ultima priorita ed inserisco l'elemento
+				$priorita = getLastPrioritaModelloPagina($idEnteAdmin, $idSezione, $_POST['tipologia']) + 1;
+			} else {
+				// var_dump('destinazione - pagina generica');
+				$vecchioModello['id_modello_padre'] = $_POST['id_sezione_destinazione'];
+				$idSezione = datoModelloTraspById($idEnteAdmin, $_POST['id_sezione_destinazione'])['id_sezione_etrasp'];
+
+				//prendo ultima priorita ed inserisco l'elemento
+				$priorita = getLastPrioritaDaIdModelloPadre($idEnteAdmin, $vecchioModello['id_modello_padre'], $_POST['tipologia']) + 1;
+			}
+
+			if ($_POST['nomeNuovoContenuto'] == '') {
+				$_POST['nomeNuovoContenuto'] = $vecchioModello['titolo'];
+			}
+
+			if (aggiungiModelloTraspPagina($idEnteAdmin,$idSezione, $priorita, $vecchioModello)) {
+				// OPERAZIONE ANDATA A BUON FINE
+				$operazione = true;
+				$operazioneTesto = "Inserimento del nuovo elemento effettuata con successo.";
+
+			} else {
+				// ERRORI NELL'OPERAZIONE
+				$operazione = false;
+				$operazioneTesto = "Problemi in aggiunta del nuovo elemento. Riprovare in seguito.";
+				$codiceErrore = '#00 - Generico';
+			}
+		}
 		
 		if (isset($_POST['id_modello']) and $azione == 'cancellazioneCompleta') {
 			
-			$modelloEliminato = datoModelloTraspById($idEnteAdmin,$_POST['id_modello']);
-			
-			if (eliminaModelloTrasp($_POST['id_modello'])) {
+//			$modelloEliminato = datoModelloTraspById($idEnteAdmin,$_POST['id_modello']);
+
+			if (eliminaModelloTrasp($idEnteAdmin,$_POST['id_sezione_el'],$_POST['id_modello'])) {
 				// OPERAZIONE ANDATA A BUON FINE
 				$operazione = true;
 				$operazioneTesto = "Eliminazione completa elemento effettuata con successo.";
-					
+
 			} else {
 				// ERRORI NELL'OPERAZIONE
 				$operazione = false;
@@ -319,4 +365,6 @@ switch ($menuSecondario) {
 		include ('./app/admin_template/contenuti/speciali.tmp');
 	break;
 }
+
+
 ?>

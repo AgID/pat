@@ -39,14 +39,25 @@
 					echo "id_ente: \"required\",";
 				} ?>
 				data_richiestaVis: "required",
-				data_esitoVis: "required",
+				//data_esitoVis: "required",
+				data_esitoVis: {
+					required: function() {
+						var vr = jQuery('#vis_registro').val();
+						if(vr>0) {
+							return true;
+						} else {
+							return false;
+						}
+					}
+				},
 				oggetto_registro: "required",
 				vis_registro: "required",
 				esito_registro: {
 					required: function(textarea) {
 						CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
 						var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
-						return editorcontent.length === 0;
+						var vr = jQuery('#vis_registro').val();
+						return editorcontent.length === 0 && vr>0;
 					}
 				}
 			},

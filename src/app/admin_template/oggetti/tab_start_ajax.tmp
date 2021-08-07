@@ -31,14 +31,25 @@
 					jQuery('table .intTooltip').tooltip({selector: "a[rel=tooltip]"});
 				}
 
+				if(jQuery('ul .intTooltip').length > 0) {
+					jQuery('ul .intTooltip a[data-rel]').each(function() {
+						jQuery(this).attr('rel', jQuery(this).data('rel'));
+					});
+					jQuery('ul .intTooltip .intTooltip').tooltip({selector: "a[rel=tooltip]"});
+				}
+
 				jQuery('.show_modalIFrame').on('click',
 					function(e){
+						scrollBlock();
 						e.preventDefault();
 					   	var url = jQuery(this).attr("data-href");
 					   	var title= jQuery(this).attr("data-original-title");
 					   	jQuery("#modaleIFrameReview iframe").attr("src", url);
 					   	jQuery("#modaleIFrameReview").modal("show");
 					   	jQuery("#modaleIFrameReview #modaleLabeliFrame").html(title);
+						jQuery("#modaleIFrameReview").on('hidden.bs.modal', function () {
+							scrollActive();
+						});
 					}
 				);
 				jQuery('.btn-errori-element').on('click', function(e) {
@@ -126,8 +137,11 @@
 
 <? // includo gestione delle cancellazioni ed altre operazioni
 include_once("./app/admin_template/operazioni_cancella.tmp");
-if($idOggetto == 4 and moduloAttivo('incarichiPerlaPA')) {
+if($idOggetto == 4 and moduloAttivo('incarichiPerlaPA') and $aclTrasparenza['incarichiPerlaPA']) {
 	include_once("./app/admin_template/operazioni_perlapa.tmp");
+}
+if(($idOggetto == 11 or $idOggetto == 28 or $idOggetto == 60) and moduloAttivo('scp') and $aclTrasparenza['scp']) {
+	include_once("./app/admin_template/operazioni_scp.tmp");
 }
 ?>
 
@@ -165,12 +179,13 @@ echo "</form>";
 	<div class="headtitle">
 		<div class="btn-group">
 			<button data-toggle="dropdown" class="btn dropdown-toggle"><i class="iconfa-th"></i> &nbsp; Operazioni <span class="caret"></span></button>
-			<ul class="dropdown-menu">
+			<ul class="dropdown-menu intTooltip">
 				<? if (!$aclTrasparenza[$menuSecondario]['creazione'] AND !$aclTrasparenza[$menuSecondario]['cancellazione'] AND !$aclTrasparenza[$menuSecondario]['avanzate']) { ?>
 				<li><a><i class="iconfa-info-sign"></i> &nbsp;Nessuna operazione disponibile</a></li>
 				<? } ?>
 				<?
 				if ($aclTrasparenza[$menuSecondario]['creazione']) {
+
 					if(moduloAttivo('bandigara') and $idOggetto == 11) {
 						?>
 						<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=aggiungi&amp;tipo=determina_32"><i class="iconfa-plus-sign"></i> &nbsp;Nuova Delibera a contrarre o atto equivalente</a></li>
@@ -242,10 +257,16 @@ echo "</form>";
 						<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=aggiungi&amp;tipo=liquidazione"><i class="iconfa-plus-sign"></i> &nbsp;Nuova Liquidazione</a></li>
 						<?
 						if(moduloAttivo('incarichiPerlaPA')) {
-							?>
+							if($aclTrasparenza['incarichiPerlaPA']) {?>
 							<li class="divider"></li>
 							<li><a href="#" idtrasm="0" op="insert" class="confTrasm"><i class="iconpat-sign-out"></i>&nbsp;&nbsp;PerlaPA - Trasmissione incarichi selezionati</a></li>
 							<li><a href="#" idtrasm="0" op="delete" class="confTrasm"><i class="iconpat-sign-out"></i>&nbsp;&nbsp;PerlaPA - Cancellazione incarichi selezionati</a></li>
+							<? }
+						} else {
+						    ?>
+							<li class="divider"></li>
+                            <li><a data-placement="left" data-rel="tooltip" data-original-title="PAT &egrave; integrato con PerlaPA: consente il caricamento automatico delle informazioni relative ad incarichi e consulenze sul sistema PerlaPA. Per maggiori informazioni contattare ISWEB S.p.A." rel="tooltip" style="color:gray ;cursor:disabled" idtrasm="0" op="insert" class="confTrasm"><i class="iconpat-sign-out"></i>&nbsp;&nbsp;PerlaPA - Trasmissione incarichi selezionati</a></li>
+                            <li><a data-placement="left" data-rel="tooltip" data-original-title="PAT &egrave; integrato con PerlaPA: consente il caricamento automatico delle informazioni relative ad incarichi e consulenze sul sistema PerlaPA. Per maggiori informazioni contattare ISWEB S.p.A." rel="tooltip" style="color:gray ;cursor:disabled" idtrasm="0" op="delete" class="confTrasm"><i class="iconpat-sign-out"></i>&nbsp;&nbsp;PerlaPA - Cancellazione incarichi selezionati</a></li>
 							<?
 						}
 					} else if($idOggetto == 38) {
@@ -258,12 +279,20 @@ echo "</form>";
 						<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=aggiungi"><i class="iconfa-plus-sign"></i> &nbsp;<? echo $funzioneSottoMenu['azioneNuova']; ?></a></li>
 						<?
 					}
+					if(moduloAttivo('scp') and $aclTrasparenza['scp'] and ($idOggetto == 11 or $idOggetto == 28 or $idOggetto == 60) ) {
+					    ?>
+                        <li class="divider"></li>
+                        <li><a href="#" idtrasm="0" op="insert" class="confTrasmSCP"><i class="iconpat-sign-out"></i>&nbsp;&nbsp;SCP - Trasmissione elementi selezionati</a></li>
+                        <?
+                    }
 				}
 				?>
+
 				<? if ($aclTrasparenza[$menuSecondario]['cancellazione']) { ?>
 				<li class="divider"></li>
 				<li><a href="#" idcanc="0" class="confCanc"><i class="icon-trash"></i> &nbsp;<? echo $funzioneSottoMenu['azioneCancella']; ?></a></li>
 				<? } ?>
+
 				<? if ($aclTrasparenza[$menuSecondario]['avanzate'] and $idOggetto != 61) { ?>
 				<li class="divider"></li>
 				<li><a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=importa"><i class="iconsweets-excel"></i> &nbsp;Importa dati da excel</a></li>
@@ -272,6 +301,16 @@ echo "</form>";
 						<li><a href="Javascript:window.open('export_open_data_csv.php?visualizzaURL=0&id_criterio=136&id_oggetto=<? echo $idOggetto; ?>&id_ente=<? echo $idEnteAdmin; ?>');void(0);"><i class="iconsweets-incoming"></i> &nbsp;Esporta in open data</a></li>
 					<? } ?>
 				<? } ?>
+				<?php 
+				if(count($configurazione['vociMenuObj'][$idOggetto])>0) {
+				    ?>
+				    <li class="divider"></li>
+				    <?
+				}
+				foreach((array)$configurazione['vociMenuObj'][$idOggetto] as $v) {
+				    echo '<li><a href="?'.$v['lnk'].'"><i class="'.$v['ico'].'"></i> &nbsp;'.$v['titolo'].'</a></li>';
+				}
+				?>
 				<? if ($oggOgg->idCategoria) { ?>
 				<li class="divider"></li>
 				<li><a href="#"><i class="iconfa-lock"></i> &nbsp;<? echo $funzioneSottoMenu['azioneSposta']; ?></a></li>

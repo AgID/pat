@@ -75,7 +75,7 @@
 		jQuery('#id_sezione_nuovocont').attr('value',idSez);
 		var btnSottosezione = true;
 		var disabledSottosezione = '';
-		if(idSez == 701 || idSez == 605) {
+		if(idSez == 701 || idSez == 605 || idSez == 811) {
 			btnSottosezione = false;
 			disabledSottosezione = ' (<strong>Non disponibile in questa pagina</strong>)';
 		}
@@ -1018,6 +1018,11 @@ $modelli = array();
 							?>
 							<li id="menuSez<? echo $sezione['id']; ?>"><a href="#" onclick="vediContenuto('sez<? echo $sezione['id']; ?>');"><? echo $sezione['nome']; ?></a>
 							<?
+						} else if($sezione['id'] == 811) {
+						    //cookie policy
+						    ?>
+							<li id="menuSez<? echo $sezione['id']; ?>"><a href="#" onclick="vediContenuto('sez<? echo $sezione['id']; ?>');"><? echo $sezione['nome']; ?></a>
+							<?
 						}
 					}
 					?>
@@ -1421,8 +1426,8 @@ $modelli = array();
 						} 
 					}
 					foreach((array)$sezioni as $sezione) {
-						if($sezione['id'] == 605) {
-							//privacy
+					    if($sezione['id'] == 605 or $sezione['id'] == 811) {
+							//privacy e cookie policy
 								
 							$modelli[$sezione['id']] = datoModelliTrasp($idEnteAdmin,$sezione['id']);
 							

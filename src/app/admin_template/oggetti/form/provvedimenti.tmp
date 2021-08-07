@@ -161,7 +161,7 @@
 			<? creaFormTrasp('Numero del provvedimento','testo', 'numero', '', $istanzaOggetto['numero'], '','input-large',0,'', 0, 0,''); ?>
 
 			<? creaFormTrasp('Oggetto del provvedimento','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
+
 			<?
 			if(moduloAttivo('agid')) { 
 				//creaFormTrasp('Tipologia art. 23','selezione', 'tipo_articolo', 'art. 23 - c.1 - lett. a) del d.lgs. n. 33/2013,art. 23 - c.1 - lett. b) del d.lgs. n. 33/2013,art. 23 - c.1 - lett. c) del d.lgs. n. 33/2013,art. 23 - c.1 - lett. d) del d.lgs. n. 33/2013', $istanzaOggetto['tipo_articolo'], '','input-xlarge');
@@ -170,8 +170,14 @@
 				creaFormTrasp('Tipologia art. 23','selezione', 'tipo_articolo', $val, $istanzaOggetto['tipo_articolo'], $eti,'input-medium');
 			}
 			?>
-			
-			<?
+
+            <?
+            if(moduloAttivo('scp')) {
+                creaFormTrasp('Tipologia','selezione', 'scp_tipologia_atto', '13,16,17,18,22,23,24,25,26', $istanzaOggetto['scp_tipologia_atto'], 'Provvedimento di aggiudicazione non efficace con elenco verbali delle commissione di gara, Provvedimento di revoca dell\'aggiudicazione o dell\'adesione, Provvedimento di gara non aggiudicata o deserta, Provvedimento di aggiudicazione efficace, Provvedimento di autorizzazione subappalto, Atto per eventuale scioglimento contratto per eccesso durata sospensione esecuzione, Provvedimento di eventuali modifiche al contratto d\'appalto, Provvedimento di eventuale recesso dal contratto, Provvedimento di eventuale risoluzione del contratto','input-xxlarge',0,'', 0, 0,false,true);
+            }
+            ?>
+
+            <?
 			/*
 			$tipiProvvedimento = 'provvedimento dirigenziale,provvedimento organo politico';
 			$tipiProvvedimentoEti = 'provvedimento dirigenziale,provvedimento organo indirizzo-politico';
@@ -240,9 +246,13 @@
 				creaFormTrasp('Estremi documenti principali','areatesto', 'estremi', '', $istanzaOggetto['estremi'], '','input-xxlarge');
 				echo '</div>';
 			}
-			
-			creaFormTrasp('Procedura relativa (scelta del contraente)','bandogara_from_provvedimento', 'id_procedura', '', $istanzaOggetto['id_procedura'], '', 'input-xxlarge');
-			
+
+            if(moduloAttivo('scp')) {
+                creaFormTrasp('Procedura relativa<br>(scelta del contraente)','bandogara_from_provvedimento', 'id_procedura', '', $istanzaOggetto['id_procedura'], '', 'input-xxlarge',0,'', 0, 0,false,true);
+            } else {
+                creaFormTrasp('Procedura relativa (scelta del contraente)','bandogara_from_provvedimento', 'id_procedura', '', $istanzaOggetto['id_procedura'], '', 'input-xxlarge');
+            }
+
 			creaFormTrasp('Note (scelta del contraente)','html', 'scelta_contraente', '', $istanzaOggetto['scelta_contraente'], '','');
 
 			creaFormTrasp('Note','html', 'note', '', $istanzaOggetto['note'], '','');

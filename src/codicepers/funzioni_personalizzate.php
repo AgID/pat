@@ -1,5 +1,5 @@
 <?
-// mettere qui funzioni ad hoc per i progetti un pò più personalizzati
+// mettere qui funzioni ad hoc per i progetti in deploy
 
 if($idDocumento and $idOggetto == 4) {
 	$inc = mostraDatoOggetto($idDocumento,4,'*');
@@ -114,7 +114,7 @@ function inviaNotificaAppuntamento($idEvento) {
 	$_POST['email'] = $appuntamento['email'];
 	$_POST['notifica'] = 1;
 	
-	centroComunicazioni('webapp_modifica',"L'utente segnalato ha modificato istanza <b>".$appuntamento['nome_completo']."</b> di ".$o->nomeOggetto." in modalità web application.",$idOggetto);
+	centroComunicazioni('webapp_modifica',"L'utente segnalato ha modificato istanza <b>".$appuntamento['nome_completo']."</b> di ".$o->nomeOggetto." in web application.",$idOggetto);
 	
 }
 
@@ -129,7 +129,7 @@ function inviaNotificaAppuntamentoAnnullato($idEvento) {
 	$_POST['email'] = $appuntamento['email'];
 	$_POST['notifica'] = 1;
 	
-	centroComunicazioni('webapp_cancella',"L'utente segnalato ha cancellato istanza <b>".$appuntamento['nome_completo']."</b> di ".$o->nomeOggetto." in modalità web application.",$idOggetto);
+	centroComunicazioni('webapp_cancella',"L'utente segnalato ha cancellato istanza <b>".$appuntamento['nome_completo']."</b> di ".$o->nomeOggetto." in web application.",$idOggetto);
 	
 }
 
@@ -208,15 +208,26 @@ function elencoCigMultipli($istanzaOggetto) {
 		$out = "";
 		$totale = 0;
 		$lotti = prendiLotti($istanzaOggetto['id_record_cig_principale']);
+		if(count($lotti)>0) {
+		    $out .= "<ul>";
+		}
 		foreach ((array)$lotti as $lotto) {
 			$outValore = $lotto['valore_base_asta'];
 			if(floatval($lotto['valore_base_asta']) > 0) {
 				$outValore = number_format($lotto['valore_base_asta'], 2, ',', '.');
 			}
+		    $out .= "<li>";
 			$out .= "<div class=\"campoOggetto114\"> CIG: <a href=\"".$base_url."index.php?id_oggetto=11&amp;id_cat=".$lotto['id_sezione']."&amp;id_doc=".$lotto['id']."\">".$lotto['cig']."</a> - Importo dell'appalto: &euro; ".$outValore."</div>";
+			if($lotto['oggetto'] != $istanzaOggetto['oggetto']) {
+			    $out .= "<div class=\"campoOggetto114\"> Oggetto: <a href=\"".$base_url."index.php?id_oggetto=11&amp;id_cat=".$lotto['id_sezione']."&amp;id_doc=".$lotto['id']."\">".$lotto['oggetto']."</a></div>";
+			}
+			$out .= "</li>";
 			if(floatval($lotto['valore_base_asta']) > 0) {
 				$totale += floatval($lotto['valore_base_asta']);
 			}
+		}
+		if(count($lotti)>0) {
+		    $out .= "</ul>";
 		}
 		if(count($lotti) > 0 and $lotti[0]['id'] > 0) {
 			echo $out;
@@ -246,7 +257,7 @@ function selectRicercaStruttura($campo, $etichetta = 'Struttura', $classCampo = 
 	
 	$sql = "SELECT id,nome_ufficio FROM ".$dati_db['prefisso']."oggetto_uffici WHERE (id_ente = ".$idEnte.") AND permessi_lettura != 'H' AND (__archiviata != 1 OR __archiviata IS NULL) ".$condizioneID." ORDER BY nome_ufficio";
 	if ( !($result = $database->connessioneConReturn($sql)) ) {
-		mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+		mostraAvviso(0,'Errore in questo campo: se presente, ï¿½ probabile ci sia un errore nella condizione aggiuntiva.');
 	}
 	$istanze = $database->sqlArrayAss($result);				
 	foreach ((array)$istanze as $istanza) {
@@ -293,7 +304,7 @@ function ricercaOggettoProvvedimenti($campo, $etichetta = 'Oggetto', $classCampo
 		echo '<div class="'.$classCampo.'">
 			<div style="white-space: nowrap; display: inline;">
 				<label for="'.$campo.'" class="labelClass">'.$etichetta.' </label>
-				<input type="text" class="'.$classForm.'" id="'.$campo.'" name="'.$campo.'" title="'.$campo.'" placeholder="qualunque" value="'.addslashes($_POST[$campo]).'" />
+				<input type="text" class="'.$classForm.'" id="'.$campo.'" name="'.$campo.'" title="'.$campo.'" placeholder="qualunque" value="'.addslashes(forzaStringa($_POST[$campo])).'" />
 			</div>
 		</div>';
 	}
@@ -305,7 +316,7 @@ function selectRicercaStrutturaTestuale($campo, $etichetta = 'Struttura', $class
 
 	$sql = "SELECT DISTINCT(struttura_nome) AS nome FROM ".$dati_db['prefisso']."oggetto_tassi_assenza WHERE (id_ente = ".$idEnte.") ORDER BY struttura_nome";
 	if ( !($result = $database->connessioneConReturn($sql)) ) {
-		mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+		mostraAvviso(0,'Errore in questo campo: se presente, probabile ci sia un errore nella condizione aqggiuntiva.');
 	}
 	$istanze = $database->sqlArrayAss($result);
 	foreach ((array)$istanze as $istanza) {
@@ -330,7 +341,7 @@ function selectRicercaAnnoTA($campo, $etichetta = 'Anno', $classCampo = 'campoOg
 
 	$sql = "SELECT DISTINCT(anno) AS anno FROM ".$dati_db['prefisso']."oggetto_tassi_assenza WHERE (id_ente = ".$idEnte.") ORDER BY anno";
 	if ( !($result = $database->connessioneConReturn($sql)) ) {
-		mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+		mostraAvviso(0,'Errore in questo campo: se presente, probabile ci sia un errore nella condizione aqggiuntiva.');
 	}
 	$istanze = $database->sqlArrayAss($result);
 	foreach ((array)$istanze as $istanza) {
@@ -355,7 +366,7 @@ function selectRicercaAnnoControlliRilievi($campo, $etichetta = 'Anno', $classCa
 
 	$sql = "SELECT DISTINCT(DATE_FORMAT(FROM_UNIXTIME(data), '%Y')) AS anno FROM ".$dati_db['prefisso']."oggetto_controlli_rilievi WHERE (id_ente = ".$idEnte.") AND data > 0 ORDER BY anno";
 	if ( !($result = $database->connessioneConReturn($sql)) ) {
-		mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+		mostraAvviso(0,'Errore in questo campo: se presente, probabile ci sia un errore nella condizione aqggiuntiva.');
 	}
 	$istanze = $database->sqlArrayAss($result);
 	foreach ((array)$istanze as $istanza) {
@@ -438,7 +449,7 @@ function ricercaNomeUfficio($campo, $etichetta = 'Nome ufficio', $classCampo = '
 	if(moduloAttivo('ricerca_nome_ufficio_select')) {
 		$sql = "SELECT id,nome_ufficio FROM ".$dati_db['prefisso']."oggetto_uffici WHERE (id_ente = ".$idEnte.") AND permessi_lettura != 'H' ORDER BY nome_ufficio";
 		if ( !($result = $database->connessioneConReturn($sql)) ) {
-			mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+			mostraAvviso(0,'Errore in questo campo: se presente, probabile ci sia un errore nella condizione aqggiuntiva.');
 		}
 		$istanze = $database->sqlArrayAss($result);				
 		foreach ((array)$istanze as $istanza) {
@@ -477,6 +488,7 @@ function selectRicercaResponsabile($campo) {
 		$campoRicerca = explode('_mcrt_', $campo);
 		$campoRicerca = $campoRicerca[0];
 		$sql = "SELECT GROUP_CONCAT(DISTINCT(".$campoRicerca.")) AS idExt FROM ".$dati_db['prefisso'].$or->tabella." WHERE (id_ente = ".$idEnte.") AND permessi_lettura != 'H' AND ".$campoRicerca.">0";
+		//echo $sql.'<br/>'; 
 		if ( !($result = $database->connessioneConReturn($sql)) ) {}
 		$istanza = $database->sqlArray($result);
 		if($istanza['idExt'] != '') {
@@ -484,9 +496,9 @@ function selectRicercaResponsabile($campo) {
 		}
 	}
 	
-	$sql = "SELECT id,referente FROM ".$dati_db['prefisso']."oggetto_riferimenti WHERE (id_ente = ".$idEnte.") AND permessi_lettura != 'H' ".$condizioneID." ORDER BY referente";
+	$sql = "SELECT id,referente FROM ".$dati_db['prefisso']."oggetto_riferimenti WHERE (id_ente = ".$idEnte.") AND permessi_lettura != 'H' AND (__archiviata != 1 OR __archiviata IS NULL) ".$condizioneID." ORDER BY referente";
 	if ( !($result = $database->connessioneConReturn($sql)) ) {
-		mostraAvviso(0,'Errore in questo campo: se presente, è probabile ci sia un errore nella condizione aqggiuntiva.');
+		mostraAvviso(0,'Errore in questo campo: se presente, probabile ci sia un errore nella condizione aqggiuntiva.');
 	}
 	$istanze = $database->sqlArrayAss($result);				
 	foreach ((array)$istanze as $istanza) {
@@ -824,13 +836,30 @@ function linkLetturaReferente($istanzaOggetto, $stile = 0) {
 		$nomeOgg = $istanzaOggetto['referente'];
 	}
 	$strAncora = $base_url . "index.php?id_oggetto=3&amp;id_cat=" . $istanzaOggetto['id_sezione']. "&amp;id_doc=" . $istanzaOggetto['id'];
-	echo "<div class=\"campoOggetto".$stile."\"><a href=\"".$strAncora."\"><strong>".$istanzaOggetto['tit']." ".$nomeOgg."</strong></a></div>";
+	echo "<div class=\"campoOggetto".$stile."\"><a href=\"".$strAncora."\"><strong><div class=\"capitalizeFirst\">".$istanzaOggetto['tit']."</div> ".$nomeOgg."</strong></a></div>";
 }
 
 function visualizzaResponsabile($istanzaOggetto, $cls = 'campoOggetto78') {
 	global $database, $dati_db, $configurazione, $idEnte, $server_url, $base_url,$idSezione;
 	
 	$referenti = explode(',',$istanzaOggetto['referente']);
+	//lognormale('',$referenti);
+	//MODIFICA TRENTO escludere dalla visualizzazione responsabili archiviati choedere se estendere a tutti
+	if((int)$idEnte===239){
+		//echo $istanzaOggetto['referente'];	
+		$listaReferenti = $istanzaOggetto['referente'];	
+		$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_riferimenti WHERE id_ente='".$idEnte."' AND id in (".$listaReferenti.") AND __archiviata!='1';";
+		//echo $sql.'<br/>'; 
+		if ( !($risultato = $database->connessioneConReturn($sql)) ) {
+			die('ERRORE: Ragione Sociale Fornitore o CF Fornitore non presente: '.$sql);
+		}
+		$referenti = $database->sqlArrayAss($risultato);
+		//lognormale('',$referenti);
+		foreach($referenti as $referente) {
+			$referenti[] = $referente['id'];
+		}
+	}
+	//MODIFICA TRENTO escludere dalla visualizzazione responsabili archiviati
 	
 	if(count($referenti) > 0 and $referenti[0] > 0) {
 		
@@ -874,35 +903,41 @@ function visualizzaResponsabile($istanzaOggetto, $cls = 'campoOggetto78') {
 }
 
 function visualizzaStruttureResponsabile($istanzaOggetto) {
-	$docRif = new documento(13);
-	$docRiferiti = $docRif->caricaDocumentiCampo('referente', $istanzaOggetto['id']);
-	$outputScreen = '';
-	if (count($docRiferiti)) {
-		$struttureNorm = array();
-		$struttureAdInt = array();
-		foreach ($docRiferiti as $oggTmp) {
-			if($oggTmp['ad_interim']) {
-				$struttureAdInt[] = $oggTmp;
-			} else {
-				$struttureNorm[] = $oggTmp;
-			}
-		}
-		foreach ($struttureNorm as $oggTmp) {
-			if (is_array($oggTmp)) {
-				$strAncora = $base_url . "index.php?id_oggetto=13&amp;id_cat=" . $oggTmp['id_sezione'] . "&amp;id_doc=" . $oggTmp['id'];
-				$valoreLabel = $oggTmp[$docRif->campo_default];
-				$outputScreen .= "<div><a href=\"" . $strAncora . "\">" . $valoreLabel . "</a></div>";
-			}
-		}
-		foreach ($struttureAdInt as $oggTmp) {
-			if (is_array($oggTmp)) {
-				$strAncora = $base_url . "index.php?id_oggetto=13&amp;id_cat=" . $oggTmp['id_sezione'] . "&amp;id_doc=" . $oggTmp['id'];
-				$valoreLabel = $oggTmp[$docRif->campo_default].' - ad interim';
-				$outputScreen .= "<div><a href=\"" . $strAncora . "\">" . $valoreLabel . "</a></div>";
-			}
-		}
-		echo $outputScreen;
-	}
+    global $entePubblicato;
+    
+    if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/template/oggetti/personale/visualizzaStruttureResponsabile.php')) {
+        include('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/template/oggetti/personale/visualizzaStruttureResponsabile.php');
+    } else {
+    	$docRif = new documento(13);
+    	$docRiferiti = $docRif->caricaDocumentiCampo('referente', $istanzaOggetto['id']);
+    	$outputScreen = '';
+    	if (count($docRiferiti)) {
+    		$struttureNorm = array();
+    		$struttureAdInt = array();
+    		foreach ($docRiferiti as $oggTmp) {
+    			if($oggTmp['ad_interim']) {
+    				$struttureAdInt[] = $oggTmp;
+    			} else {
+    				$struttureNorm[] = $oggTmp;
+    			}
+    		}
+    		foreach ($struttureNorm as $oggTmp) {
+    			if (is_array($oggTmp)) {
+    				$strAncora = $base_url . "index.php?id_oggetto=13&amp;id_cat=" . $oggTmp['id_sezione'] . "&amp;id_doc=" . $oggTmp['id'];
+    				$valoreLabel = $oggTmp[$docRif->campo_default];
+    				$outputScreen .= "<div><a href=\"" . $strAncora . "\">" . $valoreLabel . "</a></div>";
+    			}
+    		}
+    		foreach ($struttureAdInt as $oggTmp) {
+    			if (is_array($oggTmp)) {
+    				$strAncora = $base_url . "index.php?id_oggetto=13&amp;id_cat=" . $oggTmp['id_sezione'] . "&amp;id_doc=" . $oggTmp['id'];
+    				$valoreLabel = $oggTmp[$docRif->campo_default].' - ad interim';
+    				$outputScreen .= "<div><a href=\"" . $strAncora . "\">" . $valoreLabel . "</a></div>";
+    			}
+    		}
+    		echo $outputScreen;
+    	}
+    }
 }
 
 function visualizzaTabellaIndicizzazione($istanzaOggetto) {
@@ -938,7 +973,7 @@ function formazionePersonale($istanzaOggetto) {
 	if($istanzaOggetto['formazione_personale'] != '') {
 		$array = json_decode($istanzaOggetto['formazione_personale']);
 		if(count($array)> 0) {
-			$out = '<h4 class="campoOggetto86">Dati sulla formazione</h4><div class="oggetto76"><div class="table-responsive"><table class="table table-bordered table-hover vistaTabella"><tr><th>Descrizione attività</th><th>Dal</th><th>Al</th></tr>';
+			$out = '<h4 class="campoOggetto86">Dati sulla formazione</h4><div class="oggetto76"><div class="table-responsive"><table class="table table-bordered table-hover vistaTabella"><tr><th>Descrizione attivitï¿½</th><th>Dal</th><th>Al</th></tr>';
 			foreach((array)$array as $t) {
 				$out .= '<tr><td>'.$t->descrizione.'</td><td>'.ricavaDataJTable($t->data_dal).'</td><td>'.ricavaDataJTable($t->data_al).'</td></tr>';
 			}
@@ -953,9 +988,14 @@ function tabellaErogatoSovvenzioni($istanzaOggetto) {
 	
 	if($istanzaOggetto['tipologia'] == 'sovvenzione') {
 		$totale = 0;
+		/*
+		 $sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_sovvenzioni WHERE id_ente=".$idEnte." "
+		 ." AND id_sovvenzione = ".$istanzaOggetto['id']
+		 ." ORDER BY data_compenso_erogato DESC";
+		 */
 		$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_sovvenzioni WHERE id_ente=".$idEnte." "
-				." AND id_sovvenzione = ".$istanzaOggetto['id']
-				." ORDER BY data_compenso_erogato DESC";
+		    ." AND id_sovvenzione = ".$istanzaOggetto['id']
+		    ." ORDER BY data DESC";
 		if ( !($result = $database->connessioneConReturn($sql)) ) {}
 		$recs = $database->sqlArrayAss($result);
 		if(count($recs)) {
@@ -983,9 +1023,14 @@ function tabellaErogatoIncarichi($istanzaOggetto) {
 
 	if($istanzaOggetto['tipologia'] == 'incarico') {
 		$totale = 0;
+		/*
+		 $sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_incarichi WHERE id_ente=".$idEnte." "
+		 ." AND id_incarico = ".$istanzaOggetto['id']
+		 ." ORDER BY data_compenso_erogato DESC";
+		 */
 		$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_incarichi WHERE id_ente=".$idEnte." "
-				." AND id_incarico = ".$istanzaOggetto['id']
-				." ORDER BY data_compenso_erogato DESC";
+		    ." AND id_incarico = ".$istanzaOggetto['id']
+		    ." ORDER BY data_liquidazione DESC";
 		if ( !($result = $database->connessioneConReturn($sql)) ) {}
 		$recs = $database->sqlArrayAss($result);
 		if(count($recs)) {
@@ -1679,6 +1724,11 @@ function visualizzaAllegatiDinamici($ist, $opzioni = array()) {
 	if(count($lista)>0) {
 		//prendo id_oggetto del primo allegato (saranno tutti dello stesso oggetto) per verificare se ordinarli per categoria
 		$ido = $lista[0]['id_oggetto'];
+		
+		if($configurazione['nascondi_allegati_oggetto_'.$ido]) {
+		    return;
+		}
+		
 		$listaPerCategoria[0] = $lista;
 		if(count($configurazione['categoriaAllegato'][$ido])) {
 			$listaPerCategoria = array();
@@ -1693,13 +1743,29 @@ function visualizzaAllegatiDinamici($ist, $opzioni = array()) {
 				$out .= '<div class="categoriaAllegato">'.$cat.'</div>';
 			}
 			foreach((array)$lista as $istanzaOggetto) {
-				if((!moduloAttivo('privacy') OR (!$istanzaOggetto['omissis'] AND moduloAttivo('privacy')))) {
+				//if((!moduloAttivo('privacy') OR (!$istanzaOggetto['omissis'] AND moduloAttivo('privacy')))) {
+			    if((!moduloAttivo('privacy') OR ($istanzaOggetto['permessi_lettura']!='H' AND moduloAttivo('privacy')))) {
 					$posPunto = strrpos($istanzaOggetto['file_allegato'], ".");
 					$estFile = strtolower(substr($istanzaOggetto['file_allegato'], ($posPunto +1)));
 					if (!file_exists("grafica/file/small/" . $estFile . ".gif")) {
 						$estFile = "generica";
 					}
-					$grandezza = @filesize($uploadPath . "oggetto_allegati/" . $temp. $istanzaOggetto['file_allegato']);
+					
+					// 2020-10-08 FILIPPO - Nuova mofifica con l'applicazione dellla pulizia dei nomi dei file..
+					require_once('./app/classi/funzioniGeneriche.php');
+
+					if(file_exists($uploadPath . "oggetto_allegati/" . $temp. $istanzaOggetto['file_allegato'])) { // Retrocompatibilitï¿½
+
+						$grandezza = @filesize($uploadPath . "oggetto_allegati/" . $temp. $istanzaOggetto['file_allegato']);
+
+					} else {
+
+						$tempDataFile = explode('O__O' , $istanzaOggetto['file_allegato']);
+						$newFile = $tempDataFile[0] . 'O__O' . correttoreCaratteriFileCompleto($tempDataFile[1]);
+						$grandezza = @filesize($uploadPath . "oggetto_allegati/" . $temp. $newFile);
+						
+					}
+					
 					
 					if (strpos($istanzaOggetto['file_allegato'], "O__O")) {
 						$valoreLabel = (substr($istanzaOggetto['file_allegato'], strpos($istanzaOggetto['file_allegato'], "O__O") + 4));
@@ -1707,18 +1773,24 @@ function visualizzaAllegatiDinamici($ist, $opzioni = array()) {
 						$valoreLabel = ($istanzaOggetto['file_allegato']);
 					}
 					$um = $istanzaOggetto['data_creazione'];
+					$agg = '';
 					if($istanzaOggetto['ultima_modifica']>0) {
-					    $um = $istanzaOggetto['ultima_modifica'];
+					    //$um = $istanzaOggetto['ultima_modifica'];
+					    $agg = date('d/m/Y',$istanzaOggetto['ultima_modifica']).' - ';
+					    $ultima_modifica = 'Aggiornato il ' .$agg;
 					}
 					if($um > 0) {
 					    $um = date('d/m/Y',$um).' - ';
 					} else {
 					    $um = '';
 					}
+					if($configurazione['nascondi_data_um_allegati']) {
+					    $um = '';
+					}
 					if($configurazione['allegato_solo_nome'] and $istanzaOggetto['nome'] != '') {
-					    $out .= '<div class="'.$opzioni['classe_allegato'].'"><a href="'.$base_url.'moduli/downloadFile.php?file=oggetto_allegati/'.$temp.urlencode($istanzaOggetto['file_allegato']).'">'.$istanzaOggetto['nome'].'</a> ('.$um.round($grandezza/1000).' kb - '.$estFile.') <img style="vertical-align:middle" src="'.$base_url.'grafica/file/small/'.$estFile.'.gif" alt="File con estensione '.$estFile.'" /></div>';
+					    $out .= '<div class="'.$opzioni['classe_allegato'].'"><a href="'.$base_url.'moduli/downloadFile.php?file=oggetto_allegati/'.$temp.urlencode($istanzaOggetto['file_allegato']).'">'.$istanzaOggetto['nome'].'</a> (Pubblicato il '.$um.$ultima_modifica.round($grandezza/1000).' kb - '.$estFile.') <img style="vertical-align:middle" src="'.$base_url.'grafica/file/small/'.$estFile.'.gif" alt="File con estensione '.$estFile.'" /></div>';
 					} else {
-    					$out .= '<div class="'.$opzioni['classe_allegato'].'">'.$istanzaOggetto['nome'].': <a href="'.$base_url.'moduli/downloadFile.php?file=oggetto_allegati/'.$temp.urlencode($istanzaOggetto['file_allegato']).'">'.$valoreLabel.'</a> ('.$um.round($grandezza/1000).' kb - '.$estFile.') <img style="vertical-align:middle" src="'.$base_url.'grafica/file/small/'.$estFile.'.gif" alt="File con estensione '.$estFile.'" /></div>';
+    					$out .= '<div class="'.$opzioni['classe_allegato'].'">'.$istanzaOggetto['nome'].': <a href="'.$base_url.'moduli/downloadFile.php?file=oggetto_allegati/'.$temp.urlencode($istanzaOggetto['file_allegato']).'">'.$valoreLabel.'</a> (Pubblicato il '.$um.$ultima_modifica.round($grandezza/1000).' kb - '.$estFile.') <img style="vertical-align:middle" src="'.$base_url.'grafica/file/small/'.$estFile.'.gif" alt="File con estensione '.$estFile.'" /></div>';
 					}
 				}
 			}
@@ -1749,7 +1821,7 @@ function human_filesize($bytes, $decimals = 2) {
 function visualizzaDataAggiornamento($istanzaOggetto) {
 	global $inAmministrazione;
 	if(!$inAmministrazione) {
-		echo '<div id="dataAggiornamento">Contenuto inserito il '.visualizzaData($istanzaOggetto['data_creazione'],'d-m-Y').' aggiornato al '.visualizzaData($istanzaOggetto['ultima_modifica'],'d-m-Y').'</div>';
+		echo '<div id="dataAggiornamento">Contenuto creato il '.visualizzaData($istanzaOggetto['data_creazione'],'d-m-Y').' aggiornato al '.visualizzaData($istanzaOggetto['ultima_modifica'],'d-m-Y').'</div>';
 	}
 }
 
@@ -1794,6 +1866,9 @@ function selectRicercaTipologiaOgg11($campo, $etichetta = 'Tipologia', $classCam
 		    'val' => 'delibere e determine a contrarre',
 		    'eti' => 'determina art. 57 comma 6 dlgs. 163/2006'
 		);
+	}
+	if(count($configurazione['visualizza_select_ricerca_tipologia_bando_pers'])>0) {
+	    $istanze = $configurazione['visualizza_select_ricerca_tipologia_bando_pers'];
 	}
 	
 	//evito visualizzazione sulla pagina dei pagamenti
@@ -1845,15 +1920,125 @@ function selectRicercaTipologiaOgg11($campo, $etichetta = 'Tipologia', $classCam
 			}
 			$options .= "<option value=\"".$istanzaContratto['val']."\"".$stringa." title=\"".$istanzaContratto['eti']."\">".$istanzaContratto['eti']."</option>";
 		}
+		$label = 'Contratto';
+		if($configurazione['visualizza_select_ricerca_contratto_bando_label'] != '') {
+		    $label = $configurazione['visualizza_select_ricerca_contratto_bando_label'];
+		}
 		echo '<div class="'.$classCampo.'">
 			<span style="white-space: nowrap;">
-				<label for="contratto_mcrt_21" class="labelClass">Contratto </label>
+				<label for="contratto_mcrt_21" class="labelClass">'.$label.' </label>
 				<select class="'.$classForm.'" id="contratto_mcrt_21" name="contratto_mcrt_21">
 					'.$options.'
 				</select>
 			</span>
 		</div>';
 	}
+	
+	//stato del bando in base alle date
+	if($configurazione['visualizza_select_ricerca_stato_bando']) {
+	    $options = '';
+	    $istanzeContratto = array();
+	    $istanzeContratto[] = array(
+	        'val' => 'qualunque',
+	        'eti' => 'qualunque'
+	    );
+	    $istanzeContratto[] = array(
+	        'val' => 'in_corso',
+	        'eti' => 'in corso'
+	    );
+	    $istanzeContratto[] = array(
+	        'val' => 'in_aggiudicazione',
+	        'eti' => 'in aggiudicazione'
+	    );
+	    $istanzeContratto[] = array(
+	        'val' => 'aggiudicati',
+	        'eti' => 'aggiudicati'
+	    );
+	    foreach ((array)$istanzeContratto as $istanzaContratto) {
+	        $stringa = '';
+	        if ($istanzaContratto['val'] == $_POST['statobando_mcrt_21']) {
+	            $stringa = ' selected="selected" ';
+	        }
+	        $options .= "<option value=\"".$istanzaContratto['val']."\"".$stringa." title=\"".$istanzaContratto['eti']."\">".$istanzaContratto['eti']."</option>";
+	    }
+	    echo '<div class="'.$classCampo.'">
+			<span style="white-space: nowrap;">
+				<label for="statobando_mcrt_21" class="labelClass">Stato </label>
+				<select class="'.$classForm.'" id="statobando_mcrt_21" name="statobando_mcrt_21">
+					'.$options.'
+				</select>
+			</span>
+		</div>';
+	}
+	
+	if($configurazione['visualizza_select_ricerca_scelta_contr_bando']) {
+	    $options = '';
+	    $istanze = array();
+	    $istanze[] = array( 'val' => 'qualunque', 'eti' => 'qualunque' );
+	    $istanze[] = array( 'val' => '01', 'eti' => '01-PROCEDURA APERTA' );
+	    $istanze[] = array( 'val' => '02', 'eti' => '02-PROCEDURA RISTRETTA' );
+	    $istanze[] = array( 'val' => '03', 'eti' => '03-PROCEDURA NEGOZIATA PREVIA PUBBLICAZIONE' );
+	    $istanze[] = array( 'val' => '04', 'eti' => '04-PROCEDURA NEGOZIATA SENZA PREVIA PUBBLICAZIONE' );
+	    $istanze[] = array( 'val' => '05', 'eti' => '05-DIALOGO COMPETITIVO' );
+	    $istanze[] = array( 'val' => '06', 'eti' => '06-PROCEDURA NEGOZIATA SENZA PREVIA INDIZIONE DI GARA (SETTORI SPECIALI)' );
+	    $istanze[] = array( 'val' => '07', 'eti' => '07-SISTEMA DINAMICO DI ACQUISIZIONE' );
+	    $istanze[] = array( 'val' => '08', 'eti' => '08-AFFIDAMENTO IN ECONOMIA - COTTIMO FIDUCIARIO' );
+	    $istanze[] = array( 'val' => '14', 'eti' => '14-PROCEDURA SELETTIVA EX ART 238 C.7 D.LGS. 163/2006' );
+	    $istanze[] = array( 'val' => '17', 'eti' => '17-AFFIDAMENTO DIRETTO EX ART. 5 DELLA LEGGE 381/91' );
+	    $istanze[] = array( 'val' => '21', 'eti' => '21-PROCEDURA RISTRETTA DERIVANTE DA AVVISI CON CUI SI INDICE LA GARA' );
+	    $istanze[] = array( 'val' => '22', 'eti' => '22-PROCEDURA NEGOZIATA CON PREVIA INDIZIONE DI GARA (SETTORI SPECIALI)' );
+	    $istanze[] = array( 'val' => '23', 'eti' => '23-AFFIDAMENTO DIRETTO' );
+	    $istanze[] = array( 'val' => '24', 'eti' => '24-AFFIDAMENTO DIRETTO A SOCIETA\' IN HOUSE' );
+	    $istanze[] = array( 'val' => '25', 'eti' => '25-AFFIDAMENTO DIRETTO A SOCIETA\' RAGGRUPPATE/CONSORZIATE O CONTROLLATE NELLE CONCESSIONI E NEI PARTENARIATI' );
+	    $istanze[] = array( 'val' => '26', 'eti' => '26-AFFIDAMENTO DIRETTO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE' );
+	    $istanze[] = array( 'val' => '27', 'eti' => '27-CONFRONTO COMPETITIVO IN ADESIONE AD ACCORDO QUADRO/CONVENZIONE' );
+	    $istanze[] = array( 'val' => '28', 'eti' => '28-PROCEDURA AI SENSI DEI REGOLAMENTI DEGLI ORGANI COSTITUZIONALI' );
+	    $istanze[] = array( 'val' => '29', 'eti' => '29-PROCEDURA RISTRETTA SEMPLIFICATA' );
+	    $istanze[] = array( 'val' => '30', 'eti' => '30-PROCEDURA DERIVANTE DA LEGGE REGIONALE' );
+	    $istanze[] = array( 'val' => '31', 'eti' => '31-AFFIDAMENTO DIRETTO PER VARIANTE SUPERIORE AL 20% DELL\'IMPORTO CONTRATTUALE' );
+	    $istanze[] = array( 'val' => '32', 'eti' => '32-AFFIDAMENTO RISERVATO' );
+	    $istanze[] = array( 'val' => '33', 'eti' => '33-PROCEDURA NEGOZIATA PER AFFIDAMENTI SOTTO SOGLIA' );
+	    $istanze[] = array( 'val' => '34', 'eti' => '34-PROCEDURA ART.16 COMMA 2-BIS DPR 380/2001 PER OPERE URBANIZZAZIONE A SCOMPUTO PRIMARIE SOTTO SOGLIA COMUNITARIA' );
+	    $istanze[] = array( 'val' => '35', 'eti' => '35-PARTERNARIATO PER Lï¿½INNOVAZIONE' );
+	    $istanze[] = array( 'val' => '36', 'eti' => '36-AFFIDAMENTO DIRETTO PER LAVORI SERVIZI O FORNITURE SUPPLEMENTARI' );
+	    $istanze[] = array( 'val' => '37', 'eti' => '37-PROCEDURA COMPETITIVA CON NEGOZIAZIONE' );
+	    $istanze[] = array( 'val' => '38', 'eti' => '38-PROCEDURA DISCIPLINATA DA REGOLAMENTO INTERNO PER SETTORI SPECIALI' );
+	    
+	    foreach ((array)$istanze as $istanza) {
+	        $stringa = '';
+	        if ($istanza['val'] == $_POST['scelta_contr_mcrt_21']) {
+	            $stringa = ' selected="selected" ';
+	        }
+	        $options .= "<option value=\"".$istanza['val']."\"".$stringa." title=\"".$istanza['eti']."\">".$istanza['eti']."</option>";
+	    }
+	    echo '<div id="id_scelta_contr" class="'.$classCampo.'" style="display:none;">
+			<span style="white-space: nowrap;">
+				<label for="scelta_contr_mcrt_21" class="labelClass">Scelta del contraente </label>
+				<select class="'.$classForm.'" id="scelta_contr_mcrt_21" name="scelta_contr_mcrt_21">
+					'.$options.'
+				</select>
+			</span>
+		</div>
+        <script type="text/javascript">
+        	jQuery(document).ready(function(){
+        		function showSceltaContraente() {
+        			v = jQuery("#tipologia_mcrt_180").val();
+        			if(v == "bandi ed inviti" || v == "pers__esiti|affidamenti") {
+        				jQuery("#id_scelta_contr").show();
+        			} else {
+        				jQuery("#id_scelta_contr").hide();
+                        jQuery("#scelta_contr_mcrt_21").val("qualunque");
+        			}
+        		}
+        		showSceltaContraente();
+        		jQuery("#tipologia_mcrt_180").on("change", function(){
+        			showSceltaContraente();
+        		});
+        	});
+        </script>'
+	    ;
+	}
+	
 }
 
 function ricercaBandiHidden() {
@@ -2143,10 +2328,129 @@ function getCodComuni() {
 }
 
 function visualizzaColScadenzaConcorsi() {
-    global $configurazione;
-    if($configurazione['visualizzaColScadenzaConcorsi']) {
+    global $configurazione,$idSezione;
+    if($configurazione['visualizzaColScadenzaConcorsi'] or $idSezione == 640 or $idSezione == 806) {
         return true;
     }
     return false;
+}
+function visualizzaInQuestaStrutturaLetturaUfficio() {
+    global $configurazione;
+    if($configurazione['nascondiInQuestaStrutturaLetturaUfficio']) {
+        return false;
+    }
+    return true;
+}
+
+function pubblicaStatoProcedura($istanzaOggetto) {
+	global $database, $dati_db, $configurazione;
+	
+    $oggi = mktime (00,0,00,date("m"),date("d"),date("Y"));
+    $domani = mktime (00,00,00,date("m"),date("d")+1,date("Y")); 
+    
+    if( $configurazione['mostra_stato_tipo_procedure'] ) {
+	    if( $istanzaOggetto['tipologia'] == 'determina_32' OR $istanzaOggetto['tipologia'] == 'esiti' OR $istanzaOggetto['tipologia'] == 'affidamenti' ) {
+	    	echo "n/a";
+	    } else {
+			if($istanzaOggetto['stato_pubblicazione'] == '100' AND $istanzaOggetto['data_attivazione'] <= $domani AND ($istanzaOggetto['data_scadenza'] >= $oggi OR $istanzaOggetto['data_scadenza'] == NULL)) {
+				echo "<strong>in corso</strong>";
+			}
+			if($istanzaOggetto['stato_pubblicazione'] == '100' AND ($istanzaOggetto['data_scadenza'] < $oggi AND $istanzaOggetto['data_scadenza'] != null) ) {
+				echo "scaduto";
+			}
+	    }
+    }
+}
+function pubblicaTipoProcedura($istanzaOggetto) {
+	global $database, $dati_db, $configurazione;
+
+	if( $configurazione['mostra_stato_tipo_procedure'] ) {
+		if($istanzaOggetto['tipologia'] == 'avvisi pubblici') {
+			if($istanzaOggetto['__tag_gare']==99 and $istanzaOggetto['id_ente']==133) {
+				echo "altri avvisi";
+			} else {
+				echo "avviso manifestazione d'interesse";
+			}
+		} else if( $istanzaOggetto['tipologia'] == 'determina_32' ) {
+			echo "delibera a contrarre o atto equivalente";
+		} else if( $istanzaOggetto['tipologia'] == 'affidamenti' ) {
+			echo "affidamenti/esiti procedure negoziate";
+		} else if( $istanzaOggetto['tipologia'] == 'esiti' ) {
+			echo "esiti di gara procedure aperte";
+		} else {
+			echo $istanzaOggetto['tipologia'];
+		}
+	}
+}
+function parsaOrario($orario) {
+	$ore = floor($orario/60);
+	$minuti = $orario-($ore*60);
+	$minuti = ($minuti < 10 ? "0".$minuti : $minuti);
+	return $ore.":".$minuti;
+}
+function visualizzaPulsanteCandidatura($istanzaOggetto) {
+	
+	$oggi = mktime() + 7200;
+	$dataApertura = $istanzaOggetto['data_inizio'] + ( $istanzaOggetto['ora_inizio'] * 60 );
+	$dataChiusura = $istanzaOggetto['data_fine'] + ( $istanzaOggetto['ora_fine'] * 60 );
+	
+	if( $oggi >= $dataApertura and $oggi <= $dataChiusura) {
+		$statoClass = "aperteCandidature";
+		$statoEti = "INVIA LA TUA CANDIDATURA";
+		echo '<div></div><br /><div class="'.$statoClass.'"><a href="'.$base_url.'index.php?id_sezione=937&id_conc='.$istanzaOggetto['id'].'">'.$statoEti.'</a></div>';
+	} else {
+		if( $oggi < $dataApertura ) {
+			$statoClass = "preCandidature";
+			$statoEti = "Candidature non ancora attive";
+		}
+	
+		if( $oggi > $dataChiusura ) {
+			$statoClass = "chiuseCandidature";
+			$statoEti = "Candidature chiuse";
+		}
+		
+		echo '<div></div><br /><div class="'.$statoClass.'">'.$statoEti.'</div>';
+	}
+}
+function visualizzaPulsanteFAQ($istanzaOggetto) {
+	
+	global $database, $dati_db, $configurazione;
+	
+	$sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_faq_trasparenza WHERE id_candidatura=".$istanzaOggetto['id']." ORDER BY id";
+	if ( !($result = $database->connessioneConReturn($sql)) ) {
+		return '[]';
+	}
+	$istanze = $database->sqlArrayAss($result);
+	
+	if( count($istanze)>0 ) {
+		echo '<div></div><br /><div class="pulsanteFAQ"><a href="'.$base_url.'index.php?id_sezione=935&id_doc='.$istanzaOggetto['id'].'">FAQ</a></div>';
+	}
+}
+
+function mostraInformazioniConcorso($istanzaOggetto) {
+	
+	$concorso = mostraDatoOggetto($istanzaOggetto['id_concorso'], 22, '*');
+	if($concorso['criteri_valutazione']) {
+	?>
+		<div class="campoOggetto80">
+			<h4 class="campoOggetto86">Criteri di valutazione</h4>
+			<?php echo $concorso['criteri_valutazione']; ?>
+		</div>	
+	<?php } 
+	if($concorso['commissione_giudicatrice_incarichi']) {
+	?>	
+		<div class="campoOggetto80">
+			<h4 class="campoOggetto86">Commissione giudicatrice</h4>
+			<?php
+				
+			$incarichiCommissione = explode(',',$concorso['commissione_giudicatrice_incarichi']); 
+			foreach($incarichiCommissione as $incarico) {
+				$soggettoIncaricato = mostraDatoOggetto($incarico, 4, '*');
+				echo '<div class="campoOggetto78"><a href="'.$base_url.'index.php?id_oggetto=4&id_cat=0&id_doc='.$soggettoIncaricato['id'].'">'.$soggettoIncaricato['nominativo'].'</a></div>';
+			}
+			?>
+		</div>	
+	<?
+	}
 }
 ?>

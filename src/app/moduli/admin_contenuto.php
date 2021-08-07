@@ -40,6 +40,9 @@ switch ($menu) {
 			case 'workflow':
 				include ("./app/moduli/menu_amm/stato_workflow.php");
 			break;
+			case 'robots':
+				include ("./app/moduli/menu_amm/robots.php");
+			break;			
 			case 'pagine':
 			case 'editpagina':
 				if($id and !$_POST['rispostaForm'] and !$_POST['id_cancello_contenuto']) {
@@ -63,6 +66,8 @@ switch ($menu) {
 	case "organizzazione" :
 	case "documentazione" :
 	case "accessocivico" :
+	case "econcorsi" :
+	case "contsupporto" :
 	
 		include ("./app/moduli/menu_amm/oggetti.php");
 		

@@ -37,7 +37,14 @@
 					echo "id_ente: \"required\",";
 				} ?>
 				responsabile: "required",
-				obiettivi: "required"
+				//obiettivi: "required"
+				obiettivi: {
+					required: function(textarea) {
+						CKEDITOR.instances[textarea.id].updateElement(); // aggiorno textarea prima del controllo
+						var editorcontent = textarea.value.replace(/<[^>]*>/gi, ''); // elimino i tag (per quando il testo è realmente vuoto)
+						return editorcontent.length === 0;
+					}
+				}
 			},
 			
 			messages: {

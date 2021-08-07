@@ -57,9 +57,9 @@ if (trim($istanzaOggetto['presidente']) != '' and $istanzaOggetto['presidente'] 
 			$outputScreen .= '<a href="'.$strAncora.'">'.$nome.'</a>';
 		}
 	}
-	$tit = 'Presidente';
+    $tit = 'Capogruppo';
 	if($istanzaOggetto['tipologia'] == 'commissione') {
-	    $tit = 'Capogruppo';
+        $tit = 'Presidente';
 	}
 	echo '<div class=""> '.$tit.': '.$outputScreen.'</div>';
 	unset ($outputScreen);
@@ -115,31 +115,6 @@ if (trim($istanzaOggetto['segretari']) != '' and $istanzaOggetto['segretari'] !=
 	unset ($outputScreen);
 }
 
-if (trim($istanzaOggetto['membro']) != '' and $istanzaOggetto['membro'] != 0) {
-	$idOggMulti = explode(',', $istanzaOggetto['membro']);
-	$outputScreen = '';
-	foreach ((array)$idOggMulti as $idOggTmp) {
-		$istOgg = mostraDatoOggetto($idOggTmp, 3, '*');
-		if (trim($istOgg['id']) > 0) {
-			$strAncora = $base_url . "index.php?id_oggetto=3&amp;id_cat=" . $istOgg['id_sezione'] . "&amp;id_doc=" . $idOggTmp;
-			if ($outputScreen != '') {
-				$outputScreen .= ', ';
-			}
-			if(moduloAttivo('nome_cognome_responsabile')) {
-				$nome = $istOgg['nome'].' '.$istOgg['cognome'];
-				if(trim($nome) == '') {
-					$nome = $istOgg['referente'];
-				}
-			} else {
-				$nome = $istOgg['referente'];
-			}
-			$outputScreen .= '<a href="'.$strAncora.'">'.$nome.'</a>';
-		}
-	}
-	echo '<div class=""> Membri supplenti: '.$outputScreen.'</div>';
-	unset ($outputScreen);
-}
-
 if (trim($istanzaOggetto['membri']) != '' and $istanzaOggetto['membri'] != 0) {
 	$idOggMulti = explode(',', $istanzaOggetto['membri']);
 	$outputScreen = '';
@@ -163,6 +138,31 @@ if (trim($istanzaOggetto['membri']) != '' and $istanzaOggetto['membri'] != 0) {
 	}
 	echo '<div class=""> Membri: '.$outputScreen.'</div>';
 	unset ($outputScreen);
+}
+
+if (trim($istanzaOggetto['membro']) != '' and $istanzaOggetto['membro'] != 0) {
+    $idOggMulti = explode(',', $istanzaOggetto['membro']);
+    $outputScreen = '';
+    foreach ((array)$idOggMulti as $idOggTmp) {
+        $istOgg = mostraDatoOggetto($idOggTmp, 3, '*');
+        if (trim($istOgg['id']) > 0) {
+            $strAncora = $base_url . "index.php?id_oggetto=3&amp;id_cat=" . $istOgg['id_sezione'] . "&amp;id_doc=" . $idOggTmp;
+            if ($outputScreen != '') {
+                $outputScreen .= ', ';
+            }
+            if(moduloAttivo('nome_cognome_responsabile')) {
+                $nome = $istOgg['nome'].' '.$istOgg['cognome'];
+                if(trim($nome) == '') {
+                    $nome = $istOgg['referente'];
+                }
+            } else {
+                $nome = $istOgg['referente'];
+            }
+            $outputScreen .= '<a href="'.$strAncora.'">'.$nome.'</a>';
+        }
+    }
+    echo '<div class=""> Membri supplenti: '.$outputScreen.'</div>';
+    unset ($outputScreen);
 }
 
 

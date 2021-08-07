@@ -6,7 +6,7 @@ publiccodeYmlVersion: '0.2'
 name: PAT - Portale Amministrazione Trasparente
 url: 'https://github.com/AgID/pat'
 releaseDate: '2019-07-22'
-softwareVersion: '1.9'
+softwareVersion: '2.0.2'
 logo: src/app/grafica/pat_semplice.png
 developmentStatus: stable
 platforms:

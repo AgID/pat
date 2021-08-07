@@ -335,6 +335,9 @@ h1,h2,h3,h4,h5 { font-weight: normal; line-height: normal; }
 .box-inverse .widgettitle { background-color: #333; }
 .box-inverse .widgetcontent { border-color: #333; }
 
+.tooltip-inner{ 
+	white-space: pre-wrap;
+}
 
 
 /*** STILI PER FORM ***/
@@ -2470,4 +2473,38 @@ tbody .btn:hover { color: #000000 !important;}
 }
 .table-raw tr.differenze td:first-child {
 	color: #b94a48;
+}
+
+
+
+
+// paragrafi di una pagina generica
+
+.container-gerarchia-custom {
+	position: relative;
+	.linea-verticale {
+		position: absolute;
+		height:100%;
+		width:2px;
+		background:#000;
+		left:0;
+		top:0;
+	}
+}
+
+.widgetbox {
+	.box-secondario {
+		margin-left:2rem;
+		position: relative;
+		&::before {
+			content:'';
+			position: absolute;
+			height:2px;
+			width:2rem;
+			background:#000;
+			left:-2rem;
+			top:50%;
+			transform: translateY(-50%);
+		}
+	}
 }

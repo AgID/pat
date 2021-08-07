@@ -14,8 +14,8 @@ if($istanzaOggetto['stato_workflow'] != 'finale') {
 	}
 }
 	
-if(file_exists('codicepers/template/'.$entePubblicato['nome_breve_ente'].'/oggetti/personale/lettura.php')) {
-	include('codicepers/template/'.$entePubblicato['nome_breve_ente'].'/oggetti/personale/lettura.php');
+if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/template/oggetti/personale/lettura.php')) {
+    include('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/template/oggetti/personale/lettura.php');
 } else {
 	
 	if ($istanzaOggetto['foto'] != '' and $istanzaOggetto['foto'] != 'nessuno') {
@@ -37,7 +37,7 @@ if(file_exists('codicepers/template/'.$entePubblicato['nome_breve_ente'].'/ogget
 		$out = $istanzaOggetto['referente'];
 	}
 	
-	echo "<h3 class=\"campoOggetto24\"><strong>".$istanzaOggetto['tit']." ".$out."</strong></h3>";
+	echo "<h3 class=\"campoOggetto24\"><strong><div class=\"capitalizeFirst\">".$istanzaOggetto['tit']."</div> ".$out."</strong></h3>";
 
 	if($istanzaOggetto['carica_inizio'] != '' and $istanzaOggetto['carica_inizio'] > 0) {
 		echo '<div>In carica da: '.visualizzaData($istanzaOggetto['carica_inizio'], 'd/m/Y').'</div>';
@@ -94,7 +94,7 @@ if(file_exists('codicepers/template/'.$entePubblicato['nome_breve_ente'].'/ogget
 		$struttureNorm = array();
 		$struttureAdInt = array();
 		foreach ($docRiferiti as $oggTmp) {
-			if($oggTmp['ad_interim']) {
+		    if($oggTmp['ad_interim']) {
 				$struttureAdInt[] = $oggTmp;
 			} else {
 				$struttureNorm[] = $oggTmp;

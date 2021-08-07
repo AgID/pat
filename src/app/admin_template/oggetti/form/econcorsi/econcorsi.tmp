@@ -1,0 +1,261 @@
+<?php
+$mostraTab = array(
+		'concorso' => false,
+		'generali' => false,
+		'componenti' => false,
+		'requisiti' => false,
+		'allegati' => false
+);
+switch($_GET['azione_ac']) {
+	case 'inserisci_bo':
+		$mostraTab['concorso'] = true;
+		$mostraTab['generali'] = true;
+		$mostraTab['componenti'] = true;
+		$mostraTab['requisiti-'] = true;
+		$mostraTab['allegati'] = true;
+		break;
+}
+if(!$_GET['azione_ac']) {
+	//forzo visualizzazione di tutto
+	foreach((array)$mostraTab as $k => $v) {
+		$mostraTab[$k] = true;
+	}
+}
+
+//visualizzazione prima tab attiva
+$tabActive = '';
+foreach((array)$mostraTab as $k => $v) {
+	if($v and $tabActive == '') {
+		$tabActive = $k;
+	}
+}
+
+if(!$id) {
+	//nuova richiesta da back office
+	$istanzaOggetto['codice_richiesta'] = $idEnte.'-'.date('Yz-His').'-'.rand(1000000,9999999);
+	$istanzaOggetto['tipologia'] = $tipo;
+	$istanzaOggetto['stato_pratica'] = 'in corso';
+}
+$sp = $istanzaOggetto['stato_pratica'];
+if($istanzaOggetto['stato_pratica'] == 'caricata' and $_GET['azione_ac'] == 'incarica') {
+	$sp = 'in corso';
+} else if($istanzaOggetto['stato_pratica'] == 'in corso' and $_GET['azione_ac'] == 'concludi') {
+	$sp = 'conclusa';
+} else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $_GET['azione_ac'] == 'riesamina') {
+	$sp = 'richiesto riesame';
+}
+
+$arayReadonly = array();
+if($istanzaOggetto['id_proprietario'] <= 0 and $id) {
+	//richiesta fatta da web: bloccare i campi inseriti dall'utente
+	$arayReadonly['readonly'] = 'readonly';
+}
+?>
+
+<script type="text/javascript">	
+	// attivo la validazione inline del form
+	jQuery(document).ready(function(){
+
+		jQuery('.a_tab_<? echo $tabActive; ?>').addClass('active');
+		jQuery('.tab_<? echo $tabActive; ?>').addClass('active');
+
+		// necessario per i campi file
+		//jQuery('.uniform-file').uniform();
+		// necessario per i campi select con ricerca
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+
+		// Inizializzare il campo editor
+		//var editorDesc = CKEDITOR.replace( 'richiesta' );
+		//var dettagliRichiedente = CKEDITOR.replace( 'richiedente_dettagli' );
+		CKEDITOR.replaceClass = 'htmlEditor';
+		
+		//var editor = CKEDITOR.replace( 'controinteressato_dettagli' );
+		//var editor = CKEDITOR.replace( 'esito' );
+		//var editor = CKEDITOR.replace( 'esito_registro' );
+		//var editor = CKEDITOR.replace( 'richiesta_riesame' );
+		
+				// inizializzo campo orario (è solo testuale)
+		jQuery('#ora_inizio').timepicker(
+			{showMeridian: false, defaultTime: '09:00'}
+		);
+				// inizializzo campo orario (è solo testuale)
+		jQuery('#ora_fine').timepicker(
+			{showMeridian: false, defaultTime: '23:59'}
+		);
+		
+		jQuery.validator.addMethod("cfCheck", function(value) {
+			var regex = /^([A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([A-Za-z]{6}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{2}[A-Za-z]{1}[0-9LMNPQRSTUV]{3}[A-Za-z]{1})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			regex = /^([0-9]{11,11})?$/;
+			if(regex.test(value)) {
+				return true;
+			}
+			return false;
+		}, 'Il codice fiscale/partita iva non è valido');
+		
+		var validator = jQuery("#formOggetto").validate({
+			ignore: null,
+			ignore: 'input[type="hidden"]',
+			debug: false,
+			focusInvalid: true,
+			focusCleanup: false,
+			errorPlacement: function(error, element) {
+				if(element.hasClass('cig-multipli')) {
+					error.appendTo( element.parents('.tabellaCig').parent() );
+				} else if (element.parent().parent().parent().parent().parent().attr('class') == "contenitore-errore-allegato") {
+					//file non inserito nel caso di import da albo
+					error.appendTo( element.parent().parent().parent().parent().parent() );
+				} else if (element.parent().parent().attr('class') == "input-append") {
+					error.appendTo( element.parent().parent().parent().parent() );
+				} else {
+					error.appendTo( element.parent().parent() );
+				}
+			},
+			rules: {
+				<?
+				// scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"required\",";
+				}
+				?>
+				titolo: "required"
+			},
+			messages: {
+				<? // scelta ente
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
+				}
+				?>
+				titolo: "Devi inserire il titoloo"
+			},
+			highlight: function(label) {
+				jQuery(label).closest('.control-group').addClass('error');
+			},
+			invalidHandler: function() {
+				if( validator.numberOfInvalids() ) {
+					tab = (validator.errorList[0].element.closest('.tab-pane').id);
+					if(tab != '') {
+						jQuery('#a_'+tab).tab('show');
+					}
+				}
+			}
+		});
+
+	});
+	
+</script>
+
+<? if(!$box) { ?>
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Concorsi telematici</a> 
+<? } ?>
+
+
+<div class="navbar">
+	<div class="navbar-inner">
+		<ul class="nav">
+			<a class="brand"><span class="iconfa-pencil"></span>&nbsp;</a>
+			<?php 
+			$st = "display: none;";
+			if($mostraTab['concorso']) {
+				$st = "display: block;";
+				?>
+				<li class="a_tab_concorso" style="<?php echo $st; ?>">
+					<a id="a_concorso_tab" data-toggle="tab" href="#concorso_tab" role="tab">Dati concorso</a>
+				</li>
+				<?
+			}
+			$st = "display: none;";
+			if($mostraTab['generali']) {
+				$st = "display: block;";
+				?>
+				<li class="a_tab_generali" style="<?php echo $st; ?>">
+					<a id="a_generali_tab" data-toggle="tab" href="#generali_tab" role="tab">Propriet&agrave; procedura telematica</a>
+				</li>
+				<?
+			}
+			$st = "display: none;";
+			if($mostraTab['componenti']) {
+				$st = "display: block;";
+				?>
+				<li class="a_tab_componenti" style="<?php echo $st; ?>">
+					<a id="a_componenti_tab" data-toggle="tab" href="#componenti_tab" role="tab">Componenti per candidatura</a>
+				</li>
+				<?
+			}
+			$st = "display: none;";
+			if($mostraTab['requisiti']) {
+				$st = "display: block;";
+				?>
+				<li class="a_tab_requisiti" style="<?php echo $st; ?>">
+					<a id="a_requisiti_tab" data-toggle="tab" href="#requisiti_tab" role="tab">Requisiti richiesti</a>
+				</li>
+				<?
+			}
+			
+			$st = "display: none;";
+			if($mostraTab['allegati']) {
+				$st = "display: block;";
+				?>
+				<li class="a_tab_allegati" style="<?php echo $st; ?>">
+					<a id="a_allegati_tab" data-toggle="tab" href="#allegati_tab" role="tab">Allegati</a>
+				</li>
+				<?
+			}
+			?>
+		</ul>
+	</div>
+</div>
+
+<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>&amp;azione_ac=<?php echo $_GET['azione_ac']; ?>">
+
+	<?
+	echo "<input type=\"hidden\" id=\"stato_pratica\" name=\"stato_pratica\" value=\"".$sp."\">";
+	echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"".$istanzaOggetto['tipologia']."\">";
+	?>
+
+	<div class="tab-content">
+		<?php
+		$st = "display: none;";
+		if($mostraTab['concorso']) {
+			$st = "display: block;";
+		}
+		include('app/admin_template/oggetti/form/econcorsi/tab_concorso.tmp');
+		
+		$st = "display: none;";
+		if($mostraTab['generali']) {
+			$st = "display: block;";
+		}
+		include('app/admin_template/oggetti/form/econcorsi/tab_generali.tmp');
+		
+		$st = "display: none;";
+		if($mostraTab['componenti']) {
+			$st = "display: block;";
+		}
+		include('app/admin_template/oggetti/form/econcorsi/tab_componenti.tmp');
+
+		$st = "display: none;";
+		if($mostraTab['requisiti']) {
+			$st = "display: block;";
+		}
+		include('app/admin_template/oggetti/form/econcorsi/tab_requisiti.tmp');
+
+		$st = "display: none;";
+		if($mostraTab['allegati']) {
+			$st = "display: block;";
+		}
+		include('app/admin_template/oggetti/form/econcorsi/tab_allegati.tmp');
+		?>
+	</div>
+
+</form>
+
+<p class="stdformbutton">
+	<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva dati</a>
+</p>
+

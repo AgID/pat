@@ -1,54 +1,68 @@
 <? // creo riga di array
 $outputArray[] = array();
 
-// html per interfaccia di selezione
+// html per interfaccia di selezion
 $strumentiSelezione = '<span id="td1_row_'.$idOggetto.'_'.$istanzaOggetto['id'].'">';
 $strumentiSelezione .= '<span style="display:none;" id="campo_default_'.$istanzaOggetto['id'].'">'.$istanzaOggetto[$oggOgg->campo_default].'</span>';
 if (($visualizzaInterfaccia or $visualizzaInterfacciaSelect)) {
-	
-	//eventuale personalizzazione per permessi aggiuntivi
-	if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/imposta__bloccato.php')) {
-		include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/imposta__bloccato.php');
-	}
-	
-	if ($idOggetto == 61 and $istanzaOggetto['id_proprietario'] <= 0) {
-		//richiesta di accesso civico da web
-		$strumentiSelezione .= "";
-	} else if (($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['cancellazione']) and !$istanzaOggetto['__bloccato']) {
-		$strumentiSelezione .= "<span class=\"center\"><input type=\"checkbox\" name=\"selRow\" value=\"".$istanzaOggetto['id']."\" ".$checked." /><input type=\"hidden\" id=\"id".$istanzaOggetto['id']."\" /><input type=\"hidden\" id=\"id_ori".$istanzaOggetto['id_ori']."\" /></span>";
-	} else {
-		$strumentiSelezione .= "";
-	}
+
+    //eventuale personalizzazione per permessi aggiuntivi
+    if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/imposta__bloccato.php')) {
+        include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/imposta__bloccato.php');
+    }
+
+    if ($idOggetto == 61 and $istanzaOggetto['id_proprietario'] <= 0) {
+        //richiesta di accesso civico da web
+        $strumentiSelezione .= "";
+    } else if (($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['cancellazione']) and !$istanzaOggetto['__bloccato']) {
+        $strumentiSelezione .= "<span class=\"center\"><input type=\"checkbox\" name=\"selRow\" value=\"".$istanzaOggetto['id']."\" ".$checked." /><input type=\"hidden\" id=\"id".$istanzaOggetto['id']."\" /><input type=\"hidden\" id=\"id_ori".$istanzaOggetto['id_ori']."\" /></span>";
+    } else {
+        $strumentiSelezione .= "";
+    }
 } else {
-	$strumentiSelezione .= "";
+    $strumentiSelezione .= "";
 }
 if(moduloAttivo('ealbo')) {
-	include('app/moduli/ealbo/integrazioniEalbo.php');
+    include('app/moduli/ealbo/integrazioniEalbo.php');
 }
 if($istanzaOggetto['__archiviata']) {
-	$strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato archiviato.\" class=\"btn\"><span class=\"iconfa-folder-close\" style=\"color: #FF5511;\"></span></a></span>";
+    $strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato archiviato.\" class=\"btn\"><span class=\"iconfa-folder-close\" style=\"color: #FF5511;\"></span></a></span>";
 } else if($istanzaOggetto['permessi_lettura'] == 'H') {
-	$strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elemento non pubblicato.\" class=\"btn\"><span class=\"iconfa-minus-sign\" style=\"color: #444444;\"></span></a></span>";
+    $strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elemento non pubblicato.\" class=\"btn\"><span class=\"iconfa-minus-sign\" style=\"color: #444444;\"></span></a></span>";
 }
+
+//icona SCP se bando inviato
+if(moduloAttivo('scp') and (
+    ( ($idOggetto ==11 or $idOggetto == 28 or $idOggetto == 60) and ($istanzaOggetto['scp_id_ex_art_29'] != '' and $istanzaOggetto['scp_id_ex_art_29'] != '0' and !is_null($istanzaOggetto['scp_id_ex_art_29'])))
+    or ( $idOggetto == 11 and $istanzaOggetto['tipologia'] == "avvisi pubblici" and $istanzaOggetto['scp_id_avviso'] != 0 and $istanzaOggetto['scp_id_avviso'] != "" and !is_null($istanzaOggetto['scp_id_avviso']) ) )) {
+
+    $strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato inviato a SCP.\" class=\"btn\"><img width=\"15px\" heigth=\"15px\" src=\"$server_url/grafica/admin_skin/classic/scp.svg\"></a></span>";
+}
+
 if($istanzaOggetto['stato_workflow'] != 'finale') {
-	include('app/moduli/workflow.php');
+    include('app/moduli/workflow.php');
 }
 if ($idOggetto == 41) {
-	include('app/validazioniFornitoriAVCP.php');
+    include('app/validazioniFornitoriAVCP.php');
 }
 if ($idOggetto == 45) {
-	include('app/validazioniUrlAVCP.php');
+    include('app/validazioniUrlAVCP.php');
 }
 if ($idOggetto == 11) {
-	include('app/validazioniBandiAVCP.php');
+    include('app/validazioniBandiAVCP.php');
 }
 if ($idOggetto == 4 and moduloAttivo('incarichiPerlaPA')) {
-	include('app/validazioniIncarichiPerlaPA.php');
+    include('app/validazioniIncarichiPerlaPA.php');
+
+    if ($istanzaOggetto['__perlapa_idIncarico'] != '' and $istanzaOggetto['__perlapa_idIncarico'] != '0' and !is_null($istanzaOggetto['__perlapa_idIncarico'])) {
+        $strumentiSelezione .= "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato trasmesso a PerlaPA.\" class=\"btn\"><img width=\"15px\" heigth=\"15px\" src=\"$server_url/grafica/admin_skin/classic/perlapa.svg\"></a></span>";
+    }
+
 }
 
 //visualizza il cig del bando collegato per le somme liquidate
 if($idOggetto == 11 AND $istanzaOggetto['tipologia'] == 'somme liquidate' AND !$istanzaOggetto['cig'] AND $istanzaOggetto['bando_collegato'] > 0) {
-	$istanzaOggetto['cig'] = mostraDatoOggetto($istanzaOggetto['bando_collegato'],11,'cig');
+    $istanzaOggetto['cig'] = mostraDatoOggetto($istanzaOggetto['bando_collegato'],11,'cig');
 }
 
 $strumentiSelezione .= "</span>";
@@ -56,829 +70,944 @@ $outputArray[$numChiave][] = $strumentiSelezione;
 
 // nome ente nel caso di superuser
 if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {
-	$outputArray[$numChiave][] = datoEnte($istanzaOggetto['id_ente'],'nome_completo_ente');	
+    $outputArray[$numChiave][] = datoEnte($istanzaOggetto['id_ente'],'nome_completo_ente');
 }
-	
+
 $numCella = 1;
 $numCelle = count($campiVisualizzati);
 $percentuale = round((100/count($campiVisualizzati))+12)."%";
-	
+
 foreach($campiVisualizzati as $campo) {
-	$outputScreen = '';
-	$percentualina = round((100/count($campiVisualizzati))-(26/count($campiVisualizzati)))."%";
-	
-	// separo le proprieta'  dai valori
-	$prop = explode("|",$campo['proprieta']); 
-	// correzione campi di default oggetto
-	switch ($campo['campo']) {
-		case "data_creazione":
-			$campo['tipo'] = 'data_calendario';
-		break;
-		case "ultima_modifica":
-			$campo['tipo'] = 'data_calendario';
-		break;
-		case "id_proprietario":
-			$campo['tipo'] = 'campoutente';
-		break;
-		case "numero_letture":
-			$campo['tipo'] = 'numerico';
-		break;
-		case "id_sezione":
-			$campo['tipo'] = 'campoggetto';
-		break;
-	}
-	// applico correzione sul valore dei campi select
-	if ($campo['tipo']=='select' and $campo['etichette']!='' and $campo['etichette']!='0') {
-		$istanzaOggetto[$campo['campo'].'__originale'] = $istanzaOggetto[$campo['campo']];
-		$istanzaOggetto[$campo['campo']] = trovaValoriSelect($istanzaOggetto[$campo['campo']],$campo['etichette'],$campo['valore']);
-	}
-	if ($campo['tipo']=='multiselect' and $campo['etichette']!='' and $campo['etichette']!='0') {
-		$istanzaOggetto[$campo['campo'].'__originale'] = $istanzaOggetto[$campo['campo']];
-		$istanzaOggetto[$campo['campo']] = trovaValoriMultiselect($istanzaOggetto[$campo['campo']],$campo['etichette'],$campo['valore']);
-	}
-	
-	$etichette = explode("}",$campo['titolo']); 
-	$campo['titolo'] = $etichette[0];
-	// analizzo il tipo di campo per risalire all'output
-	if (strpos($campo['campo'],'data') !== false) {
-		// devo visualizzare una data
-		if($prop[1] == 'd-m-Y') {
-			$outputScreen = '<span class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]).'</span>';
-		} else {
-			$outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
-		}
-		if($idOggetto == 61 and ($campo['campo'] == 'data_richiesta' or $campo['campo'] == 'data_riesame')) {
-			include('app/notificheDateAccessoCivico.php');
-		}
-	} else {
-		// controllo il comportamento del campo
-		switch($prop[0]) {
-			case "anteprima":
-			$outputScreen = tagliaContHtml($istanzaOggetto[$campo['campo']],$prop[1]);
-			break;
-			
-			case "link":
-			switch ($campo['tipo']) {
-				case "immagine":
-					$percentualina = '80px';
-					$outputScreen = "<a target=\"_blank\" href=\"".$istanzaOggetto[$campo['campo']]."\"><img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" /></a>";	
-				break;
-				
-				case "file":
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					$outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a>";
-				break;
-				
-				case "filemedia":
-					
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					$outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a>";
-					
-				break;
-				
-				case "camposezione_multi":
-					// devo pubblicare tutti i nomi di sezione
-					$idSezMulti = explode(',',$istanzaOggetto[$campo['campo']]);
-					
-					foreach ($idSezMulti as $idSezTmp) {
-						$nomeSez = nomeSezDaId($idSezTmp,'nome');
-						if ($outputScreen != '') {
-							$outputScreen .= ', ';
-						}
-						$outputScreen .= "<a href=\"".$strAncora."\" target=\"_blank\">".$nomeSez."</a>";
-					}			
-				break;
-				
-				case "tags":
-					// devo pubblicare tutti i nomi di sezione
-					$idTagMulti = explode(',',$istanzaOggetto[$campo['campo']]);
-					
-					foreach ($idTagMulti as $idTagTmp) {
-						$nomeTag = caricaTag($idTagTmp,'nome');
-						// verifico se usare le url parlati
-						if ($outputScreen != '') {
-							$outputScreen .= ', ';
-						}
-						$outputScreen .= "<a href=\"".$strAncora."\" target=\"_blank\">".$nomeTag."</a>";
-					}			
-				break;
-				
-				case "data_calendario":
-					$outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
-				break;
-				
-				case "email" :
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						// separo eventuali indirizzi multipli
-						$multiMail = explode(',', $istanzaOggetto[$campo['campo']]);
-						foreach ($multiMail as $mailTemp) {
-							if ($outputScreen != '') {
-								$outputScreen .= ", ";
-							}
-							$outputScreen .= "<a target=\"_blank\" href=\"Javascript:window.open('mailto:" . $mailTemp . "');void(0);\">" . $mailTemp . "</a>";
-						}
-					}
-					break;
-				
-				default:
-				$outputScreen = "<a href=\"".$istanzaOggetto[$campo['campo']]."\" target=\"_blank\">".$istanzaOggetto[$campo['campo']]."</a>";
-			}
-			
-			break;
-			
-			case "visualizza":
-				// verifico se posso usare una visualizzazione diretta per l'immagine
-				if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-					$posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
-					$estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
-					// controllo se il file esiste, altrimenti cambio estensione nella classica
-					if ($estFile == 'gif' or $estFile == 'jpg' or $estFile == 'jpeg' or $estFile == 'png') {
-						$outputScreen = "<img style=\"vertical-align:middle\" src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" />";
-					}
-				}
-			break;
-			
-			case "linkcompleto":
-				// devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
-				if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-					
-					$grandezza = filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
-					$posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
-					$estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
-					// controllo se il file esiste, altrimenti cambio estensione nella classica
-					if (!file_exists("grafica/file/small/".$estFile.".gif")) {
-						$estFile = "generica";
-					}
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					$outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a> (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
+    $outputScreen = '';
+    $percentualina = round((100/count($campiVisualizzati))-(26/count($campiVisualizzati)))."%";
 
-				}
-			break;
-			
-			case "linketichetta":
-				if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-					if($oggOgg->upload_multiplo == 1){
-						$outputScreen = $campo['titolo'];
-						$campo['titolo'] = '';
-					} else {
-						$outputScreen = "<a target=\"_blank\" href=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$campo['titolo']."</a>";
-						$campo['titolo'] = '';
-					}
-				}
-			break;
-			
-			case "linkreview":
-			switch ($campo['tipo']) {
-				case "immagine":
-					$percentualina = '80px';
-					$outputScreen = "<a href=\"?win_admin=popup&id=".$idOggetto."&azione=review&id_cat=".$idCategoria."&id_ogg=".$istanzaOggetto['id']."\">
-							<img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" /></a>";	
-				break;
-				
-				case "data_calendario":
-					$outputScreen = "<a href=\"?win_admin=popup&id=".$idOggetto."&azione=review&id_cat=".$idCategoria."&id_ogg=".$istanzaOggetto['id']."\">".visualizzaData($istanzaOggetto[$campo['campo']],$prop[1])."</a>";
-				break;
-				
-				case "file":
-					
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					
-				break;
-				
-				default:
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					$outputScreen = "<a href=\"ajax.php?azione=review&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".$valoreLabel."</a>";
-			}
-			break;
-			
-			case "soloetichetta":
-				$outputScreen = $campo['titolo'];
-				$campo['titolo'] = '';
+    // separo le proprieta'  dai valori
+    $prop = explode("|",$campo['proprieta']);
+    // correzione campi di default oggetto
+    switch ($campo['campo']) {
+        case "data_creazione":
+            $campo['tipo'] = 'data_calendario';
+            break;
+        case "ultima_modifica":
+            $campo['tipo'] = 'data_calendario';
+            break;
+        case "id_proprietario":
+            $campo['tipo'] = 'campoutente';
+            break;
+        case "numero_letture":
+            $campo['tipo'] = 'numerico';
+            break;
+        case "id_sezione":
+            $campo['tipo'] = 'campoggetto';
+            break;
+    }
+    // applico correzione sul valore dei campi select
+    if ($campo['tipo']=='select' and $campo['etichette']!='' and $campo['etichette']!='0') {
+        $istanzaOggetto[$campo['campo'].'__originale'] = $istanzaOggetto[$campo['campo']];
+        $istanzaOggetto[$campo['campo']] = trovaValoriSelect($istanzaOggetto[$campo['campo']],$campo['etichette'],$campo['valore']);
+    }
+    if ($campo['tipo']=='multiselect' and $campo['etichette']!='' and $campo['etichette']!='0') {
+        $istanzaOggetto[$campo['campo'].'__originale'] = $istanzaOggetto[$campo['campo']];
+        $istanzaOggetto[$campo['campo']] = trovaValoriMultiselect($istanzaOggetto[$campo['campo']],$campo['etichette'],$campo['valore']);
+    }
 
-			break;
-			
-			case "soloetichettadv":
-				$codiceEval = '?>'.$campo['titolo'].'<?php ';	
-				if (!verificaEval($codiceEval)) {
-					mostraAvviso(0, 'Il codice PHP in questa etichetta [campo <b>' . $campo['campo'] . '</b>] ha generato un errore di sintassi.');
-				} else {
-					ob_start();
-					eval ($codiceEval);
-					$content = ob_get_clean();
-					ob_end_flush();
-					$outputScreen = $content;
-				}
-			break;
-			
-			case "linkcampo":
-				
-				if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-					$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-				} else {
-					$valoreLabel = $istanzaOggetto[$campo['campo']];
-				}
-				$outputScreen = "<a href=\"".$prop[1]."\">".$valoreLabel."</a>";
-			break;
-			
-			case "linketicompleto":
-				// devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
-				if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-					$grandezza = @filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
-					$posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
-					$estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
-					// controllo se il file esiste, altrimenti cambio estensione nella classica
-					if (!file_exists("grafica/file/small/".$estFile.".gif")) {
-						$estFile = "generica";
-					}
-					$outputScreen = "<a href=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$campo['titolo']."</a> (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
-					$campo['titolo'] = '';
-				}
-			break;
-			
-			case "filecompleto":
-				// devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
-				if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-					
-					$grandezza = @filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
-					$posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
-					$estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
-					// controllo se il file esiste, altrimenti cambio estensione nella classica
-					if (!file_exists("grafica/file/small/".$estFile.".gif")) {
-						$estFile = "generica";
-					}
-					if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-						$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-					} else {
-						$valoreLabel = $istanzaOggetto[$campo['campo']];
-					}
-					$outputScreen = $valoreLabel." (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
+    $etichette = explode("}",$campo['titolo']);
+    $campo['titolo'] = $etichette[0];
+    // analizzo il tipo di campo per risalire all'output
+    if (strpos($campo['campo'],'data') !== false) {
+        // devo visualizzare una data
+        if($prop[1] == 'd-m-Y') {
+            $outputScreen = '<span class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]).'</span>';
+        } else {
+            $outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
+        }
+        if($idOggetto == 61 and ($campo['campo'] == 'data_richiesta' or $campo['campo'] == 'data_riesame')) {
+            include('app/notificheDateAccessoCivico.php');
+        }
+    } else {
+        // controllo il comportamento del campo
+        switch($prop[0]) {
+            case "anteprima":
+                $outputScreen = tagliaContHtml($istanzaOggetto[$campo['campo']],$prop[1]);
+                break;
 
-				}
-			break;
-			
-			default:
-			switch ($campo['tipo']) {
-				case "immagine":
-					$percentualina = '80px';
-					$outputScreen = "<img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" />";	
-				break;
-				
-				case "data_calendario":
-					if($prop[1] == 'd-m-Y') {
-						$outputScreen = '<span class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]).'</span>';
-					} else if($prop[1] == 'd-m-Y G:i') {
-						$outputScreen = '<div class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],'d-m-Y').'</div><div class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],'G:i').'</div>';
-					} else {
-						$outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
-					}
-				break;
-				
-				case "ora":
-					if (!$campo['valore']) {
-						// rislago all'orario completo
-						$ore = floor($istanzaOggetto[$campo['campo']]/60);
-						$minuti = $istanzaOggetto[$campo['campo']]-($ore*60);
-						$outputScreen = $ore.":".$minuti;
-					} else if ($campo['valore']==1) {
-						// solo ora
-						$outputScreen = round($istanzaOggetto[$campo['campo']]/60);
-					} else {
-						// solo minuti
-						$outputScreen = $istanzaOggetto[$campo['campo']];
-					}
-				break;
-				
-				case "camposezione":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						// devo pubblicare il nome della sezione
-						$outputScreen = nomeSezDaId($istanzaOggetto[$campo['campo']],'nome');
-					}  			 		
-				break;
-				
-				case "camposezione_multi":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						// devo pubblicare tutti i nomi di sezione
-						$idSezMulti = explode(',',$istanzaOggetto[$campo['campo']]);
-						$outputScreen = '';
-						foreach ($idSezMulti as $idSezTmp) {
-							if ($outputScreen != '') {
-								$outputScreen .= ', ';
-							}
-							$outputScreen .= nomeSezDaId($idSezTmp,'nome');
-						}
-					}			
-				break;
-				
-				case "tags":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						// devo pubblicare tutti i nomi dei tag
-						$idTagMulti = explode(',',$istanzaOggetto[$campo['campo']]);
-						$outputScreen = '';
-						foreach ($idTagMulti as $idTagTmp) {
-							if ($outputScreen != '') {
-								$outputScreen .= ', ';
-							}
-							$outputScreen .= caricaTag($idTagTmp,'nome');
-						}
-					}			
-				break;
-				
-				case "campoutente":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						$userTmp = nomeUserDaId($istanzaOggetto[$campo['campo']],'nome');
-						if ($userTmp == '' OR !$userTmp) {
-							$outputScreen = "User non pi&ugrave; presente";
-						} else {
-							// devo pubblicare il nome dell'utente
-							$outputScreen = $userTmp;	
-						}
-					}							 		
-				break;
-				
-				case "casella":
-					if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']]) {
-						// devo pubblicare il nome dell'utente
-						$outputScreen = "Si";	
-					} else {
-						$outputScreen = "No";
-					}							 		
-				break;
-				
-				case "campoutente_multi":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						$nomiUtenti = array();
-						foreach((array)explode(',', $istanzaOggetto[$campo['campo']]) as $idUtente) {
-							// devo pubblicare il nome dell'utente
-							$nomiUtenti[] = nomeUserDaId($idUtente,'nome');
-						}
-						$outputScreen = implode(', ', $nomiUtenti);	
-					}
-				break;
-				
-				case "campogruppo":
-					if ($istanzaOggetto[$campo['campo']] != '') {
-						// devo pubblicare il nome di un gruppo
-						$outputScreen = datoGruppo($istanzaOggetto[$campo['campo']],'nome');								 		
-					}
-				break;
-				
-				case "campogruppo_multi":
-									
-				break;
-				
-			
-				case "gmaps":
-				case "gmapsmulti":
-				if ($istanzaOggetto[$campo['campo']] != '') {
-					$valore = $istanzaOggetto[$campo['campo']];
-					$oldAPI = false;
-					if($valore[0] == '(') {
-						$oldAPI = true;
-						// vecchia versione, devo convertire l'indirizzo
-						$valore = substr($valore, 1);
-						$posInd = strrpos($valore, "|");
-						if ($posInd !== false) {
-							$indirizzo = substr($valore, $posInd +1);
-							$valore = substr($valore, 0, $posInd);
-						} else {
-							//non ho l'indirizzo
-							$indirizzo = "";
-						}
-					} else {
-						$prop = explode("|", $valore);
-						$punti = $prop[1];
-						unset($prop);
-						$punti = explode("{",$punti);
-						$indirizzo = "";
-						foreach ($punti as $punto) {
-							$variabili = explode("}", $punto);
-							foreach ($variabili as $variabile) {
-								$varTemp = explode("=",$variabile);
-								if($varTemp[0] == 'indirizzo') {
-									if($indirizzo != '') {
-										$indirizzo .= "<br />";
-									}
-									$indirizzo .= $varTemp[1];
-								}
-							}
-						}
-					}
-					$outputScreen =  $indirizzo; 
-				}
-				
-				break;
-				
-				case "campoggetto":
-					if (trim($istanzaOggetto[$campo['campo']]) != '' and $istanzaOggetto[$campo['campo']] != '0') {
-						// devo pubblicare il campo di riferimento per l'oggetto collegato
-						if($idOggetto == 56 and $campo['campo'] == 'id_immobile') {
-							$outputScreen = "<a href=\"ajax.php?azione=review&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".mostraDatoOggetto($istanzaOggetto[$campo['campo']],$campo['valore'])."</a>";
-						} else {
-							$outputScreen = mostraDatoOggetto($istanzaOggetto[$campo['campo']],$campo['valore']);									 		
-						}
-					}
-				break;
-				
-				case "comuni":
-					if (trim($istanzaOggetto[$campo['campo']]) != '') {
-						require('inc/variabili.php');
-						// trovo cosa pubblicare
-						if (!$campo['valore']) {
-							// regioni
-							$outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsRegioni);
-						} else if ($campo['valore'] == 1) {
-							// provincia
-							$outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsProvince);
-						} else {
-							$outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsComuni);
-						}									 		
-					}
-				break;
-				
-				case "nazioni":
-					if (trim($istanzaOggetto[$campo['campo']]) != '') {
-						require('inc/variabili.php');
-						// trovo cosa pubblicare
-						if (!$campo['valore']) {
-							// regioni
-							$outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsContinenti);
-						} else {
-							$outputScreen = $istanzaOggetto[$campo['campo']];
-						}									 		
-					}
-				break;
-				
-				case "filemedia":
-					if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
-						
-						$posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
-						$estFile =  strtolower(substr($istanzaOggetto[$campo['campo']], ($posPunto+1)));
-						// controllo che tipo di file Ã¨ stato impostato
-						if ($estFile == 'gif' or $estFile == 'jpg' or $estFile == 'jpeg' or $estFile == 'png' or $estFile == 'bmp') {
-							// PUBBLICO UNA IMMAGINE
-							if ($stileCampo['larghezza'] == '' OR $stileCampo['larghezza'] == 'auto') {
-								$outputScreen .= "<img style=\"width:100px\" src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" alt=\" \" />";
-							} else {
-								$outputScreen .= "<img src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" width=\"".$stileCampo['larghezza']."\" alt=\" \" /></a>";
-							}
-						}
-					}	
-				break;
-				
-				case "campoggetto_multi":
-					if (trim($istanzaOggetto[$campo['campo']]) != '' and $istanzaOggetto[$campo['campo']] != '0') {
-						// devo pubblicare tutti i nomi dell'oggetto
-						$idOggMulti = explode(',',$istanzaOggetto[$campo['campo']]);
-						$outputScreen = '';
-						foreach ($idOggMulti as $idOggTmp) {
-							$nomeOgg = mostraDatoOggetto($idOggTmp,$campo['valore']);
-							if (trim($nomeOgg) != '') {
-								if ($outputScreen != '') {
-									$outputScreen .= ', ';
-								}
-								$outputScreen .= $nomeOgg;
-							}
-						}
-					}			
-				break;
-				
-				case "youtube":
-					include('template/admin_standard/oggetti/navigazione_youtube.tmp');
-				break;
+            case "link":
+                switch ($campo['tipo']) {
+                    case "immagine":
+                        $percentualina = '80px';
+                        $outputScreen = "<a target=\"_blank\" href=\"".$istanzaOggetto[$campo['campo']]."\"><img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" /></a>";
+                        break;
 
-				
-				default:
-				
-				if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
-					$valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
-				} else {
-					$valoreLabel = $istanzaOggetto[$campo['campo']];
-				}
-				
-				$outputScreen = $valoreLabel;
-				if ($idOggetto == 11 and $campo['campo'] == 'cig' and $istanzaOggetto['id_record_cig_principale'] == $istanzaOggetto['id']) {
-					$sql = "SELECT * FROM " . $dati_db['prefisso'] . "oggetto_gare_atti WHERE id_record_cig_principale = ".$istanzaOggetto['id']." AND id != ".$istanzaOggetto['id']." AND id_ente = ".$idEnteAdmin;
-					if (!($result = $database->connessioneConReturn($sql))) {
-						//die("Database non installato o non disponibile: errore critico.");
-					}
-					$count = $database->sqlNumRighe($result);
-					$outputScreen = $count.' CIG totali';
-				} else if($idOggetto == 11 and $campo['campo'] == 'tipologia') {
-					switch($istanzaOggetto['tipologia']) {
-						//bandi ed inviti,esiti,delibere e determine a contrarre,affidamenti,avvisi pubblici,somme liquidate
-						case 'bandi ed inviti':
-							$outputScreen = 'bando di gara';
-						break;
-						case 'lotto':
-							$outputScreen = 'lotto';
-						break;
-						case 'esiti':
-							$outputScreen = 'esito di gara';
-						break;
-						case 'delibere e determine a contrarre':
-							$outputScreen = 'determina art. 57 comma 6 dlgs. 163/2006';
-						break;
-						case 'determina_32':
-							$outputScreen = 'delibera a contrarre o atto equivalente';
-						break;
-						case 'affidamenti':
-							$outputScreen = 'esito/affidamento';
-						break;
-						case 'avvisi pubblici':
-							$outputScreen = 'avviso';
-						break;
-						case 'somme liquidate':
-							$outputScreen = 'liquidazione';
-						break;
-					}
-					$sottotipo = $istanzaOggetto['sottotipo'];
-					if($sottotipo != '') {
-						foreach((array)$enteAdmin['personalizzazioni_tipi_gare'] as $st) {
-							if($st['sottotipo'] == $sottotipo) {
-								$outputScreen .= ' - '.$st['etichetta'];
-							}
-						}
-					}
-				} else if ($idOggetto == 45 and $campo['campo'] == '__dimensione_file') {
-					$urlStazione = '';
-					if($istanzaOggetto['id_stazione'] > 0) {
-						$urlStazione = 's'.$istanzaOggetto['id_stazione'].'_';
-					}
-					if(file_exists('avcp/'.$istanzaOggetto['id_ente'].'/'.$urlStazione.$istanzaOggetto['anno'].'.xml')) {
-						$outputScreen = human_filesize(filesize('avcp/'.$istanzaOggetto['id_ente'].'/'.$urlStazione.$istanzaOggetto['anno'].'.xml'));
-					} else {
-						$outputScreen = 'non disponibile';
-					}
-				} else if($idOggetto == 3 and $campo['campo'] == 'ruolo_politico') {
-					$content = '';
-					ob_start();
-					visualizzaOrganoPolitico($istanzaOggetto, false);
-					$content = ob_get_clean();
-					ob_end_flush();
-					if($content != '') {
-						$outputScreen .= ' - '.tagliaContHtml($content, 400);
-					}
-				} else if($idOggetto == 4 and $campo['campo'] == 'oggetto') {
-					if($istanzaOggetto['tipologia'] != '') {
-						$outputScreen .= '<br /><strong>[</strong>'.$istanzaOggetto['tipologia'].'<strong>]</strong>';
-					}
-				} else if($idOggetto == 38 and $campo['campo'] == 'oggetto') {
-					if($istanzaOggetto['tipologia'] != '') {
-						$outputScreen .= '<br /><strong>[</strong>'.$istanzaOggetto['tipologia'].'<strong>]</strong>';
-					}
-				} else if($idOggetto == 61 and $campo['campo'] == 'stato_pratica') {
-					$btn = '';
-					$ac = '';
-					$cls = '';
-					if($istanzaOggetto['stato_pratica'] == 'caricata') {
-						$btn = 'prendi in carico';
-						$ac = '&amp;azione_ac=incarica';
-						$cls = 'label label-warning';
-					} else if($istanzaOggetto['stato_pratica'] == 'in corso') {
-						$btn = 'concludi';
-						$ac = '&amp;azione_ac=concludi';
-						$cls = 'label label-info';
-					} else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $istanzaOggetto['tipologia'] != 'accessoatti') {
-						$btn = 'richiesta di riesame';
-						$ac = '&amp;azione_ac=riesamina';
-						$cls = 'label label-success';
-					} else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $istanzaOggetto['tipologia'] == 'accessoatti') {
-						$cls = 'label label-success';
-					} else if($istanzaOggetto['stato_pratica'] == 'richiesto riesame') {
-						$cls = 'label label-warning';
-					}
-					$outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['stato_pratica'].'</div>';
-					if($ac != '') {
-						$outputScreen .= '<a href="?menu='.$menu.'&amp;menusec='.$menuSecondario.'&amp;tipologia='.$istanzaOggetto['tipologia'].'&amp;azione=modifica&amp;id='.$istanzaOggetto['id'].$link.$ac.'" class="btn btn-block" data-placement="top" data-rel="tooltip" data-original-title="'.$btn.'"><span class="iconfa-share"></span> &nbsp; '.$btn.'</a>';
-					}
-				} else if($idOggetto == 61 and $campo['campo'] == 'tipologia') {
-					$cls = '';
-					if($istanzaOggetto['tipologia'] == 'semplice') {
-						$cls = 'label label-success';
-					} else if($istanzaOggetto['tipologia'] == 'generalizzato') {
-						$cls = 'label label-warning';
-					} else if($istanzaOggetto['tipologia'] == 'accessoatti') {
-						$cls = 'label label-info';
-					}
-					$outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['tipologia'].'</div>';
-				} else if($idOggetto == 22 and $campo['campo'] == 'tipologia') {
-					if($enteAdmin['id'] == 215) {
-						$istanzaOggetto['tipologia'] = '';
-						foreach((array)$configurazione['__tags_concorsi'] as $t) {
-							if ($t['__tag_concorsi'] == $istanzaOggetto['__tag_concorsi']) {
-								$istanzaOggetto['tipologia'] = $t['nome'];
-							}
-						}
-					}
-					$outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['tipologia'].'</div>';
-				}
-			}
-			
-		}  
-	}
-	$outputScreen = str_replace('[Elemento archiviato]', "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato archiviato.\" class=\"btn\"><span class=\"iconfa-folder-close\" style=\"color: #FF5511;\"></span></a></span>", $outputScreen);
-	
-	$outputArray[$numChiave][] = $outputScreen;
-	$numCella++;
-	
-} 
+                    case "file":
+                        if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                            $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                        } else {
+                            $valoreLabel = $istanzaOggetto[$campo['campo']];
+                        }
+                        $outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a>";
+                        break;
 
-if ($visualizzaInterfaccia) { 
-	$stringaInt = "<span class=\"intTooltip centeralign\">";
-	
-	$visualizzaBtnPerlaPA = false;
-	if (($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__bloccato']) {
-		$link = '';
-		if(moduloAttivo('bandigara') and $idOggetto == 11) {
-			$tipo = $istanzaOggetto['tipologia'];
-			switch($tipo) {
-				//bandi ed inviti,esiti,delibere e determine a contrarre,affidamenti,avvisi pubblici,somme liquidate
-				case 'bandi ed inviti':
-					$link = '&amp;tipo=bando';
-				break;
-				case 'lotto':
-					$link = '&amp;tipo=lotto';
-				break;
-				case 'esiti':
-					$link = '&amp;tipo=esito';
-				break;
-				case 'delibere e determine a contrarre':
-					$link = '&amp;tipo=delibera';
-				break;
-				case 'determina_32':
-					$link = '&amp;tipo=determina_32';
-				break;
-				case 'affidamenti':
-					$link = '&amp;tipo=affidamento';
-				break;
-				case 'avvisi pubblici':
-					$link = '&amp;tipo=avviso';
-				break;
-				case 'somme liquidate':
-					$link = '&amp;tipo=liquidazione';
-				break;
-			}
-			$sottotipo = $istanzaOggetto['sottotipo'];
-			if($sottotipo != '') {
-				$link .= '&amp;sottotipo='.$sottotipo;
-			}
-		} else if(moduloAttivo('organismi-commissioni') and $idOggetto == 43) {
-			$tipo = $istanzaOggetto['tipologia'];
-			switch($tipo) {
-				case 'commissione':
-					$link = '&amp;tipo=commissione';
-					break;
-				case 'gruppo consiliare':
-					$link = '&amp;tipo=gruppo';
-					break;
-				case 'udp':
-					$link = '&amp;tipo=udp';
-					break;
-				case 'ci':
-					$link = '&amp;tipo=ci';
-					break;
-				case 'gect':
-					$link = '&amp;tipo=gect';
-					break;
-			}
-		} else if(moduloAttivo('accessocivico') and $idOggetto == 61) {
-			$tipo = $istanzaOggetto['tipologia'];
-			switch($tipo) {
-				case 'accesso agli atti':
-					$link = '&amp;tipologia=accessoatti';
-					break;
-				default:
-					$link = '&amp;tipologia='.$istanzaOggetto['tipologia'];
-					break;
-			}
-		} else if($idOggetto == 4) {
-			//incarichi
-			$link = '';
-			$tipo = $istanzaOggetto['tipologia'];
-			switch($tipo) {
-				case 'incarico':
-					$link = '&amp;tipo=incarico';
-					if(moduloAttivo('incarichiPerlaPA') and date('Y', $istanzaOggetto['inizio_incarico']) >= 2018 /* and $istanzaOggetto['__perlapa_bonificato'] */) {
-						$visualizzaBtnPerlaPA = true;
-						if($istanzaOggetto['tipo_incarico__originale'] == 'incarichi dipendenti interni') {
-							$link .= '_dip';
-						} else if($istanzaOggetto['tipo_incarico__originale'] == 'incarichi dipendenti esterni') {
-							$link .= '_cons';
-						}
-					}
-				break;
-				case 'liquidazione':
-					$link = '&amp;tipo=liquidazione';
-				break;
-			}
-		} else if($idOggetto == 38) {
-			//sovvenzioni
-			$link = '';
-			$tipo = $istanzaOggetto['tipologia'];
-			switch($tipo) {
-				case 'sovvenzione':
-					$link = '&amp;tipo=sovvenzione';
-				break;
-				case 'liquidazione':
-					$link = '&amp;tipo=liquidazione';
-				break;
-			}
-		}
-		$stringaInt .= "<a href=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azione=modifica&amp;id=".$istanzaOggetto['id'].$link."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Modifica elemento\" class=\"btn\"><span class=\"iconfa-edit\"></span></a>";
+                    case "filemedia":
 
-	}
-	
-	$stringaInt .= '<div class="dropdown" style="display:inline;"><a data-toggle="dropdown" class="btn dropdown-toggle" data-rel="tooltip" data-original-title="Operazioni"><span class="caret"></span></a><ul class="dropdown-menu pull-right">';
-	
-	if ($idOggetto == 61 and $istanzaOggetto['id_proprietario'] <= 0) {
-		//richiesta di accesso civico da web
-		$stringaInt .= "<li><a href=\"javascript:eliminaElemento(".$istanzaOggetto['id'].",1);\" idcanc=\"".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elimina elemento\" class=\"\"><span class=\"iconfa-trash\"></span> &nbsp; Elimina</a></li>";
-	} else if (($aclTrasparenza[$menuSecondario]['cancellazione'] OR $datiUser['id']==$istanzaOggetto['id_proprietario']) and !$istanzaOggetto['__bloccato']) {
-		//elemento normale 
-		$stringaInt .= "<li><a href=\"javascript:eliminaElemento(".$istanzaOggetto['id'].",1);\" idcanc=\"".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elimina elemento\" class=\"\"><span class=\"iconfa-trash\"></span> &nbsp; Elimina</a></li>";	
-	}
-	
-	switch($idOggetto) {
-		case 3:
-		case 13:
-		case 43:
-		case 44:
-		case 16:
-		case 55:
-			if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__archiviata'] and moduloAttivo('aggiornamenti')) {
-				$stringaInt .= "<li id=\"btn__archiviata_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:archiviaInformazione(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Archivia questo elemento\" class=\"\"><span class=\"iconfa-folder-close\"></span> &nbsp; Archivia</a></li>";
-			}
-		break;
-	}
-	
-	//if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__archiviata'] and $idOggetto != 45 and $idOggetto != 46 and $idOggetto != 61 and moduloAttivo('aggiornamenti')) {
-	if($aclTrasparenza[$menuSecondario]['creazione'] and !$istanzaOggetto['__archiviata'] and $idOggetto != 45 and $idOggetto != 46 and $idOggetto != 61 and moduloAttivo('aggiornamenti')) {
-		$stringaInt .= "<li id=\"btn__duplicata_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:duplicaInformazione(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Duplica questo elemento\" class=\"\"><span class=\"iconfa-copy\"></span> &nbsp; Duplica</a></li>";
-	}
-	
-	//copia bando in provvedimenti
-	if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and ($aclTrasparenza['provvedimenti']['creazione'] or $aclTrasparenza['provvedimenti']['modifica']) and $idOggetto == 11 and moduloAttivo('aggiornamenti') and ($istanzaOggetto['tipologia'] == 'bandi ed inviti' or $istanzaOggetto['tipologia'] == 'esiti' or $istanzaOggetto['tipologia'] == 'affidamenti' or $istanzaOggetto['tipologia'] == 'determina_32')) {
-		$stringaInt .= "<li id=\"btn__bando2provv_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:bando2provvedimento(".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Copia questo elemento in Provvedimenti Amministrativi\" class=\"\"><span class=\"iconfa-share-alt\"></span> &nbsp; Copia in Provvedimenti Amministrativi</a></li>";
-	}
-	
-	if(moduloAttivo('anticorruzione') and $idOggetto == 52) {
-		$stringaInt .= "<li><a href=\"javascript:esportaODT(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Esporta in DOCX\" class=\"\"><span class=\"iconfa-save\"></span> &nbsp; Esporta</a></li>";
-	}
-	
-	if (moduloAttivo('notifiche_push') and $aclTrasparenza[$menuSecondario]['notifiche_push'] and in_array($idOggetto, $oggettiNotifichePush)) {
-		$stringaInt .= "<li><a href=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azione=notifica_push&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Invia notifica push\" class=\"\"><span class=\"iconfa-mobile-phone\"></span> &nbsp; Invia notifica</a><li>";	
-	}
-	
-	if($aclTrasparenza[$menuSecondario]['avanzate'] and ($oggettiTrasparenza[$idOggetto]['versioning']) and $istanzaOggetto['stato_workflow'] == 'finale' and !$istanzaOggetto['__archiviata'] and !$istanzaOggetto['__bloccato']) {
-		$stringaInt .= "<li id=\"btn__versioning_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=versioning&amp;azione=lista&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Versioni precedenti\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-history\"></span> &nbsp; Versioni precedenti</a></li>";
-	}
-	
-	$stringaInt .= "<li><a href=\"ajax.php?azione=log&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Log delle attivit&agrave;\" class=\"\"><span class=\"iconfa-list\"></span> &nbsp; Log</a></li>";
-	
-	//trasmissione a perlapa: stessi permessi del modifica
-	if($visualizzaBtnPerlaPA) {
-		$stringaInt .= '<li class="divider"></li>';
-		if($istanzaOggetto['__perlapa_idIncarico']) {
-			//variazione
-			$stringaInt .= "<li id=\"btn__perlapa_edit_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=edit&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Variazione incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Variazione incarico</a></li>";
-			//cancellazione
-			$stringaInt .= "<li id=\"btn__perlapa_del_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=delete&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Cancellazione incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Cancellazione incarico</a></li>";
-		} else {
-			//inserimento
-			$stringaInt .= "<li id=\"btn__perlapa_ins_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=insert&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Inserimento incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Inserimento incarico</a></li>";
-		}
-	}
-	
-	$stringaInt .= '</ul>';
+                        if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                            $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                        } else {
+                            $valoreLabel = $istanzaOggetto[$campo['campo']];
+                        }
+                        $outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a>";
 
-	
-	$stringaInt .= '</div>';
-	  
-	$stringaInt .= "</span>";
-	$outputArray[$numChiave][] = $stringaInt;
-	$outputArray[$numChiave]['DT_RowId'] = 'row_istanza_'.$istanzaOggetto['id'];
-	
+                        break;
+
+                    case "camposezione_multi":
+                        // devo pubblicare tutti i nomi di sezione
+                        $idSezMulti = explode(',',$istanzaOggetto[$campo['campo']]);
+
+                        foreach ($idSezMulti as $idSezTmp) {
+                            $nomeSez = nomeSezDaId($idSezTmp,'nome');
+                            if ($outputScreen != '') {
+                                $outputScreen .= ', ';
+                            }
+                            $outputScreen .= "<a href=\"".$strAncora."\" target=\"_blank\">".$nomeSez."</a>";
+                        }
+                        break;
+
+                    case "tags":
+                        // devo pubblicare tutti i nomi di sezione
+                        $idTagMulti = explode(',',$istanzaOggetto[$campo['campo']]);
+
+                        foreach ($idTagMulti as $idTagTmp) {
+                            $nomeTag = caricaTag($idTagTmp,'nome');
+                            // verifico se usare le url parlati
+                            if ($outputScreen != '') {
+                                $outputScreen .= ', ';
+                            }
+                            $outputScreen .= "<a href=\"".$strAncora."\" target=\"_blank\">".$nomeTag."</a>";
+                        }
+                        break;
+
+                    case "data_calendario":
+                        $outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
+                        break;
+
+                    case "email" :
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            // separo eventuali indirizzi multipli
+                            $multiMail = explode(',', $istanzaOggetto[$campo['campo']]);
+                            foreach ($multiMail as $mailTemp) {
+                                if ($outputScreen != '') {
+                                    $outputScreen .= ", ";
+                                }
+                                $outputScreen .= "<a target=\"_blank\" href=\"Javascript:window.open('mailto:" . $mailTemp . "');void(0);\">" . $mailTemp . "</a>";
+                            }
+                        }
+                        break;
+
+                    default:
+                        $outputScreen = "<a href=\"".$istanzaOggetto[$campo['campo']]."\" target=\"_blank\">".$istanzaOggetto[$campo['campo']]."</a>";
+                }
+
+                break;
+
+            case "visualizza":
+                // verifico se posso usare una visualizzazione diretta per l'immagine
+                if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+                    $posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
+                    $estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
+                    // controllo se il file esiste, altrimenti cambio estensione nella classica
+                    if ($estFile == 'gif' or $estFile == 'jpg' or $estFile == 'jpeg' or $estFile == 'png') {
+                        $outputScreen = "<img style=\"vertical-align:middle\" src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" />";
+                    }
+                }
+                break;
+
+            case "linkcompleto":
+                // devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
+                if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+
+                    $grandezza = filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
+                    $posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
+                    $estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
+                    // controllo se il file esiste, altrimenti cambio estensione nella classica
+                    if (!file_exists("grafica/file/small/".$estFile.".gif")) {
+                        $estFile = "generica";
+                    }
+                    if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                        $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                    } else {
+                        $valoreLabel = $istanzaOggetto[$campo['campo']];
+                    }
+                    $outputScreen = "<a target=\"_blank\" href=\"".$server_url."moduli/downloadFile.php?file=".$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$valoreLabel."</a> (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
+
+                }
+                break;
+
+            case "linketichetta":
+                if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+                    if($oggOgg->upload_multiplo == 1){
+                        $outputScreen = $campo['titolo'];
+                        $campo['titolo'] = '';
+                    } else {
+                        $outputScreen = "<a target=\"_blank\" href=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$campo['titolo']."</a>";
+                        $campo['titolo'] = '';
+                    }
+                }
+                break;
+
+            case "linkreview":
+                switch ($campo['tipo']) {
+                    case "immagine":
+                        $percentualina = '80px';
+                        $outputScreen = "<a href=\"?win_admin=popup&id=".$idOggetto."&azione=review&id_cat=".$idCategoria."&id_ogg=".$istanzaOggetto['id']."\">
+							<img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" /></a>";
+                        break;
+
+                    case "data_calendario":
+                        $outputScreen = "<a href=\"?win_admin=popup&id=".$idOggetto."&azione=review&id_cat=".$idCategoria."&id_ogg=".$istanzaOggetto['id']."\">".visualizzaData($istanzaOggetto[$campo['campo']],$prop[1])."</a>";
+                        break;
+
+                    case "file":
+
+                        if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                            $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                        } else {
+                            $valoreLabel = $istanzaOggetto[$campo['campo']];
+                        }
+
+                        break;
+
+                    default:
+                        if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                            $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                        } else {
+                            $valoreLabel = $istanzaOggetto[$campo['campo']];
+                        }
+                        $outputScreen = "<a href=\"ajax.php?azione=review&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".$valoreLabel."</a>";
+                }
+                break;
+
+            case "soloetichetta":
+                $outputScreen = $campo['titolo'];
+                $campo['titolo'] = '';
+
+                break;
+
+            case "soloetichettadv":
+                $codiceEval = '?>'.$campo['titolo'].'<?php ';
+                if (!verificaEval($codiceEval)) {
+                    mostraAvviso(0, 'Il codice PHP in questa etichetta [campo <b>' . $campo['campo'] . '</b>] ha generato un errore di sintassi.');
+                } else {
+                    ob_start();
+                    eval ($codiceEval);
+                    $content = ob_get_clean();
+                    ob_end_flush();
+                    $outputScreen = $content;
+                }
+                break;
+
+            case "linkcampo":
+
+                if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                    $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                } else {
+                    $valoreLabel = $istanzaOggetto[$campo['campo']];
+                }
+                $outputScreen = "<a href=\"".$prop[1]."\">".$valoreLabel."</a>";
+                break;
+
+            case "linketicompleto":
+                // devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
+                if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+                    $grandezza = @filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
+                    $posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
+                    $estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
+                    // controllo se il file esiste, altrimenti cambio estensione nella classica
+                    if (!file_exists("grafica/file/small/".$estFile.".gif")) {
+                        $estFile = "generica";
+                    }
+                    $outputScreen = "<a href=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\">".$campo['titolo']."</a> (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
+                    $campo['titolo'] = '';
+                }
+                break;
+
+            case "filecompleto":
+                // devo inserire tutte le informazioni sul file....analizzo la sua grandezza in termini di kb
+                if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+
+                    $grandezza = @filesize($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]);
+                    $posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
+                    $estFile =  substr($istanzaOggetto[$campo['campo']], ($posPunto+1));
+                    // controllo se il file esiste, altrimenti cambio estensione nella classica
+                    if (!file_exists("grafica/file/small/".$estFile.".gif")) {
+                        $estFile = "generica";
+                    }
+                    if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                        $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                    } else {
+                        $valoreLabel = $istanzaOggetto[$campo['campo']];
+                    }
+                    $outputScreen = $valoreLabel." (".round($grandezza/1000)." kb) <img style=\"vertical-align:middle\" src=\"".$server_url."grafica/file/small/".$estFile.".gif\" alt=\"File con estensione ".$estFile."\" />";
+
+                }
+                break;
+
+            default:
+                switch ($campo['tipo']) {
+                    case "immagine":
+                        $percentualina = '80px';
+                        $outputScreen = "<img src=\"moduli/output_immagine.php?id=".$istanzaOggetto[$campo['campo']]."&amp;larghezza=80\" width=\"80\" />";
+                        break;
+
+                    case "data_calendario":
+                        if($prop[1] == 'd-m-Y') {
+                            $outputScreen = '<span class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]).'</span>';
+                        } else if($prop[1] == 'd-m-Y G:i') {
+                            $outputScreen = '<div class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],'d-m-Y').'</div><div class="data-nowrap">'.visualizzaData($istanzaOggetto[$campo['campo']],'G:i').'</div>';
+                        } else {
+                            $outputScreen = visualizzaData($istanzaOggetto[$campo['campo']],$prop[1]);
+                        }
+                        break;
+
+                    case "ora":
+                        if (!$campo['valore']) {
+                            // rislago all'orario completo
+                            $ore = floor($istanzaOggetto[$campo['campo']]/60);
+                            $minuti = $istanzaOggetto[$campo['campo']]-($ore*60);
+                            $outputScreen = $ore.":".$minuti;
+                        } else if ($campo['valore']==1) {
+                            // solo ora
+                            $outputScreen = round($istanzaOggetto[$campo['campo']]/60);
+                        } else {
+                            // solo minuti
+                            $outputScreen = $istanzaOggetto[$campo['campo']];
+                        }
+                        break;
+
+                    case "camposezione":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            // devo pubblicare il nome della sezione
+                            $outputScreen = nomeSezDaId($istanzaOggetto[$campo['campo']],'nome');
+                        }
+                        break;
+
+                    case "camposezione_multi":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            // devo pubblicare tutti i nomi di sezione
+                            $idSezMulti = explode(',',$istanzaOggetto[$campo['campo']]);
+                            $outputScreen = '';
+                            foreach ($idSezMulti as $idSezTmp) {
+                                if ($outputScreen != '') {
+                                    $outputScreen .= ', ';
+                                }
+                                $outputScreen .= nomeSezDaId($idSezTmp,'nome');
+                            }
+                        }
+                        break;
+
+                    case "tags":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            // devo pubblicare tutti i nomi dei tag
+                            $idTagMulti = explode(',',$istanzaOggetto[$campo['campo']]);
+                            $outputScreen = '';
+                            foreach ($idTagMulti as $idTagTmp) {
+                                if ($outputScreen != '') {
+                                    $outputScreen .= ', ';
+                                }
+                                $outputScreen .= caricaTag($idTagTmp,'nome');
+                            }
+                        }
+                        break;
+
+                    case "campoutente":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            $userTmp = nomeUserDaId($istanzaOggetto[$campo['campo']],'nome');
+                            if ($userTmp == '' OR !$userTmp) {
+                                $outputScreen = "User non pi&ugrave; presente";
+                            } else {
+                                // devo pubblicare il nome dell'utente
+                                $outputScreen = $userTmp;
+                            }
+                        }
+                        break;
+
+                    case "casella":
+                        if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']]) {
+                            // devo pubblicare il nome dell'utente
+                            $outputScreen = "Si";
+                        } else {
+                            $outputScreen = "No";
+                        }
+                        break;
+
+                    case "campoutente_multi":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            $nomiUtenti = array();
+                            foreach((array)explode(',', $istanzaOggetto[$campo['campo']]) as $idUtente) {
+                                // devo pubblicare il nome dell'utente
+                                $nomiUtenti[] = nomeUserDaId($idUtente,'nome');
+                            }
+                            $outputScreen = implode(', ', $nomiUtenti);
+                        }
+                        break;
+
+                    case "campogruppo":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            // devo pubblicare il nome di un gruppo
+                            $outputScreen = datoGruppo($istanzaOggetto[$campo['campo']],'nome');
+                        }
+                        break;
+
+                    case "campogruppo_multi":
+
+                        break;
+
+
+                    case "gmaps":
+                    case "gmapsmulti":
+                        if ($istanzaOggetto[$campo['campo']] != '') {
+                            $valore = $istanzaOggetto[$campo['campo']];
+                            $oldAPI = false;
+                            if($valore[0] == '(') {
+                                $oldAPI = true;
+                                // vecchia versione, devo convertire l'indirizzo
+                                $valore = substr($valore, 1);
+                                $posInd = strrpos($valore, "|");
+                                if ($posInd !== false) {
+                                    $indirizzo = substr($valore, $posInd +1);
+                                    $valore = substr($valore, 0, $posInd);
+                                } else {
+                                    //non ho l'indirizzo
+                                    $indirizzo = "";
+                                }
+                            } else {
+                                $prop = explode("|", $valore);
+                                $punti = $prop[1];
+                                unset($prop);
+                                $punti = explode("{",$punti);
+                                $indirizzo = "";
+                                foreach ($punti as $punto) {
+                                    $variabili = explode("}", $punto);
+                                    foreach ($variabili as $variabile) {
+                                        $varTemp = explode("=",$variabile);
+                                        if($varTemp[0] == 'indirizzo') {
+                                            if($indirizzo != '') {
+                                                $indirizzo .= "<br />";
+                                            }
+                                            $indirizzo .= $varTemp[1];
+                                        }
+                                    }
+                                }
+                            }
+                            $outputScreen =  $indirizzo;
+                        }
+
+                        break;
+
+                    case "campoggetto":
+                        if (trim($istanzaOggetto[$campo['campo']]) != '' and $istanzaOggetto[$campo['campo']] != '0') {
+                            // devo pubblicare il campo di riferimento per l'oggetto collegato
+                            if($idOggetto == 56 and $campo['campo'] == 'id_immobile') {
+                                $outputScreen = "<a href=\"ajax.php?azione=review&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\">".mostraDatoOggetto($istanzaOggetto[$campo['campo']],$campo['valore'])."</a>";
+                            } else {
+                                $outputScreen = mostraDatoOggetto($istanzaOggetto[$campo['campo']],$campo['valore']);
+                            }
+                        }
+                        break;
+
+                    case "comuni":
+                        if (trim($istanzaOggetto[$campo['campo']]) != '') {
+                            require('inc/variabili.php');
+                            // trovo cosa pubblicare
+                            if (!$campo['valore']) {
+                                // regioni
+                                $outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsRegioni);
+                            } else if ($campo['valore'] == 1) {
+                                // provincia
+                                $outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsProvince);
+                            } else {
+                                $outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsComuni);
+                            }
+                        }
+                        break;
+
+                    case "nazioni":
+                        if (trim($istanzaOggetto[$campo['campo']]) != '') {
+                            require('inc/variabili.php');
+                            // trovo cosa pubblicare
+                            if (!$campo['valore']) {
+                                // regioni
+                                $outputScreen = visComuni($istanzaOggetto[$campo['campo']],$arrayJsContinenti);
+                            } else {
+                                $outputScreen = $istanzaOggetto[$campo['campo']];
+                            }
+                        }
+                        break;
+
+                    case "filemedia":
+                        if ($istanzaOggetto[$campo['campo']] != '' and $istanzaOggetto[$campo['campo']] != 'nessuno') {
+
+                            $posPunto = strrpos($istanzaOggetto[$campo['campo']], ".");
+                            $estFile =  strtolower(substr($istanzaOggetto[$campo['campo']], ($posPunto+1)));
+                            // controllo che tipo di file Ã¨ stato impostato
+                            if ($estFile == 'gif' or $estFile == 'jpg' or $estFile == 'jpeg' or $estFile == 'png' or $estFile == 'bmp') {
+                                // PUBBLICO UNA IMMAGINE
+                                if ($stileCampo['larghezza'] == '' OR $stileCampo['larghezza'] == 'auto') {
+                                    $outputScreen .= "<img style=\"width:100px\" src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" alt=\" \" />";
+                                } else {
+                                    $outputScreen .= "<img src=\"".$server_url.$uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campo['campo']]."\" width=\"".$stileCampo['larghezza']."\" alt=\" \" /></a>";
+                                }
+                            }
+                        }
+                        break;
+
+                    case "campoggetto_multi":
+                        if (trim($istanzaOggetto[$campo['campo']]) != '' and $istanzaOggetto[$campo['campo']] != '0') {
+                            // devo pubblicare tutti i nomi dell'oggetto
+                            $idOggMulti = explode(',',$istanzaOggetto[$campo['campo']]);
+                            $outputScreen = '';
+                            foreach ($idOggMulti as $idOggTmp) {
+                                $nomeOgg = mostraDatoOggetto($idOggTmp,$campo['valore']);
+                                if (trim($nomeOgg) != '') {
+                                    if ($outputScreen != '') {
+                                        $outputScreen .= ', ';
+                                    }
+                                    $outputScreen .= $nomeOgg;
+                                }
+                            }
+                        }
+                        break;
+
+                    case "youtube":
+                        include('template/admin_standard/oggetti/navigazione_youtube.tmp');
+                        break;
+
+
+                    default:
+
+                        if(strpos($istanzaOggetto[$campo['campo']], "O__O")){
+                            $valoreLabel = substr($istanzaOggetto[$campo['campo']], strpos($istanzaOggetto[$campo['campo']], "O__O") + 4);
+                        } else {
+                            $valoreLabel = $istanzaOggetto[$campo['campo']];
+                        }
+
+                        $outputScreen = $valoreLabel;
+
+                        if ($idOggetto == 11 and $campo['campo'] == 'cig' and $istanzaOggetto['id_record_cig_principale'] == $istanzaOggetto['id']) {
+                            $sql = "SELECT * FROM " . $dati_db['prefisso'] . "oggetto_gare_atti WHERE id_record_cig_principale = ".$istanzaOggetto['id']." AND id != ".$istanzaOggetto['id']." AND id_ente = ".$idEnteAdmin;
+                            if (!($result = $database->connessioneConReturn($sql))) {
+                                //die("Database non installato o non disponibile: errore critico.");
+                            }
+                            $count = $database->sqlNumRighe($result);
+                            $outputScreen = $count.' CIG totali';
+                        } else if($idOggetto == 11 and $campo['campo'] == 'tipologia') {
+                            switch($istanzaOggetto['tipologia']) {
+                                //bandi ed inviti,esiti,delibere e determine a contrarre,affidamenti,avvisi pubblici,somme liquidate
+                                case 'bandi ed inviti':
+                                    $outputScreen = 'bando di gara';
+                                    break;
+                                case 'lotto':
+                                    $outputScreen = 'lotto';
+                                    break;
+                                case 'esiti':
+                                    $outputScreen = 'esito di gara';
+                                    break;
+                                case 'delibere e determine a contrarre':
+                                    $outputScreen = 'determina art. 57 comma 6 dlgs. 163/2006';
+                                    break;
+                                case 'determina_32':
+                                    $outputScreen = 'delibera a contrarre o atto equivalente';
+                                    break;
+                                case 'affidamenti':
+                                    $outputScreen = 'esito/affidamento';
+                                    break;
+                                case 'avvisi pubblici':
+                                    $outputScreen = 'avviso';
+                                    break;
+                                case 'somme liquidate':
+                                    $outputScreen = 'liquidazione';
+                                    break;
+                            }
+                            $sottotipo = $istanzaOggetto['sottotipo'];
+                            if($sottotipo != '') {
+                                foreach((array)$enteAdmin['personalizzazioni_tipi_gare'] as $st) {
+                                    if($st['sottotipo'] == $sottotipo) {
+                                        $outputScreen .= ' - '.$st['etichetta'];
+                                    }
+                                }
+                            }
+                        } else if ($idOggetto == 45 and $campo['campo'] == '__dimensione_file') {
+                            $urlStazione = '';
+                            if($istanzaOggetto['id_stazione'] > 0) {
+                                $urlStazione = 's'.$istanzaOggetto['id_stazione'].'_';
+                            }
+                            if(file_exists('avcp/'.$istanzaOggetto['id_ente'].'/'.$urlStazione.$istanzaOggetto['anno'].'.xml')) {
+                                $outputScreen = human_filesize(filesize('avcp/'.$istanzaOggetto['id_ente'].'/'.$urlStazione.$istanzaOggetto['anno'].'.xml'));
+                            } else {
+                                $outputScreen = 'non disponibile';
+                            }
+                        } else if($idOggetto == 3 and $campo['campo'] == 'ruolo_politico') {
+                            $content = '';
+                            ob_start();
+                            visualizzaOrganoPolitico($istanzaOggetto, false);
+                            $content = ob_get_clean();
+                            ob_end_flush();
+                            if($content != '') {
+                                $outputScreen .= ' - '.tagliaContHtml($content, 400);
+                            }
+                        } else if($idOggetto == 4 and $campo['campo'] == 'oggetto') {
+                            if($istanzaOggetto['tipologia'] != '') {
+                                $outputScreen .= '<br /><strong>[</strong>'.$istanzaOggetto['tipologia'].'<strong>]</strong>';
+                            }
+
+                        } else if($idOggetto == 38 and $campo['campo'] == 'oggetto') {
+                            if($istanzaOggetto['tipologia'] != '') {
+                                $outputScreen .= '<br /><strong>[</strong>'.$istanzaOggetto['tipologia'].'<strong>]</strong>';
+                            }
+                        } else if($idOggetto == 61 and $campo['campo'] == 'stato_pratica') {
+                            $btn = '';
+                            $ac = '';
+                            $cls = '';
+                            if($istanzaOggetto['stato_pratica'] == 'caricata') {
+                                $btn = 'prendi in carico';
+                                $ac = '&amp;azione_ac=incarica';
+                                $cls = 'label label-warning';
+                            } else if(($istanzaOggetto['stato_pratica'] == 'in corso') or ($istanzaOggetto['stato_pratica'] == 'richiesto riesame')) {
+                                $btn = 'concludi';
+                                $ac = '&amp;azione_ac=concludi';
+                                $cls = 'label label-info';
+                            } else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $istanzaOggetto['tipologia'] != 'accessoatti') {
+                                $btn = 'richiesta di riesame';
+                                $ac = '&amp;azione_ac=riesamina';
+                                $cls = 'label label-success';
+                            } else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $istanzaOggetto['tipologia'] == 'accessoatti') {
+                                $cls = 'label label-success';
+                            }
+                            /*
+                             else if($istanzaOggetto['stato_pratica'] == 'richiesto riesame') {
+                             $cls = 'label label-warning';
+                             }
+                             */
+                            $outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['stato_pratica'].'</div>';
+                            if($ac != '') {
+                                $outputScreen .= '<a href="?menu='.$menu.'&amp;menusec='.$menuSecondario.'&amp;tipologia='.$istanzaOggetto['tipologia'].'&amp;azione=modifica&amp;id='.$istanzaOggetto['id'].$link.$ac.'" class="btn btn-block" data-placement="top" data-rel="tooltip" data-original-title="'.$btn.'"><span class="iconfa-share"></span> &nbsp; '.$btn.'</a>';
+                            }
+                        } else if($idOggetto == 61 and $campo['campo'] == 'tipologia') {
+                            $cls = '';
+                            if($istanzaOggetto['tipologia'] == 'semplice') {
+                                $cls = 'label label-success';
+                            } else if($istanzaOggetto['tipologia'] == 'generalizzato') {
+                                $cls = 'label label-warning';
+                            } else if($istanzaOggetto['tipologia'] == 'accessoatti') {
+                                $cls = 'label label-info';
+                            }
+                            $outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['tipologia'].'</div>';
+                        } else if($idOggetto == 22 and $campo['campo'] == 'tipologia') {
+                            if($enteAdmin['id'] == 215) {
+                                $istanzaOggetto['tipologia'] = '';
+                                foreach((array)$configurazione['__tags_concorsi'] as $t) {
+                                    if ($t['__tag_concorsi'] == $istanzaOggetto['__tag_concorsi']) {
+                                        $istanzaOggetto['tipologia'] = $t['nome'];
+                                    }
+                                }
+                            }
+                            $outputScreen = '<div class="'.$cls.'">'.$istanzaOggetto['tipologia'].'</div>';
+                        }
+                }
+
+        }
+    }
+
+    // LUCA 08-06-2020 - forzature costanti al rendering, il ciclo custom sopra è solo per i campi default
+
+    // ECONCORSI
+    if($idOggetto == 79 and $campo['campo'] == 'nome') {
+        $outputScreen = "<a data-original-title=\"Scheda compilata dal candidato\" data-href=\admin__pat.php?id=".$istanzaOggetto['id']."&azione=review_econcorsi&menu=econcorsi&menusec=candidature&box=1\" class=\"btn econcorsiCandidato show_modalIFrame\"><span class=\"iconfa-user\"></span> ".$istanzaOggetto['nome'].' '.$istanzaOggetto['cognome']."</a>";
+    }
+    if($idOggetto == 79 and $campo['campo'] == 'id_candidatura') {
+        $nomeOgg = mostraDatoOggetto($istanzaOggetto['id_candidatura'],78,'*');
+        $outputScreen = "<div style=\"font-size:0.9em;\">".$nomeOgg['titolo']."</div>";
+        //$outputScreen = "<a data-original-title=\"Scheda compilata dal candidato\" data-href=\admin__pat.php?id=".$istanzaOggetto['id']."&azione=review_econcorsi&menu=econcorsi&menusec=candidature&box=1\" class=\"btn econcorsiCandidato show_modalIFrame\"><span class=\"iconfa-user\"></span> ".$istanzaOggetto['nome'].' '.$istanzaOggetto['cognome']."</a>";
+    }
+    //echo  " idOggetto: ".$campo['campo'];
+    if( $idOggetto == 78 and $campo['campo'] == 'titolo') {
+        if($istanzaOggetto['data_inizio']>time()) {
+            $outputScreenC = "<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Concorso telematico non ancora attivo\" style=\"color: #FFFFFF;background-color: #FF5511;\" class=\"btn\"><span class=\"iconfa-inbox\" style=\"color: #FFFFFF;background-color: #FF5511;\"></span></a></span>";
+        } else if($istanzaOggetto['data_inizio']<=time() AND $istanzaOggetto['data_fine']>=time()) {
+            $outputScreenC = "<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Concorso telematico attivo ora\" style=\"color: #FFFFFF;background-color: #568e2c;\" class=\"btn\"><span class=\"iconfa-inbox\" style=\"color: #FFFFFF;background-color: #568e2c;\"></span></a></span>";
+        } else {
+            $outputScreenC = "<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Concorso telematico chiuso\" style=\"color: #FFFFFF;background-color: #202020;\" class=\"btn\"><span class=\"iconfa-inbox\" style=\"color: #FFFFFF;background-color: #202020;\"></span></a></span>";
+        }
+        $outputScreen = $outputScreenC ."&nbsp;".$outputScreen;
+    }
+    if($idOggetto == 81 and $campo['campo'] == 'id_candidatura') {
+        if (!$istanzaOggetto['id_candidatura']==0 OR $istanzaOggetto['id_candidatura']=='' OR $istanzaOggetto['id_candidatura']==null) {
+            $outputScreen = graficaCasella(1);
+        } else {
+            //$outputScreen = $campo['campo'];
+            $outputScreen = graficaCasella(0);
+        }
+    }
+
+    $outputScreen = str_replace('[Elemento archiviato]', "&nbsp;<span class=\"intTooltip\"><a href=\"#\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Questo elemento &egrave; stato archiviato.\" class=\"btn\"><span class=\"iconfa-folder-close\" style=\"color: #FF5511;\"></span></a></span>", $outputScreen);
+    $outputArray[$numChiave][] = $outputScreen;
+    $numCella++;
+
+}
+
+if ($visualizzaInterfaccia) {
+    $stringaInt = "<span class=\"intTooltip centeralign\">";
+
+    $visualizzaBtnPerlaPA = false;
+    if (($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__bloccato']) {
+        $link = '';
+        if(moduloAttivo('bandigara') and $idOggetto == 11) {
+            $tipo = $istanzaOggetto['tipologia'];
+            switch($tipo) {
+                //bandi ed inviti,esiti,delibere e determine a contrarre,affidamenti,avvisi pubblici,somme liquidate
+                case 'bandi ed inviti':
+                    $link = '&amp;tipo=bando';
+                    break;
+                case 'lotto':
+                    $link = '&amp;tipo=lotto';
+                    break;
+                case 'esiti':
+                    $link = '&amp;tipo=esito';
+                    break;
+                case 'delibere e determine a contrarre':
+                    $link = '&amp;tipo=delibera';
+                    break;
+                case 'determina_32':
+                    $link = '&amp;tipo=determina_32';
+                    break;
+                case 'affidamenti':
+                    $link = '&amp;tipo=affidamento';
+                    break;
+                case 'avvisi pubblici':
+                    $link = '&amp;tipo=avviso';
+                    break;
+                case 'somme liquidate':
+                    $link = '&amp;tipo=liquidazione';
+                    break;
+            }
+            $sottotipo = $istanzaOggetto['sottotipo'];
+            if($sottotipo != '') {
+                $link .= '&amp;sottotipo='.$sottotipo;
+            }
+        } else if(moduloAttivo('organismi-commissioni') and $idOggetto == 43) {
+            $tipo = $istanzaOggetto['tipologia'];
+            switch($tipo) {
+                case 'commissione':
+                    $link = '&amp;tipo=commissione';
+                    break;
+                case 'gruppo consiliare':
+                    $link = '&amp;tipo=gruppo';
+                    break;
+                case 'udp':
+                    $link = '&amp;tipo=udp';
+                    break;
+                case 'ci':
+                    $link = '&amp;tipo=ci';
+                    break;
+                case 'gect':
+                    $link = '&amp;tipo=gect';
+                    break;
+            }
+        } else if(moduloAttivo('accessocivico') and $idOggetto == 61) {
+            $tipo = $istanzaOggetto['tipologia'];
+            switch($tipo) {
+                case 'accesso agli atti':
+                    $link = '&amp;tipologia=accessoatti';
+                    break;
+                default:
+                    $link = '&amp;tipologia='.$istanzaOggetto['tipologia'];
+                    break;
+            }
+        } else if($idOggetto == 4) {
+            //incarichi
+            $link = '';
+            $tipo = $istanzaOggetto['tipologia'];
+            switch($tipo) {
+                case 'incarico':
+                    $link = '&amp;tipo=incarico';
+                    if(moduloAttivo('incarichiPerlaPA') and date('Y', $istanzaOggetto['inizio_incarico']) >= 2018 /* and $istanzaOggetto['__perlapa_bonificato'] */) {
+                        $visualizzaBtnPerlaPA = true;
+                        if($istanzaOggetto['tipo_incarico__originale'] == 'incarichi dipendenti interni') {
+                            $link .= '_dip';
+                        } else if($istanzaOggetto['tipo_incarico__originale'] == 'incarichi dipendenti esterni') {
+                            $link .= '_cons';
+                        }
+                    }
+                    break;
+                case 'liquidazione':
+                    $link = '&amp;tipo=liquidazione';
+                    if(moduloAttivo('incarichiPerlaPA')) {
+                        // solo trasmissione singola - no multipla perchè calcolato automaticamente nell'incarico
+                        $visualizzaBtnPerlaPA = true;
+                    }
+                    break;
+            }
+        } else if($idOggetto == 38) {
+            //sovvenzioni
+            $link = '';
+            $tipo = $istanzaOggetto['tipologia'];
+            switch($tipo) {
+                case 'sovvenzione':
+                    $link = '&amp;tipo=sovvenzione';
+                    break;
+                case 'liquidazione':
+                    $link = '&amp;tipo=liquidazione';
+                    break;
+            }
+        }
+
+
+        $stringaInt .= "<a href=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azione=modifica&amp;id=".$istanzaOggetto['id'].$link."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Modifica elemento\" class=\"btn\"><span class=\"iconfa-edit\"></span></a>";
+
+
+    }
+
+    //INIZIO PULSANTE CREA NOTIFICA IO
+    $sql = "SELECT * FROM " . $dati_db['prefisso'] . "app_io WHERE id_oggetto = ".$idOggetto." AND id_ente = ".$idEnteAdmin;
+    if (!($result = $database->connessioneConReturn($sql))) {
+        die("Database non installato o non disponibile: errore critico.");
+    }
+    $serviziCollegati = $database->sqlArrayAss($result);
+
+    //DA ESTENDERE PER TUTTI GLI OGGETTI
+    if(($datiUser['id']==$istanzaOggetto['id_proprietario'] and $aclTrasparenza['notifiche_app_io'] == 1) or ($aclTrasparenza['notifiche_app_io']==2)){
+        if($serviziCollegati[0]['id_oggetto'] == $idOggetto) {
+            switch($idOggetto) {
+                //BANDI DI GARA
+                case 11:
+                    switch($istanzaOggetto['tipologia']) {
+                        case 'affidamenti':
+                        case 'avvisi pubblici':
+                        case 'esiti':
+                        case 'determina_32':
+                        case 'bandi ed inviti':
+                            $stringaInt .= "<a href=\"?menu=configurazione&amp;menusec=notificheappio&amp;azione=aggiungi&amp;id_app_ori=".$serviziCollegati[0]['id']."&amp;id_oggetto_ori=".$idOggetto."&amp;id_ori=".$istanzaOggetto['id'].$link."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Crea Notifica IO\" class=\"btn\">
+                        <img width=\"15px\" heigth=\"15px\" src=\"$server_url/grafica/admin_skin/classic/app-io.svg\">
+                        </a>";
+                            break;
+                    }
+                    break;
+                //Di Default per tutti gli oggetti per i quali esiste un servizio compare il pulsante per inviare la notifica
+                case 16:
+                case 22:
+                case 28:
+                case 77:
+                    $stringaInt .= "<a href=\"?menu=configurazione&amp;menusec=notificheappio&amp;azione=aggiungi&amp;id_app_ori=".$serviziCollegati[0]['id']."&amp;id_oggetto_ori=".$idOggetto."&amp;id_ori=".$istanzaOggetto['id'].$link."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Crea Notifica IO\" class=\"btn\">
+                <img width=\"15px\" heigth=\"15px\" src=\"$server_url/grafica/admin_skin/classic/app-io.svg\">
+                </a>";
+                    break;
+            }
+        }
+    }
+    //FINE PULSANTE CREA NOTIFICA IO
+
+
+    $stringaInt .= '<div class="dropdown" style="display:inline;"><a data-toggle="dropdown" class="btn dropdown-toggle" data-rel="tooltip" data-original-title="Operazioni"><span class="caret"></span></a><ul class="dropdown-menu pull-right">';
+
+    if ($idOggetto == 61 and $istanzaOggetto['id_proprietario'] <= 0) {
+        //richiesta di accesso civico da web
+        $stringaInt .= "<li><a href=\"javascript:eliminaElemento(".$istanzaOggetto['id'].",1);\" idcanc=\"".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elimina elemento\" class=\"\"><span class=\"iconfa-trash\"></span> &nbsp; Elimina</a></li>";
+    } else if (($aclTrasparenza[$menuSecondario]['cancellazione'] OR $datiUser['id']==$istanzaOggetto['id_proprietario']) and !$istanzaOggetto['__bloccato']) {
+        //elemento normale
+        $stringaInt .= "<li><a href=\"javascript:eliminaElemento(".$istanzaOggetto['id'].",1);\" idcanc=\"".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Elimina elemento\" class=\"\"><span class=\"iconfa-trash\"></span> &nbsp; Elimina</a></li>";
+    }
+
+    switch($idOggetto) {
+        case 3:
+        case 13:
+        case 43:
+        case 44:
+        case 16:
+        case 55:
+            if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__archiviata'] and moduloAttivo('aggiornamenti')) {
+                $stringaInt .= "<li id=\"btn__archiviata_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:archiviaInformazione(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Archivia questo elemento\" class=\"\"><span class=\"iconfa-folder-close\"></span> &nbsp; Archivia</a></li>";
+            }
+            break;
+    }
+
+    //if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and !$istanzaOggetto['__archiviata'] and $idOggetto != 45 and $idOggetto != 46 and $idOggetto != 61 and moduloAttivo('aggiornamenti')) {
+    if($aclTrasparenza[$menuSecondario]['creazione'] and !$istanzaOggetto['__archiviata'] and $idOggetto != 45 and $idOggetto != 46 and $idOggetto != 61 and moduloAttivo('aggiornamenti')) {
+        $stringaInt .= "<li id=\"btn__duplicata_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:duplicaInformazione(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Duplica questo elemento\" class=\"\"><span class=\"iconfa-copy\"></span> &nbsp; Duplica</a></li>";
+    }
+
+    //copia bando in provvedimenti
+    if(($datiUser['id']==$istanzaOggetto['id_proprietario'] OR $aclTrasparenza[$menuSecondario]['modifica']) and ($aclTrasparenza['provvedimenti']['creazione'] or $aclTrasparenza['provvedimenti']['modifica']) and $idOggetto == 11 and moduloAttivo('aggiornamenti') and ($istanzaOggetto['tipologia'] == 'bandi ed inviti' or $istanzaOggetto['tipologia'] == 'esiti' or $istanzaOggetto['tipologia'] == 'affidamenti' or $istanzaOggetto['tipologia'] == 'determina_32')) {
+        $stringaInt .= "<li id=\"btn__bando2provv_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"javascript:bando2provvedimento(".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Copia questo elemento in Provvedimenti Amministrativi\" class=\"\"><span class=\"iconfa-share-alt\"></span> &nbsp; Copia in Provvedimenti Amministrativi</a></li>";
+    }
+
+    if(moduloAttivo('anticorruzione') and $idOggetto == 52) {
+        $stringaInt .= "<li><a href=\"javascript:esportaODT(".$idOggetto.", ".$istanzaOggetto['id'].");\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Esporta in DOCX\" class=\"\"><span class=\"iconfa-save\"></span> &nbsp; Esporta</a></li>";
+    }
+
+    if (moduloAttivo('notifiche_push') and $aclTrasparenza[$menuSecondario]['notifiche_push'] and in_array($idOggetto, $oggettiNotifichePush)) {
+        $stringaInt .= "<li><a href=\"?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;azione=notifica_push&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Invia notifica push\" class=\"\"><span class=\"iconfa-mobile-phone\"></span> &nbsp; Invia notifica</a><li>";
+    }
+
+    if($aclTrasparenza[$menuSecondario]['avanzate'] and ($oggettiTrasparenza[$idOggetto]['versioning']) and $istanzaOggetto['stato_workflow'] == 'finale' and !$istanzaOggetto['__archiviata'] and !$istanzaOggetto['__bloccato']) {
+        $stringaInt .= "<li id=\"btn__versioning_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=versioning&amp;azione=lista&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Versioni precedenti\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-history\"></span> &nbsp; Versioni precedenti</a></li>";
+    }
+
+    $stringaInt .= "<li><a href=\"ajax.php?azione=log&amp;id_ogg=".$idOggetto."&amp;id_doc=".$istanzaOggetto['id']."\" data-toggle=\"modal\" data-target=\"#modaleReview\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Log delle attivit&agrave;\" class=\"\"><span class=\"iconfa-list\"></span> &nbsp; Log</a></li>";
+
+    //trasmissione a perlapa: stessi permessi del modifica
+    if($visualizzaBtnPerlaPA and $aclTrasparenza['incarichiPerlaPA']) {
+
+        $stringaInt .= '<li class="divider"></li>';
+        $tipo = $istanzaOggetto['tipologia'];
+        switch($tipo) {
+            case 'incarico':
+                if($istanzaOggetto['__perlapa_idIncarico']) {
+                    //variazione
+                    $stringaInt .= "<li id=\"btn__perlapa_edit_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=edit&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Variazione incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Variazione incarico</a></li>";
+                    //cancellazione
+                    $stringaInt .= "<li id=\"btn__perlapa_del_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=delete&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Cancellazione incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Cancellazione incarico</a></li>";
+                } else {
+                    //inserimento
+                    $stringaInt .= "<li id=\"btn__perlapa_ins_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=insert&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Inserimento incarico\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Inserimento incarico</a></li>";
+                }
+                break;
+            case 'liquidazione':
+                // solo trasmissione singola - no multipla perchè calcolato automaticamente nell'incarico
+                $stringaInt .= "<li id=\"btn__perlapa_ins_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=perlapa&amp;azione=edit&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."&amp;id_rif=".$istanzaOggetto['id_incarico']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"PerlaPA - Aggiorna ammontare erogato\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; PerlaPA - Aggiorna ammontare erogato</a></li>";
+                break;
+        }
+
+    }
+
+    //invia a scp
+    if (moduloAttivo('scp') and $aclTrasparenza['scp'] and (
+            ($idOggetto == 11 and in_array($istanzaOggetto['tipologia'],['bandi ed inviti','esiti','determina_32','affidamenti','avvisi pubblici']))
+            or $idOggetto == 28 or $idOggetto == 60)){
+
+        $stringaInt .= '<li class="divider"></li>';
+        $stringaInt .= "<li id=\"btn__scp_ins_".$idOggetto."_".$istanzaOggetto['id']."\"><a href=\"#\" data-href=\"admin_at.php?menu=".$menu."&amp;menusec=".$menuSecondario."&amp;func=scp&amp;azione=insert&amp;id_ogg=".$idOggetto."&amp;id=".$istanzaOggetto['id']."\" data-placement=\"top\" data-rel=\"tooltip\" data-original-title=\"Invia a SCP\" class=\"show_modalIFrame\">&nbsp;<span class=\"iconpat-sign-out\"></span> &nbsp; Invia a SCP</a></li>";
+    }
+
+    if (moduloAttivo('minlavoro') and $idOggetto == 3 and $datiUser['id_oggetto_riferimenti'] != '0') {
+        $sql = "SELECT * FROM ".$dati_db['prefisso']."oggetto_riferimenti WHERE id=".$datiUser['id_oggetto_riferimenti'];
+        if (!($result = $database->connessioneConReturn($sql))) {
+            die("Database non installato o non disponibile: errore critico.");
+        }
+        $dirigente = $database->sqlArray($result);
+
+        if ($dirigente['ruolo'] == 'Dirigente' and $datiUser['id_oggetto_riferimenti'] != $istanzaOggetto['id']) {
+            $stringaInt = "";
+        }
+    }
+
+    $stringaInt .= '</ul>';
+
+
+    $stringaInt .= '</div>';
+
+    $stringaInt .= "</span>";
+    $outputArray[$numChiave][] = $stringaInt;
+    $outputArray[$numChiave]['DT_RowId'] = 'row_istanza_'.$istanzaOggetto['id'];
+
 } else {
-	$outputArray[$numChiave][] = "";
+    $outputArray[$numChiave][] = "";
 }
 ?>

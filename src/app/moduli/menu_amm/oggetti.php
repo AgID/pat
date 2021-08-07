@@ -34,11 +34,24 @@ switch ($azione) {
 			
 			// aggiunta oggetto
 			if (isset ($_POST['rispostaForm']) and $azioneSecondaria == 'aggiungi') {
-			
+
 				$idPerAllegati = date('yzGis');
 				$prog = 0;	
 				$operazione = true;
-				
+
+				// Vincenzo
+                if($idOggetto == 4 and moduloAttivo('incarichiPerlaPA') and $_POST['tipologia'] == 'incarico' and date('Y', $_POST['inizio_incarico']) >= 2018) {
+                    // al momento del salvataggio si aggiornano i campi dichiarante_codiceAoolpa e dichiarante_codiceUolpa per evitare una select (ad ogni iterazione) in validazioniIncarichiPerlaPA richiamato nel tab_row_ajax.tmp
+                    $sql = "SELECT perlapa_codiceAoolpa,perlapa_codiceUolpa FROM " . $dati_db['prefisso'] . "oggetto_uffici WHERE id_ente=" . $idEnteAdmin . " AND id=" . $_POST['perlapa_struttura'];
+                    if (!($result = $database->connessioneConReturn($sql))) {
+                        die('Errore durante il recupero di tutti i referenti (con condizione)' . $sql);
+                    }
+                    $codici = $database->sqlArray($result);
+
+                    $_POST['dichiarante_codiceAoolpa'] = $codici['perlapa_codiceAoolpa'];
+                    $_POST['dichiarante_codiceUolpa'] = $codici['perlapa_codiceUolpa'];
+                }
+
 				// controllo se nei campi personalizzati ci sono dei file
 				foreach ($oggOgg->struttura as $campoTemp) {
 					if (strpos($campoTemp['tipocampo'],'*') !== false) {
@@ -104,6 +117,11 @@ switch ($azione) {
 								}
 							}
 						}
+					}
+					
+					// verifico se sono nei requisiti eConcorsi
+					if ($idOggetto==81 AND $_POST['share']=='1') {
+						$_POST['id_candidatura'] = 0;
 					}
 			
 					$opOgg->preInsert();
@@ -201,7 +219,20 @@ switch ($azione) {
 					$allegatiAtto = caricaAllegatiEAlbo($atto['id_atto_allegati']);
 					$_POST['id_atto_albo'] = $istanzaOggetto['id_atto_albo'];
 				}
-				
+
+				// Vincenzo
+                if($idOggetto == 4 and moduloAttivo('incarichiPerlaPA') and $_POST['tipologia'] == 'incarico' and date('Y', $_POST['inizio_incarico']) >= 2018) {
+				    // al momento del salvataggio si aggiornano i campi dichiarante_codiceAoolpa e dichiarante_codiceUolpa per evitare una select (ad ogni iterazione) in validazioniIncarichiPerlaPA richiamato nel tab_row_ajax.tmp
+				    $sql = "SELECT perlapa_codiceAoolpa,perlapa_codiceUolpa FROM " . $dati_db['prefisso'] . "oggetto_uffici WHERE id_ente=" . $idEnteAdmin . " AND id=" . $_POST['perlapa_struttura'];
+                    if (!($result = $database->connessioneConReturn($sql))) {
+                        die('Errore durante il recupero di tutti i referenti (con condizione)' . $sql);
+                    }
+                    $codici = $database->sqlArray($result);
+
+                    $_POST['dichiarante_codiceAoolpa'] = $codici['perlapa_codiceAoolpa'];
+                    $_POST['dichiarante_codiceUolpa'] = $codici['perlapa_codiceUolpa'];
+                }
+
 				foreach ($oggOgg->struttura as $campoTemp) {
 					if (strpos($campoTemp['tipocampo'],'*') !== false) {
 						$campoTemp['tipocampo'] = substr($campoTemp['tipocampo'], 1);	
@@ -284,17 +315,19 @@ switch ($azione) {
 						$notificaFinale = false;
 						if($_POST['stato_workflow_da_assegnare'] == 'iniziale') {
 							$statoWf = array('id' => 'iniziale', 'nome' => 'iniziale', 'utenti' => $wf['utenti']);
-						} else if($_POST['stato_workflow_da_assegnare'] == 'finale') {
-							$statoWf = array('id' => 'finale', 'nome' => 'finale', 'utenti' => $wf['utenti']);
-							$utentiIniziali = explode(',', $wf['utenti']);
-							/*
-							if(in_array($datiUser['id'], $utentiIniziali)) {
-								$notificaFinale == true;
-							}
-							*/
-							//la notifica finale viene inviata a tutti gli id_utenti_finali e quindi nel caso $_POST['stato_workflow_da_assegnare'] == 'finale' va inviata sempre 
-							$notificaFinale = true;
-						} else {
+						} else if($_POST['stato_workflow_da_assegnare'] == 'finale' or $_POST['stato_workflow_da_assegnare'] == '') {
+						    if($_POST['stato_workflow_da_assegnare'] == 'finale') {
+						        $statoWf = array('id' => 'finale', 'nome' => 'finale', 'utenti' => $wf['utenti']);
+						        $utentiIniziali = explode(',', $wf['utenti']);
+						        /*
+						         if(in_array($datiUser['id'], $utentiIniziali)) {
+						         $notificaFinale == true;
+						         }
+						         */
+						    }
+						    //la notifica finale viene inviata a tutti gli id_utenti_finali e quindi nel caso $_POST['stato_workflow_da_assegnare'] == 'finale' o $_POST['stato_workflow_da_assegnare'] == '' va inviata sempre
+						    $notificaFinale = true;
+						}else {
 							$statiWf = unserialize(base64_decode($wf['composizione_workflow']));
 							foreach((array)$statiWf as $statoWf) {
 								if($statoWf['id'] == $_POST['stato_workflow_da_assegnare']) {
@@ -345,6 +378,11 @@ switch ($azione) {
 			
 				if ($operazione) {
 					$opOgg->preUpdate();
+					// verifico se sono nei requisiti eConcorsi
+					if ($idOggetto==81 AND $_POST['share']=='1') {
+						$_POST['id_candidatura'] = 0;
+					}					
+					
 					if ($oggOgg->modificaOggetto($idIstanza, $idCategoria, $_POST)) {
 						// OPERAZIONE ANDATA A BUON FINE
 						$operazione = true;
@@ -680,6 +718,10 @@ switch ($azione) {
 		
 		if($azione == 'editpagina') {
 			//ricalcola permessi
+			// setto i permessi per eventuali sezioni personalizzate di sistema
+			if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/operazioniSuSezioni/permissionCustom.php')) {
+				include('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/operazioniSuSezioni/permissionCustom.php');
+			}
 			if($aclTrasparenza['contenuti'][$istanzaOggetto['id_sezione_etrasp']]['modifica']) {
 				$aclTrasparenza[$menuSecondario]['modifica'] = true;
 			}
@@ -698,7 +740,7 @@ switch ($azione) {
 		if ((!$aclTrasparenza[$menuSecondario]['modifica'] AND !$aclTrasparenza[$menuSecondario]['creazione']) OR $istanzaOggetto['__bloccato'] OR $limitaProprietario) {
 			motoreLogTrasp('permessonegato', 'Non hai i permessi necessari per modificare le informazioni di questo archivio.');
 		} else {
-			
+
 			//DUPLICAZIONE
 			if($azioneSecondaria == 'duplica') {
 				require('app/moduli/menu_amm/operazioni/oggetti/__duplica.php');
@@ -744,7 +786,7 @@ switch ($azione) {
 						}
 						copy($uploadPath.$oggOgg->tabellaOggetto."/".$istanzaOggetto[$campoTemp['nomecampo']], $uploadPath.$oggOgg->tabellaOggetto."/backup/".$istanzaOggetto[$campoTemp['nomecampo']]);
 						file_put_contents($uploadPath.$oggOgg->tabellaOggetto."/backup/".$istanzaOggetto['id'].".bkf", $campoTemp['nomecampo'].'|'.$istanzaOggetto[$campoTemp['nomecampo']].'{', FILE_APPEND);
-						
+
 						$arrayValori = array(
 								'id_proprietario' => $datiUser['id'],
 								'id_lingua' => 0,
@@ -912,8 +954,7 @@ switch ($azione) {
 		}
 
 	break;
-	
-	
+
 	//////////////////NOTIFICA PUSH///////
 
 	case "notifica_push" :
@@ -1093,9 +1134,14 @@ switch ($azione) {
 										} else if ($campoTemp['tipoinput'] == 'string' OR $campoTemp['tipoinput'] == 'blob' OR $campoTemp['tipoinput'] == 'text') {
 										//if ($campoTemp['tipoinput'] == 'string') {
 											// formato stringa, controllo lunghezza dei caratteri (255 max)
-											if ($campoTemp['tipocampo'] != 'editor' and strlen(trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]])) > 254) {
-												
-												$stringa = substr(trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]]), 0, 250)."..";
+										    $taglio = 250;
+										    if($idOggetto == 28) {
+										        $taglio = 795;
+										    } else if ($idOggetto == 16) {
+										        $taglio = 495;
+										    }
+											if ($campoTemp['tipocampo'] != 'editor' and strlen(trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]])) > $taglio) {
+												$stringa = substr(trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]]), 0, $taglio)."..";
 												//echo "accorcio la stringa di ".strlen(trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]]))." caratteri (".$campoTemp['nomecampo']."): da ".trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]])." a ".$stringa."<br />";
 											} else {
 												$stringa = trim($data->sheets[0]['cells'][$i][$_POST['campo'.$num]]);
@@ -1152,12 +1198,12 @@ switch ($azione) {
 							if ($idInseriti != '') {
 								$idInseriti .= ',';
 							} 
-							$idInseriti .= mysql_insert_id($database->db_connect_id);
+							$idInseriti .= mysqli_insert_id($database->db_connect_id);
 						} 
 					}
 
 				} else {
-					$txtLog = "<p>L'estensione del file non è riconosciuta per l'importazione in quetso archivio.</p>";
+					$txtLog = "<p>L'estensione del file non è riconosciuta per l'importazione in questo archivio.</p>";
 					$numImport = 0;	
 					$numError =0;
 				}     
@@ -1212,8 +1258,8 @@ switch ($azione) {
 	break;
 		
 		
-	case 'selectIstanze':
-	case 'selectIstanzeAmm':
+	case "selectIstanze":
+	case "selectIstanzeAmm":
 		
 		// ELABORO LISTA OGGETTI NON CATEGORIZZATI
   		if (!$oggOgg->idCategoria) {
@@ -1254,5 +1300,21 @@ switch ($azione) {
 		}
 		include ('./app/admin_template/oggetti/tab_end.tmp');
 	
-	break;	
+	break;
+	
+	case "custom":
+	    
+	    if(file_exists('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/'.$azioneSecondaria.'.php')) {
+	        include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/oggetti/'.$azioneSecondaria.'.php');
+	    } else {
+	        motoreLogTrasp('permessonegato', 'Azione non valida.');
+	    }
+	    
+    break;
+	
+	case "review_econcorsi":
+		//lognormale('Istanza '.$idIstanza,$istanzaOggetto);
+	    include ('app/admin_template/econcorsi/candidatura.tmp');
+	    
+    break;	
 }

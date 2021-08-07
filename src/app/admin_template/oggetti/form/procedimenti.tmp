@@ -191,7 +191,11 @@
 			
 			<? creaFormTrasp('Riferimenti normativi','normative', 'norme', '', $istanzaOggetto['norme'], '','input-xxlarge'); ?>
 			
+			<? creaFormTrasp('Riferimenti normativi (altro)','html', 'normativa', '', $istanzaOggetto['normativa'], '',''); ?>
+			
 			<? creaFormTrasp('Termine di conclusione','testo', 'termine', '', $istanzaOggetto['termine'], '','input-large'); ?>
+			
+			<? creaFormTrasp('Strumenti di tutela','testo', 'strumenti_tutela', '', $istanzaOggetto['strumenti_tutela'], '','input-large'); ?>
 			
 			<div class="campoMultiplo">		
 

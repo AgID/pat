@@ -204,7 +204,13 @@
 			?>
 			
 			<? creaFormTrasp('Bando di gara','bandogara_from_esito', 'bando_collegato', '', $istanzaOggetto['bando_collegato'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
+
+            <?
+            if (moduloAttivo('scp')) {
+                echo "<input type=\"hidden\" id=\"scp_tipologia_atto\" name=\"scp_tipologia_atto\" value=\"20\" />";
+            }
+            ?>
+
 			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
 			
 			<?
@@ -241,13 +247,19 @@
 			
 			<? creaFormTrasp('Partecipanti alla gara','fornitori', 'elenco_partecipanti', '', $istanzaOggetto['elenco_partecipanti'], '','input-xxlarge'); ?>
 			
-			<? creaFormTrasp('Aggiudicatari della gara','fornitori', 'elenco_aggiudicatari', '', $istanzaOggetto['elenco_aggiudicatari'], '','input-xxlarge'); 
-			
-			//////// NON MODIFICARE (TEMPORANEO PER RAPALLO)
+			<? creaFormTrasp('Aggiudicatari della gara','fornitori', 'elenco_aggiudicatari', '', $istanzaOggetto['elenco_aggiudicatari'], '','input-xxlarge');
+
+            //////// NON MODIFICARE (TEMPORANEO PER RAPALLO)
 			if ($enteAdmin['id']==11 OR $enteAdmin['id']==22) {
 				echo "<div style=\"margin:-30px 0px 0px 240px;\">Aggiudicatario testuale: ".$istanzaOggetto['txt_beneficiario']."</div>";;
 			}
 			?>
+
+            <?
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('Criterio aggiudicazione', 'selezione', 'scp_criterio_aggiudicazione', '3,4,5', $istanzaOggetto['scp_criterio_aggiudicazione'],'Offerta economicamente pi&ugrave; vantaggiosa: miglior rapporto qualit&agrave; / prezzo, Offerta economicamente pi&ugrave; vantaggiosa: criterio del minor prezzo, Offerta economicamente pi&ugrave; vantaggiosa: competizione solo in base a criteri qualitativi', 'input-xxlarge');
+            }
+            ?>
 			
 			<? creaFormTrasp('Data dell\'atto','data', 'data_atto', '', $istanzaOggetto['data_atto'], '','',0,'', 0, 0); ?>
 			
@@ -291,11 +303,28 @@
 			if($id and $istanzaOggetto['commissione_giudicatrice'] != '') {
 				creaFormTrasp('Commissione giudicatrice','html', 'commissione_giudicatrice', '', $istanzaOggetto['commissione_giudicatrice'], '','');
 			}
-			?>
 			
-			<?
 			if($id and $istanzaOggetto['commissione_giudicatrice_incarichi'] != '') {
 				creaFormTrasp('Commissione giudicatrice - seleziona da archivio incarichi e consulenze','incarichi', 'commissione_giudicatrice_incarichi', '', $istanzaOggetto['commissione_giudicatrice_incarichi'], '','input-xxlarge');
+			}
+			
+			if($configurazione['visualizza_id_ori']) {
+			    $eti = 'ID origine';
+			    if($configurazione['id_ori_eti']) {
+			        $eti = $configurazione['id_ori_eti'];
+			    }
+			    creaFormTrasp($eti,'testo', 'id_ori', '', $istanzaOggetto['id_ori'], '','input-large',0,'', 0, 0);
+			    ?>
+			    <script type="text/javascript">
+				jQuery(document).ready(function(){
+					jQuery('#id_ori').keyup(function(e) {
+                    	if (/\D/g.test(this.value)) {
+                        	this.value = this.value.replace(/\D/g, '');
+                      	}
+                    });
+				});
+			    </script>
+			    <?
 			}
 			?>
 			

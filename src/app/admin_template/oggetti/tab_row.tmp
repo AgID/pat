@@ -1,11 +1,22 @@
 <tr class="gradeX">
 	<td class="aligncenter">
-		<? if (($visualizzaInterfaccia or $visualizzaInterfacciaSelect) and $idOggetto != 61) { ?>
-		<span class="center">
-			<input type="checkbox" name="selRow" value="<? echo $istanzaOggetto['id']; ?>" <? echo $checked; ?> />
-			<input type="hidden" id="id<? echo $istanzaOggetto['id']; ?>" />
-			<input type="hidden" id="id_ori<? echo $istanzaOggetto['id_ori']; ?>" />
-		</span>
+		<?
+		if (($visualizzaInterfaccia or $visualizzaInterfacciaSelect) and $idOggetto != 61) {
+		    if($singolo) {
+		        ?>
+		        <a class="btn" title="seleziona e chiudi" href="javascript:inviaSelezionatoAmm(<? echo $istanzaOggetto['id']; ?>);"><i class="iconfa-search"></i></a>
+		        <?
+		    } else {
+		        ?>
+		        <span class="center">
+        			<input type="checkbox" name="selRow" value="<? echo $istanzaOggetto['id']; ?>" <? echo $checked; ?> />
+        			<input type="hidden" id="id<? echo $istanzaOggetto['id']; ?>" />
+        			<input type="hidden" id="id_ori<? echo $istanzaOggetto['id_ori']; ?>" />
+        		</span>
+		        <?
+		    }
+		  ?>
+		
 		<? } ?>
 	</td>
 	<? if (($datiUser['permessi']==10 or $datiUser['permessi']==3)) {

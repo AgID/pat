@@ -111,7 +111,13 @@
 			<? creaFormTrasp('Data','data', 'data', '', $istanzaOggetto['data'], '','',0,'', 0, 0,true); ?>
 			
 			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
+
+            <?
+            if(moduloAttivo('scp')) {
+                creaFormTrasp('Tipologia','selezione', 'scp_tipologia_atto', '7,8,9,10,11,12', $istanzaOggetto['scp_tipologia_atto'], 'Provvedimento che determina le esclusioni dalla procedura di affidamento e le ammissioni allesito delle valutazioni dei requisiti soggettivi - economico-finanziari - tecnico-professionali, Provvedimento di nomina commissione di aggiudicazione e Curricula dei componenti della stessa in caso di criterio di aggiudicazione oepv, Provvedimento per eventuali esclusioni a seguito verifica offerte tecniche, Provvedimento per eventuali esclusioni a seguito apertura offerte economiche, Provvedimento per formazione Commissione per la valutazione dell\'offerta anomala nel caso del criterio del prezzo più basso, Provvedimento per eventuale esclusione offerta anomala','input-xxlarge',0,'', 0, 0,false,true);
+            }
+            ?>
+
 			<? creaFormTrasp('Procedura relativa','bandogara_libero_singolo', 'id_bando', '', $istanzaOggetto['id_bando'], '','input-xxlarge',0,'', 0, 0,true); ?>			
 			
 			<? 

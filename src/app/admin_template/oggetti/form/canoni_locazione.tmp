@@ -84,7 +84,7 @@
 				importo: "Inserire un importo (es. 123.456,00)",
 				data_inizioVis: "Devi selezionare una data",
 				data_fineVis: "Devi selezionare una data",
-				id_immobile: "Selezionare un immobile",
+				id_immobile: "Selezionare almeno un immobile",
 				<? // scelta ente
 				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
 					echo ",id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\"";
@@ -171,11 +171,11 @@
 			
 			<? creaFormTrasp('Estremi del contratto','testo', 'estremi_contratto', '', $istanzaOggetto['estremi_contratto'], '','input-xxlarge',0,'', 0, 0,false); ?>
 			
-			<? creaFormTrasp('Data inizio','data', 'data_inizio', '', $istanzaOggetto['data_inizio'], '','',0,'', 0, 0,true); ?>
+			<? creaFormTrasp('Data inizio','data', 'data_inizio', '', $istanzaOggetto['data_inizio'], '','',0,'', 0, 0,false); ?>
 			
-			<? creaFormTrasp('Data fine','data', 'data_fine', '', $istanzaOggetto['data_fine'], '','',0,'', 0, 0,true); ?>
+			<? creaFormTrasp('Data fine','data', 'data_fine', '', $istanzaOggetto['data_fine'], '','',0,'', 0, 0,false); ?>
 			
-			<? creaFormTrasp('Immobile','immobile', 'id_immobile', '', $istanzaOggetto['id_immobile'], '','input-xxlarge',0,'', 0, 0,true); ?>
+			<? creaFormTrasp('Immobile','immobili', 'id_immobile', '', $istanzaOggetto['id_immobile'], '','input-xxlarge',0,'', 0, 0,true); ?>
 
 			<? creaFormTrasp('Ufficio referente per il contratto','struttura', 'id_ufficio', '', $istanzaOggetto['id_ufficio'], '','input-xxlarge'); ?>
 			

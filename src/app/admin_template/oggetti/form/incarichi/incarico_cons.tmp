@@ -19,8 +19,10 @@ if($id and !$istanzaOggetto['__perlapa_bonificato']) {
 }
 
 $campoCompenso = 'compenso';
+$campoCompensoErogato = 'compenso_erogato';
 if($enteAdmin['importi_numerici']) {
-	$campoCompenso .= '_valore';
+    $campoCompenso .= '_valore';
+    $campoCompensoErogato .= '_valore';
 }
 ?>
 <script type="text/javascript" src="./app/js/codiceFiscale/codiceFiscale.js"></script>
@@ -45,6 +47,9 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('#nominativo_nome').rules('add',{
 				required: true, messages: { required: "Campo obbligatorio" }
 			});
+            jQuery('#nominativo_data_nascitaVis').rules('add',{
+                required: true, messages: { required: "Campo obbligatorio" }
+            });
 			jQuery('#percettore_pg_denominazione').rules('remove');
 		} else if(tc == 'G') {
 			//pg
@@ -60,7 +65,8 @@ if($enteAdmin['importi_numerici']) {
 			jQuery('.cont_box_percettoreEstero').show();
 			jQuery('#nominativo_cognome').rules('remove');
 			jQuery('#nominativo_nome').rules('remove');
-			jQuery('#percettore_pg_denominazione').rules('add',{
+            jQuery('#nominativo_data_nascitaVis').rules('remove');
+            jQuery('#percettore_pg_denominazione').rules('add',{
 				required: true, messages: { required: "Campo obbligatorio" }
 			});
 		} else {
@@ -78,7 +84,8 @@ if($enteAdmin['importi_numerici']) {
 				jQuery('#percettoreEstero').val('').closest('.control-group').hide();
 				jQuery('#nominativo_cognome').rules('remove');
 				jQuery('#nominativo_nome').rules('remove');
-				jQuery('#percettore_pg_denominazione').rules('remove');
+                jQuery('#nominativo_data_nascitaVis').rules('remove');
+                jQuery('#percettore_pg_denominazione').rules('remove');
 			}
 		}
 	}
@@ -223,6 +230,7 @@ if($enteAdmin['importi_numerici']) {
 					echo "id_ente: \"required\",";
 				} ?>
 				oggetto: "required",
+                perlapa_struttura: "required",
 				<? echo $campoCompenso; ?>: {
 					required: true,
 					floatCheck: true
@@ -244,7 +252,9 @@ if($enteAdmin['importi_numerici']) {
 					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
 				} ?>
 				oggetto: "Inserisci l'oggetto dell'incarico",
-				<? echo $campoCompenso; ?>: "Inserisci il compenso previsto, comprensivo di eventuali parti variabili (es. 123.456,00)",
+                perlapa_struttura: "Campo obbligatorio",
+
+                <? echo $campoCompenso; ?>: "Inserisci il compenso previsto, comprensivo di eventuali parti variabili (es. 123.456,00)",
 				estremi_atti: "Inserire gli estremi atto di conferimento",
 				inizio_incaricoVis: "Seleziona la data di inizio incarico (successiva al 31/12/2017)",
 				id_proprietario: "Devi selezionare l'utente proprietario"
@@ -422,20 +432,19 @@ if($enteAdmin['importi_numerici']) {
 			
 			
 			<? creaFormTrasp('Amministrazione dichiarante','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
-			
-			
-			
-			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco IPA amm. dichiarante','testo', 'dichiarante_codicePalpa', '', $istanzaOggetto['dichiarante_codicePalpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? creaFormTrasp('Cod. fiscale amm. dichiarante','testo', 'dichiarante_codiceFiscalePa', '', $istanzaOggetto['dichiarante_codiceFiscalePa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco Aree Org. Omogenee','testo', 'dichiarante_codiceAoolpa', '', $istanzaOggetto['dichiarante_codiceAoolpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
-			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
-			<? creaFormTrasp('Cod. univoco Unit&agrave; Org.','testo', 'dichiarante_codiceUolpa', '', $istanzaOggetto['dichiarante_codiceUolpa'], '','input-xlarge',0,'', 0, 0); ?>
-			
+
+            <?
+                if ($istanzaOggetto['dichiarante_codiceFiscalePa'] != '' and !is_null($istanzaOggetto['dichiarante_codiceFiscalePa'])) {
+                    $codiceFisDichiar = $istanzaOggetto['dichiarante_codiceFiscalePa'];
+                } else {
+                    $codiceFisDichiar = $enteAdmin['perlapa_codiceFiscalePa'];
+                }
+                creaFormTrasp('Cod. fiscale amm. dichiarante','testo', 'dichiarante_codiceFiscalePa', '', $codiceFisDichiar, '','input-xlarge',0,'', 0, 0);
+            ?>
+
+            <? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
+            <? creaFormTrasp('Struttura Organizzatva', 'struttura', 'perlapa_struttura', '', $istanzaOggetto['perlapa_struttura'], '', 'input-xlarge',0,'',0,0,true); ?>
+
 			
 			<? creaFormTrasp('Percettore','etichetta', '', '', '', '','',0,'', 0, 0,true); ?>
 			
@@ -507,7 +516,21 @@ if($enteAdmin['importi_numerici']) {
 			
 			<? $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta'=>'','icona'=>'iconpat-info-circle', 'id_campo'=>'__dummy', 'pulsanteCustom'=>'infoCodiciPA', 'class' => 'infoCodiciPA')); ?>
 			<? creaFormTrasp('Compenso','decimale', $campoCompenso, '', $istanzaOggetto[$campoCompenso], '','input-medium',0,'', 0, 0,true); ?>
-			
+
+            <?
+            $totale = 0;
+            $sql = "SELECT compenso_erogato FROM ".$dati_db['prefisso']."oggetto_incarichi WHERE id_ente=".$idEnte." AND id_incarico = ".$istanzaOggetto['id']." ORDER BY data_compenso_erogato DESC";
+            if ( !($result = $database->connessioneConReturn($sql)) ) {}
+            $recs = $database->sqlArrayAss($result);
+            if(count($recs)) {
+                foreach((array)$recs as $t) {
+                    $totale += $t[$campoCompensoErogato];
+                }
+            }
+            $funzioneAggiuntivaCampo = creaPulsanteFormTrasp(array('etichetta' => '', 'icona' => 'iconpat-info-circle', 'id_campo' => '__dummy', 'pulsanteCustom' => 'infoCodiciPA', 'class' => 'infoCodiciPA'));
+            creaFormTrasp('Ammontare Erogato','decimale', 'ammontare_erogato', '', $totale, '','input-medium',0,'', 0, 1);
+            ?>
+
 			<? creaFormTrasp('Componenti variabili del compenso','selezione', 'perlapa_componentiVariabilCompenso', 'Y,N', $istanzaOggetto['perlapa_componentiVariabilCompenso'], 'S&igrave;,No','input-small'); ?>
 			
 			<?

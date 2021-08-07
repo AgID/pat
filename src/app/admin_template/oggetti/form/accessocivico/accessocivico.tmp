@@ -52,11 +52,11 @@ if(!$id) {
 }
 $sp = $istanzaOggetto['stato_pratica'];
 if($istanzaOggetto['stato_pratica'] == 'caricata' and $_GET['azione_ac'] == 'incarica') {
-	$sp = 'in corso';
-} else if($istanzaOggetto['stato_pratica'] == 'in corso' and $_GET['azione_ac'] == 'concludi') {
-	$sp = 'conclusa';
+    $sp = 'in corso';
+} else if(($istanzaOggetto['stato_pratica'] == 'in corso' and $_GET['azione_ac'] == 'concludi')or($istanzaOggetto['stato_pratica'] == 'richiesto riesame' and $_GET['azione_ac'] == 'concludi')) {
+    $sp = 'conclusa';
 } else if($istanzaOggetto['stato_pratica'] == 'conclusa' and $_GET['azione_ac'] == 'riesamina') {
-	$sp = 'richiesto riesame';
+    $sp = 'richiesto riesame';
 }
 
 $arayReadonly = array();
@@ -365,7 +365,7 @@ if($istanzaOggetto['id_proprietario'] <= 0 and $id) {
 		?>
 		<a href="javascript:abilitaValidazione();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva e prendi in carico</a>
 		<?
-	} else if($istanzaOggetto['stato_pratica'] == 'in corso' and $_GET['azione_ac'] == 'concludi') {
+	} else if(($istanzaOggetto['stato_pratica'] == 'in corso' and $_GET['azione_ac'] == 'concludi') or ($istanzaOggetto['stato_pratica'] == 'richiesto riesame' and $_GET['azione_ac'] == 'concludi')) {
 		?>
 		<a href="javascript:concludi();" class="btn btn-large btn-primary btnSalvataggio" <? echo $stileBtnSalva; ?>>Salva e concludi</a>
 		<?

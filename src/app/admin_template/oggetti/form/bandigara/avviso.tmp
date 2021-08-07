@@ -1,12 +1,12 @@
-<script type="text/javascript">	
-	
+<script type="text/javascript">
+
 	// attivo la validazione inline del form
 	jQuery(document).ready(function(){
 
 		// necessario per i campi file
 		//jQuery('.uniform-file').uniform();
 		// necessario per i campi select con ricerca
-		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});		
+		jQuery(".chzn-select").chosen({no_results_text: "Nessun risultato per",allow_single_deselect: true});
 
 		// Devo inizializzare il campo editor col nuovo ckEditor
 		//var editorDesc = CKEDITOR.replace( 'dettagli' );
@@ -18,7 +18,42 @@
 		}
 		?>
 		CKEDITOR.replaceClass = 'htmlEditor';
-		
+
+        <?
+        if (moduloAttivo('scp')){ ?>
+
+        var avvisiSenzaBandoCollegato = ["994","995","996","997","998","999"];
+
+        if (avvisiSenzaBandoCollegato.indexOf(jQuery("#scp_tipologia_atto").val()) >= 0){
+            jQuery(".cont_box_dati_aggiudicatrice").show();
+            jQuery(".cont_box_bando_collegato ").hide();
+        } else {
+            if (jQuery("#scp_tipologia_atto").val() !== "2") {
+                jQuery(".cont_box_dati_aggiudicatrice ").hide();
+            }
+            jQuery(".cont_box_bando_collegato ").show();
+        }
+
+        jQuery("#scp_tipologia_atto").change(function (e){
+            if (avvisiSenzaBandoCollegato.indexOf(e.target.value.toString()) >= 0) {
+                jQuery(".cont_box_dati_aggiudicatrice ").show('fast');
+                jQuery(".cont_box_bando_collegato ").hide('fast');
+                jQuery(".cont_box_bando_collegato .search-choice-close").eq(0).click();
+                jQuery(".cont_box_bando_collegato .chzn-select").val('').trigger('liszt:updated');
+            } else {
+                if (jQuery("#scp_tipologia_atto").val() !== "2") {
+                    jQuery(".cont_box_dati_aggiudicatrice ").hide('fast');
+                    jQuery("#dati_aggiudicatrice").val("");
+                } else {
+                    jQuery(".cont_box_dati_aggiudicatrice ").show('fast');
+                }
+                jQuery(".cont_box_bando_collegato ").show('fast');
+            }
+        });
+        <?
+        }
+        ?>
+
 		jQuery.validator.addMethod("cfCheck", function(value) {
 			var regex = /^([A-Za-z]{6}[0-9]{2}[A-Za-z]{1}[0-9]{2}[A-Za-z]{1}[0-9A-Za-z]{3}[A-Za-z]{1})?$/;
 			if(regex.test(value)) {
@@ -34,7 +69,7 @@
 			}
 			return false;
 		}, 'Il codice fiscale dell\'amministrazione aggiudicatrice non è valido');
-		
+
 		jQuery.validator.addMethod("floatCheck", function(value) {
 			var regex = /^((\d{1,3}(\.\d{3})*|(\d+))(\,\d{2})?)?$/;
 			//vecchio controllo
@@ -68,7 +103,7 @@
 						echo "id_proprietario: \"required\",";
 				}
 				// scelta ente
-				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
 					echo "id_ente: \"required\",";
 				} ?>
 				oggetto: "required",
@@ -77,13 +112,13 @@
 					?>
 					__tag_gare: "required",
 					<?
-				} 
+				}
 				?>
 				data_attivazioneVis: "required"
 			},
 			messages: {
 				<? // scelta ente
-				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
+				if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
 					echo "id_ente: \"Devi selezionare l'ente per il quale inserire la modulistica\",";
 				} ?>
 				oggetto: "Devi inserire l'oggetto",
@@ -92,7 +127,7 @@
 					?>
 					__tag_gare: "Campo obbligatorio",
 					<?
-				} 
+				}
 				?>
 				data_attivazioneVis: "Devi inserire la data di pubblicazione",
 				id_proprietario: "Devi selezionare l'utente proprietario"
@@ -113,7 +148,7 @@
 					} else {
 						validator.showErrors({
 							data_scadenzaVis: "La data di scadenza non pu&ograve; essere antecedente alla data di pubblicazione"
-						});					
+						});
 					}
 				} else {
 					form.submit();
@@ -126,13 +161,13 @@
 			include ('codicepers/ente/'.$entePubblicato['nome_breve_ente'].'/form/bandigara/'.basename(__FILE__, '.tmp').'.js.tmp');
 		}
 		?>
-		
+
 	});
-	
+
 </script>
 
 <? if(!$box) { ?>
-	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Bandi, Gare e Contratti</a> 
+	<a href="?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>" class="btn btn-rounded"> <i class="iconfa-circle-arrow-left"></i> &nbsp; Torna a elenco Bandi, Gare e Contratti</a>
 <? } ?>
 <div class="navbar">
 	<div class="navbar-inner">
@@ -166,13 +201,13 @@
 	<div class="widgetcontent wc1">
 		<? include ('./app/admin_template/oggetti/info_form.tmp'); ?>
 		<form id="formOggetto" class="stdform" method="post" enctype="multipart/form-data" action="admin__pat.php?menu=<? echo $menu; ?>&amp;menusec=<? echo $menuSecondario; ?>&amp;azione=lista&amp;azionesec=<? echo $azione; ?>&amp;id=<? echo $id; ?>&amp;box=<? echo $box; ?>&amp;tipo=<? echo $tipo; ?>">
-		
+
 			<? creaFormTrasp('','sistema', '', '', '', '',''); ?>
-			
+
 			<?
 			// scelta ente
-			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) { 
-				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true); 
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
 			} else {
 				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
 			}
@@ -180,34 +215,41 @@
 			if($azione == 'importAtto' and $atto['id'] > 0) {
 				echo "<input type=\"hidden\" id=\"id_atto_albo\" name=\"id_atto_albo\" value=\"".$atto['id']."\" />";
 			}
-			
+
 			echo "<input type=\"hidden\" id=\"tipologia\" name=\"tipologia\" value=\"avvisi pubblici\" />";
 			?>
-			
+
 			<?
 			if($id and $istanzaOggetto['avviso_preinformazione']) {
 				creaFormTrasp('Avviso di preinformazione','casella', 'avviso_preinformazione', '1', $istanzaOggetto['avviso_preinformazione'], '','');
 			}
 			?>
-			
+
 			<? creaFormTrasp('Oggetto','testo', 'oggetto', '', $istanzaOggetto['oggetto'], '','input-xxlarge',0,'', 0, 0,true); ?>
-			
+
+            <?
+            if (moduloAttivo('scp')){
+                creaFormTrasp('Tipologia','selezione', 'scp_tipologia_atto', '2,4,5,27,994,995,996,997,998,999', $istanzaOggetto['scp_tipologia_atto'], 'Avviso per manifestazione di interesse o indagini di mercato (art.36 comma 2b-2c-2d),Avviso in merito alla modifica dell\'ordine di importanza dei criteri - bando di concessione (art.173),Avviso costituzione del privilegio,Avviso contratto di sponsorizzazione (art.19),Preinformazione,Procedura ristretta semplificata,Affidamento contratti,Elenco professionisti,Altri avvisi,Procedura ristretta semplificata art.123 c2 D.Lgs.163/06','input-xxlarge',0,'', 0, 0,false,true);
+                creaFormTrasp('Codice Fiscale Amministrazione','testo', 'dati_aggiudicatrice', $enteAdmin['bandi_gara_cod_fisc'], $istanzaOggetto['dati_aggiudicatrice'], '','input-xxlarge');
+            }
+            ?>
+
 			<?
 			if(count($configurazione['__tags_gare'])) {
 				creaFormTrasp('Tipologia informazione','__tags_gare', '__tag_gare', 'avvisi pubblici', $istanzaOggetto['__tag_gare'], '','input-xxlarge',0,'', 0, 0,($configurazione['__tag_gare_obbligatorio'] ? true : false));
 			}
 			?>
-			
-			<? creaFormTrasp('Bando di gara relativo','bandogara_from_avviso', 'bando_collegato', '', $istanzaOggetto['bando_collegato'], '','input-xxlarge',0,'', 0, 0,false); ?>			
-			
+
+			<? creaFormTrasp('Bando di gara relativo','bandogara_from_avviso', 'bando_collegato', '', $istanzaOggetto['bando_collegato'], '','input-xxlarge',0,'', 0, 0,false); ?>
+
 			<? creaFormTrasp('Altre procedure','bandogara_libero', 'altre_procedure', '', $istanzaOggetto['altre_procedure'], '','input-xxlarge',0,'', 0, 0,false); ?>
-			
+
 			<? creaFormTrasp('Ufficio','struttura', 'struttura', '', $istanzaOggetto['struttura'], '','input-xxlarge'); ?>
-			
+
 			<? creaFormTrasp('Data dell\'atto','data', 'data_atto', '', $istanzaOggetto['data_atto'], '','',0,'', 0, 0); ?>
-			
+
 			<? creaFormTrasp('Data di pubblicazione sul sito','data', 'data_attivazione', '', $istanzaOggetto['data_attivazione'], '','',0,'', 0, 0,true); ?>
-			
+
 			<?
 			creaFormTrasp('Data di scadenza','data', 'data_scadenza', '', $istanzaOggetto['data_scadenza'], '','');
 			/*
@@ -216,32 +258,36 @@
 			}
 			*/
 			?>
-			
-			<? creaFormTrasp('RUP','referente', 'rup', '', $istanzaOggetto['rup'], '','input-xlarge',0,'', 0, 0,false); ?>
-			
+
+            <?
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('RUP','referente_scp', 'rup', '', $istanzaOggetto['rup'], '','input-xlarge',0, '',0,0,false,true);
+            } else {
+                creaFormTrasp('RUP', 'referente', 'rup', '', $istanzaOggetto['rup'], '', 'input-xlarge', 0, '', 0, 0, false);
+            }
+            ?>
+
 			<?
 			if(moduloAttivo('agid')) {
 				creaFormTrasp('Provvedimento','provvedimento', 'provvedimento', '', $istanzaOggetto['provvedimento'], '','input-xxlarge',0,'', 0, 0,false);
 			}
 			?>
-			
-			
+
+
 			<? creaFormTrasp('Note','html', 'dettagli', '', $istanzaOggetto['dettagli'], '',''); ?>
-			
+
 			<?
 			if($id and $istanzaOggetto['commissione_giudicatrice'] != '') {
 				creaFormTrasp('Commissione giudicatrice','html', 'commissione_giudicatrice', '', $istanzaOggetto['commissione_giudicatrice'], '','');
 			}
 			?>
-			
+
 			<?
 			if($id and $istanzaOggetto['commissione_giudicatrice_incarichi'] != '') {
 				creaFormTrasp('Commissione giudicatrice - seleziona da archivio incarichi e consulenze','incarichi', 'commissione_giudicatrice_incarichi', '', $istanzaOggetto['commissione_giudicatrice_incarichi'], '','input-xxlarge');
 			}
 			?>
-			
-			
-			
+
 		</form>
 	</div>
 </div>
@@ -253,11 +299,11 @@
 	</h4>
 
 	<div class="widgetcontent wc1">
-		
+
 		<?php
 		creaFormTrasp('Allegati','jtable_allegati', '__id_allegati_istanza', '', $istanzaOggetto['__id_allegati_istanza'], '','', 0, '', 1, 0, false, false, array('id_ogg' => $idOggetto, 'id_doc' => $id, 'idAllegatoDinamico' => $idAllegatoDinamico, 'nome_ogg' => $menuSecondario));
 		?>
-		
+
 	</div>
 </div>
 

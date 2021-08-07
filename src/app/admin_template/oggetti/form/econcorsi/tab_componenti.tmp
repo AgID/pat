@@ -1,0 +1,41 @@
+<div class="tab-pane tab_componenti widgetbox box-inverse" id="componenti_tab" role="tabpanel">
+
+	<h4 class="widgettitle">
+		Gestione componenti del modulo per il concorso telematico
+	</h4>
+
+	<div class="widgetcontent wc1">
+		
+		<?
+		if(!$creaFormSistema) {
+			creaFormTrasp('','sistema', '', '', '', '','');
+			$creaFormSistema = true;
+			
+			// scelta ente
+			if (($datiUser['permessi']==10 or $datiUser['permessi']==3) AND !$id) {
+				creaFormTrasp('Ente di Appartenenza','enti', 'id_ente', '', '', '','input-xlarge',0,'', 0, 0,true);
+			} else {
+				echo "<input type=\"hidden\" id=\"id_ente\" name=\"id_ente\" value=\"".$datiUser['id_ente_admin']."\">";
+			}
+		}
+		?>
+		
+		<?
+		if(!$id) {
+			?>
+			<div class="alert alert-info alert-block">
+				<button data-dismiss="alert" class="close" type="button">&times;</button>
+				<h4><span class="iconfa-info-sign"></span> Informazioni</h4>
+				<p style="margin: 8px 0;color:#646464;">
+					Una volta creata la struttura di componenti utilizzate, sar&agrave; possibile inserire i requisiti richiesti dalla candidatura.
+				</p>
+			</div>
+			<?
+		}
+		?>
+		
+		<? creaFormTrasp('Componenti per il modulo di candidatura','jtable', 'componenti', '', $istanzaOggetto['componenti'], '','', 0, '', 0, 0, false, false, array('id_ogg' => 84, 'id_doc' => $id, 'menu' => 'econcorsi_componenti')); ?>
+		
+			
+	</div>
+</div>

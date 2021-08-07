@@ -126,6 +126,29 @@ if(true) {
     	        echo '<div class="lista_div" style="margin-left: 15px;">';
     	        echo '<h5 class="campoOggetto86 lista_name"> '.$lista['nome'].' </h5>';
     	        
+				/********************** ALLEGATI DELLA LISTA ********************/
+				$allLista = prendiListaAllegati($lista['__id_allegato_istanza']);
+				foreach((array)$allLista as $allegatoLista) {
+					$posPunto = strrpos($allegatoLista['file_allegato'], ".");
+					$estFile = strtolower(substr($allegatoLista['file_allegato'], ($posPunto +1)));
+					if (!file_exists("grafica/file/small/" . $estFile . ".gif")) {
+						$estFile = "generica";
+					}
+					$grandezza = @filesize($uploadPath."oggetto_allegati/".$allegatoLista['file_allegato']);
+					
+					if (strpos($allegatoLista['file_allegato'], "O__O")) {
+						$valoreLabel = (substr($allegatoLista['file_allegato'], strpos($allegatoLista['file_allegato'], "O__O") + 4));
+					} else {
+						$valoreLabel = ($allegatoLista['file_allegato']);
+					}
+					$um = $allegatoLista['data_creazione'];
+					if($a['ultima_modifica']>0) {
+						$um = $allegatoLista['ultima_modifica'];
+					}
+					echo '<div class="campoOggetto48">'.$allegatoLista['nome'].': <a href="'.$base_url.'moduli/downloadFile.php?file=oggetto_allegati/'.$temp.urlencode($allegatoLista['file_allegato']).'">'.$valoreLabel.'</a> ('.date('d/m/Y',$um).' - '.round($grandezza/1000).' kb - '.$estFile.') <img style="vertical-align:middle" src="'.$base_url.'grafica/file/small/'.$estFile.'.gif" alt="File con estensione '.$estFile.'" /></div>';
+				}
+				
+				
     	        echo '<div class="table-responsive"><table class="table table-bordered table-hover vistaTabella" summary="Elezioni trasparenti"><caption>Elezioni trasparenti</caption><tbody>';
     	        echo '<tr><th scope="col">Candidato</th><th scope="col">Allegati</th></tr>';
     	        

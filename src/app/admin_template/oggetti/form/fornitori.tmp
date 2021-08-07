@@ -62,6 +62,16 @@
 					echo "id_ente: \"required\",";
 				}
 				?>
+
+                <? if (moduloAttivo('scp')) { //non viene eseguito  ?>
+                    // mandataria: {
+                    //     require_from_group: [1, ".group-scp"]
+                    // },
+                    // mandante: {
+                    //     require_from_group: [1, ".group-scp"]
+                    // },
+                <? } ?>
+
 				tipologia: "required",
 				nominativo: "required",
 				codice_fiscale: {
@@ -232,11 +242,17 @@
 			}
 			
 			creaFormTrasp('Nominativo e ragione sociale','testo', 'nominativo', '', $istanzaOggetto['nominativo'], '','input-xxlarge',0,'', 0, 0,true);
-			
+
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('Codice fiscale','testo', 'codice_fiscale', '', $istanzaOggetto['codice_fiscale'], '','input-xxlarge',0,'', 0, 0,false);
+            }
+
 			echo "<div id=\"singoloBox\">";
-			
-			creaFormTrasp('Codice fiscale','testo', 'codice_fiscale', '', $istanzaOggetto['codice_fiscale'], '','input-xxlarge',0,'', 0, 0,false);
-			
+
+            if (! moduloAttivo('scp')) {
+                creaFormTrasp('Codice fiscale','testo', 'codice_fiscale', '', $istanzaOggetto['codice_fiscale'], '','input-xxlarge',0,'', 0, 0,false);
+            }
+
 			creaFormTrasp('Identificativo fiscale estero','testo', 'fiscale_estero', '', $istanzaOggetto['fiscale_estero'], '','input-xxlarge');
 			
 			creaFormTrasp('Indirizzo email','testo', 'email', '', $istanzaOggetto['email'], '','input-xlarge');
@@ -250,12 +266,22 @@
 			echo "</div>";
 			
 			echo "<div id=\"raggruppamentoBox\">";
-			
-			creaFormTrasp('Capogruppo','fornitore_singolo', 'capogruppo', '', $istanzaOggetto['capogruppo'], '','input-xxlarge');
-			
-			creaFormTrasp('Mandante','fornitore_singolo', 'mandante', '', $istanzaOggetto['mandante'], '','input-xxlarge');
-			
-			creaFormTrasp('Mandataria','fornitore_singolo', 'mandataria', '', $istanzaOggetto['mandataria'], '','input-xxlarge');
+
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('Tipologia', 'selezione', 'scp_tipologia_raggruppamento', '1,2,4', $istanzaOggetto['scp_tipologia_raggruppamento'],'ATI (raggruppamenti temporanei di concorrenti; consorzi ordinati di concorrenti),Consorzio (fra società cooperative di produzione e lavoro;consorzi tra imprese artigiane..),GEIE (soggetti che hanno stipulato il contratto di gruppo europeo di interesse economico)', 'input-xxlarge', 0, '', 0, 0, false, true);
+            }
+
+            creaFormTrasp('Capogruppo','fornitore_singolo', 'capogruppo', '', $istanzaOggetto['capogruppo'], '','input-xxlarge');
+
+            if (moduloAttivo('scp')) {
+                creaFormTrasp('Mandante','fornitore_singolo', 'mandante', '', $istanzaOggetto['mandante'], '','input-xxlarge group-scp', 0, '', 0, 0, false, true);
+
+                creaFormTrasp('Mandataria','fornitore_singolo', 'mandataria', '', $istanzaOggetto['mandataria'], '','input-xxlarge group-scp', 0, '', 0, 0, false, true);
+            } else {
+                creaFormTrasp('Mandante','fornitore_singolo', 'mandante', '', $istanzaOggetto['mandante'], '','input-xxlarge');
+
+                creaFormTrasp('Mandataria','fornitore_singolo', 'mandataria', '', $istanzaOggetto['mandataria'], '','input-xxlarge');
+            }
 			
 			creaFormTrasp('Associata','fornitore_singolo', 'associata', '', $istanzaOggetto['associata'], '','input-xxlarge');
 			
