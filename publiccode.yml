@@ -20,53 +20,79 @@ description:
     features:
       - |-
         WEB BASED, non necessita di installazione di alcun applicativo sul pc
+
         dei redattori;
       - PROCEDURE GUIDATE SEMPLIFICATE di inserimento dati;
       - |-
         STRUMENTI AUTOMATICI DI CONTROLLO DELLA COMPLETEZZA dei contenuti
+
         inseriti, con promemoria;
       - |-
         STRUMENTI OPERATIVI richiesti e/o necessari con controllo con garanzia
+
         della validità formale;
       - |-
         Generazione dei FILE IN FORMATO APERTO (OPEN DATA), per il Portale della
+
         Trasparenza;
       - |-
         MOTORE DI RICERCA A COMPILAZIONE SUGGERITA con suddivisione dei
+
         risultati per aree omogenee;
       - |-
         WEBSERVICES completi e documentati volti all'interoperabilità  per il
+
         caricamento dei dati;
       - |-
         Gestione UTENTI e degli ambiti operativi mediante PROFILI
+
         personalizzabili nel dettaglio;
       - GRAFICAMENTE INTEGRABILE con siti preesistenti;
       - |-
         Dispone di APP dedicata, resa disponibile sui market personalizzata per
+
         l’Ente;
       - 'ACCESSIBILE, in conformità alla legge 4/04 (Legge Stanca)'
       - Conforme allo Standard DUBLIN CORE (delibera CIVIT 105/2010)
     genericName: Portale Amministrazione Trasparente
     longDescription: |
       PAT (Portale Amministrazione Trasparente) è la soluzione applicativa
+
       dedicata alla gestione e alla pubblicazione delle informazioni richieste
+
       dal quadro normativo che permette agli enti pubblici di ogni ordine e
+
       grado di adempiere agli **OBBLIGHI DI PUBBLICITÀ’, TRASPARENZA E
+
       DIFFUSIONE DELLE INFORMAZIONI **in conformità alle disposizioni del
+
       Decreto Legislativo del 14 marzo 2013, n.33 (Amministrazione Trasparente),
+
       in attuazione della Legge 6 novembre 2012, n. 190 (Anticorruzione).
 
 
+
       PAT è disponibile anche con una configurazione dedicata per le Società e
+
       gli Enti pubblici in conformità alla delibera ANAC n. 1134 del 08/11/2017.
 
 
+
       L'AgID ha affidato a ISWEB l'insieme delle attività di avvio e di
+
       manutenzione di PAT, ivi inclusi gli interventi di adeguamento necessari
+
       per essere sempre a norma rispetto all'evolversi del quadro normativo di
+
       riferimento. 
+    screenshots:
+      - |-
+        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn2.png
+      - |-
+        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn1.png
     shortDescription: |-
       La soluzione applicativa per adempiere in modo semplice ed efficace alle
+
       disposizioni del d.lgs. 33/2013 (Amministrazione Trasparente)
 developmentStatus: stable
 it:
@@ -121,6 +147,7 @@ usedBy:
   - Agenzia Italiana per la Cooperazione allo Sviluppo
   - |-
     Agenzia Nazionale per la Sicurezza delle Ferrovie e delle Infrastrutture
+
     Stradali e Autostradali
   - ACI
   - ACI Informatica
