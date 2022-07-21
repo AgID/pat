@@ -18,6 +18,18 @@ dependsOn:
 description:
   it:
     features:
+      - PNNR
+      - PNNR/Beneficiari/Comuni
+      - PNNR/Beneficiari/Scuole
+      - PNNR/Beneficiari/ASL
+      - PNNR/Beneficiari/Enti Regionali
+      - PNNR/Beneficiari/Università
+      - PNNR/Beneficiari/PA Centrali
+      - PNNR/Beneficiari/Province
+      - PNNR/Beneficiari/Istituti di ricerca e AFAM
+      - PNNR/Beneficiari/Altri enti
+      - PNNR/Misura/1.2
+      - PNNR/Misura/1.4.1
       - |-
         WEB BASED, non necessita di installazione di alcun applicativo sul pc
 
