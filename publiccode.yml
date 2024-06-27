@@ -155,7 +155,7 @@ localisation:
     - it
   localisationReady: false
 logo: |-
-  https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/pat_logoyml.png
+  https://github.com/AgID/pat/blob/master/pat_logoyml.png?raw=true
 maintenance:
   contacts:
     - email: a.bianchi@isweb.it

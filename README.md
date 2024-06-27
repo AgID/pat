@@ -1,5 +1,5 @@
 <div align="center">
- <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="./src/app/grafica/pat_logo_trasp_dialog.png"></a>
+ <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="https://github.com/AgID/pat/blob/master/pat_logoyml.png"></a>
 </div>
 
 
