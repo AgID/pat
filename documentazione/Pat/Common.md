@@ -1,0 +1,85 @@
+# Lista delle funzione dell'applicatico "Pat"
+
+**Riferimento path sorgente classe upload:** *app/common.php*
+
+## Lista delle funzioni
+
+- `verifyFirstOrLastSlash($uri = null)`
+- `getDynamicController()`
+- `getDynamicControllerOpendata()`
+- `PatOsInstituteId()`
+- `patOsInstituteInfo($args = null)`
+- `patOsConfigMail($merge = false, $configMail = null)`
+- `arrayMergeRecursiveDistinct()`
+- `authPatOs()`
+- `br2nl($string)`
+- `toFloat($num)`
+- `resolveStringBearer($bearer)`
+- `translateMonth($month = null)`
+- `iconBtn($name = 'Salva', $id = "icon-save", $ico = 'fa-save')`
+- `endKeyOnlyPagination($pages)`
+- `paginateBootstrap($elements, $rendering = 'display')`
+- `paginateBootstrap($elements, $rendering = 'display')`
+- `form_editor($data = '', $value = '', $extra = '')`
+- `sessionSetNotify(string $message = null, string $type = 'success')`
+- `sessionHasNotify()`
+- `filesUploaded($field = 'userfile')`
+- `getIdentity($data = null)`
+- `avatar()`
+- `isIe11()`
+- `guard()`
+- `getSectionPagesBackOffice()`
+- `removeDotHtml($str = null)`
+- `setUpperCaseRowTable($string, $mode = false, $strong = false)`
+- `btnSave($id = "btn_save", $title = false)`
+- `searchArrayByField($value = null, $data = [], $field = '')`
+- `multiSearch(array $array, array $pairs)`
+- `convertDateToDatabase($dateTime)`
+- `convertDateToImport($dateTime)`
+- `convertDateToForm($timeStamp)`
+- `setDefaultData($data = null, $default = null, $expected = [null, 0, false])`
+- `setOrderDatatable($columnName = null, array $orderable = [], string $default = '')`
+- `getAclVersioning()`
+- `getAclArchiving()`
+- `getAclLockUser()`
+- `getAclModifyProfile()`
+- `getAclExportCsv()`
+- `getAclDelete()`
+- `getAclAdd()`
+- `createdByCheckDeleted(string|null $name = null, int|null $deleted = 0)`
+- `instituteNameSelected()`
+- `wordLimiter($str, $limit = 100, $end_char = '&#8230;')`
+- `characterLimiter($str, $n = 500, $endChar = '&#8230;')`
+- `shortInstitutionName($str = null)`
+- `moveFileInDirMedia($fileName = null, $instituteDir = null)`
+- `write_file($path, $data, $mode = 'wb')`
+- `loadElfinderJs($elements = null)`
+- `treeSelectOptionValue($tree, $parentId = null, $institutionId = null)`
+- `extractIds($obj)`
+- `getLasHistoryUrl()`
+- `fileToBase64($file)`
+- `floatvalue($val)`
+- `forceDownloadDynamic($templateString = '', $filename = '', $contentType = 'text/html', $printDoc = false)`
+- `downloader($filename = '', $data = '', $setMime = false, $alias = null, $robotsIndex = false, $printDoc = false)`
+- `checkGet($data = [])`
+- `isArrayMultidimensional($array)`
+- `checkRecordOwner(int $recordOwnerId = null, int $userId = null))`
+- `sanitizeArray($array)`
+- `checkEncrypt($data = '')`
+- `checkDecrypt($data = '')`
+- `insertMeta($insertId, $institutionId, $model_name, $value, $newColumnName, $metaGroup = null)`
+- `referenceOriginForRegenerateToken(int $num = 3, string $segmentName = 'create-box.html')`
+- `getFullName($str1, $str2)`
+- `setDataTableData(array &$data, string $columnName)`
+- `urlWithoutWww(string $url)`
+- `addWwwToUrl($url)`
+- `duplicateAttach(int $id = null, string $archiveName = '', int $originId = null, int $sort = 1, Utf8 $utf8 = null)`
+- `toSql(string $sql = '', array $bindings = [])`
+- `getAclProfileInfo(string $name = '')`
+- `removePhoto(?string $fileName = '')`
+- `isSerialized($value, &$result = null)`
+- `convertDateForCsv($date = null, bool $hours = false)`
+- `generateSeparator(string $name = '', string $icon = '')`
+- `extractIntegersFromString(string $input)`
+- `mapMetaKeyToValue(array|null $data)`
+

@@ -1,0 +1,57 @@
+@media (max-width:1200px) {
+    #file-manager {
+        grid-template-columns: 1fr;
+        #sidebar {
+            position: fixed;
+            transform:translateX(-150%);
+            z-index: 2;
+            background:#fff;
+            &.active {
+                transform:translateX(0);
+            }
+        }
+    }
+}
+
+@media (max-width:992px) {
+    #file-manager {
+        .content {
+            .container-filtro-ricerca {
+                justify-content: flex-start;
+                flex-direction: column-reverse;
+                .ricerca {
+                    justify-content: flex-start;
+                    margin:unset;
+                    .form-ricerca {
+                        flex:1;
+                    }
+                }
+                .filtro {
+                    width:100%;
+                    form {
+                        flex-direction: column;
+                        select {
+                            flex:1;
+                            margin-bottom:.5rem;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@media (min-width:1200px) {
+    #file-manager {
+        #sidebarButton {
+            display:none;
+        }
+    }
+    #file-manager {
+        #sidebar {
+            #closeSidebar {
+                display:none;
+            }
+        }
+    }
+}

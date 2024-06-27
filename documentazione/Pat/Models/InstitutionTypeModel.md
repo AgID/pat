@@ -1,0 +1,26 @@
+## Modello `InstitutionTypeModel`
+
+Il modello `InstitutionTypeModel`  rappresenta la tabella `institution_type` e fornisce funzionalità per la gestione dei tipi di ente.
+
+#### Proprietà `searchable`
+
+La proprietà `searchable` specifica i campi su cui effettuare la ricerca nel datatable.
+
+#### Lista dei metodi
+
+```
+boot()
+```
+
+Il metodo `boot` inizializza il modello.
+
+#### Metodi di relazione
+
+Il modello `InstitutionTypeModel` dichiara una relazione con il modello `RelSectionExcludedModel` utilizzando il metodo `hasMany`.
+
+### Proprietà
+
+* `$table`: Il nome della tabella nel database (default: `'institution_type'`).
+* `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
+* `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
+* `$searchable`: Un array di nomi dei campi su cui effettuare la ricerca nel datatable.

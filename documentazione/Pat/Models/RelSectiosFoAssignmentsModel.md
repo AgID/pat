@@ -1,0 +1,13 @@
+## Modello `RelSectiosFoAssignmentsModel`
+
+Il modello `RelSectiosFoAssignmentsModel` rappresenta la tabella `rel_sectios_fo_assignments` e rappresenta la relazione tra le tabelle `structsections_fo` e `object_assignments`.
+
+### Proprietà
+
+* `$table`: Il nome della tabella nel database (default: `'rel_sectios_fo_assignments'`).
+* `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
+* `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
+
+### Metodi
+
+Non sono presenti metodi aggiuntivi nel modello `RelSectiosFoAssignmentsModel` oltre a quelli forniti dalla classe `Model` di Eloquent, che gestisce il modello di base per l'interazione con il database.

@@ -1,0 +1,52 @@
+SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
+
+AddDefaultCharset utf-8
+Options -Indexes
+
+
+#Protezione file generici
+<FilesMatch ".(ENV|env|sdb|md|txt|inc|install|module|profile|sh|.sql|blade|tpl(.php)?|xtmpl|yml)(~|.sw[op]|.bak|.orig|.save)?$|^(.(?!well-known).|Entries.|Root|Template|(composer|installed).(json|lock)|web.config|yarn.lock|package.json)$|^#.#$|.php(~|.sw[op]|.bak|.orig|.save)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+    Order allow,deny
+        Deny from all
+        Satisfy All
+    </IfModule>
+</FilesMatch>
+
+
+# CRSF ONLY IF HTTPS IS ENABLED
+#Header set Access-Control-Allow-Origin "http://*.domain.test"
+#Header set X-Frame-Options: SAMEORIGIN
+#Header set X-Content-Type-Options: nosniff
+#Header set Referrer-Policy: no-referrer
+#Header set Feature-Policy: "microphone 'none'"
+#Header set Permissions-Policy: "microphone=()"
+#Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+#Header always edit Set-Cookie (.*) "$1; HTTPOnly; Secure;SameSite=Strict"
+
+# Rimozione del file index.php
+<IfModule mod_rewrite.c>
+    RewriteEngine on
+    RewriteBase /
+    RewriteCond %{THE_REQUEST} /index\.php/(.+)\sHTTP [NC]
+    RewriteRule ^ /%1 [NE,L,R]
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+
+    # RewriteRule (.+) index.php?p=$1 [QSA,L]
+    RewriteRule ^(.+)$ index.php [QSA,L]
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^ http://%1%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+
+#403
+ErrorDocument 403 '<!DOCTYPE html><html><head><title>403 Forbidden</title><style>body{background-color:#06c;color:#fff!important;display:flex;align-items:center;justify-content:center;height:100vh;}</style></head><body><h1>Sorry, access to this page is forbidden.</h1></body></html>'
