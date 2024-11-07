@@ -59,10 +59,10 @@ intendedAudience:
     - it
 it:
   conforme:
-    gdpr: false
-    lineeGuidaDesign: false
-    misureMinimeSicurezza: false
-    modelloInteroperabilita: false
+    gdpr: true
+    lineeGuidaDesign: true
+    misureMinimeSicurezza: true
+    modelloInteroperabilita: true
   countryExtensionVersion: '0.2'
   piattaforme:
     anpr: true
