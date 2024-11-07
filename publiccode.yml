@@ -2,19 +2,12 @@
 # metadata file that makes public software easily discoverable.
 # More info at https://github.com/italia/publiccode.yml
 
-publiccodeYmlVersion: '0.2'
+publiccodeYmlVersion: '0.4'
 categories:
-  - document-management
   - office
-  - productivity-suite
-  - website-builder
-dependsOn:
-  proprietary:
-    - name: CMS ISWEB
-      optional: false
-      version: ''
-      versionMax: '5'
-      versionMin: '4'
+  - document-management
+  - content-management
+  - digital-citizenship
 description:
   it:
     features:
@@ -32,130 +25,58 @@ description:
       - PNRR/Misura/1.4.1
       - |-
         WEB BASED, non necessita di installazione di alcun applicativo sul pc
-
-
-        dei redattori;
-      - PROCEDURE GUIDATE SEMPLIFICATE di inserimento dati;
-      - |-
-        STRUMENTI AUTOMATICI DI CONTROLLO DELLA COMPLETEZZA dei contenuti
-
-
-        inseriti, con promemoria;
+        dei redattori
+      - PROCEDURE GUIDATE SEMPLIFICATE di inserimento dati
       - |-
         STRUMENTI OPERATIVI richiesti e/o necessari con controllo con garanzia
-
-
-        della validità formale;
-      - |-
-        Generazione dei FILE IN FORMATO APERTO (OPEN DATA), per il Portale della
-
-
-        Trasparenza;
-      - |-
-        MOTORE DI RICERCA A COMPILAZIONE SUGGERITA con suddivisione dei
-
-
-        risultati per aree omogenee;
-      - |-
-        WEBSERVICES completi e documentati volti all'interoperabilità  per il
-
-
-        caricamento dei dati;
+        della validità formale
       - |-
         Gestione UTENTI e degli ambiti operativi mediante PROFILI
-
-
-        personalizzabili nel dettaglio;
-      - GRAFICAMENTE INTEGRABILE con siti preesistenti;
-      - |-
-        Dispone di APP dedicata, resa disponibile sui market personalizzata per
-
-
-        l’Ente;
+        personalizzabili nel dettaglio
       - 'ACCESSIBILE, in conformità alla legge 4/04 (Legge Stanca)'
       - Conforme allo Standard DUBLIN CORE (delibera CIVIT 105/2010)
     genericName: Portale Amministrazione Trasparente
     longDescription: |
-      PAT (Portale Amministrazione Trasparente) è la soluzione applicativa
+      **PAT - Portale Amministrazione Trasparente è la soluzione** che permette
+      agli enti pubblici di ogni ordine e grado di adempiere agli obblighi di
+      pubblicità, trasparenza e diffusione delle informazioni in conformità alle
+      disposizioni del Decreto Legislativo del 14 marzo 2013, n.33
+      (Amministrazione Trasparente), **in linea con il nuovo Codice degli
+      appalti pubblici (D. Lgs 36/2023)**.
 
 
-      dedicata alla gestione e alla pubblicazione delle informazioni richieste
-
-
-      dal quadro normativo che permette agli enti pubblici di ogni ordine e
-
-
-      grado di adempiere agli **OBBLIGHI DI PUBBLICITÀ’, TRASPARENZA E
-
-
-      DIFFUSIONE DELLE INFORMAZIONI **in conformità alle disposizioni del
-
-
-      Decreto Legislativo del 14 marzo 2013, n.33 (Amministrazione Trasparente),
-
-
-      in attuazione della Legge 6 novembre 2012, n. 190 (Anticorruzione).
-
-
-
-
-      PAT è disponibile anche con una configurazione dedicata per le Società e
-
-
-      gli Enti pubblici in conformità alla delibera ANAC n. 1134 del 08/11/2017.
-
-
-
-
-      L'AgID ha affidato a ISWEB l'insieme delle attività di avvio e di
-
-
-      manutenzione di PAT, ivi inclusi gli interventi di adeguamento necessari
-
-
-      per essere sempre a norma rispetto all'evolversi del quadro normativo di
-
-
-      riferimento. 
-    screenshots:
-      - |-
-        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn0.png
-      - |-
-        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn1.png
-      - |-
-        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn2.png
-      - |-
-        https://raw.githubusercontent.com/AgID/pat/master/src/app/grafica/scrn3.png
+      **PAT consente di adempiere con semplicità agli obblighi di
+      pubblicazione** delle informazioni e dei dati relativi alle procedure del
+      ciclo di vita dei contratti pubblici che rilevano ai fini
+      dell'assolvimento degli obblighi di pubblicazione secondo le indicazioni
+      della Delibera ANAC n. 264 come modificata dalla Delibera 601 del 2023.
     shortDescription: |-
       La soluzione applicativa per adempiere in modo semplice ed efficace alle
-
-
       disposizioni del d.lgs. 33/2013 (Amministrazione Trasparente)
 developmentStatus: stable
+intendedAudience:
+  countries:
+    - it
 it:
   conforme:
-    gdpr: true
-    lineeGuidaDesign: true
-    misureMinimeSicurezza: true
-    modelloInteroperabilita: true
+    gdpr: false
+    lineeGuidaDesign: false
+    misureMinimeSicurezza: false
+    modelloInteroperabilita: false
   countryExtensionVersion: '0.2'
   piattaforme:
-    anpr: false
-    cie: false
+    anpr: true
+    cie: true
     pagopa: false
     spid: true
-  riuso:
-    codiceIPA: agid
 legal:
-  license: EUPL-1.2
-  mainCopyrightOwner: AgID - Agenzia per l'Italia Digitale
-  repoOwner: AgID - Agenzia per l'Italia Digitale
+  license: AGPL-3.0-or-later
+  repoOwner: AgID
 localisation:
   availableLanguages:
     - it
   localisationReady: false
-logo: |-
-  https://github.com/AgID/pat/blob/master/pat_logoyml.png?raw=true
+logo: 'https://raw.githubusercontent.com/AgID/pat/master/pat_logoyml.png'
 maintenance:
   contacts:
     - email: a.bianchi@isweb.it
@@ -163,30 +84,28 @@ maintenance:
       phone: '+390863441163'
   contractors:
     - name: ISWEB S.p.A.
-      until: '2022-07-31'
+      until: '2025-03-01'
       website: 'https://www.isweb.it'
   type: contract
-name: PAT - Portale Amministrazione Trasparente
+name: PAT
 platforms:
-  - windows
   - web
+  - windows
+  - mac
   - linux
+  - ios
+  - android
 releaseDate: '2021-08-07'
-softwareType: standalone/web
-softwareVersion: 2.0.2
+softwareType: standalone/backend
 url: 'https://github.com/AgID/pat'
 usedBy:
-  - AgID - Agenzia per l'Italia Digiatle
+  - AgID - Agenzia per l'Italia Digitale
   - Ministero della Cultura
   - Ministero del Lavoro e delle Politiche Sociali
   - Ministero delle Infrastrutture e della Mobilità Sostenibili
   - ENAC - Ente Nazionale per l'Aviazione Civile
   - Agenzia Italiana per la Cooperazione allo Sviluppo
-  - |-
-    Agenzia Nazionale per la Sicurezza delle Ferrovie e delle Infrastrutture
-
-
-    Stradali e Autostradali
+  - Agenzia Nazionale per la Sicurezza delle Ferrovie e delle Infrastrutture Stradali e Autostradali
   - ACI
   - ACI Informatica
   - ACI Infomobility
@@ -219,7 +138,7 @@ usedBy:
   - Capitale Lavoro S.p.A.
   - AEQUA ROMA
   - Roma Servizi per la Mobilità Srl
-  - 'AMAT Milano - Agenzia Mobilità, Ambiente e Territorio Srl'
+  - AMAT Milano - Agenzia Mobilità, Ambiente e Territorio Srl
   - Istituto Nazionale Tumori IRCCS Fondazione Pascale
   - ATC Piemonte Centrale
   - Galleria dell'Accademia di Firenze
