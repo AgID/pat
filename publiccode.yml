@@ -69,6 +69,8 @@ it:
     cie: true
     pagopa: false
     spid: true
+riuso:
+    codiceIPA: agid    
 legal:
   license: AGPL-3.0-or-later
   repoOwner: AgID
