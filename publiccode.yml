@@ -58,21 +58,22 @@ intendedAudience:
   countries:
     - it
 it:
-  conforme:
-    gdpr: true
-    lineeGuidaDesign: true
-    misureMinimeSicurezza: true
-    modelloInteroperabilita: true
   countryExtensionVersion: '0.2'
+  riuso:
+    codiceIPA: agid  
   piattaforme:
     anpr: true
     cie: true
     pagopa: false
     spid: true
-riuso:
-    codiceIPA: agid    
+  conforme:
+    gdpr: true
+    lineeGuidaDesign: true
+    misureMinimeSicurezza: true
+    modelloInteroperabilita: true
 legal:
   license: AGPL-3.0-or-later
+  mainCopyrightOwner: AgID - Agenzia per l'Italia Digitale  
   repoOwner: AgID
 localisation:
   availableLanguages:
