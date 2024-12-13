@@ -1,5 +1,5 @@
 -- Dump della struttura del database pat
-CREATE DATABASE IF NOT EXISTS `pat`
+CREATE DATABASE IF NOT EXISTS `pat`;
 USE `pat`;
 
 -- Dump della struttura di tabella pat.acl_profiles
