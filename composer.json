@@ -13,7 +13,7 @@
     "illuminate/pagination": "^8.83.27",
     "danielstjules/stringy": "~3.1.0",
     "studio-42/elfinder": "^2.1.62",
-    "firebase/php-jwt": "^6.8.0"
+    "firebase/php-jwt": "^7.0.0"
   },
   "config": {
     "platform": {
