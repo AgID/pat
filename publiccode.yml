@@ -87,7 +87,7 @@ maintenance:
       phone: '+390863441163'
   contractors:
     - name: ISWEB S.p.A.
-      until: '20226-12-31'
+      until: '2026-12-31'
       website: 'https://www.isweb.it'
   type: contract
 name: PAT
