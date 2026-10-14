@@ -9,10 +9,12 @@ namespace Helpers\Validators;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
-use Model\BdncpProcedureModel;
+use Helpers\S;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
+use Model\BdncpProcedureModel;
 
 class BdncpProcedureValidator
 {
@@ -44,26 +46,37 @@ class BdncpProcedureValidator
             ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il bilancio con l'id passato in input
-                $check = BdncpProcedureModel::select()
-                    ->with('commission:id,assignment_start,name,object')
-                    ->with('board:id,assignment_start,name,object')
-                    ->with('relative_bdncp_procedure:id,object,cig')
-                    ->find(uri()->segment($uriSegment, 0));
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
+                $check = BdncpProcedureModel::select();
+
+                $check = $check ?? null;
+
+                $check->with('commission:id,assignment_start,name,object');
+                $check->with('board:id,assignment_start,name,object');
+                $check->with('relative_bdncp_procedure:id,object,cig');
+                $check->with('rel_variation_procedure:id,object,cig');
+                $check->with('structure:id,structure_name');
+
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
+
+                $check = $check->find(uri()->segment($uriSegment, 0));
+
                 if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'procedura ')
                     ];
                 }
 
-                //Se esiste il bilancio lo salvo nel registro
+                //Se esiste la procedura lo salvo nel registro
                 Registry::set('bdncp-procedure', $check);
 
                 return null;
             })
             ->end();
+
 
 
         return [
@@ -73,11 +86,13 @@ class BdncpProcedureValidator
     }
 
 
+
     /**
      *  Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
-     * @param string $typology Indica se è un avviso o meno
+     * @param string $typology Indica se è un avviso
+     *                                o meno
      * @param int|bool $institutionId L'identificativo dell'instituto
      * @return array
      * @throws Exception
@@ -86,6 +101,10 @@ class BdncpProcedureValidator
     {
         if ($typology === 'alert') {
             return $this->validateAlert($mode, $institutionId);
+        } elseif ($typology === 'liquidation') {
+            return $this->validateLiquidation($mode, $institutionId);
+        } elseif ($typology === 'variation') {
+            return $this->validateVariation($mode, $institutionId);
         } else {
             return $this->validate($mode, $institutionId);
         }
@@ -102,7 +121,7 @@ class BdncpProcedureValidator
     protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
 
-        $validateCigAndLink = true;
+        $cigRequired = true;
 
         $this->validator->verifyToken()
             ->end();
@@ -113,55 +132,70 @@ class BdncpProcedureValidator
             ->betweenString(2, 1000)
             ->end();
 
+        $this->validator->label('Tipologia errata')
+            ->value(Input::post('_typology'))
+            ->required()
+            ->in('procedure')
+            ->end();
 
-            $this->validator->label('Tipologia errata')
-                ->value(Input::post('_typology'))
-                ->required()
-                ->in('procedure')
-                ->end();
+        $cigRequired = $cigRequired ?? null;
 
 
 
-            $this->validator->label('Cig')
-                ->value(trim(Input::post('cig', true, true, true, ['strip'])))
-                ->required()
-                ->exactLength(10)
-                ->isAlphaNum('CIG non valido')
-                ->regex('/^([A-Za-z0-9]{10})?$/', 'CIG non valido')
-                ->add(function () use ($mode, $institutionId) {
 
-                    //Controllo che non sia già presente una procedura con il CIG inserito
-                    $query = BdncpProcedureModel::where('cig', strtoupper(trim(Input::post('cig'))));
+        $this->validator->label('Cig')
+            ->value(trim((string) Input::post('cig', true, true, true, ['strip'])));
 
-                    //Escludo dal controllo i CIG 0000000000
-                    $query->where('typology', '=', 'procedure');
-                    $query->where('cig', '!=', '0000000000');
+        if ($cigRequired) {
+            $this->validator->required();
+        }
 
-                    //In update inserisco il controllo anche sull'id
-                    if ($mode === 'update') {
-                        $query->where('id', '!=', Input::post('id'));
-                    }
+        $this->validator->exactLength(10)
+            ->isAlphaNum('CIG non valido')
+            ->regex('/^([A-Za-z0-9]{10})?$/', 'CIG non valido')
+            ->add(function () use ($mode, $institutionId) {
 
-                    $check = $query->first();
+                //Controllo che non sia già presente una procedura con il CIG inserito
+                $query = BdncpProcedureModel::where('cig', strtoupper(trim((string) Input::post('cig'))));
 
-                    //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                    //mostro un messaggio di errore
-                    if ($check !== null) {
+                //Escludo dal controllo i CIG 0000000000
+                $query->where('typology', '=', 'procedure');
+                $query->where('cig', '!=', '0000000000');
 
-                        return [
-                            'error' => 'Non è possibile inserire la procedura in quanto il CIG è già censito sulla piattaforma'
-                        ];
-                    }
-                    return null;
-                })
-                ->end();
+                //In update inserisco il controllo anche sull'id
+                if ($mode === 'update') {
+                    $id = Input::post('id', true, true, true, ['int']);
 
-            $this->validator->label('Link alla Banca Dati Nazionale Contratti Pubblici (BDNCP)')
-                ->value(trim(Input::post('bdncp_link', true, true, true, ['strip'])))
-                ->isUrl(null, true)
-                ->betweenString(2, 191)
-                ->end();
+                    $query->where('id', '!=', $id);
 
+                    $query = $query ?? null;
+                }
+
+                $check = $query->first();
+
+                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
+                //mostro un messaggio di errore
+                if ($check !== null) {
+
+                    return [
+                        'error' => 'Non è possibile inserire la procedura in quanto il CIG è già censito sulla piattaforma'
+                    ];
+                }
+                return null;
+            })
+            ->end();
+
+        $this->validator->label('Link alla Banca Dati Nazionale Contratti Pubblici (BDNCP)')
+            ->value(trim((string) Input::post('bdncp_link', true, true, true, ['strip'])))
+            ->isUrl()
+            ->betweenString(2, 191)
+            ->end();
+
+        $this->validator->label('Link alla piattaforma di e-procurement')
+            ->value(Input::post('eproc_url'))
+            ->isUrl()
+            ->betweenString(2, 250)
+            ->end();
 
         $this->validator->label('Stai pubblicando un Dibattito pubblico?')
             ->value(Input::post('public_debate_check'))
@@ -275,6 +309,8 @@ class BdncpProcedureValidator
 
         $this->validateNotes();
 
+        $this->validator = $this->validator ?? null;
+
         if ($mode === 'update') {
 
             $id = Input::post('id');
@@ -294,7 +330,9 @@ class BdncpProcedureValidator
                     }
                 })
                 ->end();
+
         }
+
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -313,7 +351,6 @@ class BdncpProcedureValidator
      */
     protected function validateAlert(string $mode = 'insert', int|bool $institutionId = false): array
     {
-
         $this->validator->verifyToken()
             ->end();
 
@@ -338,20 +375,29 @@ class BdncpProcedureValidator
             ->isNaturalNoZero()
             ->end();
 
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = BdncpProcedureModel::where('id', Input::post('id'))->first();
-                    if (empty($regulation)) {
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = BdncpProcedureModel::where('id', $id);
+
+                    $procedure = $query->first();
+
+                    if (empty($procedure)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bandi di gara e contratti dal 01/01/2024')];
                     }
                 })
                 ->end();
+
         }
 
 
@@ -359,6 +405,88 @@ class BdncpProcedureValidator
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
+    }
+
+
+    /**
+     *  Metodo per la validazione dei campi del form di una variazione
+     *
+     * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId
+     * @return array
+     * @throws Exception
+     */
+    protected function validateVariation(string $mode = 'insert', int|bool $institutionId = false): array
+    {
+        $this->validator->verifyToken()
+            ->end();
+
+        $this->validateObject();
+
+        $this->validateNotes();
+
+        $this->validator->label('Avviso')
+            ->value(Input::post('_typology'))
+            ->required()
+            ->in('variation')
+            ->end();
+
+
+        if (empty(Input::post('object_bdncp_procedure_id'))) {
+            $this->validator->value(null)->required('Campo "Procedura relativa" obbligatorio.')->end();
+        } else {
+            $procedure = explode(",", Input::post('object_bdncp_procedure_id'));
+            foreach ($procedure as $procId) {
+                $this->validator->label('Procedura relativa')
+                    ->value($procId)
+                    ->isInt()
+                    ->isNaturalNoZero()
+                    ->end();
+            }
+        }
+
+
+
+        if ($mode === 'update') {
+
+            $id = Input::post('id');
+
+            $this->validator->label('id')
+                ->value($id)
+                ->required()
+                ->isInt()
+                ->isNaturalNoZero()
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = BdncpProcedureModel::where('id', $id);
+
+                    $variation = $query->first();
+
+                    if (empty($variation)) {
+                        return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bandi di gara e contratti dal 01/01/2024')];
+                    }
+                })
+                ->end();
+
+        }
+
+
+        return [
+            'is_success' => $this->validator->isSuccess(),
+            'errors' => $this->validator->getErrorsHtml()
+        ];
+    }
+
+
+    /**
+     * Metodo per la validazione dei campi del form di un avviso
+     * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId
+     * @return array
+     */
+    protected function validateLiquidation(string $mode = 'insert', int|bool $institutionId = false): array
+    {
+        return false;
     }
 
     /**
@@ -369,7 +497,7 @@ class BdncpProcedureValidator
     private function validateObject(): void
     {
         $this->validator->label('Oggetto')
-            ->value(trim(Input::post('object')))
+            ->value(trim((string) Input::post('object')))
             ->required()
             ->betweenString(2, 255)
             ->end();
@@ -383,7 +511,7 @@ class BdncpProcedureValidator
     private function validateNotes(): void
     {
         $this->validator->label('Note')
-            ->value(trim(Input::post('notes', true, true, true, ['strip'])))
+            ->value(trim((string) Input::post('notes', true, true, true, ['strip'])))
             ->betweenString(2, 1000)
             ->end();
     }
@@ -439,4 +567,5 @@ class BdncpProcedureValidator
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 }

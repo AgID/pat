@@ -1,12 +1,11 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
 
-use Exceptio;
 use Exception;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -21,6 +20,10 @@ class  Validator
     protected $fileType;
     protected $errors = [];
     protected $errorsField = [];
+    // Vero quando la validazione del CSRF token e' fallita: distingue un token
+    // assente/scaduto (errore di autorizzazione, HTTP 403) da un semplice input
+    // malformato (errore di richiesta, HTTP 400). Vedi getErrorStatusCode().
+    protected $tokenError = false;
     protected $standardDateFormat = 'Y-m-d H:i:s';
     protected $hasRequired = false;
     protected $hasError = false;
@@ -29,9 +32,7 @@ class  Validator
     /**
      * Validator constructor.
      */
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     protected function state()
     {
@@ -43,15 +44,14 @@ class  Validator
             $passed = false;
         }
 
-        if(is_array($this->value)) {
-            if(count((array)$this->value) == 0) {
+        if (is_array($this->value)) {
+            if (count((array)$this->value) == 0) {
                 $passed = false;
             }
         } else {
             if (strlen(trim((string)$this->value)) == 0) {
 
                 $passed = false;
-
             }
         }
 
@@ -110,11 +110,12 @@ class  Validator
      * @param null $value
      * @return $this
      */
-    public function verifyToken($index=null,$errorMsg = null)
+    public function verifyToken($index = null, $errorMsg = null)
     {
         if (!\System\Token::verify($index)) {
 
             $this->hasError = true;
+            $this->tokenError = true;
             $this->errors[] = $this->setMessageError($errorMsg, 'validator_token');
         }
 
@@ -193,7 +194,11 @@ class  Validator
 
             $this->hasRequired = true;
 
-            if (!isset($this->file) || $this->file['error'] == 4) {
+            // UPLOAD_ERR_NO_FILE (4) significa "nessun file". Ogni altro codice diverso da
+            // UPLOAD_ERR_OK segnala un upload andato male (file oltre la direttiva php.ini o
+            // oltre il limite del form, trasferimento parziale, cartella temporanea mancante):
+            // prima passavano come validi, perche' si guardava soltanto il 4.
+            if (!isset($this->file) || $this->file['error'] != 0) {
 
                 $passed = false;
             }
@@ -208,7 +213,7 @@ class  Validator
 
             $this->hasError = true;
             $this->errors[] = $this->setMessageError($errorMsg, 'validator_required');
-//            $this->errorsField[] = $this->field;
+            //            $this->errorsField[] = $this->field;
             $this->errorsField[$this->field][] = $this->setMessageError($errorMsg, 'validator_required');
         }
 
@@ -229,7 +234,7 @@ class  Validator
         $ext = is_array($ext) ? $ext : explode(',', strtolower($ext));
 
         if ((isset($this->file) &&
-            $this->file['error'] != 4) &&
+                $this->file['error'] != 4) &&
             !in_array(pathinfo($this->file['name'], PATHINFO_EXTENSION), $ext) &&
             !in_array(strtolower(pathinfo($this->file['name'], PATHINFO_EXTENSION)), $ext)
         ) {
@@ -317,13 +322,27 @@ class  Validator
         $minHeight = $this->removeAlphaChars($minHeight);
         $maxHeight = $this->removeAlphaChars($maxHeight);
 
-        if (!$this->isImage() && isset($this->file) && $this->file['error'] != 4) {
+        // Il gate era '!$this->isImage()', ma $fileType non viene mai popolato (solo azzerato
+        // nel reset), quindi isImage() restituiva sempre false e la negazione era sempre vera:
+        // il controllo girava su qualunque file, e per un non-immagine getimagesize() torna
+        // false, con accesso a $d[0]/$d[1] su un booleano e i relativi warning.
+        // Ora il test di immagine e' l'esito di getimagesize() stesso, che e' anche la fonte
+        // autorevole: un file con estensione .png ma contenuto diverso non lo supera.
+        if (isset($this->file) && $this->file['error'] != 4) {
 
             $hasError = false;
 
             if (function_exists('getimagesize')) {
 
                 $d = @getimagesize($this->file['tmp_name']);
+
+                if ($d === false) {
+
+                    $this->errors[] = $this->setMessageError($errorMsg, 'validator_invalid_dimensions');
+                    $this->errorsField[] = $this->field;
+
+                    return $this;
+                }
 
                 if ($maxWidth > 0 && $d[0] > $maxWidth) {
 
@@ -371,7 +390,17 @@ class  Validator
 
         if ($this->state() && !$this->hasError) {
 
-            if ((bool)preg_match_all('/[0-9]+\.?[0-9]*\,?[0-9]*$/', $this->value) == false) {
+            // La regex era ancorata solo alla fine, quindi 'foo123' passava. Aggiunto '^' e,
+            // insieme, il segno meno opzionale: senza di quello l'ancoraggio avrebbe reso non
+            // salvabili gli importi negativi, che nei dati esistono (p.es. amount_liquidated).
+
+            //aggiornamento 17/09/2026 - aggiunga la gestione dei numeri molto grandi (milioni e miliardi)
+            //OLD /^-?[0-9]+\.?[0-9]*\,?[0-9]*$/
+
+            //aggiornamento 21/09/2026 Aggiunto anche il supporto al punto come separatore decimale (es. 12.5), usato dai campi HTML type="number".
+            //OLD /^-?(?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]+)(?:,[0-9]{2})?$/
+
+            if ((bool)preg_match('/^-?(?:(?:[0-9]{1,3}(?:\.[0-9]{3})+)(?:,[0-9]+)?|[0-9]+(?:[.,][0-9]+)?)$/', (string) $this->value) === false) {
 
                 $hasError = false;
             }
@@ -387,6 +416,53 @@ class  Validator
         return $this;
     }
 
+
+    /**
+     * Controlla se la stringa passata è un json valido
+     *
+     * @return $this
+     * @throws Exception
+     */
+    public function jsonValidString()
+    {
+        $hasError = false;
+
+        json_decode($this->value, true);
+
+        // Prima il ramo d'errore scattava su un risultato null, ma json_decode('null')
+        // restituisce null legittimamente: il JSON valido 'null' finiva nel default dello
+        // switch come 'unknown_error'. L'unica fonte attendibile e' json_last_error().
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            switch (json_last_error()) {
+                case JSON_ERROR_DEPTH:
+                    $hasError = 'maximum_stack_depth_exceeded';
+                    break;
+                case JSON_ERROR_STATE_MISMATCH:
+                    $hasError =  'underflow_or_modes_mismatch';
+                    break;
+                case JSON_ERROR_CTRL_CHAR:
+                    $hasError =  'unexpected_control_character_found';
+                    break;
+                case JSON_ERROR_SYNTAX:
+                    $hasError =  'syntax_error_malformed_json';
+                    break;
+                case JSON_ERROR_UTF8:
+                    $hasError =  'malformed_utf_8_characters_possibly_incorrectly_encoded';
+                    break;
+                default:
+                    $hasError =  'unknown_error';
+                    break;
+            }
+        }
+
+        if ($hasError !== false) {
+            $this->hasError = true;
+            $this->errors[] = $this->setMessageError(null, $hasError);
+            $this->errorsField[] = $this->field;
+        }
+
+        return $this;
+    }
 
     /**
      * Controlla la lunghezza minima di una stringa
@@ -408,7 +484,9 @@ class  Validator
                 $hasError = false;
             }
 
-            if ($length >= mb_strlen((string) $this->value)) {
+            // '>' e non '>=': con '>=' una stringa lunga esattamente quanto il minimo
+            // veniva rifiutata (minLength(3) bocciava 'abc').
+            if ($length > mb_strlen((string) $this->value)) {
 
                 $hasError = false;
             }
@@ -445,7 +523,7 @@ class  Validator
                 $hasError = false;
             }
 
-            if ($length <= mb_strlen((string) $this->value)) {
+            if ($length < mb_strlen((string) $this->value)) {
 
                 $hasError = false;
             }
@@ -506,14 +584,37 @@ class  Validator
      *
      * @param string $list
      * @param null $errorMsg
+     * @param null $strict
      * @return $this
      * @throws Exception
      */
-    public function in($list = '', $errorMsg = null)
+    public function in($list = '', $errorMsg = null, $strict = true)
     {
         if ($this->state() && !$this->hasError) {
 
-            if (!in_array($this->value, explode(',', $list), TRUE)) {
+            $listArray = explode(',', $list);
+
+            // Controlla se il valore è booleano
+            if (is_bool($this->value)) {
+
+                // Converto i valori della lista in booleani, se possibile
+                $booleanList = array_map(function ($item) {
+                    if (strtolower($item) === 'true') {
+                        return true;
+                    } elseif (strtolower($item) === 'false') {
+                        return false;
+                    }
+                    return $item;
+                }, $listArray);
+
+                // Eseguiamo il confronto rigoroso
+                $match = in_array($this->value, $booleanList, true);
+            } else {
+                // tutti altri tipi di dati
+                $match = in_array($this->value, $listArray, $strict);
+            }
+
+            if (!$match) {
 
                 $this->hasError = true;
 
@@ -615,7 +716,9 @@ class  Validator
 
         if ($this->state() && !$this->hasError) {
 
-            if (!(bool)filter_var($this->value, FILTER_VALIDATE_INT)) {
+            // Confronto con === false e non cast a bool: filter_var restituisce int(0) per "0",
+            // e (bool)0 e' false, quindi lo zero veniva rifiutato pur essendo un intero valido.
+            if (filter_var($this->value, FILTER_VALIDATE_INT) === false) {
 
                 $this->hasError = true;
 
@@ -624,7 +727,35 @@ class  Validator
                     : sprintf(__('validator_integer', null, 'langs'), $this->label);
 
                 $this->errors[] = $msg;
-//                $this->errorsField = $this->field;
+                //                $this->errorsField = $this->field;
+                $this->errorsField[$this->field][] = $msg;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Verifica se il valore è un array
+     *
+     * @param null $errorMsg
+     * @return $this
+     * @throws Exception
+     */
+    public function isArray($errorMsg = null)
+    {
+
+        if ($this->state() && !$this->hasError) {
+
+            if (!is_array($this->value)) {
+
+                $this->hasError = true;
+
+                $msg = ($errorMsg !== null)
+                    ? sprintf($errorMsg, $this->label)
+                    : sprintf(__('validator_array', null, 'langs'), $this->label);
+
+                $this->errors[] = $msg;
                 $this->errorsField[$this->field][] = $msg;
             }
         }
@@ -739,7 +870,7 @@ class  Validator
                 }
 
 
-                if (preg_match('/^\[([^\]]+)\]/', $str, $matches) && !is_php('7') && filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE) {
+                if (preg_match('/^\[([^\]]+)\]/', $str, $matches) && !isPhp('7') && filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== FALSE) {
                     $str = 'ipv6.host' . substr($str, strlen((string) $matches[1]) + 2);
                 }
 
@@ -773,7 +904,15 @@ class  Validator
 
         if ($this->state() && !$this->hasError) {
 
-            if ((bool)filter_var($this->value, FILTER_VALIDATE_REGEXP, array('options' => array('regexp' => "/^[A-Za-z0-9-\/_]+$/")))) {
+            // L'errore va segnalato quando il valore NON e' una uri accettabile: prima la
+            // condizione era rovesciata. La classe di caratteri include ora il punto, perche'
+            // i due soli chiamanti reali validano host SMTP (InstitutionValidator, smtp_host e
+            // pec_smtp_host) e senza il punto 'smtp.gmail.com' non combaciava: con la vecchia
+            // logica rovesciata il non-match voleva dire "valido" e passava tutto, mentre
+            // invertendo senza toccare la classe si sarebbe rifiutato ogni host valido.
+            $pattern = '/^[A-Za-z0-9._\/-]+$/';
+
+            if ((bool) filter_var($this->value, FILTER_VALIDATE_REGEXP, ['options' => ['regexp' => $pattern]]) === false) {
 
                 $this->hasError = true;
                 $this->errors[] = $this->setMessageError($errorMsg, 'validator_uri');
@@ -830,35 +969,95 @@ class  Validator
         return $this;
     }
 
+    /**
+     * Verifica se il valore è un'e-mail corretta, non tenendo conto dello standard RFC 5321
+     * *
+     * * @param null $errorMsg
+     * * @return $this
+     * * @throws Exception
+     */
+    public function isEmailRelaxed($errorMsg = null)
+    {
+        if ($this->state() && !$this->hasError) {
+
+            // Rimuove spazi o caratteri invisibili ai bordi
+            $email = trim($this->value);
+            $error = false;
+
+            // Controllo minimo sulla presenza di @. Va interrotto qui: senza @ l'explode piu'
+            // sotto restituisce un solo elemento, e la destrutturazione lasciava $domain non
+            // definito, con warning "Undefined array key 1" e deprecation su strlen(null).
+            if (!str_contains($email, '@')) {
+
+                $this->hasError = true;
+                $this->errors[] = $this->setMessageError($errorMsg, 'validator_email');
+                $this->errorsField[] = $this->field;
+
+                return $this;
+            }
+
+            // Dividi parte locale e dominio
+            [$local, $domain] = explode('@', $email, 2);
+
+            // Controlli di lunghezza "rilassati"
+            // (RFC dice 64 max per local e 255 per domain, ma possiamo allentare)
+            if (strlen($local) > 128 || strlen($domain) > 255) {
+                $error = true;
+            }
+
+            // Controlla che il dominio sia formalmente valido
+            if (!preg_match('/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/', $domain)) {
+                $error = true;
+            }
+
+            // Controllo rilassato per la parte locale
+            // (ammette lettere, numeri, punti, trattini, underscore, più e alcuni simboli)
+            if (!preg_match('/^[A-Za-z0-9.!#$%&\'*+\/=?^_`{|}~-]+$/', $local)) {
+                $error = true;
+            }
+
+
+            if ($error) {
+
+                $this->hasError = true;
+                $this->errors[] = $this->setMessageError($errorMsg, 'validator_email');
+                $this->errorsField[] = $this->field;
+            }
+        }
+
+        return $this;
+
+    }
 
     /**
-     * Verifica se il valore è un formato data valido.
+     * Verifica se il valore è un formato data valido accettando multipli formati separati da pipe (es. "Y-m-d|d/m/Y")
      *
-     * @param null $format
-     * @param null $errorMsg
+     * @param string|null $format
+     * @param string|null $errorMsg
      * @return $this
      * @throws Exception
      */
     public function isDate($format = null, $errorMsg = null)
     {
-
         if ($this->state() && !$this->hasError) {
+            $format = $format ?: $this->standardDateFormat;
+            $formats = explode('|', $format);
+            $valid = false;
 
-            if (is_null($format) || $format == false || $format == '') {
+            foreach ($formats as $fmt) {
+                if (function_exists('date_parse_from_format')) {
+                    $parsed = date_parse_from_format($fmt, $this->value);
+                } else {
+                    $parsed = $this->dateParseFromFormat($fmt, $this->value);
+                }
 
-                $format = $this->standardDateFormat;
+                if ($parsed['warning_count'] === 0 && $parsed['error_count'] === 0) {
+                    $valid = true;
+                    break;
+                }
             }
 
-            if (function_exists('date_parse_from_format')) {
-
-                $parsed = date_parse_from_format($format, $this->value);
-            } else {
-
-                $parsed = $this->dateParseFromFormat($format, $this->value);
-            }
-
-            if ($parsed['warning_count'] > 0 or $parsed['error_count'] > 0) {
-
+            if (!$valid) {
                 $this->hasError = true;
                 $this->errors[] = $this->setMessageError($errorMsg, 'validator_date');
                 $this->errorsField[] = $this->field;
@@ -881,21 +1080,27 @@ class  Validator
 
         if ($this->state() && !$this->hasError) {
 
-            if (substr_count($this->value, ':') >= 2) {
+            $has_seconds = substr_count((string) $this->value, ':') >= 2;
 
-                $has_seconds = TRUE;
-            } else {
+            // Il formato a 12 ore va chiesto esplicitamente con '12H': qualunque altro tipo
+            // (compreso 'H:m', l'unico usato nell'app, in ContestValidator) e' a 24 ore.
+            // Prima era il contrario - solo '24H' dava le 24 ore - e siccome nessun chiamante
+            // passa '24H', ogni orario veniva confrontato col pattern a 12 ore, che pretende
+            // un suffisso AM/PM e quindi non combaciava mai.
+            $is12Hours = ($type === '12H');
 
-                $has_seconds = FALSE;
-            }
+            // Le ore a 24 non partivano da zero: il vecchio '([1-2][0-3]|[01]?[1-9])' non
+            // accettava '00', quindi la mezzanotte risultava non valida.
+            $pattern = '/^'
+                . ($is12Hours ? '(1[0-2]|0?[1-9])' : '([01]?[0-9]|2[0-3])')
+                . ':([0-5][0-9])'
+                . ($has_seconds ? ':([0-5][0-9])' : '')
+                . ($is12Hours ? '( AM| PM| am| pm)' : '')
+                . '$/';
 
-            $pattern = "/^" . (($type == '24H')
-                ? "([1-2][0-3]|[01]?[1-9])"
-                : "(1[0-2]|0?[1-9])") . ":([0-5]?[0-9])" . (($has_seconds) ? ":([0-5]?[0-9])" : "") . (($type == '24H')
-                ? ''
-                : '( AM| PM| am| pm)') . "$/";
-
-            if ((bool)preg_match($pattern, $this->value) === true) {
+            // L'errore va segnalato quando il pattern NON combacia. Prima la condizione era
+            // rovesciata: un orario valido produceva errore e uno invalido passava.
+            if ((bool) preg_match($pattern, (string) $this->value) === false) {
 
                 $this->hasError = true;
                 $this->errors[] = $this->setMessageError($errorMsg, 'validator_hour');
@@ -1077,10 +1282,18 @@ class  Validator
             ];
 
 
-            $type = strtolower($type);
+            $type = strtolower((string) $type);
 
+            // Tipo sconosciuto: va interrotto qui. Prima si limitava a marcare l'esito e
+            // proseguiva ad accedere a $cards[$type]['length'], con warning a catena
+            // ("Undefined array key", "Trying to access array offset on null").
             if (!isset($cards[$type])) {
-                $hasError = false;
+
+                $this->hasError = true;
+                $this->errors[] = $this->setMessageError($errorMsg, 'validator_credit_card');
+                $this->errorsField[] = $this->field;
+
+                return $this;
             }
 
             $length = strlen($this->value);
@@ -1167,7 +1380,7 @@ class  Validator
 
         if ($this->state() && !$this->hasError) {
 
-            if (strlen($this->value) < $min || strlen($this->value) > $max) {
+            if (strlen((string) $this->value) < $min || strlen((string) $this->value) > $max) {
 
                 $this->hasError = true;
 
@@ -1227,6 +1440,18 @@ class  Validator
         }
 
         return $this;
+    }
+
+    /**
+     * Verifica se il valore è un codice OTP (6 cifre numeriche)
+     *
+     * @param null $errorMsg
+     * @return $this
+     * @throws Exception
+     */
+    public function isOtp($errorMsg = null)
+    {
+        return $this->regex('/^[0-9]{6}$/', $errorMsg);
     }
 
     /**
@@ -1496,6 +1721,29 @@ class  Validator
     public function isSuccess()
     {
         return !empty($this->errors) ? false : true;
+    }
+
+    /**
+     * Ritorna true se tra gli errori raccolti c'e' quello di validazione del CSRF token.
+     *
+     * @return bool
+     */
+    public function hasTokenError()
+    {
+        return $this->tokenError;
+    }
+
+    /**
+     * Ritorna il codice HTTP appropriato quando la validazione fallisce:
+     * 403 se e' fallita la verifica del token (richiesta senza token valido, es. link
+     * vecchio, sessione scaduta o crawler), 400 per un input semplicemente malformato.
+     * Evita di segnalare come errore server (500) cio' che e' un errore del client.
+     *
+     * @return int
+     */
+    public function getErrorStatusCode()
+    {
+        return $this->tokenError ? 403 : 400;
     }
 
     /**

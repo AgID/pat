@@ -22,7 +22,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -106,9 +105,6 @@ class CanonAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -125,13 +121,24 @@ class CanonAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_lease_canons.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'beneficiary');
 
             $records = LeaseCanonsModel::search($dataTable['searchValue'])
-                ->select(['object_lease_canons.id', 'object_lease_canons.owner_id', 'object_lease_canons.institution_id',
-                    'canon_type', 'publishing_status', 'beneficiary', 'object_lease_canons.updated_at', 'amount', 'users.name', 'i.full_name_institution'])
+                ->select([
+                    'object_lease_canons.id',
+                    'object_lease_canons.owner_id',
+                    'object_lease_canons.institution_id',
+                    'canon_type',
+                    'beneficiary',
+                    'object_lease_canons.updated_at',
+                    'amount',
+                    'users.name',
+                    'i.full_name_institution'
+                ])
                 ->with('properties:id,name,archived')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
@@ -140,12 +147,15 @@ class CanonAdminController extends BaseAuthController
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
                 }])
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_lease_canons.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_lease_canons.owner_id', 'left outer');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_lease_canons.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
 
             $records = $records->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
@@ -160,6 +170,10 @@ class CanonAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['properties']) && is_array($record['properties'])) {
@@ -171,6 +185,9 @@ class CanonAdminController extends BaseAuthController
                             array_map(
                                 function ($name, $archived) {
                                     return ('<small class="badge badge-primary mb-1">'
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '')
                                         . escapeXss($name) . '</small>');
                                 },
                                 $tmpProperties,
@@ -191,37 +208,49 @@ class CanonAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning(),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/canon/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/canon/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/canon/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/canon/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l', siteUrl('admin/canon/show-record-log/' . $record['id']), $record['id'], '9', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/canon/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '');
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['beneficiary']) ? escapeXss($record['beneficiary']) : 'N.D.');
                     $setTempData[] = $responsibles;
                     $setTempData[] = !empty($record['amount']) ? '<small class="badge badge-success">' . S::currency(escapeXss($record['amount']), 2, ',', '.') . ' &euro; </small>' : 'N.D.';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
+                    //Ente
+                    $record = $record ?? null;
+
                     $setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
@@ -229,8 +258,7 @@ class CanonAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -267,14 +295,17 @@ class CanonAdminController extends BaseAuthController
         $data['_storageType'] = 'insert';
 
         $data['structures'] = [null => ''] + StructuresModel::all()
-                ->pluck('structure_name', 'id')
-                ->toArray();
+            ->pluck('structure_name', 'id')
+            ->toArray();
+
+        $data['r_o_d_i_f_c'] = false;
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('canon/form_store', $data, 'admin');
     }
@@ -290,7 +321,7 @@ class CanonAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -333,8 +364,10 @@ class CanonAdminController extends BaseAuthController
                     'notes' => Input::post('notes', true)
                 ];
 
+
                 // Storage nuovo Canone
                 $insert = LeaseCanonsModel::createWithLogs($arrayValues);
+
 
                 // Storage nelle tabelle di relazione
                 $this->clear(
@@ -349,8 +382,9 @@ class CanonAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'lease_canons', $insert->id, $canonType);
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -455,14 +489,17 @@ class CanonAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $canon['institution_id'];
+
+        $data['r_o_d_i_f_c'] = false;
 
         $data['start_date'] = $startDate['date'];
         $data['end_date'] = $endDate['date'];
 
         $data['propertyIds'] = Arr::pluck($canon['properties'], 'id');
         $data['seo'] = $canon['p_s_d_r'] ?? null;
+
 
         render('canon/form_store', $data, 'admin');
     }
@@ -498,10 +535,11 @@ class CanonAdminController extends BaseAuthController
                 }])
                 ->with('all_attachs');
 
+
             $canon = $canon->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($canon['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($canon['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -530,6 +568,7 @@ class CanonAdminController extends BaseAuthController
                 $data['object_structures_id'] = setDefaultData(strip_tags(Input::post('object_structures_id', true)), null, ['']);
                 $data['notes'] = Input::post('notes', true);
 
+
                 // Update Canone
                 LeaseCanonsModel::where('id', $canonId)->updateWithLogs($canon, $data);
 
@@ -538,6 +577,7 @@ class CanonAdminController extends BaseAuthController
                     $canon,
                     Input::post('properties', true)
                 );
+
 
                 $canonType = ($canonTypology == 1)
                     ? 'Canoni di locazione o di affitto versati'
@@ -552,8 +592,9 @@ class CanonAdminController extends BaseAuthController
                     $canonType
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -621,7 +662,7 @@ class CanonAdminController extends BaseAuthController
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/canon');
     }
 
@@ -636,7 +677,7 @@ class CanonAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         // Validatore sugli elementi da eliminare
         $validator = new CanonValidator();
@@ -655,7 +696,7 @@ class CanonAdminController extends BaseAuthController
             }
 
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+            //            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -663,4 +704,5 @@ class CanonAdminController extends BaseAuthController
 
         redirect('/admin/canon');
     }
+
 }

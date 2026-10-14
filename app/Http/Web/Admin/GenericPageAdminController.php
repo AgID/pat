@@ -11,6 +11,8 @@ use Helpers\ActivityLog;
 use Helpers\Utility\SectionFrontOffice;
 use Helpers\Validators\GenericPageValidator;
 use Model\ContentSectionFoModel;
+use Model\RecallsConfigurationModel;
+use Model\RecallsModel;
 use Model\SectionsFoModel;
 use System\Arr;
 use System\Cache;
@@ -18,7 +20,6 @@ use System\Database;
 use System\Input;
 use System\JsonResponse;
 use System\Registry;
-use System\Token;
 use System\Validator;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -81,7 +82,7 @@ class GenericPageAdminController extends BaseAuthController
         $data['include'] = '';
 
         $data['url'] = uri()->segment(2, 0);
-        $data['sectionId'] = (int)Input::get('id');
+        $data['sectionId'] = (int) Input::get('id');
 
         render('generic_page/index', $data, 'admin');
     }
@@ -102,15 +103,38 @@ class GenericPageAdminController extends BaseAuthController
         //Controllo se è una richiesta Ajax
         if (Input::isAjax() === true) {
 
-            $results = SectionsFoModel::select(['section_fo.id', 'parent_id as parent', 'name as text', 'is_system',
-                'section_fo.institution_id'])
+            $institutionTypeId = patOsInstituteInfo(['institution_type_id'])['institution_type_id'];
+
+            $results = SectionsFoModel::select([
+                'section_fo.id',
+                'parent_id as parent',
+                'name as text',
+                'is_system',
+                'tag',
+                'section_fo.institution_id',
+                'rel_institution_type_sections_labeling.label',
+                'hide'
+            ])
                 ->whereNull('section_fo.deleted_at')
-                ->where('hide', 0)
+                ->where(function ($query) {
+                    $query->where('hide', 0)
+                        ->orWhere(function ($query) {
+                            $query->where('section_fo.institution_id', checkAlternativeInstitutionId())
+                            ->where('hide', 1);
+                        });
+                })
+
                 ->where('section_fo.id', '!=', 22)
-                ->with(['institution' => function ($query) {
-                    $query->select(['id', 'full_name_institution']);
-                }])
+                ->with([
+                    'institution' => function ($query) {
+                        $query->select(['id', 'full_name_institution']);
+                    }
+                ])
                 ->institution()
+                ->labelfilter((int) $institutionTypeId);
+
+
+            $results = $results
                 ->orderBy('section_fo.is_system', 'DESC')
                 ->orderBy('section_fo.institution_id', 'ASC')
                 ->orderBy('sort', 'ASC')
@@ -124,18 +148,20 @@ class GenericPageAdminController extends BaseAuthController
                     $r->parent = "#";
                 }
 
-                if ((int)$r->is_system === 0) {
+                if ((int) $r->is_system === 0) {
 
-                    $r->text = '<span class="badge badge-secondary my-badge" style="font-size: 13px;" data-toggle="tooltip" data-placement="top" data-original-title="Pagina personalizzata">
-                                    [P] </span> ' . strip_tags(escapeXss($r->text));
+                    $label = !empty($r->tag) ? '[T]' : '[P]';
+                    $visibilityIcon = $r->hide === 0 ? '' : '<i class="fas fa-eye-slash ml-2"></i>';
 
+                    $r->text = '<span class="badge badge-secondary my-badge" style="font-size: 13px;" data-toggle="tooltip" data-placement="top" data-original-title="Pagina personalizzata">'
+                                . $label . ' </span> ' . strip_tags(escapeXss($r->text)) . $visibilityIcon;
                 } else {
                     //Per quelle di sistema controllo se hanno un eventuale traduzione del nome
                     $r->text = !empty($r->label) ? $r->label : $r->text;
                 }
             }
 
-            echo json_encode($results);
+            jsonOut($results);
         }
     }
 
@@ -149,6 +175,7 @@ class GenericPageAdminController extends BaseAuthController
      */
     public function getSection(): void
     {
+        helper('FrontOffice/Utility');
         //Setto il metodo della rotta
         $this->acl->setRoute('update');
 
@@ -164,62 +191,62 @@ class GenericPageAdminController extends BaseAuthController
 
         if ($isAjaxRequest === true && $validator['is_success'] === true) {
 
-            // Estraggo i paragrafi associasti a questa sezione
-            $queryContents = ContentSectionFoModel::select(['content_section_fo.id as content_id', 'content_section_fo.institution_id', 'content_section_fo.name',
-                'content_section_fo.content', 'content_section_fo.section_fo_parent_id'])
-                ->where('content_section_fo.section_fo_id', (int)Input::get('id'))
-                ->institution()
-                ->with(['institution' => function ($query) {
-                    $query->select(['id', 'full_name_institution']);
-                }])
-                ->orderBy('content_section_fo.institution_id', 'ASC')
-                ->orderBy('content_section_fo.sort', 'ASC')
-                ->orderBy('content_section_fo.id', 'ASC')
-                ->get();
+            $contents = getPageContents((int) Input::get('id'));
 
-            $contents = [];
-            $i = 0;
-            $j = 0;
-
-            $currentId = null;
-
-            foreach ($queryContents->toArray() as $content) {
-
-                if ($i == 0) {
-                    $currentId = $content['content_id'];
-                }
-
-                // Se per la pagina non ci sono dei richiami a degli archivi
-                // prendo solo i paragrafi
-                if (($currentId === $content['content_id'] && $i == 0) || $currentId !== $content['content_id']) {
-
-                    $contents[$i] = $content;
-                    $currentId = $content['content_id'];
-                    $j = $i;
-                    $i++;
-                }
-            }
+            $institutionTypeId = patOsInstituteInfo(['institution_type_id'])['institution_type_id'];
 
             // Estraggo le info della sezione
-            $query = SectionsFoModel::select(['section_fo.id', 'section_fo.name', 'section_fo.is_system',
-                'sf.name as parent_name', 'section_fo.guide']);
-            $query->where('section_fo.id', (int)Input::get('id'));
+            $query = SectionsFoModel::select([
+                'section_fo.id',
+                'section_fo.name',
+                'section_fo.is_system',
+                'section_fo.tag',
+                'section_fo.institution_id',
+                'sf.name as parent_name',
+                'section_fo.guide',
+                'rel_institution_type_sections_labeling.label'
+            ]);
+            $query->where('section_fo.id', (int) Input::get('id'));
             $query->join('section_fo as sf', 'sf.id', '=', 'section_fo.parent_id', 'left outer');
-            $query->institution();
+            $query->with('institution:id,full_name_institution');
+            $query->labelfilter((int) $institutionTypeId);
+
             $query->whereNull('section_fo.deleted_at');
             $q = $query->first();
 
             $section = !empty($q) ? $q->toArray() : null;
 
+            //            if(!empty($section)) {
+            //                $section['full_name_institution'] = $section['institution']['full_name_institution'];
+            //            }
+
             //Verifico se l'utente ha i permessi per modificare la pagina e il suo contenuto
-            $permit = $this->acl->hasPagePermit((int)Input::get('id'));
+            $permit = $this->acl->hasPagePermit((int) Input::get('id'));
 
             //Setto i permessi sulla pagina se l'utente li ha oppure se ha creato lui la pagina
             $permit = !empty($permit) ? ($permit['sections_fo_id'] || $permit['owned']) : 0;
 
+
+            if(!empty($contents) && $permit){
+                $checkWf = false;
+                $manageableStates = [];
+                $sectionFoParentID = $contents[0]['section_fo_parent_id'];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
+                if($checkWf){
+                    $section['checkWf'] = true;
+                    foreach ($contents as &$content){
+                        $wfPermits = false;
+                        $wfOwnerPermits = $content['user_id'] == $getIdentity['id'] && ($content['workflow_state'] ?? 'finale') == 'iniziale';
+
+                        $content['wf_cont_perm'] = $wfPermits || $wfOwnerPermits;
+                    }
+                }
+            }
+
             $json->set('section', $section);
             $json->set('contents', $contents);
-            $json->set('permit', $permit);
+            $json->set('permit', $permit); //questo è il permesso sulla pagina
         } else {
 
             $code = $json->bad();
@@ -264,18 +291,119 @@ class GenericPageAdminController extends BaseAuthController
         if ($isAjaxRequest === true && $validator['is_success'] === true) {
 
             // Recupero le informazioni della sezione da modificare
-            $query = SectionsFoModel::select(['id', 'name', 'meta_keywords', 'meta_description', 'parent_id', 'is_system'])
+            $query = SectionsFoModel::select(['id', 'name', 'meta_keywords', 'meta_description', 'parent_id', 'is_system', 'hide'])
                 ->where(function ($query) {
-                    $query->where('institution_id', (int)Input::get('institution_id'));
+                    $query->where('institution_id', (int) Input::get('institution_id'));
                     $query->orWhereNull('institution_id');
                 })
-                ->where('id', (int)Input::get('id'))
-                ->first();
+                ->where('id', (int) Input::get('id'));
+
+            $query = $query->first();
 
             $result = $query->toArray();
 
+            if (!empty($result)) {
+                $result['publishing_responsable'] = !empty($result['p_r']['meta_value']) ? $result['p_r']['meta_value'] : null;
+                $result['external_url'] = !empty($result['p_e_u_g_p_r']['meta_value']) ? $result['p_e_u_g_p_r']['meta_value'] : null;
+            }
+
             $json->set('section', $result);
 
+            $seo = Arr::pluck($result['p_s_d_r'] ?? [], 'meta_value', 'meta_key');
+            $json->set('seo', $seo);
+        } else {
+
+            $code = $json->bad();
+
+            if (!$isAjaxRequest) {
+
+                $errors = ['No ajax request'];
+            } else {
+
+                $errors = $validator['errors'];
+            }
+
+            $json->error('error', $errors);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
+    }
+
+    /**
+     * @description Metodo che costruisce la select con l'alberatura delle pagine
+     * per la duplicazione delle sezioni e dei paragrafi.
+     * Mostra solo le pagine dello stesso ente della pagina o del paragrafo che si
+     * vuole duplicare.
+     *
+     * @return void
+     * @method AJAX
+     * @url generic-page/section/duplicate
+     * @throws Exception
+     */
+    public function duplicateSectionGenerateTree(): void
+    {
+        // Setto il metodo della rotta
+        $this->acl->setRoute('update');
+
+        $json = new JsonResponse();
+        $code = $json->success();
+        $data = [];
+
+        //Validatore id sezione
+        $genericPageValidator = new GenericPageValidator();
+        $validator = $genericPageValidator->validateSectionId();
+
+        $isAjaxRequest = Input::isAjax();
+
+        if ($isAjaxRequest === true && $validator['is_success'] === true) {
+
+            // Recupero la sezione da duplicare
+            $query = SectionsFoModel::select(['id', 'name', 'meta_keywords', 'meta_description', 'institution_id', 'parent_id'])
+                ->where('institution_id', (int) Input::get('institution_id'))
+                ->where('is_system', 0)
+                ->where('id', (int) Input::get('id'));
+
+            $query = $query->first();
+
+            $result = !empty($query) ? $query->toArray() : null;
+
+            if (!empty($result)) {
+                $result['publishing_responsable'] = !empty($result['p_r']['meta_value']) ? $result['p_r']['meta_value'] : null;
+                $result['external_url'] = !empty($result['p_e_u_g_p_r']['meta_value']) ? $result['p_e_u_g_p_r']['meta_value'] : null;
+            }
+
+            // Imposto l'id dell'ente che sto gestendo
+            $eId = (checkAlternativeInstitutionId() === 0) ? (int) Input::get('institution_id') : null;
+
+            $section = new SectionFrontOffice();
+
+            // Recupero l'alberatura delle pagine dell'ente per la select2
+            // cosi l'utente può selezionare dove appendere la nuova pagina nell'alberatura
+            $selectTree = treeSelectOptionValue(
+                $section->getGroupedChildren(0, 0, $eId),
+                null,
+                $eId
+            );
+
+            $string = stringifyAttributes([
+                'id' => 'select_tree',
+                'class' => 'form-control select_tree',
+                'name' => 'select_tree'
+            ]);
+
+            $tagOpen = '<select ' . $string . ' >';
+            $tagClose = '</select>';
+
+            $htmlTree = '<div class="form-group"><label for="select_tree">Pagina generica</label>';
+            $htmlTree .= $tagOpen . $selectTree . $tagClose;
+            $htmlTree .= '</div>';
+
+            $json->set('select_tree', $htmlTree);
+            $json->set('section', $result);
+
+            $seo = Arr::pluck($result['p_s_d_r'] ?? [], 'meta_value', 'meta_key');
+            $json->set('seo', $seo);
         } else {
 
             $code = $json->bad();
@@ -322,8 +450,8 @@ class GenericPageAdminController extends BaseAuthController
             $section = new SectionFrontOffice();
             $foundMode = true;
 
-            // Se sono super admin setto l'id dell'ente del paragrafo
-            $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((int)Input::post('institution_id', true));
+            // Imposto l'ID dell'ente del paragrafo.
+            $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((int) Input::post('institution_id', true));
 
             if (Input::post('mode') == 'insert') { /* Insert record */
 
@@ -331,7 +459,7 @@ class GenericPageAdminController extends BaseAuthController
 
                 if ($validator['is_success']) {
                     // Setto il metodo della rotta per i permessi
-                    $this->acl->setRoute('create');
+                    $this->acl->setRoute('create', true);
 
                     // Conto le pagine già presenti nell'alberatura allo stesso livello, per gestire l'ordine
                     $countRows = SectionsFoModel::select(['id'])
@@ -346,31 +474,29 @@ class GenericPageAdminController extends BaseAuthController
                     $cache->delete($institutionId . '_burger_menu');
 
                     $arrayValues = [
-                        'name' => strip_tags((string)Input::post('name', true)),
-                        'parent_id' => strip_tags((string)Input::post('parent_id', true)),
+                        'name' => strip_tags((string) Input::post('name', true)),
+                        'parent_id' => strip_tags((string) Input::post('parent_id', true)),
                         'institution_id' => $institutionId,
                         'owner_id' => authPatOs()->id(),
                         'sort' => $countRows + 1,
                         'is_system' => 0,
                         'controller' => '\Http\Web\Front\PivotController',
                         'url' => '#!',
-                        'meta_keywords' => strip_tags((string)Input::post('meta_keywords', true))
+                        'meta_keywords' => strip_tags((string) Input::post('meta_keywords', true))
                     ];
 
                     // Creo la nuova sezione
                     $insert = $section->insert($arrayValues, false);
 
+                    // Inclusione di librerie di terze parti
+
                     // Storage Activity log
                     ActivityLog::create([
                         'action' => 'Creazione nuova pagina generica',
                         'description' => 'Creazione nuova pagina generica con ID (' . $insert . ')',
-                        'request_post' => [
-                            'post' => @$_POST,
-                            'get' => Input::get(),
-                            'server' => Input::server(),
-                        ],
                         'object_id' => 44,
                         'record_id' => $insert,
+                        'parent_id' => (int)Input::post('parent_id', true),
                         'area' => 'object',
                         'action_type' => 'addObjectInstance',
                     ]);
@@ -380,10 +506,10 @@ class GenericPageAdminController extends BaseAuthController
                     $json->error('error', $errors);
                 }
             } elseif (Input::post('mode') == 'update') { /* Update record */
-                $this->acl->setRoute('update');
+                $this->acl->setRoute('update', true);
 
                 // Recupero la sezione attuale prima di modificarla e la salvo nel versioning
-                $toUpdate = SectionsFoModel::find(strip_tags((int)Input::post('section_id', true)));
+                $toUpdate = SectionsFoModel::find(strip_tags((int) Input::post('section_id', true)));
 
                 $validator = $genericPageValidator->validateStorageSection($toUpdate->is_system);
 
@@ -396,29 +522,26 @@ class GenericPageAdminController extends BaseAuthController
                     $cache->delete($institutionId . '_burger_menu');
                     $arrayValues = [];
 
+
                     // Se la sezione non è di sistema effettuo l'update
                     if (!$toUpdate->is_system) {
                         $arrayValues = [
-                            'name' => escapeXss(strip_tags((string)Input::post('name', true))),
-                            'url' => urlTitle(strip_tags((string)Input::post('name', true))),
-                            'meta_keywords' => escapeXss(strip_tags((string)Input::post('meta_keywords', true))),
+                            'name' => escapeXss(strip_tags((string) Input::post('name', true))),
+                            'url' => "#!",
+                            'meta_keywords' => escapeXss(strip_tags((string) Input::post('meta_keywords', true))),
                         ];
 
                         // Update della sezione
-                        $section->update((int)Input::post('section_id', true), $arrayValues, $institutionId);
+                        $section->update((int) Input::post('section_id', true), $arrayValues, $institutionId);
                     }
 
                     // Storage Activity log
                     ActivityLog::create([
                         'action' => 'Modifica pagina generica',
                         'description' => 'Modifica pagina generica con ID (' . $toUpdate->id . ')',
-                        'request_post' => [
-                            'post' => @$_POST,
-                            'get' => Input::get(),
-                            'server' => Input::server(),
-                        ],
                         'object_id' => 44,
                         'record_id' => $toUpdate->id,
+                        'parent_id' => $toUpdate->parent_id,
                         'area' => 'object',
                         'action_type' => 'updateObjectInstance',
                     ]);
@@ -429,45 +552,100 @@ class GenericPageAdminController extends BaseAuthController
                 }
             } elseif (Input::post('mode') == 'duplicate') { /* Duplicazione record */
 
-                $this->acl->setRoute('create');
+                $this->acl->setRoute('create', true);
 
                 $validator = $genericPageValidator->validateStorageSection();
 
                 if ($validator['is_success']) {
 
-                    // Conto le pagine già presenti nell'alberatura allo stesso livello, per gestire l'ordine
-                    $countRows = SectionsFoModel::select(['id'])
-                        ->where('institution_id', strip_tags((string)Input::post('institution_id', true)))
-                        ->where('parent_id', strip_tags((string)Input::post('parent_id', true)))
-                        ->count();
+                    $sourceSectionId = strip_tags((int) Input::post('section_id', true));
+                    $sourceSection = SectionsFoModel::select(['id'])
+                        ->where('id', $sourceSectionId)
+                        ->where('institution_id', $institutionId)
+                        ->where('is_system', 0)
+                        ->first();
 
-                    // Inserisco la sezione duplicata
-                    $insert = $section->insert([
-                        'name' => escapeXss(strip_tags((string)Input::post('name', true))),
-                        'parent_id' => strip_tags((int)Input::post('select_tree', true)),
-                        'institution_id' => strip_tags((int)Input::post('institution_id', true)),
-                        'owner_id' => authPatOs()->id(),
-                        'sort' => $countRows + 1,
-                        'is_system' => 0,
-                        'controller' => '\Http\Web\Front\PivotController',
-                        'url' => '#!',
-                        'meta_keywords' => escapeXss(strip_tags((string)Input::post('meta_keywords', true)))
-                    ]);
+                    if (empty($sourceSection)) {
+                        $code = $json->bad();
+                        $json->error('error', 'La pagina da duplicare non è disponibile');
+                    } else {
 
-                    // Storage Activity log
-                    ActivityLog::create([
-                        'action' => 'Creazione nuova pagina generica',
-                        'description' => 'Creazione nuova pagina generica con ID (' . $insert . ')',
-                        'request_post' => [
-                            'post' => @$_POST,
-                            'get' => Input::get(),
-                            'server' => Input::server(),
-                        ],
-                        'object_id' => 44,
-                        'record_id' => $insert,
-                        'area' => 'object',
-                        'action_type' => 'addObjectInstance',
-                    ]);
+                        $destinationParentId = strip_tags((int) Input::post('select_tree', true));
+                        $ancestors = $section->getAncestors($destinationParentId, false, true, $institutionId);
+                        $systemSectionId = null;
+
+                        foreach ($ancestors as $ancestor) {
+                            $ancestor = (array) $ancestor;
+                            if ((int) $ancestor['is_system'] === 1) {
+                                $systemSectionId = (int) $ancestor['id'];
+                            }
+                        }
+
+                        if ($systemSectionId === null) {
+                            $code = $json->bad();
+                            $json->error('error', 'La pagina di destinazione non è disponibile');
+                        } else {
+
+                            // Conto le pagine già presenti nell'alberatura allo stesso livello, per gestire l'ordine
+                            $countRows = SectionsFoModel::select(['id'])
+                                ->where('institution_id', $institutionId)
+                                ->where('parent_id', $destinationParentId)
+                                ->count();
+
+                            $sourceContents = ContentSectionFoModel::select(['name', 'content', 'sort'])
+                                ->where('section_fo_id', $sourceSectionId)
+                                ->where('institution_id', $institutionId)
+                                ->whereNull('deleted_at')
+                                ->orderBy('sort', 'ASC')
+                                ->orderBy('id', 'ASC')
+                                ->get();
+
+                            $connection = (new ContentSectionFoModel())->getConnection();
+                            $connection->transaction(function () use ($section, $countRows, $destinationParentId, $institutionId, $sourceContents, $systemSectionId) {
+                                // Se la copia di un paragrafo fallisce, viene annullata anche la creazione della pagina.
+                                $insert = $section->insert([
+                                    'name' => escapeXss(strip_tags((string) Input::post('name', true))),
+                                    'parent_id' => $destinationParentId,
+                                    'institution_id' => $institutionId,
+                                    'owner_id' => authPatOs()->id(),
+                                    'sort' => $countRows + 1,
+                                    'is_system' => 0,
+                                    'controller' => '\Http\Web\Front\PivotController',
+                                    'url' => '#!',
+                                    'meta_keywords' => escapeXss(strip_tags((string) Input::post('meta_keywords', true)))
+                                ]);
+
+
+                                // Inclusione di librerie di terze parti
+
+                                foreach ($sourceContents as $sourceContent) {
+                                    $values = [
+                                        'section_fo_id' => $insert,
+                                        'section_fo_parent_id' => $systemSectionId,
+                                        'institution_id' => $institutionId,
+                                        'user_id' => authPatOs()->id(),
+                                        'owner_id' => authPatOs()->id(),
+                                        'name' => $sourceContent->name,
+                                        'content' => $sourceContent->content,
+                                        'sort' => $sourceContent->sort,
+                                    ];
+
+                                    $created = ContentSectionFoModel::create($values);
+                                }
+
+                                // Storage Activity log
+                                ActivityLog::create([
+                                    'action' => 'Creazione nuova pagina generica',
+                                    'description' => 'Creazione nuova pagina generica con ID (' . $insert . ')',
+                                    'object_id' => 44,
+                                    'record_id' => $insert,
+                                    'parent_id' => $destinationParentId,
+                                    'area' => 'object',
+                                    'action_type' => 'addObjectInstance',
+                                ]);
+                            });
+                        }
+                    }
                 }
             } else {
 
@@ -481,9 +659,9 @@ class GenericPageAdminController extends BaseAuthController
             } else {
 
                 // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(2, 'generic-page')) {
-                    //  Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+                //                if (!referenceOriginForRegenerateToken(2, 'generic-page')) {
+                //                    //  Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                }
 
                 $json->set('contents', 'Operazione avvenuta con successo');
             }
@@ -518,7 +696,7 @@ class GenericPageAdminController extends BaseAuthController
         $json = new JsonResponse();
         $code = $json->success();
 
-        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int)Input::get('institution_id');
+        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int) Input::get('institution_id');
 
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateSort('section', $institutionId);
@@ -533,7 +711,7 @@ class GenericPageAdminController extends BaseAuthController
             // Recupero la sezione da spostare
             $queryCurrent = SectionsFoModel::where('institution_id', $institutionId)
                 ->where('is_system', 0)
-                ->where('id', (int)Input::get('id'))
+                ->where('id', (int) Input::get('id'))
                 ->first();
 
             if (!empty($queryCurrent)) {
@@ -580,21 +758,37 @@ class GenericPageAdminController extends BaseAuthController
                     ActivityLog::create([
                         'action' => 'Modifica ordinamento pagina generica',
                         'description' => 'Modifica ordinamento[' . Input::get('dir', true) . '] pagina generica con ID (' . $resultCurrent['id'] . ') . Ordinamento invertito con la pagina con ID (' . $resultSwitch['id'] . ')',
-                        'request_post' => [
-                            'post' => @$_POST,
-                            'get' => Input::get(),
-                            'server' => Input::server(),
-                        ],
                         'object_id' => 44,
                         'record_id' => $resultCurrent['id'],
+                        'parent_id' => $resultCurrent['parent_id'],
                         'area' => 'object',
                         'action_type' => 'updateObjectInstance',
                     ]);
-
                 } else {
 
-                    $code = $json->bad();
-                    $json->error('error', 'Attenzione, impossibile spostare la pagina. Non esiste una pagina ' . $direction);
+
+                    // Query per recuperare le pagine figlie
+                    $childSections = SectionsFoModel::select([
+                        'id',
+                        'parent_id',
+                        'name',
+                        'lineage',
+                        'deep'
+                    ])
+                        ->where('institution_id', $institutionId)
+                        ->where('parent_id', $resultCurrent['parent_id'])
+                        ->where('is_system', 0)
+                        ->orderBy('sort')
+                        ->orderBy('order')
+                        ->get();
+
+                    if ($childSections !== null) {
+                        $json->set('manual_order', 1);
+                        $json->set('child_sections', $childSections->toArray());
+                    } else {
+                        $code = $json->bad();
+                        $json->error('error', 'Attenzione, impossibile spostare la pagina. Non esiste una pagina ' . $direction);
+                    }
                 }
             } else {
 
@@ -612,6 +806,90 @@ class GenericPageAdminController extends BaseAuthController
     }
 
     /**
+     * @description Riordino manuale dei paragrafi
+     *
+     * @return void
+     * @throws Exception
+     * @url /admin/generic-page/paragraph/manual-reordering
+     * @method POST
+     */
+    public function manualReordering()
+    {
+        $json = new JsonResponse();
+        $code = $json->success();
+        $validation = new \System\Validator();
+        $validation->label('Riordinamento paragrafi')
+            ->value(Input::post('sections'))
+            ->required()
+            ->add(function () {
+
+                $array = Input::post('sections');
+                if (!is_array($array)) {
+                    return ['error' => 'Il contenuto non è un validfo'];
+                }
+
+                $onlyIntegers = collect($array)
+                    ->filter(function ($item) {
+                        return isset($item['id']) && isset($item['sort'])
+                            && is_numeric($item['id']) && is_numeric($item['sort']);
+                    })
+                    ->mapWithKeys(function ($item) {
+                        return [(int) $item['id'] => (int) $item['sort']];
+                    })
+                    ->all();
+
+                $sortValues = array_values($onlyIntegers);
+                if (count($sortValues) !== count(array_unique($sortValues))) {
+                    return ['error' => 'Valori di ordinamento duplicati'];
+                }
+
+                $paragraphIds = array_keys($onlyIntegers);
+                $paragraphs = SectionsFoModel::select(['id'])
+                    ->whereIn('id', $paragraphIds)
+                    ->where('is_system', 0)
+                    ->where('institution_id', checkAlternativeInstitutionId())
+                    ->pluck('id');
+                // ->get();
+                $tempData = [];
+
+                if ($paragraphs != null) {
+                    $results = $paragraphs->toArray();
+
+                    foreach ($results as $value) {
+                        if (isset($onlyIntegers[$value])) {
+                            $tempData[$value] = $onlyIntegers[$value];
+                        }
+                    }
+
+                    Registry::set('__paragraphs_order', $tempData);
+                }
+
+            }, 'Riordinamento paragrafi')
+            ->end();
+
+        if ($validation->isSuccess()) {
+
+            $tempData = Registry::get('__paragraphs_order');
+
+            foreach ($tempData as $key => $value) {
+                SectionsFoModel::where('id', (int) $key)
+                    ->update([
+                        'sort' => (int) $value
+                    ]);
+            }
+
+            $json->set('msg', 'Operazione avvenuta con successo!');
+
+        } else {
+            $code = $json->bad();
+            $json->error('error', $validation->getErrorsHtml());
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
+    }
+
+    /**
      * @description Metodo per l'eliminazione di una pagina personalizzata e tutte le sue pagine figlie con i relativi contenuti
      *
      * @return void
@@ -622,7 +900,7 @@ class GenericPageAdminController extends BaseAuthController
     public function deleteSection(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -635,20 +913,20 @@ class GenericPageAdminController extends BaseAuthController
         if ($validator['is_success'] === true) {
 
             // Recupero la pagina da cancellare
-            $query = SectionsFoModel::where('institution_id', (int)Input::get('institution_id'))
+            $query = SectionsFoModel::where('institution_id', (int) Input::get('institution_id'))
                 ->where('is_system', 0)
-                ->where('id', (int)Input::get('id'))
+                ->where('id', (int) Input::get('id'))
                 ->first();
 
             $DB = new Database();
 
             // Recupero le pagine con un ordinamento maggiore di quella da eliminare
             $toUpdate = SectionsFoModel::select(['id', 'sort'])
-                ->where('institution_id', (int)Input::get('institution_id'))
+                ->where('institution_id', (int) Input::get('institution_id'))
                 ->where('is_system', 0)
-                ->where('parent_id', (int)$query->parent_id)
-                ->where('sort', '>', (int)$query->sort)
-                ->where('deep', '=', (int)$query->deep)
+                ->where('parent_id', (int) $query->parent_id)
+                ->where('sort', '>', (int) $query->sort)
+                ->where('deep', '=', (int) $query->deep)
                 ->get()
                 ->toArray();
 
@@ -662,7 +940,7 @@ class GenericPageAdminController extends BaseAuthController
                 $results = $query->toArray();
 
                 $section = new SectionFrontOffice();
-                $eId = (checkAlternativeInstitutionId() === 0) ? (int)Input::get('institution_id') : null;
+                $eId = (checkAlternativeInstitutionId() === 0) ? (int) Input::get('institution_id') : null;
 
                 // Recupero l'alberatura delle pagine figlie di quella da eliminare
                 $tree = $section->getDescendents($results['id'], $eId);
@@ -679,22 +957,27 @@ class GenericPageAdminController extends BaseAuthController
                     $cache->delete($institutionId . '_burger_menu');
 
                     // Elimino la pagina e tutte le sue figlie
-                    $hasUpdate = SectionsFoModel::where('institution_id', (int)Input::get('institution_id'))
+                    $hasUpdate = SectionsFoModel::where('institution_id', (int) Input::get('institution_id'))
                         ->where('is_system', 0)
                         ->whereIn('id', $ids)
                         ->delete();
 
                     // Recupero gli id dei paragrafi eliminati
                     $paragraphToDelete = ContentSectionFoModel::select(['id'])
-                        ->where('institution_id', (int)Input::get('institution_id'))
+                        ->where('institution_id', (int) Input::get('institution_id'))
                         ->whereIn('section_fo_id', $ids)->get();
 
                     // Elimino i paragrafi associati alle pagine eliminate
                     ContentSectionFoModel::whereIn('section_fo_id', $ids)
-                        ->where('institution_id', (int)Input::get('institution_id'))
+                        ->where('institution_id', (int) Input::get('institution_id'))
                         ->delete();
 
                     $paragraphIds = Arr::pluck($paragraphToDelete, 'id');
+
+                    // Elimino i richiami associati ai paragrafi eliminati
+                    RecallsModel::whereIn('paragraph_id', $paragraphIds)
+                        ->where('institution_id', (int) Input::get('institution_id'))
+                        ->delete();
 
                     if (!empty($hasUpdate)) {
 
@@ -702,19 +985,15 @@ class GenericPageAdminController extends BaseAuthController
                         ActivityLog::create([
                             'action' => 'Eliminazione pagina generica',
                             'description' => 'Eliminazione pagina generica con ID (' . $query->id . ')',
-                            'request_post' => [
-                                'post' => @$_POST,
-                                'get' => Input::get(),
-                                'server' => Input::server(),
-                            ],
                             'object_id' => 44,
                             'record_id' => $query->id,
+                            'parent_id' => $query->parent_id,
                             'area' => 'object',
                             'action_type' => 'deleteObjectInstance',
                         ]);
 
                         // Generazione nuovo token
-                        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                        //                        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                         $json->set('msg', 'Operazione avvenuta con successo');
                     } else {
 
@@ -755,9 +1034,12 @@ class GenericPageAdminController extends BaseAuthController
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateSectionId($parentId);
 
+        $institutionTypeId = patOsInstituteInfo(['institution_type_id'])['institution_type_id'];
+
         // Recupero la sezione genitore della sezione corrente
-        $currentPage = SectionsFoModel::select('is_system', 'section_fo.id', 'section_fo.institution_id', 'name')
+        $currentPage = SectionsFoModel::select('is_system', 'section_fo.id', 'section_fo.institution_id', 'name', 'rel_institution_type_sections_labeling.label')
             ->where('section_fo.id', $parentId)
+            ->labelfilter((int) $institutionTypeId)
             ->first();
 
         if (!empty($currentPage)) {
@@ -768,7 +1050,7 @@ class GenericPageAdminController extends BaseAuthController
         }
 
         // Se la pagina corrente è di sistema non prendo il parent_id, ma il suo ID
-        if ((int)$isSystem === 1) {
+        if ((int) $isSystem === 1) {
 
             $parentId = uri()->segment(5, 0);
         } else {
@@ -787,6 +1069,19 @@ class GenericPageAdminController extends BaseAuthController
 
                 $r = $pages->toArray();
                 $parentId = $r['id'];
+            }
+        }
+
+        // Recupero i richiami da mostrare nel paragrafo in base a quelli della pagina
+        $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model', 'sbo.url'])
+            ->where('section_fo_id', $parentId)
+            ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+            ->get()
+            ->toArray();
+
+        if (!empty($recallsConfig)) {
+            foreach ($recallsConfig as $rc) {
+                $uriSection[] = explode('/', $rc['url'])[1];
             }
         }
 
@@ -810,8 +1105,9 @@ class GenericPageAdminController extends BaseAuthController
 
         $data['sectionId'] = uri()->segment(5, 0);
         $data['parentId'] = $parentId;
+        $data['recalls'] = $recallsConfig;
         $data['uri'] = $uriSection;
-        $data['institution_id'] = $currentPage->institution_id;
+        $data['institution_id'] = !empty($currentPage->institution_id) ?  $currentPage->institution_id : checkAlternativeInstitutionId();
         $data['_storageType'] = 'insert';
         $data['pageName'] = $pageName;
 
@@ -833,11 +1129,12 @@ class GenericPageAdminController extends BaseAuthController
         $json = new JsonResponse();
         $code = $json->success();
         $data = [];
+        $recalls = [];
         $isSystem = 0;
         $hasError = false;
 
-        // Se sono super admin setto l'id dell'ente del paragrafo
-        $institutionId = ((int)checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((int)Input::post('institution_id', true));
+        // Imposto l'ID dell'ente del paragrafo.
+        $institutionId = ((int) checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((int) Input::post('institution_id', true));
 
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateParagraph();
@@ -846,21 +1143,22 @@ class GenericPageAdminController extends BaseAuthController
 
         if ($isAjaxRequest === true && $validator['is_success'] === true) {
 
-            $parentId = strip_tags((int)Input::post('parent_id', true));
+            $parentId = strip_tags((int) Input::post('parent_id', true));
 
             $sectionId = ((Input::post('mode') == 'duplicate') && Input::post('select_tree') !== null)
-                ? strip_tags((int)Input::post('select_tree', true))
-                : strip_tags((int)Input::post('section_id', true));
+                ? strip_tags((int) Input::post('select_tree', true))
+                : strip_tags((int) Input::post('section_id', true));
 
-            // Conto il numero di paragrafi già presenti nella sezione, per l'ordinamento
-            $countRows = ContentSectionFoModel::select(['id'])
+            // Prendo il paragrafo con il sort piu grande e aggiungo 1
+            $countRows = ContentSectionFoModel::select(['id', 'sort'])
                 ->where('section_fo_id', $sectionId)
                 ->where('institution_id', $institutionId)
-                ->count();
+                ->orderBy('sort', 'desc')
+                ->first();
 
             $parentId = (Input::post('mode') == 'duplicate' && Input::post('select_tree'))
-                ? strip_tags((int)Input::post('select_tree', true))
-                : strip_tags((int)Input::post('parent_id', true));
+                ? strip_tags((int) Input::post('select_tree', true))
+                : strip_tags((int) Input::post('parent_id', true));
 
             // Recupero la sezione genitore della sezione corrente
             $selectedPage = SectionsFoModel::select('is_system', 'id')
@@ -874,9 +1172,9 @@ class GenericPageAdminController extends BaseAuthController
             }
 
             // Se la pagina corrente è di sistema non prendo il parent_id, ma il suo ID
-            if ((int)$isSystem === 1) {
+            if ((int) $isSystem === 1) {
 
-                $parentId = (int)$c['id'];
+                $parentId = (int) $c['id'];
             } else {
 
                 // Se la pagina corrente non è di sistema recupero il parent_id della pagina di sistema genitore
@@ -902,14 +1200,17 @@ class GenericPageAdminController extends BaseAuthController
 
             if (!$hasError) {
 
+                $content = Input::post('content', true);
+
                 $values = [
                     'section_fo_id' => $sectionId,
                     'section_fo_parent_id' => $parentId,
                     'institution_id' => $institutionId,
                     'user_id' => authPatOs()->id(),
+                    'owner_id' => authPatOs()->id(),
                     'name' => strip_tags(Input::post('title', true)),
-                    'content' => Input::post('content', true),
-                    'sort' => $countRows + 1,
+                    'content' => $content,
+                    'sort' => ($countRows?->sort ?? 0) + 1,
                 ];
 
                 // Creo il nuovo paragrafo
@@ -919,19 +1220,40 @@ class GenericPageAdminController extends BaseAuthController
                 ActivityLog::create([
                     'action' => 'Creazione nuovo paragrafo',
                     'description' => 'Creazione nuovo paragrafo con ID (' . $created->id . ') nella pagina con ID (' . $parentId . ')',
-                    'request_post' => [
-                        'post' => @$_POST,
-                        'get' => Input::get(),
-                        'server' => Input::server(),
-                    ],
                     'object_id' => 44,
                     'record_id' => $created->id,
+                    'parent_id' => $sectionId,
                     'area' => 'object',
                     'action_type' => 'addObjectInstance',
                 ]);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                // Recupero le configurazioni dei richiami per la pagina in cui mi trovo
+                $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model'])
+                    ->where('section_fo_id', $parentId)
+                    ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+                    ->get()
+                    ->toArray();
+
+                // Se sono presenti creo i richiami
+                foreach ($recallsConfig as $rec) {
+                    if (Input::post($rec['recall_label'])) {
+                        foreach (Input::post($rec['recall_label']) as $record) {
+                            $recalls[] = [
+                                'recalls_configuration_id' => (int) $rec['id'],
+                                'record_id' => (int) strip_tags(escapeXss($record)),
+                                'institution_id' => $institutionId,
+                                'paragraph_id' => $created->id,
+                                'recall_name' => strip_tags((string) Input::post($rec['recall_label'] . '_name', true)),
+                                'created_at' => date('Y-m-d H:i:s'),
+                                'updated_at' => date('Y-m-d H:i:s')
+                            ];
+                        }
+                    }
+                }
+
+                // Storage nelle tabelle di relazione
+                RecallsModel::insert($recalls);
+
                 $json->set('msg', 'Operazione avvenuta con successo!');
                 $json->set('last_id', $created->id);
             }
@@ -976,14 +1298,15 @@ class GenericPageAdminController extends BaseAuthController
             exit();
         }
 
-        $paragraph = ContentSectionFoModel::where('id', (int)Input::get('id'))
+        $paragraph = ContentSectionFoModel::where('id', (int) Input::get('id'))
             ->first()
             ->toArray();
 
-        $paragraphId = (int)Input::get('id');
+        $paragraphId = (int) Input::get('id');
 
         $parentId = uri()->segment(5, 0);
         $uriSection = [];
+        $recallsIds = [];
         $isSystem = null;
         $pageName = null;
 
@@ -1000,7 +1323,7 @@ class GenericPageAdminController extends BaseAuthController
         }
 
         // Se la pagina corrente è di sistema non prendo il parent_id, ma il suo ID
-        if ((int)$isSystem === 1) {
+        if ((int) $isSystem === 1) {
 
             $parentId = uri()->segment(5, 0);
         } else {
@@ -1019,6 +1342,28 @@ class GenericPageAdminController extends BaseAuthController
 
                 $r = $pages->toArray();
                 $parentId = $r['id'];
+            }
+        }
+
+        // Recupero i richiami da mostrare nel paragrafo in base a quelli della pagina
+        $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model', 'sbo.url'])
+            ->where('section_fo_id', $parentId)
+            ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+            //            ->join('recalls as recall', 'recall.recalls_configuration_id', '=', 'recalls_configuration.id')
+            ->with([
+                'recalls' => function ($query) use ($paragraphId) {
+                    $query->where('paragraph_id', $paragraphId);
+                    $query->select(['id', 'recalls_configuration_id', 'record_id', 'recall_name']);
+                }
+            ])
+            ->get()
+            ->toArray();
+
+
+        if (!empty($recallsConfig)) {
+            foreach ($recallsConfig as $rc) {
+                $uriSection[] = explode('/', $rc['url'])[1];
+                $recallsIds[] = Arr::pluck($rc['recalls'], 'record_id');
             }
         }
 
@@ -1042,7 +1387,9 @@ class GenericPageAdminController extends BaseAuthController
 
         $data['sectionId'] = uri()->segment(5, 0);
         $data['parentId'] = $parentId;
+        $data['recalls'] = $recallsConfig;
         $data['uri'] = $uriSection;
+        $data['recallsIds'] = $recallsIds;
         $data['paragraph'] = $paragraph;
         $data['institution_id'] = $paragraph['institution_id'];
         $data['pageName'] = $pageName;
@@ -1061,10 +1408,11 @@ class GenericPageAdminController extends BaseAuthController
      */
     public function updateParagraph(): void
     {
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
+        $recalls = [];
 
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateParagraph();
@@ -1073,22 +1421,32 @@ class GenericPageAdminController extends BaseAuthController
 
         if ($isAjaxRequest === true && $validator['is_success'] === true) {
 
-            // Se sono super admin setto l'id dell'ente del paragrafo
-            $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((string)Input::post('institution_id', true));
+            // Imposto l'ID dell'ente del paragrafo.
+            $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : strip_tags((string) Input::post('institution_id', true));
 
             // Recupero il paragrafo attuale prima di modificarlo e lo salvo nel versioning
-            $paragraph = ContentSectionFoModel::find(strip_tags((string)Input::post('paragraph_id', true)))->toArray();
+            $paragraph = ContentSectionFoModel::find(strip_tags((string) Input::post('paragraph_id', true)))->toArray();
 
-            $parentId = (int)strip_tags(Input::post('parent_id', true));
+            $parentId = (int) strip_tags(Input::post('parent_id', true));
 
-            $sectionId = (int)strip_tags(Input::post('section_id', true));
+            $sectionId = (int) strip_tags(Input::post('section_id', true));
 
             $data = [];
             $data['name'] = strip_tags(Input::post('title', true));
-            $data['content'] = Input::post('content', false, false, false);
+
+            // $data['content'] = Input::post('content', false, false);
+            $data['content'] = Input::post('content', true);
 
             // Update Procedimento
-            ContentSectionFoModel::where('id', (int)strip_tags(Input::post('paragraph_id', true)))->update($data);
+            ContentSectionFoModel::where('id', (int) strip_tags(Input::post('paragraph_id', true)))->update($data);
+
+            $racallsVersioning = RecallsModel::where('paragraph_id', (int) strip_tags(Input::post('paragraph_id', true)))
+                ->get()
+                ->toArray();
+
+            // Elimino i dati nelle tabelle di relazione prima di reinserirli aggiornati
+            RecallsModel::where('paragraph_id', strip_tags(Input::post('paragraph_id', true)))
+                ->delete();
 
             // Dati per registrazione ActivityLog
             $getIdentity = authPatOs()->getIdentity(['id', 'name']);
@@ -1097,19 +1455,42 @@ class GenericPageAdminController extends BaseAuthController
             ActivityLog::create([
                 'action' => 'Modifica paragrafo',
                 'description' => 'Modifica paragrafo con ID (' . $paragraph['id'] . ')',
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
                 'object_id' => 44,
                 'record_id' => $paragraph['id'],
+                'parent_id' => $sectionId,
                 'area' => 'object',
                 'action_type' => 'updateObjectInstance',
             ]);
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+            // Recupero le configurazioni dei richiami per la pagina in cui mi trovo
+            $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model'])
+                ->where('section_fo_id', $parentId)
+                ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+                ->get()
+                ->toArray();
+
+            // Se sono presenti creo i richiami
+            foreach ($recallsConfig as $rec) {
+                if (Input::post($rec['recall_label'])) {
+                    foreach (Input::post($rec['recall_label']) as $record) {
+                        $recalls[] = [
+                            'recalls_configuration_id' => (int) $rec['id'],
+                            'record_id' => (int) strip_tags($record),
+                            'institution_id' => $institutionId,
+                            'paragraph_id' => $paragraph['id'],
+                            'recall_name' => strip_tags(Input::post($rec['recall_label'] . '_name', true)),
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'updated_at' => date('Y-m-d H:i:s')
+                        ];
+                    }
+                }
+            }
+
+            // Storage nelle tabelle di relazione
+            RecallsModel::insert($recalls);
+
+            $paragraph['recalls'] = $racallsVersioning;
+
             $json->set('msg', 'Operazione avvenuta con successo!');
             $json->set('last_id', $paragraph['id']);
         } else {
@@ -1145,12 +1526,13 @@ class GenericPageAdminController extends BaseAuthController
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('update');
 
-        $paragraph = ContentSectionFoModel::where('id', Input::get('par', true))
-            ->first()
+        $paragraph = optional(ContentSectionFoModel::where('id', Input::get('par', true))
+            ->first())
             ->toArray();
 
-        $parentId = uri()->segment(5, 0);
+        $parentId = (int)uri()->segment(5, 0);
         $uriSection = [];
+        $recallsIds = [];
         $isSystem = null;
 
         //Recupero la sezione genitore della sezione corrente
@@ -1165,7 +1547,7 @@ class GenericPageAdminController extends BaseAuthController
         }
 
         // Se la pagina corrente è di sistema non prendo il parent_id, ma il suo ID
-        if ((int)$isSystem === 1) {
+        if ((int) $isSystem === 1) {
 
             $parentId = uri()->segment(5, 0);
         } else {
@@ -1184,6 +1566,25 @@ class GenericPageAdminController extends BaseAuthController
 
                 $r = $pages->toArray();
                 $parentId = $r['id'];
+            }
+        }
+
+        //Recupero i richiami da mostrare nel paragrafo in base a quelli della pagina
+        $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model', 'sbo.url'])
+            ->where('section_fo_id', $parentId)
+            ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+            ->with([
+                'recalls' => function ($query) {
+                    $query->select(['id', 'recalls_configuration_id', 'record_id', 'recall_name']);
+                }
+            ])
+            ->get()
+            ->toArray();
+
+        if (!empty($recallsConfig)) {
+            foreach ($recallsConfig as $rc) {
+                $uriSection[] = explode('/', $rc['url'])[1];
+                $recallsIds[] = Arr::pluck($rc['recalls'], 'record_id');
             }
         }
 
@@ -1207,13 +1608,99 @@ class GenericPageAdminController extends BaseAuthController
 
         $data['sectionId'] = uri()->segment(5, 0);
         $data['parentId'] = $parentId;
+        $data['recalls'] = $recallsConfig;
         $data['uri'] = $uriSection;
+        $data['recallsIds'] = $recallsIds;
         $data['paragraph'] = $paragraph;
-        $data['institution_id'] = $paragraph['institution_id'];
+        $data['institution_id'] = $paragraph['institution_id'] ?? checkAlternativeInstitutionId();
 
         $data['_storageType'] = 'duplicate';
 
         render('generic_page/form_store_paragraph', $data, 'admin');
+    }
+
+    /**
+     * @description Metodo che restituisce i richiami da associare a un paragrafo in base alla pagina di
+     * destinazione scelta.
+     *
+     * @url /admin/generic-page/paragraph/duplicate/asyncRecalls
+     * @method AJAX
+     * @return void
+     */
+    public function asyncGetParagraphRecalls(): void
+    {
+        //Setto il metodo della rotta
+        $this->acl->setRoute('update');
+
+        $json = new JsonResponse();
+        $code = $json->success();
+
+        $isAjaxRequest = Input::isAjax();
+
+        if ($isAjaxRequest) {
+
+            $parentId = ((int) Input::get('id'));
+            $uriSection = [];
+            $isSystem = null;
+
+            //Recupero la sezione genitore della sezione corrente
+            $currentPage = SectionsFoModel::select('is_system', 'id')
+                ->where('id', $parentId)
+                ->first();
+
+            if (!empty($currentPage)) {
+
+                $c = $currentPage->toArray();
+                $isSystem = $c['is_system'];
+            }
+
+            // Se la pagina corrente è di sistema non prendo il parent_id, ma il suo ID
+            if ((int) $isSystem !== 1) {
+
+                // Se la pagina corrente non è di sistema recupero il parent_id della pagina di sistema genitore
+                $s = new SectionFrontOffice();
+                $result = array_reverse(Arr::pluck($s->getAncestors($parentId, true, false), 'id'));
+
+                $pages = SectionsFoModel::select(['is_system', 'id'])
+                    ->whereIn('id', $result)
+                    ->where('is_system', 1)
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+                if (!empty($pages)) {
+
+                    $r = $pages->toArray();
+                    $parentId = $r['id'];
+                }
+            }
+
+            //Recupero i richiami da mostrare nel paragrafo in base a quelli della pagina
+            $recallsConfig = RecallsConfigurationModel::select(['recalls_configuration.id', 'section_fo_id', 'recall_label', 'section_bo_id', 'sbo.model', 'sbo.url'])
+                ->where('section_fo_id', $parentId)
+                ->join('section_bo as sbo', 'sbo.id', '=', 'recalls_configuration.section_bo_id')
+                ->get()
+                ->toArray();
+
+            if (!empty($recallsConfig)) {
+                foreach ($recallsConfig as $rc) {
+                    $uriSection[] = explode('/', $rc['url'])[1];
+                }
+            }
+
+            $json->set('parentId', $parentId);
+            $json->set('recalls', $recallsConfig);
+            $json->set('uri', $uriSection);
+        } else {
+
+            $code = $json->bad();
+
+            $errors = 'Ops, c\'è un problema! Contattare l\'assistenza';
+
+            $json->error('error', $errors);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
     }
 
     /**
@@ -1231,7 +1718,7 @@ class GenericPageAdminController extends BaseAuthController
         $json = new JsonResponse();
         $code = $json->success();
 
-        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int)Input::get('institution_id');
+        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int) Input::get('institution_id');
 
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateSort('paragraph', $institutionId);
@@ -1245,7 +1732,7 @@ class GenericPageAdminController extends BaseAuthController
             $getIdentity = authPatOs()->getIdentity(['id', 'name']);
 
             // Prendo il paragrafo di cui si vuole modificare l'ordinamento
-            $queryCurrent = ContentSectionFoModel::where('id', (int)Input::get('id'))
+            $queryCurrent = ContentSectionFoModel::where('id', (int) Input::get('id'))
                 ->where('institution_id', $institutionId)
                 ->first();
 
@@ -1286,18 +1773,22 @@ class GenericPageAdminController extends BaseAuthController
                             'sort' => $resultCurrent['sort']
                         ]);
 
+                    $resultCurrentRecalls = RecallsModel::where('paragraph_id', (int) Input::get('id'))
+                        ->get()
+                        ->toArray();
+
+                    $resultSwitchRecalls = RecallsModel::where('paragraph_id', $resultSwitch['id'])
+                        ->get()
+                        ->toArray();
+
                     // Storage Activity log
                     ActivityLog::create([
                         'action' => 'Modifica ordinamento paragrafo',
-                        'description' => 'Modifica ordinamento[' . strip_tags((string)Input::get('dir')) . '] paragrafo con ID (' . $resultCurrent['id'] .
+                        'description' => 'Modifica ordinamento[' . strip_tags((string) Input::get('dir')) . '] paragrafo con ID (' . $resultCurrent['id'] .
                             '. Ordinamento invertito con il paragrafo con ID (' . $resultSwitch['id'] . ')',
-                        'request_post' => [
-                            'post' => @$_POST,
-                            'get' => Input::get(),
-                            'server' => Input::server(),
-                        ],
                         'object_id' => 44,
                         'record_id' => $resultCurrent['id'],
+                        'parent_id' => $resultCurrent['section_fo_id'],
                         'area' => 'object',
                         'action_type' => 'updateObjectInstance',
                     ]);
@@ -1334,7 +1825,7 @@ class GenericPageAdminController extends BaseAuthController
     public function deleteParagraph(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -1342,8 +1833,8 @@ class GenericPageAdminController extends BaseAuthController
         $genericPageValidator = new GenericPageValidator();
         $validator = $genericPageValidator->validateParagraphId();
 
-        // Se sono super admin setto l'id dell'ente del paragrafo
-        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int)Input::get('institution_id');
+        // Imposto l'ID dell'ente del paragrafo.
+        $institutionId = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : (int) Input::get('institution_id');
 
         if (!$validator['is_success']) {
 
@@ -1353,6 +1844,11 @@ class GenericPageAdminController extends BaseAuthController
 
             $paragraph = Registry::get('paragraph');
 
+            // Elimino anche i richiami del paragrafo
+            RecallsModel::where('paragraph_id', $paragraph->id)
+                ->where('institution_id', $institutionId)
+                ->delete();
+
             //Elimino il paragrafo
             $paragraph->delete();
 
@@ -1360,19 +1856,15 @@ class GenericPageAdminController extends BaseAuthController
             ActivityLog::create([
                 'action' => 'Eliminazione Paragrafo',
                 'description' => 'Eliminazione Paragrafo con ID (' . $paragraph->id . ')',
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
                 'object_id' => 44,
                 'record_id' => $paragraph->id,
+                'parent_id' => $paragraph->section_fo_id,
                 'area' => 'object',
                 'action_type' => 'deleteObjectInstance',
             ]);
 
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+            //            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
             $json->set('msg', 'Operazione avvenuta con successo');
         }
 

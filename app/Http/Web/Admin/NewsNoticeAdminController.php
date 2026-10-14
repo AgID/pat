@@ -9,6 +9,7 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\ActivityLog;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
@@ -18,7 +19,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -102,11 +102,6 @@ class NewsNoticeAdminController extends BaseAuthController
                 3 => 'news_date',
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[4] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'title');
@@ -125,7 +120,7 @@ class NewsNoticeAdminController extends BaseAuthController
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'title');
 
             $records = NewsNoticesModel::search($dataTable['searchValue'])
-                ->select(['object_news_notices.id', 'institution_id', 'news_date', 'public_in_notice', 'evidence', 'publishing_status',
+                ->select(['object_news_notices.id', 'institution_id', 'news_date', 'public_in_notice', 'evidence',
                     'object_news_notices.updated_at', 'title', 'typology', 'owner_id', 'i.full_name_institution'])
                 ->with('institution:id,full_name_institution');
 
@@ -148,6 +143,10 @@ class NewsNoticeAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     $newsDate = !empty($record['news_date'])
@@ -157,40 +156,50 @@ class NewsNoticeAdminController extends BaseAuthController
                             '</small>')
                         : '<small class="badge badge-danger">N.D.</small>';
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
                         ->addEdit('admin/news-notice/edit/' . $record['id'], $record['id'])
                         ->addDuplicate('admin/news-notice/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/news-notice/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/news-notice/show-record-log/'.$record['id']), $record['id'], '49', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
+                        ->addCustomButton(
+                            's_no_app_io',
+                            '#!',
+                            $record['id'],
+                            'news',
+                            'Invia notifica App IO',
+                            'view'
+                        )
                         ->addDelete('admin/news-notice/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    $publicIn  = $record['evidence'] == 2 ? '<small class="badge badge-danger">Homepage</small> ' : '';
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['title']) ? escapeXss($record['title']) : 'N.D.');
                     $setTempData[] = !empty($record['typology']) ? ucfirst(escapeXss($record['typology'])) : 'N.D.';
                     $setTempData[] = $newsDate;
-                    //$setTempData[] = '<small class="badge badge-danger">N.D.</small>';
-                    $evidence = $record['evidence'] == 2 ? '<small class="badge badge-danger">In evidenza </small> ' : '';
-                    $setTempData[] = $record['public_in_notice'] == 2 ? $evidence . ' <small class="badge badge-danger"> Bandi di gara</small>' : $evidence . ' ';
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = $publicIn;
 
                     $setTempData[] = $buttonAction;
 
@@ -200,7 +209,7 @@ class NewsNoticeAdminController extends BaseAuthController
                 $response['aaData'] = $data;
             }
 
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -236,6 +245,9 @@ class NewsNoticeAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
+        // Labels
+        $data['labels'] = [];
+
         render('news_notice/form_store', $data, 'admin');
     }
 
@@ -250,7 +262,7 @@ class NewsNoticeAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -283,7 +295,10 @@ class NewsNoticeAdminController extends BaseAuthController
                     'institution_id' => checkAlternativeInstitutionId(),
                     'title' => strip_tags(Input::post('title', true)),
                     'typology' => setDefaultData(strip_tags(Input::post('typology', true)), null, ['']),
+                    'evidence' => setDefaultData(strip_tags((string)Input::post('evidence', true)), null, ['']),
+                    'public_in_notice' => setDefaultData(strip_tags((string)Input::post('public_in_notice', true)), null, ['']),
                     'news_date' => !empty(Input::post('news_date')) ? convertDateToDatabase(strip_tags(Input::post('news_date', true))) : null,
+                    'expiration_date' => !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date', true))) : null,
                     'start_date' => !empty(Input::post('start_date')) ? convertDateToDatabase(strip_tags(Input::post('start_date', true))) : null,
                     'end_date' => !empty(Input::post('end_date')) ? convertDateToDatabase(strip_tags(Input::post('end_date', true))) : null,
                     'content' => Input::post('content', true)
@@ -295,8 +310,6 @@ class NewsNoticeAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'news_notices', $insert->id, $insert['title']);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
         } else {
@@ -372,6 +385,7 @@ class NewsNoticeAdminController extends BaseAuthController
         $newsDate = convertDateToForm($newsNotice['news_date']);
         $startDate = convertDateToForm($newsNotice['start_date']);
         $endDate = convertDateToForm($newsNotice['end_date']);
+        $expirationDate = convertDateToForm($newsNotice['expiration_date']);
 
         $data['news_notices'] = $newsNotice;
 
@@ -381,9 +395,15 @@ class NewsNoticeAdminController extends BaseAuthController
             $newsNotice['id']
         );
 
+        // Labels
+        $data['labels'] = [];
+
         $data['news_date'] = $newsDate['date'];
         $data['start_date'] = $startDate['date'];
+        $data['expiration_date'] = $expirationDate['date'];
         $data['end_date'] = $endDate['date'];
+        $data['seo'] = $newsNotice['p_s_d_r'] ?? null;
+
         render('news_notice/form_store', $data, 'admin');
     }
 
@@ -411,10 +431,13 @@ class NewsNoticeAdminController extends BaseAuthController
 
             // Recupero la news attuale prima di modificarla e la salvo nel versioning
             $newsNotice = NewsNoticesModel::where('id', $newsId)
-                ->first();
+                ->with('all_attachs');
+
+
+            $newsNotice = $newsNotice->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($newsNotice['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($newsNotice['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -432,14 +455,18 @@ class NewsNoticeAdminController extends BaseAuthController
             if ($doAction) {
                 $data = [];
                 $data['title'] = strip_tags(Input::post('title', true));
-                $data['typology'] = setDefaultData(strip_tags((string)Input::post('typology', true)), null, ['']);
+                $data['typology'] = setDefaultData(strip_tags(Input::post('typology', true)), null, ['']);
+                $data['evidence'] = setDefaultData(strip_tags((string)Input::post('evidence', true)), null, ['']);
+                $data['public_in_notice'] = setDefaultData(strip_tags((string)Input::post('public_in_notice', true)), null, ['']);
                 $data['news_date'] = !empty(Input::post('news_date')) ? convertDateToDatabase(strip_tags(Input::post('news_date', true))) : null;
                 $data['start_date'] = !empty(Input::post('start_date')) ? convertDateToDatabase(strip_tags(Input::post('start_date', true))) : null;
+                $data['expiration_date'] = !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date', true))) : null;
                 $data['end_date'] = !empty(Input::post('end_date')) ? convertDateToDatabase(strip_tags(Input::post('end_date', true))) : null;
                 $data['content'] = Input::post('content', true);
 
                 // Update News
                 NewsNoticesModel::where('id', $newsId)->updateWithLogs($newsNotice, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -450,8 +477,9 @@ class NewsNoticeAdminController extends BaseAuthController
                     $newsNotice['title'],
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -493,8 +521,6 @@ class NewsNoticeAdminController extends BaseAuthController
         //Elimino la news
         $newsNotice->deleteWithLogs($newsNotice);
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/news-notice');
@@ -511,7 +537,7 @@ class NewsNoticeAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new NewsNoticeValidator();
         $validate = $validator->multipleSelection();
@@ -528,8 +554,6 @@ class NewsNoticeAdminController extends BaseAuthController
                 $n->deleteWithLogs($n);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -537,4 +561,5 @@ class NewsNoticeAdminController extends BaseAuthController
 
         redirect('/admin/news-notice');
     }
+
 }

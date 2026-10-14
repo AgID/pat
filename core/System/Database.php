@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -15,23 +15,32 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 class Database extends Capsule
 {
-    public function __construct($datasource = null)
+
+    public function __construct($datasource = null, $overwrite = false)
     {
         parent::__construct();
 
-        // Settaggi per la connessione al database
-        $config = new Config();
-        $config->load(APP_PATH . 'Config/database.php');
-        $datasource = ($datasource === null) ? $config->get('db_connect_default') : $datasource;
-        $params = $config->get('params.' . $datasource);
+        if (!$overwrite) {
+            // Settaggi per la connessione al database
+            $config = new Config();
+            $config->load(APP_PATH . 'Config/database.php');
+            $datasource = ($datasource === null) ? $config->get('db_connect_default') : $datasource;
+            $params = $config->get('params.' . $datasource);
+        } else {
+            // Overwrite Settaggi
+            $params = $datasource;
+        }
+
+        if (empty($params['driver'])) {
+            echo 'Driver per la connessione al DB non specificato';
+            die();
+        }
 
         //Connessione al database.
-        $this->addConnection((array) $params);
+        $this->addConnection((array)$params);
         $this->setEventDispatcher(new Dispatcher(new Container));
         $this->setAsGlobal();
         $this->bootEloquent();
-
-
     }
 
     /**
@@ -40,7 +49,6 @@ class Database extends Capsule
     public function getConnectionInstance()
     {
         return $this->getConnection();
-
     }
 
     /**

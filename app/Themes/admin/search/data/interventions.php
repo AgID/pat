@@ -8,7 +8,6 @@ use System\Arr;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 ?>
-
 <div class="row">
     <?php if (!empty($results['data'])): ?>
         <div class="col-12 col-sm-12 col-md-12 d-flex align-items-stretch flex-column">
@@ -112,7 +111,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
                                     <?php echo $updateAt; ?>
                                 </td>
                                 <td class="text-center">
-                                    <a href="<?php echo siteUrl('admin/interventions/edit/' . $r['id']); ?>">
+                                    <a href="<?php echo siteUrl('admin/intervention/edit/' . $r['id']); ?>">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </td>

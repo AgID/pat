@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -46,8 +50,7 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -69,10 +72,15 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             ->where('id', uri()->segment(3, 0))
             ->first();
 
+        $liquidationDate = "2025-07-01 00:00:00";
+
         // Recupero i bandi di concorso attivi
         $queryContents = AssignmentsModel::where('object_assignments.typology', 'liquidation')
-            ->where('object_assignments.dirigente', '!=', 1)
-            ->orWhereNull('object_assignments.dirigente')
+            ->where('object_assignments.liquidation_date', '<=', $liquidationDate)
+            ->where(function ($query) {
+                $query->where('object_assignments.dirigente', '!=', 1)
+                    ->orWhereNull('object_assignments.dirigente');
+            })
             ->whereHas('related_assignment', function ($query) {
                 $query->where('assignment_type', '!=', '1');
             })
@@ -80,14 +88,19 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
                 $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
                 $query->with('structure:id,structure_name');
             }])
+            ->liquidationfilter(
+                Input::get('fn', true),
+                Input::get('object', true),
+                (int)Input::get('year', true)
+            )
             ->with('structure:id,structure_name')
             ->with('attachs')
             ->orderBy('object_assignments.liquidation_date')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -208,10 +221,16 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             )
             ->where(
                 function ($query) {
-                    $query->orWhere('assignment_end', '')
-                        ->orWhereNull('assignment_end')
+                    $query->whereNull('assignment_end')
                         ->orWhere('assignment_end', '>=', date('Y-m-d H:i:s'));
                 }
+            )
+            ->assignmentfilter(
+                Input::get('fn', true),
+                Input::get('ob', true),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
             )
             ->with(['related_assignment' => function ($query) {
                 $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
@@ -221,11 +240,11 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             ->with('measures:id,object')
             ->with('attachs')
             ->orderBy('assignment_start', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -263,6 +282,14 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
                         ->orWhereNull('dirigente');
                 }
             )
+            ->assignmentfilter(
+                Input::get('fn', true),
+                Input::get('ob', true),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
             ->with(['related_assignment' => function ($query) {
                 $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
                 $query->with('structure:id,structure_name');
@@ -270,17 +297,16 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             ->with('structure:id,structure_name')
             ->with('measures:id,object')
             ->with('attachs')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
             $this->generateCsv($resultContests, $resultSection);
-
         }
     }
 
@@ -313,6 +339,14 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
                     $query->where('assignment_end', '>=', date('Y-m-d H:i:s'))->orWhereNull('assignment_end');
                 }
             )
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
             ->with(['related_assignment' => function ($query) {
                 $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
                 $query->with('structure:id,structure_name');
@@ -321,11 +355,11 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             ->with('measures:id,object')
             ->with('attachs')
             ->orderBy('assignment_start', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -356,6 +390,14 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
         $queryContents = AssignmentsModel::where('assignment_type', 2)
             ->where('typology', 'assignment')
             ->where('assignment_end', '<', date('Y-m-d H:i:s'))
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
             ->with(['related_assignment' => function ($query) {
                 $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
                 $query->with('structure:id,structure_name');
@@ -363,12 +405,67 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             ->with('structure:id,structure_name')
             ->with('measures:id,object')
             ->with('attachs')
-            ->orderBy('object_assignments.liquidation_date')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->orderBy('assignment_start', 'ASC')
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests, $resultSection);
+
+        }
+    }
+
+
+    /**
+     * Metodo download open data per gli Incarichi,
+     * nella sezione Personale / Incarichi conferiti e autorizzati ai dipendenti (dirigenti e non dirigenti) / Archivio incarichi dipendenti
+     * ID sezione 68
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     * @noinspection PhpUndefinedVariableInspection
+     */
+    public function indexEmployeeAssignments(): void
+    {
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso attivi
+        $queryContents = AssignmentsModel::where('assignment_type', 1)
+            ->where('typology', 'assignment')
+            ->where('assignment_end', '<', date('Y-m-d H:i:s'))
+            ->where(function ($query) {
+                $query->where('dirigente', '!=', 1)
+                    ->orWhereNull('dirigente');
+            })
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
+            ->with(['related_assignment' => function ($query) {
+                $query->select(['id', 'name', 'object', 'assignment_type', 'object_structures_id']);
+                $query->with('structure:id,structure_name');
+            }])
+            ->with('structure:id,structure_name')
+            ->with('measures:id,object')
+            ->with('attachs')
+            ->orderBy('assignment_start', 'ASC')
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
+            ->get();
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -389,10 +486,11 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
     {
 
         $fileName = 'Consulenti e collaboratori - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
 
@@ -400,7 +498,6 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
             'Nominativo',
             'Oggetto',
             'Tipo di incarico',
-            'Incarico amministrativo di vertice o dirigenziale',
             'Struttura organizzativa responsabile',
             'Inizio incarico',
             'Fine incarico',
@@ -419,9 +516,7 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
 
         fputcsv($output, $headers, ';', '"');
 
-        $institutionTypeId = patOsInstituteInfo(['institution_type_id']);
-        $assignmentTypeMap = ['' => ''] + config('assignmentTypologies', '', 'app');
-
+        $assignmentTypeMap = ['' => ''] + config('assignmentTypologies', [], 'app');
 
         // Creazione delle celle per i dati in formato CSV
         foreach ($resultContests as $r) {
@@ -443,8 +538,11 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
 
             $structure = !empty($r['related_assignment']['structure'])
                 ? $r['related_assignment']['structure']
-                : $r['structure'];
-            $structure = $structure['structure_name'] . ' - ' . siteUrl('page/40/details/' . $structure['id'] . '/' . urlTitle($structure['structure_name']));
+                : $r['structure'] ?? [];
+
+            $structure = !empty($structure) ?
+                $structure['structure_name'] . ' - ' . siteUrl('page/40/details/' . $structure['id'] . '/' . urlTitle($structure['structure_name']))
+                : '';
 
             // Concateno le strutture
             $measuresLists = '';
@@ -472,8 +570,6 @@ class OpenDataAssignmentsFrontController extends BaseFrontController
                 !empty($assignmentObject) ? $assignmentObject : null,
                 // Tipo incarico
                 !empty($assignmentTypeMap[(int)$assignmentType]) ? $assignmentTypeMap[(int)$assignmentType] : '',
-                // Incarico amministrativo di vertice o dirigenziale
-                'no',
                 // Struttura organizzativa responsabile
                 !empty($structure) ? $structure : null,
                 // Inizio incarico

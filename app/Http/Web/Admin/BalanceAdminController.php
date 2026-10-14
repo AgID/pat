@@ -18,9 +18,9 @@ use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -92,7 +92,7 @@ class BalanceAdminController extends BaseAuthController
         $response = [];
 
         // Controllo se è una richiesta Ajax e se il datatable è stato validato correttamente
-        if (Input::isAjax() === true && $validator['is_success'] === true) {
+        if (Input::isAjax() && $validator['is_success']) {
 
             $data = [];
 
@@ -105,10 +105,6 @@ class BalanceAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -125,14 +121,16 @@ class BalanceAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_balance_sheets.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
 
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
             $records = BalanceSheetsModel::search($dataTable['searchValue'])
-                ->select(['object_balance_sheets.id', 'object_balance_sheets.owner_id', 'object_balance_sheets.institution_id', 'object_balance_sheets.name',
-                    'typology', 'year', 'object_balance_sheets.updated_at', 'publishing_status', 'users.name as userName', 'i.full_name_institution'])
+                ->select(['object_balance_sheets.id', 'object_balance_sheets.owner_id', 'object_balance_sheets.institution_id',
+                    'object_balance_sheets.name', 'typology', 'year', 'object_balance_sheets.updated_at', 'users.name as userName',
+                    'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_balance_sheets.owner_id', 'left outer')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
@@ -140,12 +138,12 @@ class BalanceAdminController extends BaseAuthController
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
-                }]);
+                }])
+                ->with('all_attachs:id,archive_id');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_balance_sheets.id', '=', $dataTable['searchValue']);
             }
-
             $records = $records->join('institutions as i', 'object_balance_sheets.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
@@ -158,6 +156,10 @@ class BalanceAdminController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -175,18 +177,25 @@ class BalanceAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente, se non ha i permessi non li setto
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning(),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/balance/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/balance/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/balance/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/balance/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/balance/show-record-log/'.$record['id']), $record['id'], '15', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/balance/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -194,7 +203,10 @@ class BalanceAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['name'])
                             ? '<a href="' . $recordUrl . '" target="_blank">' . escapeXss($record['name']) . '</a>'
                             : 'N.D.');
@@ -202,13 +214,9 @@ class BalanceAdminController extends BaseAuthController
                     $setTempData[] = !empty($record['year']) ? escapeXss($record['year']) : 'N.D.';
                     $setTempData[] = createdByCheckDeleted($record['created_by']['name'] ?? null, @$record['created_by']['deleted'] ?? 0);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = $record['all_attachs']->isNotEmpty()
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -217,8 +225,7 @@ class BalanceAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -238,7 +245,7 @@ class BalanceAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/balance/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/balance/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -271,8 +278,11 @@ class BalanceAdminController extends BaseAuthController
             'variazioni di bilancio'=>'Variazione di Bilancio'
         ];
 
+        $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
         // Labels
         $data['labels'] = [];
+
 
         render('balance/form_store', $data, 'admin');
     }
@@ -288,8 +298,8 @@ class BalanceAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
-
+        $this->acl->setRoute('create', true);
+        
         $json = new JsonResponse();
         $code = $json->success();
 
@@ -331,16 +341,18 @@ class BalanceAdminController extends BaseAuthController
                 // Storage nuovo Bilancio
                 $insert = BalanceSheetsModel::createWithLogs($arrayValues);
 
+
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'balance_sheets', $insert->id, $balanceName);
+
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
 
-            if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-            }
+//            if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                // Generazione nuovo token
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            }
 
         } else {
 
@@ -427,11 +439,12 @@ class BalanceAdminController extends BaseAuthController
             'piano indicatori e risultati'=>'Piano degli indicatori e risultati attesi',
             'variazioni di bilancio'=>'Variazione di Bilancio'
         ];
-
+        $data['institution_id'] = $balance['institution_id'];
 
         // Labels
         $data['labels'] = [];
         $data['seo'] = $balance['p_s_d_r'] ?? null;
+
 
         render('balance/form_store', $data, 'admin');
     }
@@ -463,10 +476,11 @@ class BalanceAdminController extends BaseAuthController
             $balance = BalanceSheetsModel::where('id', $balanceId)
                 ->with('all_attachs');
 
+
             $balance = $balance->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($balance['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($balance['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -489,8 +503,11 @@ class BalanceAdminController extends BaseAuthController
                 $data['year'] = setDefaultData(strip_tags((string)Input::post('year', true)), null, ['']);
                 $data['description'] = Input::post('description', true);
 
+
+
                 // Update Bilancio
                 BalanceSheetsModel::where('id', $balanceId)->updateWithLogs($balance, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -502,7 +519,7 @@ class BalanceAdminController extends BaseAuthController
                 );
 
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -548,6 +565,7 @@ class BalanceAdminController extends BaseAuthController
         //Elimino il bilancio
         $balance->deleteWithLogs($balance);
 
+
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/balance');
@@ -564,7 +582,7 @@ class BalanceAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         // Validatore sugli elementi da eliminare
         $validator = new BalanceValidator();
@@ -585,8 +603,9 @@ class BalanceAdminController extends BaseAuthController
                 $balance->deleteWithLogs($balance);
             }
 
+
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -594,4 +613,5 @@ class BalanceAdminController extends BaseAuthController
 
         redirect('/admin/balance');
     }
+
 }

@@ -37,61 +37,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
-                            {{-- Campo Titolo notizia --}}
-                            <div class="form-group">
-                                <label for="title">Titolo notizia *</label>
-                                {{ form_input([
-                                    'name' => 'title',
-                                    'value' => !empty($news_notices['title']) ? (($_storageType === 'duplicate') ? 'Copia di ' . $news_notices['title'] : $news_notices['title']) : null,
-                                    'placeholder' => 'Titolo notizia',
-                                    'id' => 'input_title',
-                                    'class' => 'form-control input_title',
-                                ]) }}
-                            </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Tipologia --}}
-                                <div class="form-group col-md-6">
-                                    <label for="typology">Tipologia *</label>
-                                    <div class="select2-blue" id="input_typology">
-                                        {{ form_dropdown(
-                                            'typology',
-                                            [''=>'','avviso'=>'Avviso','news'=>'News'],
-                                            @$news_notices['typology'],
-                                            'class="form-control select2-typology" style="width: 100%;"'
-                                        ) }}
-                                    </div>
-                                </div>
 
-                                {{-- Campo Data notizia --}}
-                                <div class="form-group col-md-6">
-                                    <label for="news_date">Data notizia *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="date" name="news_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ @$news_date }}"
-                                               id="news_date">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-row d-flex align-items-end">
                                 {{-- Campo Data inizio pubblicazione --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label for="start_date">Data inizio pubblicazione *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -106,7 +70,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Campo Data fine pubblicazione --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label for="end_date">Data fine pubblicazione *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -120,6 +84,76 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
+                            {{-- Campo Titolo notizia --}}
+                            <div class="form-group">
+                                <label for="title">Titolo *</label>
+                                {{ form_input([
+                                    'name' => 'title',
+                                    'value' => !empty($news_notices['title']) ? (($_storageType === 'duplicate') ? 'Copia di ' . $news_notices['title'] : $news_notices['title']) : null,
+                                    'placeholder' => 'Titolo notizia',
+                                    'id' => 'input_title',
+                                    'class' => 'form-control input_title',
+                                ]) }}
+                            </div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Campo Tipologia --}}
+                                <div class="form-group col-md-4">
+                                    <label for="typology">Tipologia *</label>
+                                    <div class="select2-blue" id="input_typology">
+                                        {{ form_dropdown(
+                                            'typology',
+                                            [''=>'','avviso'=>'Avviso','news'=>'News'],
+                                            @$news_notices['typology'],
+                                            'class="form-control select2-typology" style="width: 100%;"'
+                                        ) }}
+                                    </div>
+                                </div>
+
+                                {{-- Campo Data notizia --}}
+                                <div class="form-group col-md-4">
+                                    <label for="news_date">Data della notizia *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="date" name="news_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ @$news_date }}"
+                                               id="news_date">
+                                    </div>
+                                </div>
+
+                                @php
+                                   $enableObligatory = false
+                                @endphp
+                                <div class="form-group col-md-4">
+                                    <label for="expiration_date">Data scadenza @php echo !empty($enableObligatory) ? '*' : '' @endphp</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="date" name="expiration_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ @$expiration_date }}"
+                                               id="expiration_date">
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            {{-- Inclusione di librerie esterne --}}
+
 
                             {{-- Campo Contenuto --}}
                             <div class="form-group">
@@ -132,16 +166,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -179,16 +223,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{--  ************************************************ JAVASCRIPT ************************************************ --}}
 {% block javascript %}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -203,7 +246,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_content');
+        CKEDITOR.replace('input_content',{
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         {{-- BEGIN CAMPI SELECT --}}
         {{-- Campo select Tipologia --}}

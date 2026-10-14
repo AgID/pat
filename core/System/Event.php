@@ -1,10 +1,12 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
+
+use ReflectionException;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -22,20 +24,21 @@ class Event
      */
     public static function add($name = null, $callback = null)
     {
-        static::$e[$name][] = $callback;
+        self::$e[$name][] = $callback;
     }
 
     /**
      * Esegue i gestori degli eventi registrati
      *
-     * @param string $name
+     * @param null $name
      * @param array $params
-     * @return bool
+     * @return mixed|void
+     * @throws ReflectionException
      */
     public static function call($name = null, array $params = [])
     {
 
-        foreach (static::e(static::$e[$name], []) as $value) {
+        foreach (self::e(self::$e[$name], []) as $value) {
 
             if (is_callable($value)) {
 
@@ -59,7 +62,7 @@ class Event
 
                 } else {
 
-                    throw new \ReflectionException('[Event] - Classe ' . $value . ' non trovata');
+                    throw new ReflectionException('[Event] - Classe ' . $value . ' non trovata');
 
                 }
 
@@ -71,7 +74,7 @@ class Event
 
     public static function exists($name = null)
     {
-        return (!empty(static::$e[$name]) && count(static::$e[$name]) >= 1)
+        return (!empty(self::$e[$name]) && count(self::$e[$name]) >= 1)
             ? true
             : false;
     }

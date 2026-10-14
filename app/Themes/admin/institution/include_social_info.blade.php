@@ -30,11 +30,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <div class="col-md-12">
     {{--  Twitter --}}
     <div class="form-group">
-        <label for="twitter">Twitter</label>
+        <label for="twitter">X (twitter)</label>
         <div class="input-group">
             <div class="input-group-prepend">
             <span class="input-group-text">
-                <i class="fab fa-twitter"></i>
+                <i class="fa-brands fa-x-twitter"></i>
             </span>
             </div>
             {{ form_input([
@@ -106,6 +106,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 'placeholder' => 'https://www.',
                 'id' => 'input_linkedin',
                 'class' => 'form-control input_linkedin'
+            ]) }}
+        </div>
+    </div>
+</div>
+
+<div class="col-md-12">
+    {{--  LinkedIn --}}
+    <div class="form-group">
+        <label for="medium">Medium</label>
+        <div class="input-group">
+            <div class="input-group-prepend">
+            <span class="input-group-text">
+                 <i class="fa-brands fa-medium"></i>
+            </span>
+            </div>
+            {{ form_input([
+                'name' => 'medium',
+                'value' => !empty($socials['medium']) ? $socials['medium'] : null,
+                'placeholder' => 'https://www.',
+                'id' => 'input_medium',
+                'class' => 'form-control input_medium'
             ]) }}
         </div>
     </div>

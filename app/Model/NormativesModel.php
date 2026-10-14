@@ -9,10 +9,11 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +28,7 @@ class NormativesModel extends Model
     protected $table = 'object_normatives';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaNormativesModel';
     protected string $archiveName = 'normatives';
 
     protected string $objectName = 'Normativa';
@@ -52,6 +54,9 @@ class NormativesModel extends Model
         'number_readings',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -71,7 +76,15 @@ class NormativesModel extends Model
      */
     protected $searchable = [
         'object_normatives.name',
-        'userName'
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -96,19 +109,13 @@ class NormativesModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -119,7 +126,7 @@ class NormativesModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -130,6 +137,15 @@ class NormativesModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -184,6 +200,7 @@ class NormativesModel extends Model
         return $this->belongsToMany(ProceedingsModel::class, 'rel_proceedings_normatives', 'object_normatives_id', 'object_proceedings_id');
     }
 
+
     /**
      * Relazione con gli allegati
      * Restituisce tutti gli allegati non nascosti, per il front-office
@@ -211,5 +228,63 @@ class NormativesModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'normatives');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query         Query
+     * @param string|null $normativeName Nome normativa
+     * @param string|null $typology      Tipologia
+     * @param string|null $number        Numero
+     * @param string|null $startDate     Data inizio
+     * @param string|null $endDate       Data fine
+     * @param int|null    $office        Id ufficio
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $normativeName = null,
+        string  $typology = null,
+        string  $number = null,
+        string  $startDate = null,
+        string  $endDate = null,
+        int     $office = null
+    ): void
+    {
+        if (!empty($normativeName)) {
+            $query->where('object_normatives.name', 'LIKE', '%' . $normativeName . '%');
+        }
+
+        if (!empty($typology)) {
+            $query->where('object_normatives.act_type', '=', $typology);
+        }
+
+        if (!empty($number)) {
+            $query->where('object_normatives.number', '=', $number);
+        }
+
+        if (!empty($startDate)) {
+            $query->where('object_normatives.issue_date', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
+        }
+
+        if (!empty($endDate)) {
+            $query->where('object_normatives.issue_date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+
+        if (!empty($office)) {
+            $query->join('rel_normatives_structures as relative', 'relative.object_normatives_id', 'object_normatives.id');
+            $query->where('relative.object_structures_id', '=', $office);
+        }
+    }
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

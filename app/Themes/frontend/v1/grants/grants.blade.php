@@ -20,7 +20,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <div class="col-12">
 
                     {{-- Nome pagina --}}
-                    <h1 class="page-title">{{e: !empty($h1) ? $h1 : $pageName }}</h1>
+                    <div class="div-title">
+                        <h1>{{e: !empty($h1) ? $h1 :  $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
+
+                    {{-- Inclusione di librerie esterne --}}
+
 
                     {{-- Contenuto della pagina --}}
                     {% include v1/layout/partials/page_content %}
@@ -29,6 +36,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
         </div>
     </section>
+
+
 
     {{-- Se è presente la tabella la mostro, altrimenti mostro la vista a elenco --}}
     @if(empty($viewMode))
@@ -41,6 +50,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     @endif
 
 </main>
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

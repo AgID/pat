@@ -6,6 +6,7 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+
 return [
 
     /**
@@ -16,9 +17,9 @@ return [
         /**
          * @Description: Setta L'user Agent
          * @Options: None
-         * @DefaultValue: Eamil
+         * @DefaultValue: Email
          */
-        'useragent' => 'Pat Open Source',
+        'useragent' => 'Pat OS',
 
 
         //--------------------------------------------------------------------------------------------------------------
@@ -95,7 +96,7 @@ return [
          * @Options: None
          * @DefaultValue:
          */
-        'smtp_timeout' => 5,
+        'smtp_timeout' => 30,
 
 
         //--------------------------------------------------------------------------------------------------------------

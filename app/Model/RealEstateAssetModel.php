@@ -8,10 +8,11 @@ namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -25,7 +26,7 @@ class RealEstateAssetModel extends Model
 
     protected $table = 'object_real_estate_asset';
     protected $primaryKey = 'id';
-
+    protected string $metaModel = 'MetaRealEstateAssetModel';
     protected string $archiveName = 'real_estate_asset';
 
     protected string $objectName = 'Patrimonio immobiliare';
@@ -55,6 +56,9 @@ class RealEstateAssetModel extends Model
         'publishing_status',
         'number_readings',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -79,6 +83,14 @@ class RealEstateAssetModel extends Model
     ];
 
     /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
+    ];
+
+    /**
      * Campi di relazione su cui effettuare la ricerca
      * @var array[]
      */
@@ -94,18 +106,12 @@ class RealEstateAssetModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -125,7 +131,7 @@ class RealEstateAssetModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -136,6 +142,25 @@ class RealEstateAssetModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -187,5 +212,27 @@ class RealEstateAssetModel extends Model
     public function canons(): BelongsToMany
     {
         return $this->belongsToMany(LeaseCanonsModel::class, 'rel_lease_canons_real_estate_asset', 'object_real_estate_asset_id', 'object_lease_canons_id');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati in front-office
+     * @param Builder     $query   Query
+     * @param string|null $name    Nome Immobile
+     * @param string|null $address Indirizzo Immobile
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $name = null,
+        string $address = null
+    ): void
+    {
+        if (!empty($name)) {
+            $query->where('name', 'LIKE', '%' . $name . '%');
+        }
+
+        if (!empty($address)) {
+            $query->where('address', 'LIKE', '%' . $address . '%');
+        }
     }
 }

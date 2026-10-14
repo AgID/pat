@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
@@ -11,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\BalanceSheetsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -37,21 +37,27 @@ class BalanceValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID bilancio')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il bilancio con l'id passato in input
-                $check = BalanceSheetsModel::select()
-                    ->with(['related_measure' => function ($query) {
-                        $query->select(['id', 'object', 'number', 'date']);
+                $check = BalanceSheetsModel::where('id', uri()->segment($uriSegment, 0));
+                $check->with(['related_measure' => function ($query) {
+                    $query->select(['id', 'object', 'number', 'date']);
+                }])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
                     }])
-                    ->find(uri()->segment(4, 0));
+                    ->with('structure:id,structure_name');
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -61,7 +67,6 @@ class BalanceValidator
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bilancio ')
                     ];
                 }
-
                 //Se esiste il bilancio lo salvo nel registro
                 Registry::set('balance', $check);
 
@@ -69,12 +74,12 @@ class BalanceValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 
     /**
      * Metodo che esegue la validazione dei campi del form
@@ -83,9 +88,9 @@ class BalanceValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -95,14 +100,14 @@ class BalanceValidator
      * @return array
      * @throws Exception
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
-
         $this->validator->verifyToken()
             ->end();
 
         $allowedTypologies = 'bilancio preventivo,bilancio consuntivo,piano indicatori e risultati,variazioni di bilancio';
-//        trace($allowedTypologies, true);
+        $allowedTypologies = $allowedTypologies ?? null;
+
         $this->validator->label('Tipologia')
             ->value(Input::post('typology'))
             ->required()
@@ -112,18 +117,17 @@ class BalanceValidator
         $this->validator->label('Nome')
             ->value(Input::post('name'))
             ->required()
-            ->betweenString(4, 60)
+            ->betweenString(4, 250)
             ->end();
 
         $this->validator->label('Anno')
             ->value(Input::post('year'))
             ->required()
-            ->regex('/^\d{4}$/')
+            ->regex('/^\d{4}(?:-\d{4})?$/') //accetta YYYY oppure YYYY-YYYY
             ->end();
 
         $this->validator->label('Descrizione')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
             ->end();
 
         $this->validator->label('Provvedimento')
@@ -133,22 +137,32 @@ class BalanceValidator
             ->end();
 
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value(value: $id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = BalanceSheetsModel::where('id', Input::post('id'))->first();
-                    if (empty($regulation)) {
+                ->add(callback: function () use ($id, $institutionId) {
+
+                    $query = BalanceSheetsModel::where('id', $id);
+
+                    $result = $query->first();
+
+                    if (empty($result)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bilancio')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

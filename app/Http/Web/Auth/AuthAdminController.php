@@ -23,7 +23,6 @@ use System\BaseController;
 use System\Input;
 use System\Token;
 use System\Validator;
-use System\Action;
 
 class AuthAdminController extends BaseController
 {
@@ -38,10 +37,10 @@ class AuthAdminController extends BaseController
     }
 
     /**
+     * @return void
      * @throws Exception
      * @url /auth.html
      * @method GET
-     * @return void
      */
     public function index(): void
     {
@@ -62,13 +61,16 @@ class AuthAdminController extends BaseController
     }
 
     /**
+     * @return void
      * @throws Exception
      * @url /auth.html
      * @method POST
-     * @return void
      */
     public function login(): void
     {
+        // Custom PAT OS Auth
+        $auth = new Auth(AuthPatOS::class);
+
         $hasErrors = false;
         $setErrors = [];
         $redirect = 'auth';
@@ -81,9 +83,11 @@ class AuthAdminController extends BaseController
         $advancedProfile = 0;
         $isAdmin = 0;
         $exportCsv = 0;
+        $importExcel = "";
         $fileArchive = 1;
 
         $agent = new Agent();
+
 
         // Verifica - Cross-site request forgery
         if (Token::verify() && Input::get('t', true) === session()->getFlash('auth_uri_token')) {
@@ -102,8 +106,7 @@ class AuthAdminController extends BaseController
                 // Registro nelle attività dei logs
                 ActivityLog::create([
                     'action' => __('auth_blocked_title', null, 'patos_auth'),
-                    'description' => sprintf(__('auth_blocked_description', null, 'patos_auth'), strip_tags((string)Input::post('username', true)), date('d-m-Y'), date('H:i:s')),
-                    'request_post' => Input::post(['username'], true),
+                    'description' => sprintf(__('auth_blocked_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s')),
                     'object_id' => 54
                 ]);
 
@@ -119,7 +122,7 @@ class AuthAdminController extends BaseController
                 ->value(Input::post('username'))
                 ->required()
                 ->minLength(2)
-                ->maxLength(32)
+                ->maxLength(250)
                 ->end();
 
             // Validator password
@@ -148,12 +151,8 @@ class AuthAdminController extends BaseController
                 $redirect = 'auth';
             }
 
-
             // Validazione OK
             if (!$hasErrors) {
-
-                // Custom PAT OS Auth
-                $auth = new Auth(AuthPatOS::class);
 
                 // Request Input
                 $username = trim(Input::post('username', true));
@@ -165,26 +164,32 @@ class AuthAdminController extends BaseController
                 // Login OK
                 if ((bool)$isAuth === true) {
 
+                    @session_regenerate_id(true);
+
                     // Elimino i tentativi di accesso falliti
                     AttemptsModel::where('ip', Input::ipAddress())->delete();
 
                     // Lista dei profili associati
+                    $profileFields = [
+                        'id',
+                        'is_admin',
+                        'is_system',
+                        'versioning',
+                        'archiving',
+                        'lock_user',
+                        'advanced',
+                        'export_csv',
+                        'editor_wishing',
+                        'file_archive'
+                    ];
+
                     $profiles = Profile::select(['id', 'acl_profile_id'])
                         ->where('user_id', '=', $auth->id())
-                        ->with(['profile' => function ($query) {
-                            $query->select([
-                                'id',
-                                'is_admin',
-                                'is_system',
-                                'versioning',
-                                'archiving',
-                                'lock_user',
-                                'advanced',
-                                'export_csv',
-                                'editor_wishing',
-                                'file_archive'
-                            ]);
-                        }])
+                        ->with([
+                            'profile' => function ($query) use ($profileFields) {
+                                $query->select($profileFields);
+                            }
+                        ])
                         ->get()
                         ->toArray();
 
@@ -198,23 +203,28 @@ class AuthAdminController extends BaseController
                         ->first();
 
                     $setExpirePassword = false;
-                    $getIdentity = $auth->getIdentity(['last_visit', 'force_change_password']);
+                    $getIdentity = $auth->getIdentity(['last_visit', 'force_change_password', 'technical_user']);
 
-                    if (empty($passwordHistory) || $getIdentity['force_change_password'] === 1) {
+                    // Le utenze tecniche (technical_user = 1) non sono soggette al cambio
+                    // password forzato né alla scadenza della password.
+                    if (!empty($getIdentity['technical_user'])) {
+
+                        $setExpirePassword = false;
+                    } elseif (empty($passwordHistory) || $getIdentity['force_change_password'] == 1) {
 
                         $setExpirePassword = true;
                     } else {
 
                         $getIdentity = $auth->getIdentity(['password_expiration_days']);
-                        $expirationDayToSeconds = $getIdentity['password_expiration_days'] * 24 * 60 * 60;
+                        $expirationDayToSeconds = (int)$getIdentity['password_expiration_days'] * 86400;
                         $dataChangePassword = strtotime($passwordHistory['created_at']) + $expirationDayToSeconds;
                         $expirePassword = time();
-
-                        if ($expirePassword > $dataChangePassword) {
+                        if ($expirePassword >= $dataChangePassword) {
                             $setExpirePassword = true;
                         }
                     }
 
+                    $editorWishing = "base";
                     // SET storage profilo singola voce, NON Profilo ACL per il CRUD.
                     foreach ($profiles as $profile) {
 
@@ -244,12 +254,30 @@ class AuthAdminController extends BaseController
                                 $exportCsv = $profile['profile']['export_csv'];
                             }
 
+                            if (!empty($profile['profile']['import_allowed_for'])) {
+                                if (!empty($importExcel)) {
+                                    $importExcel .= ',';
+                                }
+                                $importExcel .= $profile['profile']['import_allowed_for'];
+                            }
+
                             if ($profile['profile']['file_archive'] >= 1 && $profile['profile']['file_archive'] > $fileArchive) {
                                 $fileArchive = $profile['profile']['file_archive'];
                             }
 
                             if (strlen($profile['profile']['editor_wishing']) >= 1) {
-                                $editorWishing = $profile['profile']['editor_wishing'];
+                                switch ($profile['profile']['editor_wishing']) {
+                                    case "expert";
+                                        $editorWishing = "expert";
+                                        break;
+                                    case "adv":
+                                        if ($editorWishing != "expert") {
+                                            $editorWishing = "adv";
+                                        }
+                                        break;
+                                    default:
+                                        break;
+                                }
                             }
 
                             if ($profile['profile']['is_admin'] > 0) {
@@ -263,42 +291,35 @@ class AuthAdminController extends BaseController
                     $storage['last_date_access'] = date('d-m-Y');
                     $storage['last_hour_access'] = date('H:i');
                     $storage['institute_id'] = PatOsInstituteId();
-                    $storage['profiles'] = !isSuperAdmin() ? serialize($profileIds) : null;
-                    $storage['expire_password'] = !isSuperAdmin() ? $setExpirePassword : false;
-                    $storage['is_system'] = !isSuperAdmin() ? $isSystemProfile : null;
-                    $storage['versioning'] = !isSuperAdmin() ? $versioningProfile : null;
-                    $storage['archiving'] = !isSuperAdmin() ? $archivingProfile : null;
-                    $storage['lock_user'] = !isSuperAdmin() ? $lockUserProfile : null;
-                    $storage['advanced'] = !isSuperAdmin() ? $advancedProfile : null;
-                    $storage['editor_wishing'] = !empty($editorWishing) ? $editorWishing : 'base';
-                    $storage['export_csv'] = !isSuperAdmin() ? $exportCsv : null;
-                    $storage['file_archive'] = !isSuperAdmin() ? $fileArchive : null;
-                    $storage['is_admin'] = !isSuperAdmin() ? $isAdmin : null;
+                    $storage['profiles'] = serialize($profileIds);
+                    $storage['expire_password'] = $setExpirePassword;
+                    $storage['is_system'] =  $isSystemProfile;
+                    $storage['versioning'] = $versioningProfile;
+                    $storage['archiving'] =  $archivingProfile;
+                    $storage['lock_user'] =  $lockUserProfile;
+                    $storage['advanced'] =  $advancedProfile;
+                    $storage['editor_wishing'] = $editorWishing;
+                    $storage['export_csv'] = $exportCsv;
+                    $storage['import_allowed_for'] = $importExcel;
+                    $storage['file_archive'] = $fileArchive;
+                    $storage['is_admin'] = $isAdmin;
                     $storage['browser_private_mode'] = Input::post('dpm') === 'true' ? true : false;
                     $storage['sess_id'] = md5(uniqid(mt_rand() . microtime(true)));
 
-                    // Setto in sessione il primo accesso.
-                    session()->setFlash('admin_first_access', (isSuperAdmin() === true));
-
                     // Se non esiste creo la directory associata all'utente per l'upload dei file personali
-                    if (!isSuperAdmin()) {
+                    $dir = MEDIA_PATH . instituteDir() . '/file_archive/' . config('prefix_user_dir', null, 'app') . $auth->id();
+                    if (!Dir::exists($dir)) {
 
-                        $dir = MEDIA_PATH . instituteDir() . '/file_archive/' . config('prefix_user_dir', null, 'app') . $auth->id();
-                        if (!Dir::exists($dir)) {
-
-                            createDirByUserId($auth->id());
-                        }
+                        createDirByUserId($auth->id());
                     }
 
                     // Registro nelle attività dei logs..
                     ActivityLog::create([
                         'user_id' => $auth->id(),
                         'action' => __('auth_success_title', null, 'patos_auth'),
-                        'description' => sprintf(__('auth_success_description', null, 'patos_auth'), strip_tags((string)Input::post('username', true)), date('d-m-Y'), date('H:i:s')),
-                        'request_post' => Input::post(['username']),
+                        'description' => sprintf(__('auth_success_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s')),
                         'object_id' => 54
                     ]);
-
                     $optionStoragePlugin = null;
                     if (\System\Registry::exist('option_storage_plugin')) {
                         $optionStoragePlugin = \System\Registry::get('option_storage_plugin');
@@ -315,31 +336,29 @@ class AuthAdminController extends BaseController
 
                         // Converto la collezione unificata in un array
                         $storage = $mergedCollection->toArray();
-
                     }
 
                     // Add Storage...
                     $auth->addStorage($storage);
-
                     // Redirect Pannello di controllo
-                    $redirect = 'admin/dashboard';
+                    if (session()->getTemp('redirect_url_after_login') !== null) {
+
+                        $redirect = str_replace(
+                            siteUrl(),
+                            '',
+                            session()->getTemp('redirect_url_after_login')
+                        );
+                    } else {
+                        $redirect = 'admin/dashboard';
+                    }
+
                     $location = 'refresh';
                 } else {
-
-                    // Registro nelle attività dei logs..
-                    ActivityLog::create([
-                        'user_id' => $auth->id(),
-                        'action' => __('auth_failed_title', null, 'patos_auth'),
-                        'description' => sprintf(__('auth_failed_description', null, 'patos_auth'), strip_tags((string)Input::post('username', true)), date('d-m-Y'), date('H:i:s')),
-                        'request_post' => Input::post(['username']),
-                        'object_id' => 54
-                    ]);
-
-                    // Username non valido..
                     $hasErrors = true;
                     $msgError = __('username_or_email_not_valid', null, 'patos_auth');
-                    $setErrors = [$auth->getErrorAuth()];
+                    $setErrors = [$msgError];
                     $redirect = 'auth';
+
                 }
             }
 
@@ -350,26 +369,20 @@ class AuthAdminController extends BaseController
                     'ip' => Input::ipAddress(),
                     'client_info' => $agent->getUserAgent()
                 ]);
-
             } else {
 
-                if (!empty($storage) && is_array($storage) && !empty($storage['sess_id'])) {
+                ConcurrentSessModel::create([
+                    'user_id' => $auth->id(),
+                    'institution_id' => PatOsInstituteId(),
+                    'platform' => $agent->platform(),
+                    'browser' => $agent->browser(),
+                    'device' => $agent->device(),
+                    'ip' => Input::ipAddress(),
+                    'browser_private_mode' => Input::post('dpm') == 'true' ? 1 : 0,
+                    'sess_id' => session()->getId(),
+                ]);
 
-                    ConcurrentSessModel::create([
-                        'user_id' => $auth->id(),
-                        'institution_id' => PatOsInstituteId(),
-                        'platform' => $agent->platform(),
-                        'browser' => $agent->browser(),
-                        'device' => $agent->device(),
-                        'ip' => Input::ipAddress(),
-                        'browser_private_mode' => Input::post('dpm') == 'true' ? 1 : 0,
-                        'sess_id' => $storage['sess_id'],
-                        'is_super_admin' => (isSuperAdmin() === true) ? 1 : 0,
-                    ]);
-
-                }
             }
-
         } else {
 
             // Sessione token scaduta.
@@ -378,8 +391,6 @@ class AuthAdminController extends BaseController
 
         // Fash Data eventuali errori
         session()->setFlash('auto_error', $setErrors);
-
-        ob_clean();
 
         // redirect utente..
         redirect($redirect, $location);

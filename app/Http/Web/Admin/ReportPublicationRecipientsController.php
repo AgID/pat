@@ -7,7 +7,6 @@
 namespace Http\Web\Admin;
 
 use Exception;
-use Helpers\Addons;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\ReportPublicationValidator;
@@ -107,11 +106,6 @@ class ReportPublicationRecipientsController extends BaseAuthController
                 5 => 'updated_at',
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
-
             // Setto proprietà datatable
             $draw = !empty(Input::get('draw')) ? Input::get('draw', true) : 1;
             $start = !empty(Input::get("start")) ? (int)Input::get("start", true) : 0;
@@ -205,13 +199,6 @@ class ReportPublicationRecipientsController extends BaseAuthController
                     $setTempData[] = $createdAt;
                     $setTempData[] = $updateAt;
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
-
                     $setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
@@ -257,7 +244,7 @@ class ReportPublicationRecipientsController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('report_publication_recipients/form_store', $data, 'admin');
@@ -370,7 +357,7 @@ class ReportPublicationRecipientsController extends BaseAuthController
 
         $data['recipient'] = $recipient;
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $recipient['institution_id'];
 
         render('report_publication_recipients/form_store', $data, 'admin');
@@ -404,7 +391,7 @@ class ReportPublicationRecipientsController extends BaseAuthController
                 ->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($recepient['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($recepient['owner_id']) ? ['update', 'create'] : 'update', true);
 
             $data = [];
 
@@ -477,7 +464,7 @@ class ReportPublicationRecipientsController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         // Validatore sugli elementi da eliminare
         $validator = new ReportPublicationValidator();
@@ -511,110 +498,162 @@ class ReportPublicationRecipientsController extends BaseAuthController
      */
     public function generateReport(): void
     {
-        $sections = [];
+        // Recupero i destinatari prima di eseguire le query del report.
+        $receivers = ReportPublicationModel::where('active', 1)->pluck('email')->toArray();
 
-        //Recupero l'elenco dei destinatari del report
-        $receivers = optional(ReportPublicationModel::where('active', 1)
-            ->select(['email'])
-            ->get())
-            ->toArray();
-
-        //Se non ci sono destinatari non creo il report
         if (!empty($receivers)) {
-            $receivers = Arr::pluck($receivers, 'email');
+            $fields = config('fields', [], 'publicationReportSectionsConfig');
+            $archives = config('archives', [], 'publicationReportSectionsConfig');
+            $startDate = date('Y-m-d') . ' 00:00:00';
+            $endDate = date('Y-m-d', strtotime('tomorrow')) . ' 00:00:00';
 
-            $messaggioReport = '<h2>Report Attività</h2>';
-
-            //Campi da mostrare nel report per ogni oggetto
-            $fields = Addons::config(
-                'fields',
-                'agid',
-                'publicationReportSectionsConfig'
-            );
-
-            //Intervallo di tempo giornaliero in cui prendere le attività
-            $startDate = date('Y-m-d', time()) . ' 00:00:00';
-            $endDate = date('Y-m-d', strtotime($startDate) + (24 * 60 * 60)) . ' 00:00:00';
-
-            //Recupero le attività giornaliere
-            $activity = optional(ActivityLogModel::where('platform', 'pat')
+            $activity = ActivityLogModel::where('platform', 'pat')
                 ->where('area', 'object')
                 ->whereIn('action_type', ['updateObjectInstance', 'addObjectInstance'])
                 ->whereIn('object_id', array_keys($fields))
-                ->where(function ($query) use ($startDate, $endDate) {
-                    $query->where('created_at', '>=', $startDate)
-                        ->where('created_at', '<=', $endDate);
-                })
-                ->get())
+                ->where('created_at', '>=', $startDate)
+                ->where('created_at', '<', $endDate)
+                ->orderBy('id')
+                ->get()
                 ->toArray();
 
-            //Controllo se ci sono pubblicazioni da inserire nel report o meno
+            $report = [];
+            $recordIds = [];
+            $paragraphIds = [];
+
+            // Le pagine e i paragrafi condividono object_id, ma hanno chiavi appartenenti a tabelle diverse.
+            foreach ($activity as $item) {
+                $objectId = (int)$item['object_id'];
+                if ($objectId === 44 && stripos((string)$item['action'], 'paragrafo') !== false) {
+                    $paragraphIds[] = (int)$item['record_id'];
+                } else {
+                    $recordIds[$objectId][] = (int)$item['record_id'];
+                }
+            }
+
+            $records = [];
+            foreach ($recordIds as $objectId => $ids) {
+                if ($objectId === 44 || $objectId === 111 || !isset($archives[$objectId])) {
+                    continue;
+                }
+                $model = $archives[$objectId]['model'];
+                // Una query per archivio, non una query per ogni riga del log.
+                $records[$objectId] = $model::whereIn('id', array_unique($ids))->get()->keyBy('id')->toArray();
+            }
+
+            $paragraphs = [];
+            if (!empty($paragraphIds)) {
+                $paragraphs = \Model\ContentSectionFoModel::whereIn('id', array_unique($paragraphIds))
+                    ->whereNull('deleted_at')->get()->keyBy('id')->toArray();
+            }
+
+            $pageIds = array_merge($recordIds[44] ?? [], $recordIds[111] ?? []);
+            foreach ($paragraphs as $paragraph) {
+                $pageIds[] = (int)$paragraph['section_fo_id'];
+            }
+
+            $pages = [];
+            $archivePages = [];
             if (!empty($activity)) {
-
-                //Recupero le sezioni
-                $tmpSections = SectionsBoModel::select(['id', 'name', 'model_class'])
-                    ->whereIn('id', array_keys($fields))
-                    ->with('sectionFo')
-                    ->get()
-                    ->toArray();
-
-                foreach ($tmpSections as $section) {
-                    $sections [$section['id']] = $section;
-                }
-
-                $arrayOggettiReport = [];
-                $report = [];
-
-                $tmpIdOggetto = null;
-
-
-                foreach ($activity as $item) {
-                    $idOggetto = $item['object_id'];
-                    $idIstanza = $item['record_id'];
-
-                    if ($tmpIdOggetto != $idOggetto) {
-                        $model = '\\Model\\' . $sections[$item['object_id']]['model_class'];
+                $frontSections = \Model\SectionsFoModel::select(['id', 'name', 'section_bo_id', 'controller', 'hide'])
+                    ->whereNull('deleted_at')
+                    ->where(function ($query) use ($fields, $pageIds) {
+                        $query->whereIn('section_bo_id', array_keys($fields))
+                            ->orWhereIn('id', array_unique($pageIds));
+                    })
+                    ->orderBy('id')->get()->toArray();
+                foreach ($frontSections as $section) {
+                    if (!empty($section['hide'])) {
+                        continue;
                     }
-
-                    $istanza = $model::where('id', $idIstanza)
-                        ->first()
-                        ->toArray();
-
-                    if (!empty($istanza)) {
-                        $azione = ($item['action_type'] == 'addObjectInstance' ? 'insert' : 'update');
-                        $report[$idOggetto][$azione][$idIstanza] = $istanza[$fields[$idOggetto]];
-                        $arrayOggettiReport[$idOggetto] = $sections[$idOggetto]['name'];
-                    }
-                    $tmpIdOggetto = $idOggetto;
+                    $pages[$section['id']] = $section;
+                    $archivePages[$section['section_bo_id']][] = $section;
                 }
+            }
 
-                //Creo il report delle attività
-                foreach ($report as $key => $value) {
-                    $messaggioReport .= '<h3>' . $arrayOggettiReport[$key] . ':</h3>';
+            foreach ($activity as $item) {
+                $objectId = (int)$item['object_id'];
+                $recordId = (int)$item['record_id'];
+                $links = [];
+                $recordKey = (string)$recordId;
+                $label = '';
 
-                    if (!empty($value['insert'])) {
-                        $messaggioReport .= '<p style="font-size: 12px;">Nuovi inserimenti: </p>';
-                        $messaggioReport .= '<ul>';
-                        foreach ($value['insert'] as $k => $v) {
-                            $messaggioReport .= '<li><a href="' . siteUrl('page/' . $sections[$key]['section_fo']['id'] . '/details/' . $k . '/' . urlTitle($v)) . '">' . $v . '</a></li>';
+                if ($objectId === 44 || $objectId === 111) {
+                    $pageId = $recordId;
+                    if ($objectId === 44 && stripos((string)$item['action'], 'paragrafo') !== false) {
+                        if (!isset($paragraphs[$recordId])) {
+                            continue;
                         }
-                        $messaggioReport .= '</ul>';
+                        $pageId = (int)$paragraphs[$recordId]['section_fo_id'];
+                        $label = (string)$paragraphs[$recordId]['name'];
+                        $recordKey = 'paragraph-' . $recordId;
+                    } else {
+                        $recordKey = 'page-' . $recordId;
                     }
-
-                    if (!empty($value['update'])) {
-                        $messaggioReport .= '<p style="font-size: 12px;" >Aggiornati: </p>';
-                        $messaggioReport .= '<ul>';
-                        foreach ($value['update'] as $k => $v) {
-                            $messaggioReport .= '<li><a href="' . siteUrl('page/' . $sections[$key]['section_fo']['id'] . '/details/' . $k . '/' . urlTitle($v)) . '">' . $v . '</a></li>';
+                    if (!isset($pages[$pageId])) {
+                        continue;
+                    }
+                    if ($label === '') {
+                        $label = $pages[$pageId]['name'];
+                    }
+                    $links[] = [
+                        'label' => $label,
+                        'url' => siteUrl('page/' . $pageId . '/' . urlTitle($pages[$pageId]['name']))
+                    ];
+                } else {
+                    // Un oggetto eliminato dopo la registrazione del log non deve interrompere il report.
+                    if (!isset($records[$objectId][$recordId])) {
+                        continue;
+                    }
+                    $record = $records[$objectId][$recordId];
+                    $label = trim(strip_tags((string)($record[$fields[$objectId]] ?? '')));
+                    if ($label === '') {
+                        $label = $archives[$objectId]['name'] . ' (' . $recordId . ')';
+                    }
+                    $destinations = $archivePages[$objectId] ?? [];
+                    foreach ($destinations as $section) {
+                        $controller = explode('@', (string)$section['controller'])[0];
+                        $path = 'page/' . $section['id'] . '/' . urlTitle($section['name']);
+                        // Il dettaglio è univoco solo con una destinazione e un controller che lo implementa.
+                        if (count($destinations) === 1 && $controller !== '' && method_exists($controller, 'details')) {
+                            $path = 'page/' . $section['id'] . '/details/' . $recordId . '/' . urlTitle($label);
                         }
-                        $messaggioReport .= '</ul>';
+                        $links[] = ['label' => $section['name'], 'url' => siteUrl($path)];
                     }
-
                 }
 
-            } else { //Se non ci sono attività
+                $action = $item['action_type'] === 'addObjectInstance' ? 'insert' : 'update';
+                $report[$objectId][$action][$recordKey] = ['label' => $label, 'links' => $links];
+            }
+
+            $messaggioReport = '<h2>Report Attività</h2>';
+            foreach ($report as $objectId => $actions) {
+                $messaggioReport .= '<h3>' . htmlEscape($archives[$objectId]['name']) . ':</h3>';
+                foreach (['insert' => 'Nuovi inserimenti: ', 'update' => 'Aggiornati: '] as $action => $heading) {
+                    if (empty($actions[$action])) {
+                        continue;
+                    }
+                    $messaggioReport .= '<p style="font-size: 12px;">' . $heading . '</p><ul>';
+                    foreach ($actions[$action] as $entry) {
+                        $messaggioReport .= '<li>';
+                        if (count($entry['links']) === 1) {
+                            $messaggioReport .= '<a href="' . htmlEscape($entry['links'][0]['url']) . '">'
+                                . htmlEscape($entry['label']) . '</a>';
+                        } else {
+                            $messaggioReport .= htmlEscape($entry['label']);
+                            foreach ($entry['links'] as $link) {
+                                $messaggioReport .= ' — <a href="' . htmlEscape($link['url']) . '">'
+                                    . htmlEscape($link['label']) . '</a>';
+                            }
+                        }
+                        $messaggioReport .= '</li>';
+                    }
+                    $messaggioReport .= '</ul>';
+                }
+            }
+
+            if (empty($report)) {
                 $messaggioReport = '<h1 style="font-size: 12px;">Nessuna attività registrata</h1>';
-                $nomeOggetti = [];
             }
 
             echo $messaggioReport;

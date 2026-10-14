@@ -39,6 +39,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
 
             <div class="card-body" id="form-container">
+
+
+                <div class="form-row d-flex align-items-end">
+                </div>
+                <hr class="patos-hr">
+
+
                 {{-- Campo Tipologia --}}
                 <div class="form-group">
                     <label for="title">Titolo Paragrafo</label>
@@ -69,10 +76,60 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         'required' => null,
                     ]) }}
                 </div>
+
+                <div id="selects">
+                    @php
+                        $i = 0;
+                    @endphp
+                    @foreach($recalls as $recall)
+                        <h3>{{$recall['recall_label']}}</h3>
+                        <hr>
+                        <div class="form-group">
+                            <label for="recall_name">Titolo del richiamo</label>
+                            {{ form_input([
+                                        'name' => $recall['recall_label'] . '_name',
+                                        'value' => !empty($recall['recalls']) ? $recall['recalls'][0]['recall_name'] : '',
+                                        'placeholder' => 'Titolo del richiamo',
+                                        'id' => 'input_recall_name',
+                                        'class' => 'form-control input_recall_name'
+                                    ]) }}
+                        </div>
+
+                        <div class="form-row d-flex align-items-end">
+                            <div class="form-group col-md-9">
+                                <label for="responsible">Riferimenti a {{$recall['recall_label']}}</label>
+                                <div class="select2-blue">
+                                    {{ form_dropdown(
+                                        $recall['recall_label'].'[]',
+                                        '',
+                                        '',
+                                        'class="form-control select2-recall-' . $recall['model'] . ' input_operator" multiple="multiple" data-placeholder="Seleziona o cerca ' . $recall['recall_label'] .'..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                    ) }}
+                                </div>
+                            </div>
+                            <div class="form-group col-md-3 disponibleResp" style="padding-top: 31px;">
+                                {{ form_button([
+                                        'name' => 'add',
+                                        'id' => 'btn_addResponsible',
+                                        'class' => 'btn btn-outline-primary open-modal',
+                                        'style' => 'width:100%;',
+                                        'data-url' => siteUrl('admin/' . $uri[$i] .'/create-box')
+                                    ],'Aggiungi nuovo &nbsp; <i class="fas fa-plus-circle"></i>') }}
+                            </div>
+                        </div> 
+                        @php
+                            $i++;
+                        @endphp
+                    @endforeach
+                </div>
+
+
             </div>
 
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -100,6 +157,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             'class' => 'mode',
         ]) }}
 
+@if(!empty($recalls))
+    {{ form_input([
+        'type' => 'hidden',
+        'name' => 'recalls',
+        'value' => implode(', ', array_column($recalls, 'model')),
+        'id' => 'recallsConfig',
+        'class' => 'recallsConfig',
+    ]) }}
+@endif
+
 @if(!empty($paragraph['id']))
     {{ form_input([
         'type' => 'hidden',
@@ -120,6 +187,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     ]) }}
 @endif
 {{ form_close() }}
+
+{% include layout/partials/form_modal %}
 
 {% endblock %}
 {% block css %}
@@ -150,11 +219,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function(e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!=='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -169,11 +236,66 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_content');
+        CKEDITOR.replace('input_content',{
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id')?.value ?? '';
         let id = $('#section_id').val();
         let mode = $('#mode').val();
+
+        //Se si sta duplicando un paragrafo appendo la select2 con l'alberatura delle pagine per scegliere la destinazione
+        if (mode === 'duplicate') {
+
+            $.ajax({
+                type: 'GET',
+                url: '{{ siteUrl('admin/generic-page/section/duplicate') }}',
+                dataType: "JSON",
+                data: {
+                    id,
+                    institution_id: institutionId
+                },
+                beforeSend: function () {
+
+                },
+                success: function (response) {
+
+                    response = parseJson(response);
+                    // Appendo la select2 con l'alberatura delle pagine per scegliere la destinazione
+                    $('#list_section_tree').empty().html(response.data.select_tree).show();
+
+                    let tree = $('#select_tree');
+                    tree.select2({
+                        dropdownParent: $('#form-container')
+                    });
+                    $dropdawnTree = tree;
+
+                    // Preseleziono nella select la pagina di appartenenza del paragrafo che si sta duplicando
+                    $dropdawnTree.val(id);
+                    $dropdawnTree.trigger('change');
+
+                },
+                complete: function () {
+
+                },
+                error: function (jqXHR, status) {
+                    let response = parseJson(jqXHR.responseText);
+
+                    // Funzione che genera il toast con gli errori
+                    {{-- (vedere nel footer) --}}
+                    createValidatorFormErrorToast(response.errors.error, 5000, 'Errori');
+                }
+            });
+
+        }
+
+        // Ids dei record dei richiami
+        let recIds = '{{!empty($recallsIds) ? json_encode($recallsIds) : ''}}';
+        let ids;
+
+        if (recIds.length > 0) {
+            ids = $.parseJSON(recIds);
+        }
 
         {{-- Begin salvataggio --}}
         /**
@@ -222,6 +344,68 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
         {{-- End salvataggio --}}
 
+        let tmp = $('#recallsConfig').val();
+        let rec = (tmp !== null && tmp !== undefined) ? tmp.split(',') : null;
+
+        // Select2 per i richiami
+        if (rec !== null) {
+            let i = 0;
+            // Per ogni archivio richiamabile nella sezione, recupero i dati per la select2
+            $.each(rec, function () {
+                let recallModel = this.replace(/\s+/, "");
+                let $dropdownRecall = $('.select2-recall-' + recallModel);
+                $dropdownRecall.select2({
+                    allowClear: true,
+                    // Recupero i dati per le options della select
+                    ajax: {
+                        url: '{{siteUrl("/admin/asyncData")}}',
+                        type: "get",
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (data) {
+                            return {
+                                model: recallModel,
+                                searchTerm: data.term
+                            };
+                        },
+                        error: function (jqXHR, status) {
+                            let response = parseJson(jqXHR.responseText);
+                        },
+                        processResults: function (response) {
+                            return {
+                                results: response.data.options
+                            };
+                        },
+                        cache: true
+                    },
+                });
+                @if($_storageType === 'update' || $_storageType === 'duplicate')
+                // Recupero gli elementi gia selezionati e li setto nella select
+                $.ajax({
+                    type: 'GET',
+                    url: '{{siteUrl("/admin/asyncSelectedData")}}',
+                    data: {
+                        id: ids[i].join(','),
+                        model: recallModel,
+                    },
+                    error: function (jqXHR, status) {
+                        let response = parseJson(jqXHR.responseText);
+                    }
+                }).then(function (data) {
+                    let item = data.data.selected;
+
+                    oldSelected.push(data.data.selected);
+                    // Creo l'opzione e l'appendo alla select
+                    for (const el of item) {
+                        var option = new Option(String(el.text), el.id, true, true);
+                        $dropdownRecall.append(option).trigger('change');
+                    }
+                });
+                @endif
+                    i++;
+            });
+        }
+
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
@@ -237,6 +421,134 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 event.returnValue = 'Vuoi uscire dalla pagina?';
             }
         });
+
+        /**
+         * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
+         * Per i richiami
+         */
+        {{-- Vedere nel footer --}}
+        openModalForm();
+
+        /**
+         * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
+         * Per i richiami
+         */
+        {{-- Vedere nel footer --}}
+        closeModalForm();
+
+        /**
+         * Funzione che in base alla pagina di destinazioen scelta per il paragrafo duplicato,
+         * genera le select2 per i richiami da visualizzare
+         */
+        $('#list_section_tree').on('select2:select', function (e) {
+            var data = e.params.data;
+
+            $('#selects').empty();
+
+            $.ajax({
+                type: 'GET',
+                url: '{{ siteUrl('admin/generic-page/paragraph/duplicate/asyncRecalls') }}',
+                dataType: "JSON",
+                data: {
+                    id: data.id,
+                },
+                beforeSend: function () {
+
+                },
+                success: function (response) {
+
+                    let buildHtml = createRecalls(response.data.recalls, response.data.uri);
+                    $('#selects').append(buildHtml);
+                    inizializeSelect(response.data.recalls);
+
+                },
+                complete: function () {
+
+                },
+                error: function (jqXHR, status) {
+                    let response = parseJson(jqXHR.responseText);
+
+                    // Funzione che genera il toast con gli errori
+                    {{-- (vedere nel footer) --}}
+                    createValidatorFormErrorToast(response.errors.error, 5000, 'Errori');
+                }
+            });
+
+        });
+
+        /**
+         * Metodo che inizializza le select2 per i richiami del paragrafo da duplicare
+         */
+        function inizializeSelect() {
+            let arg = arguments;
+            let recalls = arg[0];
+
+            $.each(recalls, function (i, item) {
+                {{-- Select2 campo  "Responsabile non disponibile" --}}
+                let $dropdown = $('.select2-recall-' + item.model);
+                $dropdown.select2({
+                    allowClear: true,
+                    //Recupero i dati per le options della select
+                    ajax: {
+                        url: '{{siteUrl("/admin/asyncData")}}',
+                        type: "get",
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (data) {
+                            return {
+                                model: item.model,
+                                searchTerm: data.term
+                            };
+                        },
+                        error: function (jqXHR, status) {
+                            let response = parseJson(jqXHR.responseText);
+                        },
+                        processResults: function (response) {
+                            return {
+                                results: response.data.options
+                            };
+                        },
+                        cache: true
+                    },
+                });
+
+                // Se la pagina scelta come destinazione per il paragrafo è la stessa del paragrafo che si sta duplicando,
+                // preseleziono gli stessi richiami
+                let id = $('#section_id').val();
+                if (id == item.section_fo_id) {
+                    for (const el of oldSelected[i]) {
+                        var option = new Option(String(el.text), el.id, true, true);
+                        $dropdown.append(option).trigger('change');
+                    }
+                }
+
+            });
+        }
     });
+
+    /**
+     * Metodo che crea le select2 per i richiami del paragrafo da duplicare
+     * @returns {string}
+     */
+    function createRecalls() {
+        let arg = arguments;
+        let recalls = arg[0];
+        let urls = arg[1];
+
+        let html = '';
+        let i = 0;
+        $.each(recalls, function (i, item) {
+
+            html += '<div class="form-row d-flex align-items-end">';
+            html += '<div class="form-group col-md-9">';
+            html += '<label for="' + urls[i] + '">Riferimenti a ' + item.recall_label + '</label>';
+            html += '<select name="' + item.recall_label + '[]" class="select2-recall-' + item.model + '"  data-placeholder="Seleziona o cerca ' + item.recall_label + '..." data-dropdown-css-class="select2-blue" multiple="multiple" style="width: 100%;">' + '</select>';
+            html += '</div>';
+            html += '</div>';
+        });
+
+        return html;
+    }
+
 </script>
 {% endblock %}

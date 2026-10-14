@@ -20,7 +20,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -103,10 +102,6 @@ class ChargeAdminController extends BaseAuthController
                 6 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[7] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -118,14 +113,17 @@ class ChargeAdminController extends BaseAuthController
 
             $totalRecordsWithFilter = ChargesModel::search($dataTable['searchValue'])
                 ->select(['count(object_charges.id) as allcount'])
-                ->join('users', 'users.id', '=', 'object_charges.owner_id', 'left outer')
-                ->count();
+                ->join('users', 'users.id', '=', 'object_charges.owner_id', 'left outer');
+
+            // Inclusione di librerie esterne
+
+            $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'title');
 
             $records = ChargesModel::search($dataTable['searchValue'])
                 ->select(['object_charges.id', 'object_charges.owner_id', 'object_charges.institution_id', 'type', 'title', 'object_charges.updated_at',
-                    'publishing_status', 'users.name', 'i.full_name_institution'])
+                    'users.name', 'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_charges.owner_id', 'left outer')
                 ->with('proceedings:id,name,archived')
                 ->with('regulations:id,title')
@@ -134,8 +132,13 @@ class ChargeAdminController extends BaseAuthController
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
-                ->join('institutions as i', 'object_charges.institution_id', '=', 'i.id', 'left outer')
-                ->orderBy($order, $dataTable['columnSortOrder'])
+                ->with('all_attachs:id,archive_id')
+                ->join('institutions as i', 'object_charges.institution_id', '=', 'i.id', 'left outer');
+
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
+
+            $records = $records->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
                 ->limit($dataTable['rowPerPage'])
                 ->get()
@@ -148,6 +151,10 @@ class ChargeAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['proceedings']) && is_array($record['proceedings'])) {
@@ -157,9 +164,11 @@ class ChargeAdminController extends BaseAuthController
                         $proceedings = str_replace(',', ',' . nbs(2), implode(
                             ',',
                             array_map(
-                                function ($proceeding) {
+                                function ($proceeding, $archived) {
                                     return ('<small class="badge badge-primary mb-1">'
-                                        . escapeXss($proceeding) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($proceeding) . '</small>');
                                 },
                                 $tmpProceedings,
                                 $tmpArchProceedings
@@ -195,28 +204,38 @@ class ChargeAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/charge/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/charge/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/charge/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/charge/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/charge/show-record-log/'.$record['id']), $record['id'], '27', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/charge/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
-                    $setTempData[] = $icon . (!empty($record['title'])
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;                    $setTempData[] = $icon . (!empty($record['title'])
                             ? '<a href="' . siteUrl('/page/31/details/' . $record['id'] . '/' . urlTitle($record['title'])) . '" target="_blank">' . escapeXss($record['title']) . '</a>'
                             : 'N.D.');
                     $setTempData[] = !empty($record['type']) ? ucfirst(escapeXss($record['type'])) : 'N.D.';
@@ -224,13 +243,12 @@ class ChargeAdminController extends BaseAuthController
                     $setTempData[] = $regulations;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -239,8 +257,7 @@ class ChargeAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -259,7 +276,7 @@ class ChargeAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/charge/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/charge/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -281,11 +298,13 @@ class ChargeAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         // Labels
         $data['labels'] = [];
+
 
         render('charge/form_store', $data, 'admin');
     }
@@ -301,8 +320,8 @@ class ChargeAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
-
+        $this->acl->setRoute('create', true);
+        
         $json = new JsonResponse();
         $code = $json->success();
 
@@ -344,6 +363,8 @@ class ChargeAdminController extends BaseAuthController
                 // Storage nuovo Onere informativo
                 $insert = ChargesModel::createWithLogs($arrayValues);
 
+
+
                 // Storage nelle tabelle di relazione
                 $this->clear(
                     $insert,
@@ -355,10 +376,11 @@ class ChargeAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'charges', $insert->id, $arrayValues['title']);
 
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+
+//                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                    // Generazione nuovo token
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -444,7 +466,7 @@ class ChargeAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $charge['institution_id'];
 
         $data['expiration_date'] = $expirationDate['date'];
@@ -453,6 +475,7 @@ class ChargeAdminController extends BaseAuthController
         $data['measureIds'] = Arr::pluck($charge['measures'], 'id');
         $data['regulationIds'] = Arr::pluck($charge['regulations'], 'id');
         $data['seo'] = $charge['p_s_d_r'] ?? null;
+
 
         render('charge/form_store', $data, 'admin');
     }
@@ -488,10 +511,11 @@ class ChargeAdminController extends BaseAuthController
                 ->with('normative:id,name')
                 ->with('all_attachs');
 
+
             $charge = $charge->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($charge['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($charge['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -529,6 +553,7 @@ class ChargeAdminController extends BaseAuthController
                     Input::post('regulations', true)
                 );
 
+
                 // Upload allegati associati al personale.
                 $attach->update(
                     'attach_files',
@@ -538,8 +563,9 @@ class ChargeAdminController extends BaseAuthController
                     $charge['title']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -626,10 +652,11 @@ class ChargeAdminController extends BaseAuthController
         //Elimino l'onere
         $charge->deleteWithLogs($charge);
 
+
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/charge');
     }
 
@@ -644,7 +671,7 @@ class ChargeAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new ChargeValidator();
         $validate = $validator->multipleSelection();
@@ -664,8 +691,9 @@ class ChargeAdminController extends BaseAuthController
                 $charge->deleteWithLogs($charge);
             }
 
+
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -673,4 +701,5 @@ class ChargeAdminController extends BaseAuthController
 
         redirect('/admin/charge');
     }
+
 }

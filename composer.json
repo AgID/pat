@@ -2,7 +2,7 @@
   "name": "vendor/patosframework",
   "description": "patosframework",
   "type": "patosframework",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "require": {
     "nesbot/carbon": "^2.67.0",
     "filp/whoops": "^2.15.2",
@@ -11,13 +11,15 @@
     "illuminate/database": "^8.83.27",
     "illuminate/events": "^8.83.27",
     "illuminate/pagination": "^8.83.27",
-    "danielstjules/stringy": "~3.1.0",
-    "studio-42/elfinder": "^2.1.62",
-    "firebase/php-jwt": "^6.8.0"
+    "studio-42/elfinder": "^2.1.70",
+    "firebase/php-jwt": "^7.0.0"
   },
   "config": {
     "platform": {
-      "php" : "8.0"
+      "php": "8.1"
     }
+  },
+  "require-dev": {
+    "phpcompatibility/php-compatibility": "^9.3"
   }
 }

@@ -21,12 +21,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : ( !empty($instance['structure_name']) ? $instance['structure_name'] : '') }}</h1>
-                    </div>
+                        <div class="button-normative">
+                        </div>
+                    </div>                    
 
                     <div class="attributi">
                         @if(!empty($instance['responsibles']))
@@ -37,11 +40,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Responsabili:</span>
                                 @foreach($instance['responsibles'] as $responsible)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/4/details/'.$responsible['id'].'/'.urlTitle($responsible['full_name'])) }}">
-                                        {{ ($responsible['archived'] ? '<b>[Cessato]</b>  ' : '') }} {{e: $responsible['full_name'] }}
-                                    </a>
+                                       href="{{ siteUrl('page/4/details/'.$responsible['id'].'/'.urlTitle($responsible['full_name'])) }}">{{ ($responsible['archived'] ? '<b>[Cessato]</b>  ' : '') }} {{e: $responsible['full_name'] }}</a>
                                     {{ $i++ == count($instance['responsibles'])-1 ? nbs(1) : ', ' }}
                                 @endforeach
+                                @if(!empty($instance['ad_interim']))
+                                    - ad interim
+                                @endif
                             </div>
 
                         @elseif(!empty($instance['referent_not_available_txt']))
@@ -53,9 +57,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         @endif
 
-                        @if(!empty($instance['structure_of_belonging']))
+                        @php
+                        $printStrBelong = true;
+                        $printStrManag = false;
+                        $printStrNonManag = false;
+                        if(!empty($instance['management_structure'])){
+                            $printStrBelong = false;
+                            $printStrManag = true;
+                        }
+                        if(!empty($instance['non_management_structure'])){
+                            $printStrBelong = false;
+                            $printStrNonManag = true;
+                        }
+                        @endphp
+
+                        @if($printStrBelong && !empty($instance['structure_of_belonging']) )
                             <div class="attributo">
-                                <span class="titolo">Struttura organizzativa di appartenenza:</span>
+                                <span class="titolo">Denominazione ufficio di appartenenza:</span>
                                 <a class="mr-2 text-muted"
                                    href="{{ siteUrl('page/40/details/'.$instance['structure_of_belonging']['id'].'/'.urlTitle($instance['structure_of_belonging']['structure_name'])) }}">
                                     {{e: $instance['structure_of_belonging']['structure_name'] }}
@@ -63,9 +81,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         @endif
 
+                        @if($printStrManag)
+                            <div class="attributo">
+                                <span class="titolo">Denominazione ufficio di livello dirigenziale:</span>
+                                <a class="mr-2 text-muted"
+                                   href="{{ siteUrl('page/40/details/'.$instance['management_structure']['id'].'/'.urlTitle($instance['management_structure']['structure_name'])) }}">
+                                    {{e: $instance['management_structure']['structure_name'] }}
+                                </a>
+                            </div>
+                        @endif
+                        @if($printStrNonManag)
+                            <div class="attributo">
+                                <span class="titolo">Denominazione ufficio non di livello dirigenziale:</span>
+                                <a class="mr-2 text-muted"
+                                   href="{{ siteUrl('page/40/details/'.$instance['non_management_structure']['id'].'/'.urlTitle($instance['non_management_structure']['structure_name'])) }}">
+                                    {{e: $instance['non_management_structure']['structure_name'] }}
+                                </a>
+                            </div>
+                        @endif
+
                         @if(!empty($instance['description']))
                             <div class="mt-2 attributo">
-                                <span class="titolo">Descrizione attività:</span>
+                                <span class="titolo">Competenze:</span>
                                 {{xss: $instance['description'] }}
                             </div>
                         @endif
@@ -88,31 +125,33 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </ul>
                         @endif
 
+
                         @if(!empty($instance['certified_email']) || !empty($instance['reference_email']) || !empty($instance['phone']) || !empty($instance['fax']) || !empty($instance['email_not_available_txt']))
                             @php
                                 $anchorsNumber++;
                             @endphp
                             <h3 id="anchor2" class="testo-blu anchor page-subtitle mt-2">Contatti</h3>
+
+                            <div class="attributo">
+                                <span class="titolo">Casella di posta elettronica ordinaria:</span>
+                                {{ (is_null($instance['email_not_available']) or $instance['email_not_available'] == 1) && !empty(trim($instance['reference_email']))
+                                        ? '<a class="text-muted" href="mailto:' .$instance['reference_email'] . '">' . escapeXss($instance['reference_email']) . '</a>'
+                                        : '<span class="mr-2 text-muted">'.($instance['email_not_available_txt'] ?? 'Indirizzo email non disponibile').'</span>' }}
+                            </div>
+
                             @if(!empty($instance['certified_email']))
                                 <div class="attributo">
-                                    <span class="titolo">Email certificata:</span>
+                                    <span class="titolo">Casella di posta elettronica certificata:</span>
                                     <a href="mailto:{{e: $instance['certified_email'] }}">
                                         {{e: $instance['certified_email'] }}
                                     </a>
                                 </div>
                             @endif
 
-                            <div class="attributo">
-                                <span class="titolo">Email:</span>
-                                {{ !empty($instance['reference_email'])
-                                        ? '<a class="text-muted" href="mailto:' .$instance['reference_email'] . '">' . escapeXss($instance['reference_email']) . '</a>'
-                                        : '<span class="mr-2 text-muted">'.$instance['email_not_available_txt'].'</span>' }}
-                            </div>
-
                             @if(!empty($instance['phone']))
                                 <div class="attributo">
-                                    <span class="titolo">Telefono:</span>
-                                    <a class="text-muted mr-2" href="{{escape_xss: $instance['phone'] }}">
+                                    <span class="titolo">Recapito telefonico:</span>
+                                    <a class="text-muted mr-2" href="tel:{{escape_xss: $instance['phone'] }}">
                                         {{e: $instance['phone'] }}
                                     </a>
                                 </div>
@@ -135,6 +174,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </a>
                                 </div>
                             @endif
+
+                                @if(!empty($instance['other_contacts_check']) && !empty($instance['other_contacts']))
+                                    <div class="mt-2 attributo">
+                                        <span class="titolo">Ulteriori contatti:</span>
+                                        {{xss: $instance['other_contacts'] }}
+                                    </div>
+                                @endif
                         @endif
 
 
@@ -156,7 +202,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @endif
                     </div>
 
-                    @if(!empty($instance['referents']))
+                    @php
+                        $hideReferentsBlock = false;
+
+                    @endphp
+                    @if(!empty($instance['referents']) && !$hideReferentsBlock)
                         @php
                             $anchorsNumber++;
                         @endphp
@@ -290,28 +340,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
 
                 </div>
-
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
-
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

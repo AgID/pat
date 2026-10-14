@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\GeneralActsDocumentsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -48,6 +49,10 @@ class GeneralActsDocumentsValidator
                         $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
                             ->join('section_fo', 'section_fo.id', '=', 'section_fo_id')
                             ->groupBy('section_fo_id');
+                    }])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
                     }]);
 
                 $check = $check->find(uri()->segment(4, 0));
@@ -100,21 +105,17 @@ class GeneralActsDocumentsValidator
         $this->validator->verifyToken()
             ->end();
 
+
+
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
-            ->betweenString(2, 255)
+            ->betweenString(2, 500)
             ->end();
 
         $this->validator->label('Note')
             ->value(Input::post('notes'))
             ->betweenString(4, 1000)
-            ->end();
-
-        $this->validator->label('Data documento')
-            ->value(Input::post('document_date'))
-            ->required()
-            ->isDate('Y-m-d')
             ->end();
 
         $this->validator->label('Link esterno')
@@ -132,6 +133,21 @@ class GeneralActsDocumentsValidator
 
         if (Input::post('public_in')) {
 
+            //La data del documento è obbligatoria solo per pubblica in != da Elenco annuale dei progetti di investimento pubblico finanziati
+            if(Input::post('public_in') != 586){
+                $this->validator->label('Data documento')
+                    ->value(Input::post('document_date'))
+                    ->required()
+                    ->isDate('Y-m-d')
+                    ->end();
+            }else{
+                $this->validator->label('Data documento')
+                    ->value(Input::post('document_date'))
+                    ->isDate('Y-m-d')
+                    ->end();
+            }
+
+
             if(Input::post('public_in') == 583) {
                 $this->validator->label('Tipologia')
                     ->value(Input::post('typology'))
@@ -143,26 +159,31 @@ class GeneralActsDocumentsValidator
             if(Input::post('public_in') == 586) {
                 $this->validator->label('Data avvio')
                     ->value(Input::post('start_date'))
+                    ->required()
                     ->isDate('Y-m-d')
                     ->end();
 
                 $this->validator->label('CUP')
                     ->value(Input::post('cup'))
+                    ->required()
                     ->betweenString(1, 18)
                     ->end();
 
                 $this->validator->label('Stato di attuazione finanziario e procedurale')
                     ->value(Input::post('procedural_implementation_status'))
+                    ->required()
                     ->betweenString(1, 255)
                     ->end();
 
                 $this->validator->label('Fonti finanziarie')
                     ->value(Input::post('financial_sources'))
+                    ->required()
                     ->betweenString(1, 255)
                     ->end();
 
                 $this->validator->label('Importo totale del finanziamento')
                     ->value(Input::post('financing_amount'))
+                    ->required()
                     ->isNumeric()
                     ->end();
             }
@@ -182,6 +203,7 @@ class GeneralActsDocumentsValidator
                     }
                 })
                 ->end();
+
         }
 
 

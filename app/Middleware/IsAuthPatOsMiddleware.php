@@ -21,9 +21,11 @@ class IsAuthPatOsMiddleware
     {
         if (!authPatOS()->hasIdentity()) {
 
+            // registro l'URL di ritorno dop aver effettuato il login
+            session()->setTemp('redirect_url_after_login', uri()->fullUrl(true), 60*5);
             // Non autenticato
             helper('url');
-            redirect('auth');
+            redirect('auth','refresh');
             die();
 
         }

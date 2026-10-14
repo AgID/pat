@@ -4,14 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ use Model\InstitutionTypeModel;
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
-/**
- * @package     Pat OS
- * @author      ISWEB S.p.A
- * @copyright   Copyright (c) 2021, ISWEB S.p.A
- * @since       Version 1.0
- * @filesource
- */
+
 
 return [
 
@@ -42,20 +38,16 @@ return [
         'model' => '\\Model\\StructuresModel',
         'table' => 'object_structures',
         'field' => ['object_structures.structure_name'],
-        'search_field' => ['object_structures.structure_name', 'os.structure_name'],
+        'search_field' => ['object_structures.structure_name'],
         'global_search_field' => ['object_structures.structure_name','object_structures.id'],
         'select_field' => ['object_structures.id'],
         'per_page' => 10,
         'search_result_field' => ['object_structures.id', 'object_structures.structure_name', 'object_structures.updated_at', 'object_structures.archived',
-            'object_structures.publishing_status', 'object_structures.institution_id', 'object_structures.owner_id',
-            'object_structures.structure_of_belonging_id', 'object_structures.articulation'],
+            'object_structures.institution_id', 'object_structures.owner_id',
+            'object_structures.articulation'],
         'select2_field' => ['object_structures.id', 'object_structures.structure_name', 'object_structures.archived',
-            'object_structures.publishing_status', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email', 'os.id as parent_id',
-            'os.structure_name as parent_structure'],
+            'object_structures.reference_email'],
         'with' => [
-            [
-                'relation' => 'structure_of_belonging:id,structure_of_belonging_id,structure_name'
-            ],
             [
                 'relation' => 'responsibles:id,full_name',
             ],
@@ -67,15 +59,6 @@ return [
                 ]
             ]
         ],
-        'joinSelect2' => [
-            [
-                'object_structures as os',
-                'os.id',
-                '=',
-                'object_structures.structure_of_belonging_id',
-                'left outer'
-            ],
-        ],
         'search_result_template' => 'search/data/organizational_structure',
     ],
 
@@ -86,14 +69,14 @@ return [
         'model' => '\\Model\\PersonnelModel',
         'table' => 'object_personnel',
         'field' => ['full_name'],
-        'search_field' => ['full_name', 'name'],
+        'search_field' => ['full_name'],
         'global_search_field' => ['full_name','firstname','lastname','political_role'],
         'select_field' => ['object_personnel.id'],
         'per_page' => 10,
         'search_result_field' => ['object_personnel.id', 'full_name', 'firstname', 'lastname', 'object_personnel.updated_at', 'object_personnel.institution_id',
             'role_id', 'object_personnel.owner_id', 'archived', 'object_personnel.phone', 'object_personnel.mobile_phone', 'object_personnel.email',
-            'certified_email', 'fax' ,'publishing_status'],
-        'select2_field' => ['object_personnel.id', 'full_name', 'title', 'role_id', 'archived', 'object_personnel.email', 'object_personnel.publishing_status',
+            'certified_email', 'fax'],
+        'select2_field' => ['object_personnel.id', 'full_name', 'title', 'role_id', 'archived', 'object_personnel.email',
             'r.id as role_id', 'r.name as role_name'],
         'with' => [
             [
@@ -137,7 +120,7 @@ return [
         'global_search_field' => ['year'],
         'per_page' => 10,
         'search_result_field' => ['object_absence_rates.id', 'object_absence_rates.updated_at', 'object_absence_rates.owner_id', 'object_absence_rates.institution_id', 'object_structures_id',
-            'publishing_status', 'year', 'month', 'publishing_status'],
+            'year', 'month'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -165,7 +148,8 @@ return [
         'select_field' => ['object_commissions.id'],
         'per_page' => 10,
         'search_result_field' => ['object_commissions.id', 'object_commissions.updated_at', 'object_commissions.owner_id', 'object_commissions.institution_id',
-            'object_commissions.name', 'typology', 'president_id', 'object_commissions.archived', 'object_commissions.publishing_status'],
+            'object_commissions.name', 'typology', 'president_id', 'object_commissions.archived'],
+        'archived_field' => ['archived'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -193,7 +177,8 @@ return [
         'select_field' => ['object_company.id'],
         'per_page' => 10,
         'search_result_field' => ['object_company.id', 'object_company.updated_at', 'object_company.owner_id', 'object_company.institution_id', 'company_name', 'website_url', 'archived',
-            'publishing_status', 'typology'],
+            'typology'],
+        'archived_field' => ['archived'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -218,7 +203,8 @@ return [
         'select_field' => ['object_proceedings.id'],
         'per_page' => 10,
         'search_result_field' => ['object_proceedings.id', 'object_proceedings.institution_id', 'object_proceedings.owner_id', 'object_proceedings.name',
-            'object_proceedings.updated_at', 'archived', 'publishing_status'],
+            'object_proceedings.updated_at', 'archived'],
+        'archived_field' => ['archived'],
         'with' => [
             [
                 'relation' => 'responsibles:id,full_name',
@@ -249,7 +235,8 @@ return [
         'select_field' => ['object_real_estate_asset.id'],
         'per_page' => 10,
         'search_result_field' => ['object_real_estate_asset.id', 'object_real_estate_asset.updated_at', 'object_real_estate_asset.owner_id', 'object_real_estate_asset.institution_id',
-            'object_real_estate_asset.name', 'address', 'publishing_status', 'archived'],
+            'object_real_estate_asset.name', 'address', 'archived'],
+        'archived_field' => ['archived'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -275,7 +262,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_lease_canons.id', 'object_lease_canons.owner_id', 'object_lease_canons.institution_id',
-            'canon_type', 'publishing_status', 'beneficiary', 'object_lease_canons.updated_at', 'amount'
+            'canon_type', 'beneficiary', 'object_lease_canons.updated_at', 'amount'
         ],
         'with' => [
             [
@@ -301,7 +288,7 @@ return [
         'select_field' => ['object_relief_checks.id'],
         'per_page' => 10,
         'search_result_field' => ['object_relief_checks.id', 'object_relief_checks.owner_id', 'object_structures_id',
-            'object', 'date', 'publishing_status', 'object_relief_checks.updated_at'],
+            'object', 'date', 'object_relief_checks.updated_at'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -324,7 +311,7 @@ return [
         'search_field' => ['title'],
         'select_field' => ['object_regulations.id'],
         'per_page' => 10,
-        'search_result_field' => ['object_regulations.id', 'object_regulations.institution_id', 'object_regulations.owner_id', 'title', 'publishing_status',
+        'search_result_field' => ['object_regulations.id', 'object_regulations.institution_id', 'object_regulations.owner_id', 'title',
             'object_regulations.updated_at', 'section.id as sectionId', 'section.name'],
         'global_search_field' => ['object_regulations.title', 'section.name'],
         'with' => [
@@ -372,7 +359,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_modules_regulations.id', 'title', 'object_modules_regulations.owner_id', 'object_modules_regulations.updated_at',
-            'object_modules_regulations.institution_id', 'object_modules_regulations.publishing_status', 'typology' ],
+            'object_modules_regulations.institution_id', 'typology' ],
         'with' => [
             [
                 'relation' => 'proceedings:id,name',
@@ -401,7 +388,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_normatives.id', 'object_normatives.owner_id', 'object_normatives.institution_id', 'object_normatives.name', 'normative_topic',
-            'normative_link', 'publishing_status', 'object_normatives.updated_at'
+            'normative_link', 'object_normatives.updated_at'
         ],
         'with' => [
             [
@@ -431,7 +418,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_balance_sheets.id', 'object_balance_sheets.owner_id', 'object_balance_sheets.institution_id', 'object_balance_sheets.name',
-            'typology', 'year', 'object_balance_sheets.updated_at', 'publishing_status'
+            'typology', 'year', 'object_balance_sheets.updated_at'
         ],
         'with' => [
             [
@@ -452,14 +439,14 @@ return [
     '14' => [
         'model' => '\\Model\\SupplieListModel',
         'table' => 'object_supplie_list',
-        'field' => ['name', 'vat'],
-        'search_field' => ['name', 'vat'],
-        'global_search_field' => ['name', 'vat'],
+        'field' => ['name', 'vat', 'p_iva'],
+        'search_field' => ['name', 'vat', 'p_iva', 'foreign_tax_identification'],
+        'global_search_field' => ['name', 'vat', 'p_iva', 'foreign_tax_identification'],
         'select_field' => ['object_supplie_list.id'],
         'per_page' => 10,
         'search_result_field' => [
-            'object_supplie_list.id', 'owner_id', 'object_supplie_list.institution_id', 'typology', 'type', 'object_supplie_list.vat', 'foreign_tax_identification',
-            'object_supplie_list.name', 'object_supplie_list.updated_at', 'object_supplie_list.publishing_status'
+            'object_supplie_list.id', 'owner_id', 'object_supplie_list.institution_id', 'typology', 'type', 'object_supplie_list.vat','object_supplie_list.p_iva', 'foreign_tax_identification',
+            'object_supplie_list.name', 'object_supplie_list.updated_at'
         ],
         'with' => [
             [
@@ -507,15 +494,15 @@ return [
                 ]
             ]
         ],
-        'join' => [
-            [
-                'object_structures as structure',
-                'structure.id',
-                '=',
-                'object_contests_acts.object_structures_id',
-                'left outer'
-            ]
-        ],
+//        'join' => [
+//            [
+//                'object_contests_acts as obj_lot',
+//                'object_contests_acts.id',
+//                '=',
+//                'obj_lot.relative_notice_id',
+//                'left outer'
+//            ]
+//        ],
         'joinSelect2' => [
             [
                 'object_contests_acts as lot',
@@ -573,7 +560,7 @@ return [
         'select_field' => ['object_programming_acts.id'],
         'per_page' => 10,
         'search_result_field' => ['object_programming_acts.id', 'object_programming_acts.owner_id', 'object_programming_acts.institution_id',
-            'object', 'date', 'public_in_public_works', 'publishing_status', 'object_programming_acts.updated_at'],
+            'object', 'date', 'public_in_public_works', 'object_programming_acts.updated_at'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -597,7 +584,7 @@ return [
         'global_search_field' => ['object', 'typology'],
         'select_field' => ['object_contest.id'],
         'per_page' => 10,
-        'search_result_field' => ['object_contest.id', 'owner_id', 'object_contest.institution_id', 'typology', 'object', 'publishing_status',
+        'search_result_field' => ['object_contest.id', 'owner_id', 'object_contest.institution_id', 'typology', 'object',
             'object_contest.updated_at', 'object_contest.activation_date', 'object_contest.expiration_date'],
         'with' => [
             [
@@ -624,7 +611,7 @@ return [
         'per_page' => 10,
         'search_result_field' => ['object_grants.id', 'object_grants.owner_id', 'object_grants.institution_id', 'object_grants.object_structures_id',
             'object_grants.grant_id', 'object_grants.beneficiary_name', 'object_grants.object', 'object_grants.typology',
-            'object_grants.type', 'object_grants.publishing_status', 'object_grants.updated_at'],
+            'object_grants.type', 'object_grants.updated_at'],
         'with' => [
             [
                 'relation' => 'personnel:id,full_name',
@@ -658,7 +645,7 @@ return [
         'search_result_field' => ['object_assignments.id', 'object_assignments.owner_id', 'object_assignments.institution_id',
             'object_assignments.object_structures_id', 'object_assignments.related_assignment_id', 'object_assignments.typology',
             'object_assignments.type', 'object_assignments.name', 'object_assignments.object', 'object_assignments.assignment_start',
-            'object_assignments.publishing_status', 'object_assignments.updated_at', 'object_assignments.assignment_end'],
+            'object_assignments.updated_at', 'object_assignments.assignment_end'],
         'with' => [
             [
                 'relation' => 'created_by',
@@ -696,13 +683,10 @@ return [
         'select_field' => ['object_measures.id'],
         'per_page' => 10,
         'search_result_field' => ['object_measures.id', 'object_measures.owner_id', 'object_measures.institution_id', 'object',
-            'object_measures.updated_at', 'publishing_status', 'date', 'object_measures.type', 'number'],
+            'object_measures.updated_at', 'date', 'object_measures.type', 'number'],
         'with' => [
             [
                 'relation' => 'structures:id,structure_name',
-            ],
-            [
-                'relation' => 'type:id,value',
             ],
             [
                 'relation' => 'created_by',
@@ -759,7 +743,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_charges.id', 'object_charges.owner_id', 'object_charges.institution_id', 'type', 'title', 'object_charges.updated_at',
-            'publishing_status'],
+        ],
         'with' => [
             [
                 'relation' => 'proceedings:id,name',
@@ -791,7 +775,7 @@ return [
         'per_page' => 10,
         'search_result_field' => [
             'object_interventions.id', 'object_interventions.institution_id', 'owner_id', 'object_interventions.name',
-            'time_limits', 'estimated_cost', 'effective_cost', 'object_interventions.updated_at', 'publishing_status'],
+            'time_limits', 'estimated_cost', 'effective_cost', 'object_interventions.updated_at'],
         'with' => [
             [
                 'relation' => 'measures:id,object'
@@ -821,7 +805,7 @@ return [
         'select_field' => ['object_news_notices.id'],
         'per_page' => 10,
         'search_result_field' => [
-            'object_news_notices.id', 'institution_id', 'news_date', 'public_in_notice', 'evidence', 'publishing_status',
+            'object_news_notices.id', 'institution_id', 'news_date', 'public_in_notice', 'evidence',
             'object_news_notices.updated_at', 'title', 'typology', 'owner_id'
         ],
         'search_result_template' => 'search/data/news_notice',
@@ -864,7 +848,8 @@ return [
         'model' => '\\Model\\ContraentChoice',
         'field' => ['name'],
         'search_field' => ['name'],
-        'per_page' => 10
+        'per_page' => 10,
+        'limit' => 29
     ],
 
     //------------------------------------------------------------------------------------------------------------------
@@ -932,6 +917,22 @@ return [
                 'notice'
             ]
         ],
+        'fieldWhereHas' => [
+            'relative_notice' => [
+                'field' => ['cig']
+            ],
+            'relative_procedure' => [
+                'field' => [
+                    'cig',
+                ],
+                'whereAs' => [
+                    [
+                        'table' => 'relative_notice',
+                        'field' => 'cig'
+                    ],
+                ],
+            ],
+        ],
         'search_result_template' => '',
     ],
 
@@ -958,6 +959,22 @@ return [
                 0
             ]
         ],
+        'fieldWhereHas' => [
+            'relative_notice' => [
+                'field' => ['cig']
+            ],
+            'relative_procedure' => [
+                'field' => [
+                    'cig',
+                ],
+                'whereAs' => [
+                    [
+                        'table' => 'relative_notice',
+                        'field' => 'cig'
+                    ],
+                ],
+            ],
+        ],
         'search_result_template' => '',
         'scope' => 'lotsWithoutResult',
     ],
@@ -968,9 +985,8 @@ return [
     '33' => [
         'model' => '\\Model\\ContestsActsModel',
         'table' => 'object_contests_acts',
-        'field' => ['object_contests_acts.type', 'ifnull(object_contests_acts.cig, \'\')', 'object_contests_acts.object', 'relative_cig'],
         'select2_field' => ['object_contests_acts.type', 'object_contests_acts.cig', 'object_contests_acts.object', 'relative.cig as relative_cig', 'object_contests_acts.activation_date', 'object_contests_acts.expiration_date', 'object_contests_acts.id'],
-        'search_field' => ['object_contests_acts.type', 'object_contests_acts.cig', 'object_contests_acts.object', 'relative.cig'],
+        'search_field' => ['object_contests_acts.cig', 'object_contests_acts.object', 'relative.cig'],
         'per_page' => 10,
         'whereIn' => [
             [
@@ -985,6 +1001,22 @@ return [
                 '=',
                 'relative.id',
                 'left outer'
+            ],
+        ],
+        'fieldWhereHas' => [
+            'relative_notice' => [
+                'field' => ['cig']
+            ],
+            'relative_procedure' => [
+                'field' => [
+                    'cig',
+                ],
+                'whereAs' => [
+                    [
+                        'table' => 'relative_notice',
+                        'field' => 'cig'
+                    ],
+                ],
             ],
         ],
         'search_result_field' => ['*',],
@@ -1083,6 +1115,22 @@ return [
                 ['notice', 'foster']
             ]
         ],
+        'fieldWhereHas' => [
+            'relative_notice' => [
+                'field' => ['cig']
+            ],
+            'relative_procedure' => [
+                'field' => [
+                    'cig',
+                ],
+                'whereAs' => [
+                    [
+                        'table' => 'relative_notice',
+                        'field' => 'cig'
+                    ],
+                ],
+            ],
+        ],
         'search_result_template' => '',
     ],
 
@@ -1143,6 +1191,22 @@ return [
                 '=',
                 'notice'
             ]
+        ],
+        'fieldWhereHas' => [
+            'relative_notice' => [
+                'field' => ['cig']
+            ],
+            'relative_procedure' => [
+                'field' => [
+                    'cig',
+                ],
+                'whereAs' => [
+                    [
+                        'table' => 'relative_notice',
+                        'field' => 'cig'
+                    ],
+                ],
+            ],
         ],
         'search_result_template' => '',
     ],
@@ -1302,8 +1366,14 @@ return [
                 'typology',
                 '=',
                 'procedure'
+            ],
+            [
+                'cig',
+                '!=',
+                ''
             ]
         ],
+        'whereNotNull' => ['cig'],
         'groupBy' => [
             [
                 'object_bdncp_procedure.id'
@@ -1366,4 +1436,133 @@ return [
         ],
         'search_result_template' => '',
     ],
+
+    //Bandi di gara dal 01/01/2024 (solo procedure esclusi gli avvisi)
+    '50' => [
+        'model' => '\\Model\\BdncpProcedureModel',
+        'table' => 'object_bdncp_procedure',
+        'field' => ['object'],
+        'search_field' => ['object', 'cig'],
+        'per_page' => 10,
+        'select_field' => ['object_bdncp_procedure.id'],
+        'search_result_field' => [
+            'object_bdncp_procedure.*',
+        ],
+        'where' => [
+            [
+                'typology',
+                '=',
+                'procedure'
+            ]
+        ],
+        'groupBy' => [
+            [
+                'object_bdncp_procedure.id'
+            ]
+        ],
+        'search_result_template' => '',
+    ],
+
+    //Personale solo politico
+    '51' => [
+        'model' => '\\Model\\PersonnelModel',
+        'table' => 'object_personnel',
+        'field' => ['full_name'],
+        'search_field' => ['full_name'],
+        'global_search_field' => ['full_name','firstname','lastname','political_role'],
+        'select_field' => ['object_personnel.id'],
+        'per_page' => 10,
+        'search_result_field' => ['object_personnel.id', 'full_name', 'firstname', 'lastname', 'object_personnel.updated_at', 'object_personnel.institution_id',
+            'role_id', 'object_personnel.owner_id', 'archived', 'object_personnel.phone', 'object_personnel.mobile_phone', 'object_personnel.email',
+            'certified_email', 'fax'],
+        'select2_field' => ['object_personnel.id', 'full_name', 'title', 'role_id', 'archived', 'object_personnel.email',
+            'r.id as role_id', 'r.name as role_name'],
+        'with' => [
+            [
+                'relation' => 'role:id,name'
+            ],
+            [
+                'relation' => 'referent_structures:id,structure_name',
+            ],
+            [
+                'relation' => 'created_by',
+                'select' => [
+                    'id',
+                    'name',
+                    'deleted'
+                ]
+            ],
+            [
+                'relation' => 'institution:id,full_name_institution'
+            ]
+        ],
+        'whereHas' => 'politicalRole',
+        'joinSelect2' => [
+            [
+                'role as r',
+                'r.id',
+                '=',
+                'object_personnel.role_id',
+                'left outer'
+            ]
+        ],
+        'search_result_template' => 'search/data/personnel',
+    ],
+
+    //------------------------------------------------------------------------------------------------------------------
+
+    //Per sovvenzioni, nel form delle liquidazioni
+    '52' => [
+        'model' => '\\Model\\GrantsModel',
+        'table' => 'object_grants',
+        'field' => ['beneficiary_name', 'object','concession_act_date', 'concession_amount'],
+        'search_field' => ['beneficiary_name', 'object', 'concession_act_date', 'concession_amount'],
+        'per_page' => 10,
+        'where' => [
+            [
+                'type',
+                '=',
+                'grant'
+            ]
+        ],
+        'search_result_field' => ['*',],
+        'search_result_template' => '',
+    ],
+
+    //------------------------------------------------------------------------------------------------------------------
+
+
+    '53' => [
+        'model' => '\\Model\\SupplieListModel',
+        'table' => 'object_supplie_list',
+        'field' => ['name', 'vat', 'p_iva'],
+        'search_field' => ['name', 'vat', 'p_iva'],
+        'global_search_field' => ['name', 'vat', 'p_iva'],
+        'select_field' => ['object_supplie_list.id'],
+        'per_page' => 10,
+        'where' => [
+            [
+                'typology',
+                '=',
+                '1'
+            ]
+        ],
+        'search_result_field' => [
+            'object_supplie_list.id', 'owner_id', 'object_supplie_list.institution_id', 'typology', 'type', 'object_supplie_list.vat','object_supplie_list.p_iva', 'foreign_tax_identification',
+            'object_supplie_list.name', 'object_supplie_list.updated_at'
+        ],
+        'with' => [
+            [
+                'relation' => 'created_by',
+                'select' => [
+                    'id',
+                    'name',
+                    'deleted'
+                ]
+            ]
+        ],
+        'search_result_template' => 'search/data/supplier',
+    ],
+
+
 ];

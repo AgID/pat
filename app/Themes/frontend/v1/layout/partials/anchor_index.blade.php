@@ -6,7 +6,7 @@
 
 defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
-<div class="col-lg-4 d-none d-lg-block">
+<div class="indice-dettaglio col-lg-3 d-none d-lg-block">
     <aside class="sidebar-sticky">
         <div class="sticky">
             <h3 class="mb-4">INDICE DELLA PAGINA</h3>

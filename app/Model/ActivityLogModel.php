@@ -6,8 +6,10 @@
 
 namespace Model;
 
+use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -25,11 +27,11 @@ class ActivityLogModel extends Model
     protected $fillable = [
         'id',
         'user_id',
-        'is_superadmin',
         'technical_activity',
         'institution_id',
         'object_id',
         'record_id',
+        'parent_id',
         'area',
         'ip_address',
         'client_info',
@@ -39,9 +41,7 @@ class ActivityLogModel extends Model
         'action',
         'action_type',
         'description',
-        'request_post',
-        'request_get',
-        'request_file',
+        'origin',
         'created_at',
         'updated_at'
     ];
@@ -62,18 +62,13 @@ class ActivityLogModel extends Model
     protected $searchableWhereHas = [];
 
     /**
-     * @descriotion Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * @descriotion Costruttore del modello.
      * @param array $attributes
+     * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -92,13 +87,16 @@ class ActivityLogModel extends Model
         return $this->belongsTo('Model\InstitutionsModel', 'institution_id');
     }
 
+
+
+
     /**
      * Per non chiamare il global scope
      * NomeClasse::withoutGlobalScope(new HasActive)
      */
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 }

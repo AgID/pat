@@ -9,7 +9,9 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -24,6 +26,7 @@ class CommissionsModel extends Model
     protected $primaryKey = 'id';
 
     protected string $archiveName = 'commissions';
+    protected string $metaModel = 'MetaCommissionsModel';
 
     protected string $objectName = 'Commissioni e gruppi consiliari';
     protected int $objectId = 5;
@@ -38,6 +41,7 @@ class CommissionsModel extends Model
         'typology',
         'president_id',
         'description',
+        'skills',
         'image',
         'phone',
         'fax',
@@ -56,6 +60,9 @@ class CommissionsModel extends Model
         'archived',
         'archived_info',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -76,7 +83,15 @@ class CommissionsModel extends Model
     protected $searchable = [
         'object_commissions.name',
         'typology',
-        'userName',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -95,22 +110,17 @@ class CommissionsModel extends Model
      */
     protected array $relationshipsToDelete = [
         'allComponents',
+        'management_structure',
+        'non_management_structure'
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -120,7 +130,7 @@ class CommissionsModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -142,6 +152,41 @@ class CommissionsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+
+
+    /**
+     * Relazione con Strutture Organizzative
+     * Strutture di livello dirigenziale
+     * @return BelongsToMany
+     */
+    public function management_structure(): BelongsToMany
+    {
+        $str = $this->belongsToMany(StructuresModel::class, 'rel_commissions_structures', 'object_commissions_id', 'object_structures_id')
+            ->wherePivot('typology', '=', 'management_structure');
+        return $str;
+    }
+
+    /**
+     *  Relazione con Strutture Organizzative
+     *  Strutture di livello non dirigenziale
+     * @return BelongsToMany
+     */
+    public function non_management_structure(): BelongsToMany
+    {
+        $str = $this->belongsToMany(StructuresModel::class, 'rel_commissions_structures', 'object_commissions_id', 'object_structures_id')
+            ->wherePivot('typology', '=', 'non_management_structure');
+        return $str;
     }
 
     /**
@@ -209,6 +254,15 @@ class CommissionsModel extends Model
     public function allComponents()
     {
         return $this->belongsToMany(PersonnelModel::class, 'rel_commissions_personnel', 'object_commissions_id', 'object_personnel_id');
+    }
+
+    /**
+     */
+    public function meta()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**

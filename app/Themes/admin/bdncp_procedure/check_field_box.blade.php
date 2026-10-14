@@ -9,7 +9,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{-- Dibattito pubblico --}}
 <div class="form-group col-md-6">
     <label for="{{$cat['field'].'_check'}}">Stai pubblicando un <u>{{  $cat['title'] }}</u>?</label>
-    <div class="select2-blue" id="input_public_debate">
+    <div id="input_public_debate">
         {{ form_dropdown(
              $cat['field'].'_check',
             [
@@ -17,7 +17,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 1 => 'Si'
             ],
             @$procedure[$cat['field'].'_check'],
-            'class="form-control select2-'.$cat['field'].' check_select" id="'.$catId.'" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+            'class="ts-'.$cat['field'].' check_select" id="'.$catId.'" style="width: 100%;"'
         ) }}
     </div>
 </div>
@@ -48,13 +48,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
     $(document).ready(function () {
 
-        CKEDITOR.replace('input_<?php echo $cat['field']?>_notes');
-
-        {{-- Select2 per campo "Dibattito Pubblico" --}}
-        let $dropdownTypology = $('.select2-<?php echo $cat['field']?>');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_<?php echo $cat['field']?>_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
+
+        {{-- Tom Select per campo "Dibattito Pubblico" --}}
+        new TomSelect('.ts-<?php echo $cat['field']?>', TS_SINGLE_PRESELECT);
     })
 </script>

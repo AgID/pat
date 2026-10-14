@@ -17,6 +17,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <div class="col-md-6 mt-2">
                         <h3 class="card-title">Log delle attività</h3>
                     </div>
+
+                    <div class="col-md-6 text-right">
+                        <div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -28,11 +33,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>DATA</th>
                         <th>AZIONE</th>
                         <th>DESCRIZIONE</th>
-                        <!--<th>AREA</th>-->
-                        {{-- Ente di appartenenza se l'utente è super admin --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
+                        <th>ORIGINE</th>
+
                     </tr>
                     </thead>
                 </table>
@@ -70,7 +74,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             bDeferRender: true,
             ajax: "{{siteUrl('admin/user-log/list')}}",
             order: [
-                [2, 'desc']
+                [1, 'desc']
             ],
             columns: [
                 null,
@@ -78,10 +82,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 null,
                 null,
                 {{-- null, --}}
-                {{-- Ente di appartenenza se l'utente è super admin --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                @endif
+
+                null,
+            ],
+            {{-- Nome utente, descrizione e origine non sono ordinabili lato server (il nome e' cifrato sul DB) --}}
+            columnDefs: [
+                { targets: -1, className: 'text-center', orderable: false },
+                { targets: [0, 3], orderable: false }
             ],
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'

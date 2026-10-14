@@ -46,8 +46,7 @@ class OpenDataProceedingFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -71,19 +70,26 @@ class OpenDataProceedingFrontController extends BaseFrontController
             ->first();
 
         // Recupero i bandi di concorso attivi
-        $queryContents = ProceedingsModel::with('responsibles:id,full_name')
+        $queryContents = ProceedingsModel::where(function ($query) {
+            })
+            ->filter(
+                (Input::get('n', true)),
+                (int)Input::get('str', true)
+            )
+            ->with('responsibles:id,full_name')
             ->with('measure_responsibles:id,full_name')
             ->with('substitute_responsibles:id,full_name')
             ->with('offices_responsibles:id,structure_name')
+            ->with('final_measure_office:id,structure_name')
             ->with('to_contacts:id,full_name')
             ->with('other_structures:id,structure_name')
             ->with('normatives:id,name')
             ->with('attachs')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -103,10 +109,11 @@ class OpenDataProceedingFrontController extends BaseFrontController
     private function generateCsv($resultContests = null, $resultSection = null): void
     {
         $fileName = 'Procedimenti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         // Intestazione indice dei dati...
@@ -120,10 +127,15 @@ class OpenDataProceedingFrontController extends BaseFrontController
             'Altre strutture organizzative associate',
             'Descrizione del procedimento',
             'Costi e modalità di pagamento',
+            'Modalità con le quali gli interessati possono ottenere le informazioni relative al procedimento',
             'Riferimenti normativi (diretti)',
+            'Riferimenti normativi (altro)',
             'Termine di conclusione',
             'Link per servizio online',
             'Tempi previsti per attivazione servizio online',
+            'Documenti da allegare all\'istanza e modulistica necessaria',
+            'Ufficio competente all\'adozione del provvedimento finale',
+            'Note',
             'url origine ' . $resultSection['name'],
             'Allegati'
         );
@@ -178,6 +190,18 @@ class OpenDataProceedingFrontController extends BaseFrontController
                     if(!empty($officesResponsibles['structure_name'])){
                         $officesResponsiblesLists .= $officesResponsibles['structure_name'] . ' - [Url]: '
                             . siteUrl('page/40/details/' . $officesResponsibles['id'] . '/' . urlTitle($officesResponsibles['structure_name'])) . "\n";
+                    }
+                }
+            }
+
+            // Concateno l'ufficio competente all'adozione del provvedimento finale
+            $finalMeasureOfficeLists = '';
+            if (!empty($r['final_measure_office'])) {
+
+                foreach ($r['final_measure_office'] as $finalMeasureOffice) {
+                    if(!empty($finalMeasureOffice['structure_name'])){
+                        $finalMeasureOfficeLists .= $finalMeasureOffice['structure_name'] . ' - [Url]: '
+                            . siteUrl('page/40/details/' . $finalMeasureOffice['id'] . '/' . urlTitle($finalMeasureOffice['structure_name'])) . "\n";
                     }
                 }
             }
@@ -250,14 +274,24 @@ class OpenDataProceedingFrontController extends BaseFrontController
                 !empty($r['description']) ? S::chartsEntityDecode(S::stripTags($r['description'])): null ,
                 // Costi e modalità di pagamento
                 !empty($r['costs']) ?  S::chartsEntityDecode(S::stripTags($r['costs'])): null,
+                //Modalità con le quali gli interessati possono ottenere le informazioni relative al procedimento
+                !empty($r['obtaining_info']) ?  S::chartsEntityDecode(S::stripTags($r['obtaining_info'])): null,
                 // Riferimenti normativi (diretti)
                 trim($normativesLists),
+                // Riferimenti normativi (altro)
+                !empty($r['regulation']) ? S::chartsEntityDecode(S::stripTags($r['regulation'])): null ,
                 // Termine di conclusione
                 !empty($r['deadline']) ? $r['deadline'] : null,
                 // Link per servizio online
                 !empty($r['url_service']) ? $r['url_service'] : null,
                 // Tempi previsti per attivazione servizio online
                 !empty($r['service_time']) ? $r['service_time'] : null,
+                // Documenti da allegare all'istanza e modulistica necessaria
+                !empty($r['instance_documents']) ? S::chartsEntityDecode(S::stripTags($r['instance_documents'])): null,
+                // Ufficio competente all'adozione del provvedimento finale
+                trim($finalMeasureOfficeLists),
+                // Note
+                !empty($r['notes']) ? S::chartsEntityDecode(S::stripTags($r['notes'])): null,
                 // Url origine dato
                 siteUrl('page/' . $resultSection['id'] . '/details/' . $r['id'] . '/' . urlTitle($r['name'])),
                 // Allegati

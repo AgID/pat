@@ -39,15 +39,68 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+                @if($_storageType != 'insert')
+                @endif
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+                            {% include contests_act/bdncp_info %}
+
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="datetime-local" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ !empty($notice['activation_date']) ? date('Y-m-d H:i', strtotime($notice['activation_date'])) : null }}"
+                                               id="input_activation_date">
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+
+
+
+                                @if($_storageType == 'update')
+
+                                        {{-- Campo Link alla BDNCP --}}
+                                        <div class="form-group col-md-6" id="input_normative_link">
+                                            <label for="bdncp_link">Link alla Banca Dati Nazionale Contratti
+                                                Pubblici (BDNCP)</label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                                </div>
+                                                {{ form_input([
+                                                'name' => 'bdncp_link',
+                                                'value' => !empty($lot['bdncp_link']) ? $lot['bdncp_link'] : null,
+                                                'placeholder' => 'https://www.',
+                                                'id' => 'input_bdncp_link',
+                                                'class' => 'form-control input_bdncp_link',
+                                            ]) }}
+                                            </div>
+                                        </div>
+
+                                @endif
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo ANAC - Anno di riferimento --}}
@@ -69,6 +122,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Contratto --}}
                                 <div class="form-group col-md-6">
                                     <label for="contract">Contratto
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue" id="input_contract">
                                         {{ form_dropdown(
@@ -170,6 +224,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <div class="form-group col-md-6">
                                         <label for="asta_base_value" id="asta_base_value_sum_label">
                                             Valore Importo dell'appalto <small>(al netto dell'IVA)</small>
+                                            {{-- Inclusione di librerie esterne --}}
                                         </label>
                                         <div class="input-group">
                                             <div class="input-group-prepend">
@@ -205,6 +260,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-6" id="sector">
                                     <label for="sector">Settore
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue" id="input_sector">
                                         {{ form_dropdown(
@@ -221,6 +277,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         ) }}
                                     </div>
                                 </div>
+
+                                {{-- Inclusione di librerie esterne --}}
                             </div>
 
                             {{-- Campo Procedura di scelta del contraente --}}
@@ -237,9 +295,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            {{-- Inclusione di librerie esterne --}}
+
                             {{ generateSeparator('Amministrazione aggiudicatrice') }}
 
                             <div class="form-row d-flex align-items-end">
+
+                                {{-- Inclusione di librerie esterne --}}
 
                                 <div class="form-group col-md-6">
                                     <label for="adjudicator_name" id="adjudicator-name-label">Amministrazione
@@ -327,6 +389,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="istat_office">Sede di gara - Codice Istat <small>( 3 per Regione + 6 per
                                             Comune )</small>
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     {{ form_input([
                                         'name' => 'istat_office',
@@ -340,6 +403,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Sede di gara - Codice NUTS --}}
                                 <div class="form-group col-md-6">
                                     <label for="nuts_office">Sede di gara - Codice NUTS
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     {{ form_input([
                                         'name' => 'nuts_office',
@@ -398,29 +462,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <input type="date" name="act_date"
                                                placeholder="GG/MM/AAAA"
                                                autocomplete="off" class="form-control"
-                                               value="{{ @$act_date }}"
+                                               value="{{ !empty($notice['act_date']) ? date('Y-m-d', strtotime($notice['act_date'])) : null }}"
                                                id="input_act_date">
                                     </div>
                                 </div>
 
-                                {{-- Campo Data di pubblicazione sul sito --}}
-                                <div class="form-group col-md-4">
-                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="datetime-local" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ !empty($notice['activation_date']) ? date('Y-m-d H:i', strtotime($notice['activation_date'])) : null }}"
-                                               id="input_activation_date">
-                                    </div>
-                                </div>
 
                                 {{-- Campo Data di scadenza presentazione offerte --}}
                                 <div class="form-group col-md-4">
                                     <label for="expiration_date">Data di scadenza presentazione offerte
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -441,7 +492,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="object_structures_id">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_structure" id="n_structure_label">Ufficio</label>
+                                        <label for="ajax_structure" id="n_structure_label">Ufficio </label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -455,6 +506,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="rup">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_rup" id="n_rup_label">RUP
+                                            {{-- Inclusione di librerie esterne --}}
                                         </label>
                                     </div>
                                     <div id="ajax_rup"></div>
@@ -481,13 +533,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Requisiti di qualificazione --}}
                                 <div class="form-group col-md-9" id="input_requirement">
                                     <label for="requirement">Requisiti di qualificazione
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue">
                                         {{ form_dropdown(
                                             'requirements[]',
                                             '',
                                             '',
-                                            'class="form-control select2-requirement" multiple="multiple" data-placeholder="Seleziona o cerca requisito..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="form-control select2-requirement" '. ' multiple="multiple" ' . 'data-placeholder="Seleziona o cerca requisito..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -497,6 +550,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Codice CPV --}}
                                 <div class="form-group col-md-6" id="input_cpv_code">
                                     <label for="cpv_code_id">Codice CPV
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue">
                                         {{ form_dropdown(
@@ -561,16 +615,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -640,6 +704,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',PatOsInstituteId()) }}
         {{ form_close() }}
     </div>
@@ -664,16 +729,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -688,7 +752,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         $('#adjudicator-data-label').append(infoSpan);
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- Begin campi select --}}
         {{-- Campo select anno anac --}}
@@ -823,6 +887,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($notice['structure']) ? implode(",",array_column($notice['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -1075,7 +1141,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_details');
+        CKEDITOR.replace('input_details', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -1118,6 +1186,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     @else
                     setTimeout(function () {
                         window.parent.$('#formModal').modal('hide');
+
                     }, 800);
                     @endif
                 }
@@ -1135,6 +1204,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }
@@ -1179,44 +1249,73 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         let count = 0;
 
         // Aggiunta di un lotto
-        $('#btn_addLot').on('click', function () {
+        const lotsContainer = document.querySelector('.lots');
+        const addLotButton = document.querySelector('#btn_addLot');
 
-            let formField = `<div class="form-group col-md-6 _lot_${count}"><label for="cig">Codice CIG</label>`;
-            formField += '<input type="text" name="cig[]" value="" placeholder="Codice CIG" id="" class="form-control input_cig"></div>';
-            formField += `<div class="form-group col-md-4 asta_base_value _lot_${count}"><label for="asta_base_value">`;
-            formField += 'Importo dell\'appalto <small>(al netto dell\'IVA)</small></label>';
-            formField += '<div class="input-group"><div class="input-group-prepend"><span class="input-group-text">';
-            formField += '<i class="fas fa-euro-sign"></i></span></div>';
-            formField += '<input type="text" name="asta_base_value[]" value="" placeholder="" id=""';
-            formField += 'class="form-control input_asta_base_value a-num-class"> </div></div>';
-            formField += `<div class="form-group col-md-2 _lot_${count}">`;
-            formField += `<button name="delete" type="button" class="btn btn-outline-primary btn_delete_lot" data-remove="${count++}" style="width:100%;">`;
-            formField += 'Elimina Lotto</button></div>';
+        addLotButton.addEventListener('click', () => {
+            const lotIndex = count++;
 
-            $(formField).appendTo('.lots');
-            $('.a-num-class').each(function (i, e) {
-                $(this).autoNumeric({aSep: '.', aDec: ',', vMax: '999999999999.99', aForm: false});
-            });
+            const formField = document.createElement('div');
+            formField.classList.add('contents');
 
-            // Rimozione di un lotto
-            $('.btn_delete_lot').on('click', function (e) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                let toRemove = $(this).data('remove');
+            formField.innerHTML = `
+        <div class="form-group col-md-6 _lot_${lotIndex}">
+            <label>Codice CIG</label>
+            <input type="text" name="cig[]" value="" placeholder="Codice CIG" class="form-control input_cig">
+        </div>
 
-                $.confirm({
-                    title: 'Attenzione:',
-                    type: 'dark',
-                    closeIcon: true,
-                    content: 'Sei sicuro di voler eliminare il CIG?',
-                    buttons: {
-                        'Ok': function () {
-                            $(`._lot_${toRemove}`).remove();
-                        },
-                        'Annulla': function () {
-                        }
-                    }
-                });
+        <div class="form-group col-md-4 asta_base_value _lot_${lotIndex}">
+            <label>Importo dell'appalto <small>(al netto dell'IVA)</small></label>
+
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text">
+                        <i class="fas fa-euro-sign"></i>
+                    </span>
+                </div>
+
+                <input type="text" name="asta_base_value[]" value="" class="form-control input_asta_base_value a-num-class">
+            </div>
+        </div>
+
+        <div class="form-group col-md-2 _lot_${lotIndex}">
+            <button type="button" class="btn btn-outline-primary btn_delete_lot" data-remove="${lotIndex}" style="width: 100%;">
+                Elimina Lotto
+            </button>
+        </div>
+    `;
+
+            const newElements = [...formField.children];
+            lotsContainer.append(...newElements);
+
+            const amountInput = lotsContainer.querySelector(
+                `._lot_${lotIndex} .input_asta_base_value`
+            );
+
+            new AutoNumeric(amountInput, {digitGroupSeparator: '.', decimalCharacter: ',', maximumValue: '999999999999.99', formatOnPageLoad: false});
+        });
+
+        // Rimozione di un lotto tramite event delegation
+        lotsContainer.addEventListener('click', async (event) => {
+            const deleteButton = event.target.closest('.btn_delete_lot');
+
+            if (!deleteButton || !lotsContainer.contains(deleteButton)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            const lotIndex = deleteButton.dataset.remove;
+
+            const result = await Swal.fire({...SWAL_CONFIRM_WARNING, text: 'Sei sicuro di voler eliminare il CIG?'});
+
+            if (!result.isConfirmed) {
+                return;
+            }
+
+            document.querySelectorAll(`._lot_${lotIndex}`).forEach((element) => {
+                element.remove();
             });
         });
     });

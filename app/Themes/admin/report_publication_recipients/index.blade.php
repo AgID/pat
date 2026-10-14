@@ -80,10 +80,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>ATTIVO</th>
                         <th>DATA CREAZIONE</th>
                         <th>ULTIMA MODIFICA</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin())
-                            <th>ENTE</th>
-                        @endif
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -135,10 +131,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 null,
                 null,
                 null,
-                {{-- Ente di appartenenza se l'utente è super admin --}}
-                        @if(isSuperAdmin())
-                    null,
-                    @endif
                 {
                     orderable: false,
                     width: "5%"

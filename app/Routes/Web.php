@@ -12,21 +12,45 @@ use System\Route;
  * BEGIN: ROUTES FRONT OFFICE
  */
 
-Route::get('act/details/:num/:any', '\Addons\Albo\Controllers\RegisterActFrontOffice@details');
 
-
-Route::get('/', !empty(\System\Registry::exist('route_app_ctrl'))
+Route::get(
+    '/',
+    !empty(\System\Registry::exist('route_app_ctrl'))
     ? \System\Registry::get('route_app_ctrl')
     : '\Http\Web\Front\HomeController@index'
 );
 
-Route::get('/page/:num/:any', getDynamicController());
 
-if (\System\Registry::exist('__controller_detail')) {
+Route::get('/version', function (){
 
-    Route::get('/page/:num/details/:num/:any', \System\Registry::get('__controller_detail'));
+    header('Content-Type: application/json');
+    echo json_encode([
+        "name" => config('pat_os_title', null, 'custom'),
+        "version" => VERSION_PATOS
+    ]);
 
-}
+});
+
+
+Route::get(':{p}/:num/:any', function (...$params) {
+    return \System\Route::resolveStringCallback(getDynamicController(), $params);
+});
+//Route::get('/page/:num/:any', getDynamicController());
+
+
+Route::get('/page/:num/details/:num/:any', function (...$params) {
+    getDynamicController();
+    $detail = \System\Registry::get('__controller_detail');
+
+    if (empty($detail)) {
+
+        echo show404();
+        die();
+
+    }
+
+    return \System\Route::resolveStringCallback($detail, $params);
+});
 
 Route::get('download/:num', '\Http\Web\Front\FileDownloader@index');
 
@@ -34,6 +58,11 @@ Route::get('download/:num', '\Http\Web\Front\FileDownloader@index');
 if (uri()->segment(1, 0) == 'download' && uri()->segment(2, 0) == 'open-data') {
     Route::get('download/open-data/:num', getDynamicControllerOpendata());
 }
+
+// AT Map
+Route::get('at_map.json', '\Http\Web\Front\ATMapFrontController@generateATMAP');
+
+
 /**
  * END: ROUTES FRONT OFFICE
  */
@@ -71,7 +100,7 @@ Route::get('/logout', '\Http\Web\Auth\LogoutAdminController@index');
 Route::get('/user-activation/:num', '\Http\Web\System\UserActivationController@index');
 
 // ROUTES BACK OFFICE --------------------------------------------------------------------------------------------------
-Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePassword', function () {
+Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePassword|\Middleware\CheckConcurrentSessMiddleware', function () {
     Route::prefix('admin', function () {
 
         // Dashboard
@@ -91,10 +120,7 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('institution', '\Http\Web\Admin\InstitutionAdminController@index');
         Route::post('institution', '\Http\Web\Admin\InstitutionAdminController@create');
         Route::post('institution/try/sending/email', '\Http\Web\Admin\InstitutionAdminController@trySendingEmail');
-
-        // Ajax CRUD link personalizzati
-        Route::ajax('institution/link/save', '\Http\Web\Admin\InstitutionAdminController@storeCustomLinks');
-        Route::ajax('institution/link/list', '\Http\Web\Admin\InstitutionAdminController@asyncListCustomLinks');
+        Route::post('institution/try/sending/pec-email', '\Http\Web\Admin\InstitutionAdminController@trySendingPecEmail');
 
         // Pagine gestione Utente
         Route::get('user', '\Http\Web\Admin\UsersAdminController@index');
@@ -106,7 +132,6 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('user/delete/:num', '\Http\Web\Admin\UsersAdminController@delete');
         Route::get('user/profiles-list', '\Http\Web\Admin\UsersAdminController@asyncGetProfiles');
         Route::get('user/deletes/', '\Http\Web\Admin\UsersAdminController@deletes');
-
         // Pagine gestione Acl profile
         Route::get('acl-users-profile', '\Http\Web\Admin\AclUsersProfileAdminController@index');
         Route::get('acl-users-profile/list', '\Http\Web\Admin\AclUsersProfileAdminController@asyncPaginateDatatable');
@@ -118,6 +143,18 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::post('acl-users-profile/store', '\Http\Web\Admin\AclUsersProfileAdminController@store');
         Route::post('acl-users-profile/update', '\Http\Web\Admin\AclUsersProfileAdminController@update');
         Route::get('acl-users-profile/deletes/', '\Http\Web\Admin\AclUsersProfileAdminController@deletes');
+
+        // Pagine gestione Report pubblicazione
+        Route::get('report-publication-recipients', '\Http\Web\Admin\ReportPublicationRecipientsController@index');
+        Route::get('report-publication-recipients/list', '\Http\Web\Admin\ReportPublicationRecipientsController@asyncPaginateDatatable');
+        Route::get('report-publication-recipients/create', '\Http\Web\Admin\ReportPublicationRecipientsController@create');
+        Route::post('report-publication-recipients/store', '\Http\Web\Admin\ReportPublicationRecipientsController@store');
+        Route::get('report-publication-recipients/edit/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@edit');
+        Route::get('report-publication-recipients/duplicate/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@edit');
+        Route::post('report-publication-recipients/update', '\Http\Web\Admin\ReportPublicationRecipientsController@update');
+        Route::get('report-publication-recipients/delete/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@delete');
+        Route::get('report-publication-recipients/deletes/', '\Http\Web\Admin\ReportPublicationRecipientsController@deletes');
+        Route::get('report-publication-recipients/report/', '\Http\Web\Admin\ReportPublicationRecipientsController@generateReport');
 
         // Pagine gestione Strutture Organizzative
         Route::get('structure', '\Http\Web\Admin\StructureAdminController@index');
@@ -144,6 +181,12 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('personnel/deletes/', '\Http\Web\Admin\PersonnelAdminController@deletes');
         Route::get('personnel/create-box', '\Http\Web\Admin\PersonnelAdminController@create');
         Route::get('personnel/edit-box/:num', '\Http\Web\Admin\PersonnelAdminController@edit');
+
+        //Organi di controllo
+        Route::get('politic-organ', '\Http\Web\Admin\PoliticOrganAdminController@index');
+        Route::get('politic-organ/list', '\Http\Web\Admin\PoliticOrganAdminController@asyncPaginateDatatable');
+        Route::get('politic-organ/edit/:num', '\Http\Web\Admin\PoliticOrganAdminController@edit');
+        Route::post('politic-organ/update', '\Http\Web\Admin\PoliticOrganAdminController@update');
 
         // Pagine gestione Tassi di assenze
         Route::get('absence-rates', '\Http\Web\Admin\AbsenceRatesAdminController@index');
@@ -345,23 +388,35 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('contests-act/delete-liquidation/:num', '\Http\Web\Admin\ContestsActAdminController@deleteLiquidation');
         Route::get('contests-act/deletes/', '\Http\Web\Admin\ContestsActAdminController@deletes');
 
+        Route::get('contests-act/create-variation', '\Http\Web\Admin\ContestsActAdminController@createVariation');
+        Route::post('contests-act/store-variation', '\Http\Web\Admin\ContestsActAdminController@storeVariation');
+        Route::get('contests-act/edit-variation/:num', '\Http\Web\Admin\ContestsActAdminController@editVariation');
+        Route::post('contests-act/update-variation', '\Http\Web\Admin\ContestsActAdminController@updateVariation');
+        Route::get('contests-act/duplicate-variation/:num', '\Http\Web\Admin\ContestsActAdminController@editVariation');
+        Route::get('contests-act/delete-variation/:num', '\Http\Web\Admin\ContestsActAdminController@deleteVariation');
+
         //Pagine gestione Bandi di gara e affidamenti BDNCP dal 01/01/2024
         Route::get('bdncp-procedure', '\Http\Web\Admin\BdncpProcedureController@index');
         Route::get('bdncp-procedure/list', '\Http\Web\Admin\BdncpProcedureController@asyncPaginateDatatable');
         Route::get('bdncp-procedure/create', '\Http\Web\Admin\BdncpProcedureController@create');
         Route::get('bdncp-procedure/create-alert', '\Http\Web\Admin\BdncpProcedureController@createAlert');
+        Route::get('bdncp-procedure/create-variation', '\Http\Web\Admin\BdncpProcedureController@createVariation');
         Route::get('bdncp-procedure/create-box', '\Http\Web\Admin\BdncpProcedureController@create');
         Route::post('bdncp-procedure/store', '\Http\Web\Admin\BdncpProcedureController@store');
         Route::post('bdncp-procedure/store-alert', '\Http\Web\Admin\BdncpProcedureController@storeAlert');
+        Route::post('bdncp-procedure/store-variation', '\Http\Web\Admin\BdncpProcedureController@storeVariation');
         Route::get('bdncp-procedure/edit/:num', '\Http\Web\Admin\BdncpProcedureController@edit');
         Route::get('bdncp-procedure/edit-alert/:num', '\Http\Web\Admin\BdncpProcedureController@editAlert');
+        Route::get('bdncp-procedure/edit-variation/:num', '\Http\Web\Admin\BdncpProcedureController@editVariation');
         Route::post('bdncp-procedure/update', '\Http\Web\Admin\BdncpProcedureController@update');
         Route::post('bdncp-procedure/update-alert', '\Http\Web\Admin\BdncpProcedureController@updateAlert');
+        Route::post('bdncp-procedure/update-variation', '\Http\Web\Admin\BdncpProcedureController@updateVariation');
         Route::get('bdncp-procedure/duplicate/:num', '\Http\Web\Admin\BdncpProcedureController@edit');
         Route::get('bdncp-procedure/duplicate-alert/:num', '\Http\Web\Admin\BdncpProcedureController@editAlert');
+        Route::get('bdncp-procedure/duplicate-variation/:num', '\Http\Web\Admin\BdncpProcedureController@editVariation');
         Route::get('bdncp-procedure/delete/:num', '\Http\Web\Admin\BdncpProcedureController@delete');
         Route::get('bdncp-procedure/deletes/', '\Http\Web\Admin\BdncpProcedureController@deletes');
-        Route::get('bdncp-procedure/export-csv', '\Http\Web\Admin\BdncpProcedureController@exportCsv');
+
 
         //Pagine gestione Soluzioni tecnologiche
         Route::get('general-acts-documents', '\Http\Web\Admin\GeneralActsDocumentsController@index');
@@ -374,7 +429,6 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::post('general-acts-documents/update', '\Http\Web\Admin\GeneralActsDocumentsController@update');
         Route::get('general-acts-documents/delete/:num', '\Http\Web\Admin\GeneralActsDocumentsController@delete');
         Route::get('general-acts-documents/deletes/', '\Http\Web\Admin\GeneralActsDocumentsController@deletes');
-        Route::get('general-acts-documents/export-csv', '\Http\Web\Admin\GeneralActsDocumentsController@exportCsv');
 
         // Pagine gestione Atti delle amministrazioni
         Route::get('notices-act', '\Http\Web\Admin\NoticesActAdminController@index');
@@ -422,7 +476,9 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('contest/delete/:num', '\Http\Web\Admin\ContestAdminController@delete');
         Route::get('contest/deletes/', '\Http\Web\Admin\ContestAdminController@deletes');
         Route::get('contest/create-box', '\Http\Web\Admin\ContestAdminController@createContest');
-        Route::get('contest/edit-box/:num', '\Http\Web\Admin\ContestAdminController@edit');
+        Route::get('contest-alert/create-box', '\Http\Web\Admin\ContestAdminController@createAlert');
+        Route::get('contest-result/create-box', '\Http\Web\Admin\ContestAdminController@createResult');
+        //        Route::get('contest/edit-box/:num', '\Http\Web\Admin\ContestAdminController@edit');
 
         // Pagine gestione Sovvenzioni e vantaggi
         Route::get('grant', '\Http\Web\Admin\GrantAdminController@index');
@@ -498,6 +554,17 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('intervention/delete/:num', '\Http\Web\Admin\InterventionAdminController@delete');
         Route::get('intervention/deletes/', '\Http\Web\Admin\InterventionAdminController@deletes');
 
+        //Dati sui pagamenti
+        Route::get('payment', '\Http\Web\Admin\PaymentAdminController@index');
+        Route::get('payment/list', '\Http\Web\Admin\PaymentAdminController@asyncPaginateDatatable');
+        Route::get('payment/create', '\Http\Web\Admin\PaymentAdminController@create');
+        Route::post('payment/store', '\Http\Web\Admin\PaymentAdminController@store');
+        Route::get('payment/edit/:num', '\Http\Web\Admin\PaymentAdminController@edit');
+        Route::get('payment/duplicate/:num', '\Http\Web\Admin\PaymentAdminController@edit');
+        Route::post('payment/update', '\Http\Web\Admin\PaymentAdminController@update');
+        Route::get('payment/delete/:num', '\Http\Web\Admin\PaymentAdminController@delete');
+        Route::get('payment/deletes/', '\Http\Web\Admin\PaymentAdminController@deletes');
+
         // Pagine gestione Pagine Generiche
         Route::get('generic-page', '\Http\Web\Admin\GenericPageAdminController@index');
         Route::get('generic-page/list', '\Http\Web\Admin\GenericPageAdminController@asyncGetGenericsPage');
@@ -521,6 +588,7 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('generic-page/paragraph/duplicate/asyncRecalls', '\Http\Web\Admin\GenericPageAdminController@asyncGetParagraphRecalls');
         Route::get('generic-page/paragraph/edit/:num', '\Http\Web\Admin\GenericPageAdminController@editParagraph');
         Route::get('generic-page/paragraph/duplicate/:num', '\Http\Web\Admin\GenericPageAdminController@duplicateParagraph');
+        Route::post('generic-page/paragraph/manual-reordering', '\Http\Web\Admin\GenericPageAdminController@manualReordering');
 
         // Pagine gestione Archivio file
         Route::get('file-archive', '\Http\Web\Admin\FileArchiveAdminController@index');
@@ -543,27 +611,21 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('activity-log', '\Http\Web\Admin\ActivityLogAdminController@index');
         Route::get('activity-log/list', '\Http\Web\Admin\ActivityLogAdminController@asyncPaginateDatatable');
 
-        //Pagine gestione log utenti
+        //Pagine getione log utenti
         Route::get('user-log', '\Http\Web\Admin\UserLogAdminController@index');
         Route::get('user-log/list', '\Http\Web\Admin\UserLogAdminController@asyncPaginateDatatable');
 
-        //Report pubblicazioni
-        Route::get('report-publication-recipients', '\Http\Web\Admin\ReportPublicationRecipientsController@index');
-        Route::get('report-publication-recipients/list', '\Http\Web\Admin\ReportPublicationRecipientsController@asyncPaginateDatatable');
-        Route::get('report-publication-recipients/create', '\Http\Web\Admin\ReportPublicationRecipientsController@create');
-        Route::post('report-publication-recipients/store', '\Http\Web\Admin\ReportPublicationRecipientsController@store');
-        Route::get('report-publication-recipients/edit/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@edit');
-        Route::get('report-publication-recipients/duplicate/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@edit');
-        Route::post('report-publication-recipients/update', '\Http\Web\Admin\ReportPublicationRecipientsController@update');
-        Route::get('report-publication-recipients/delete/:num', '\Http\Web\Admin\ReportPublicationRecipientsController@delete');
-        Route::get('report-publication-recipients/deletes/', '\Http\Web\Admin\ReportPublicationRecipientsController@deletes');
-        Route::get('report-publication-recipients/report/', '\Http\Web\Admin\ReportPublicationRecipientsController@generateReport');
+        // Pagine gestione Log degli utenti
+        Route::get('users-log', '\Http\Web\Admin\UsersLogAdminController@index');
 
-        // Pagine di sistema..
-        Route::get('system/list/institutions', '\Http\Web\System\UtilityController@institutes');
-        Route::get('system/change/institutions', '\Http\Web\System\UtilityController@changeInstitution');
-        Route::get('system/restore/institution', '\Http\Web\System\UtilityController@restoreInstitution');
-        Route::get('system/administrator/current', '\Http\Web\System\UtilityController@currentAdministration');
+        // Pagine gestione Servizi App IO
+        Route::get('io-app-service', '\Http\Web\Admin\IoAppServiceAdminController@index');
+
+        // Pagine gestione Notifiche App IO
+        Route::get('io-app-notification', '\Http\Web\Admin\IoAppNotificationAdminController@index');
+
+        // Pagine gestione Impostazione Avanzate
+        Route::get('advanced', '\Http\Web\Admin\AdvancedAdminController@index');
 
         // Per dati da mostrare nelle select2 nei forms
         Route::get('asyncSelectedData', '\Http\Web\Admin\AjaxDataForSelect@asyncGetSelectedData');
@@ -583,6 +645,11 @@ Route::middleware('\Middleware\IsAuthPatOsMiddleware|\Middleware\ForceChangePass
         Route::get('search', '\Http\Web\Admin\SearchAdminController@index');
         Route::get('search/result/nums', '\Http\Web\Admin\SearchAdminController@resultSearchNums');
         Route::get('search/result/terms', '\Http\Web\Admin\SearchAdminController@resultSearchTerms');
+
+        Route::get('attach/download/:num', '\Http\Web\Admin\AdminFileDownloader@index');
+
+        // Disabilitazione Sessioni concorrenti
+        Route::post('concurrent/sess/:num', '\Http\Web\Admin\ConcurrentSessionDisableAdminController@index');
 
     });
 });

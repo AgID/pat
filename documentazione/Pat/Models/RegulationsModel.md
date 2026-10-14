@@ -6,7 +6,6 @@ Il modello `RegulationsModel` rappresenta la tabella `object_regulations` e forn
 
 * `$table`: Il nome della tabella nel database (default: `'object_regulations'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'regulations'`).
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaRegulationModel'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Regolamenti e documentazione'`).
 * `$objectId`: L'ID dell'oggetto (default: `12`).
@@ -95,10 +94,3 @@ scopeFilter(Builder $query, string$text = null): void
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati dei regolamenti e della documentazione in base al titolo.
-
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` restituisce una relazione `HasMany` con il modello `MetaRegulationModel`. La relazione viene stabilita tramite la chiave esterna `'reference_id'` dell'istanza corrente del modello `RegulationsModel` e la chiave primaria `'id'` del modello `MetaRegulationModel`.

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ContestsActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -33,47 +34,56 @@ class DeliberationValidator
      * Controlla la validità dell'ID nell'URI segment e se esiste una delibera con quell'ID per l'ente
      *
      * @param null $checkOwner Indica se controllare il proprietario del record
+     * @param int $uriSegment
+     * @param null $institutionId
+     * @param null $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID delibera')
-            ->value(uri()->segment(4, 0))
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la delibera con l'id passato in input
                 $check = ContestsActsModel::where('typology', 'deliberation')
-                    ->where('id', uri()->segment(4, 0))
+                    ->where('id', uri()->segment($uriSegment, 0))
                     ->with('proceedings:id,object,type,cig')
                     ->with('relative_measure:id,object,number,date')
-                    ->with(['structure' => function ($query) {
+                    ->with([
+                        'structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->with(['rup' => function ($query) {
+                    }
+                    ])
+                    ->with([
+                        'rup' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'object_personnel.role_id');
-                    }])
-                    ->with(['public_in' => function ($query) {
+                    }
+                    ])
+                    ->with([
+                        'public_in' => function ($query) {
                         $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
                             ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                    }])
-                    ->first();
+                    }
+                    ])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $check = $check->first();
 
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'delibera ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
-
                 //Se esiste la delibera la salvo nel registro
                 Registry::set('deliberation', $check);
 
@@ -92,27 +102,31 @@ class DeliberationValidator
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId indica l'id dell'istituto
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
      * Metodo per la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int $institutionId
      * @return array
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
             ->end();
+
+
 
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
@@ -132,7 +146,7 @@ class DeliberationValidator
             ->end();
 
         if (Input::post('procedures')) {
-            foreach (explode(',', (string)Input::post('procedures')) as $procedure) {
+            foreach (explode(',', (string) Input::post('procedures')) as $procedure) {
                 $this->validator->label('Procedura ' . $procedure)
                     ->value($procedure)
                     ->isInt()
@@ -174,7 +188,7 @@ class DeliberationValidator
             ->value($activationData)
             ->required()
             ->isDate('Y-m-d H:i')
-            ->add(function () use ($activationData){
+            ->add(function () use ($activationData) {
                 if ($activationData < Input::post('act_date')) {
 
                     return ['error' => __('invalid_end_date_publication_2', null, 'patos')];
@@ -201,22 +215,31 @@ class DeliberationValidator
             ->isNaturalNoZero()
             ->end();
 
+        $this->validator = $this->validator ?? null;
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = ContestsActsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+                    $query = ContestsActsModel::where('id', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Delibera')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

@@ -5,13 +5,7 @@
  */
 
 defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
-<?php
-/**
- * Nome applicativo: PAT
- * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
- */
-
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+<?php defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{-- Pagina per Tassi di assenza --}}
 
@@ -24,12 +18,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
-                <div class="col-lg-8">
-                    <div class="titolo mb-4">
+                <div class="col-lg-12">
+
+                    <div class="div-title">
                         @php
                             $title = !empty($instance['structure']) ? $instance['structure']['structure_name'] : $instance['structure_name'];
                         @endphp
                         <h1 class="page-title">{{escape_xss: !empty($h1) ? $h1 : $title }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
 
                     <div class="attributi mb-3">
@@ -83,15 +80,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
+
                 </div>
 
-                {{-- Right Menu --}}
-                {% include v1/layout/partials/right_menu %}
 
             </div>
         </div>
     </section>
 </main>
+
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

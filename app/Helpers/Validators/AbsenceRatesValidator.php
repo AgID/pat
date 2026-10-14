@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\AbsenceRatesModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -33,30 +34,37 @@ class AbsenceRatesValidator
      * @description Controlla la validità dell'ID nell'URI segment e se esiste un tasso di assenza con quell'ID per l'ente
      *
      * @param bool|null $checkOwner Indica se si deve controllare se l'utente è il creatore del record
+     * @param int $uriSegment Il segmento dell'URI in cui si trova l'ID
+     * @param int|null $institutionId ID dell'ente
+     * @param int|null $userId ID dell'utente
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId(?bool $checkOwner = null): array
+    public function validateUriSegmentId(?bool $checkOwner = null, int $uriSegment = 4, ?int $institutionId = null, ?int $userId = null): array
     {
         $this->validator->label('ID tasso di assenza')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il tasso di assenza con l'id passato in input
-                $check = AbsenceRatesModel::where('id', uri()->segment(4, 0))
+                $check = AbsenceRatesModel::where('id', uri()->segment($uriSegment, 0))
                     ->with(['structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                    }])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
                     }]);
 
                 $check = $check->first();
 
                 //Se non esiste il tasso di assenza con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
 
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'tasso di assenza ')
@@ -76,39 +84,54 @@ class AbsenceRatesValidator
         ];
     }
 
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Tipo di operazione
+     * @param int|bool $institutionId ID dell'ente
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
      * Metodo per la validazione dei campi del form
      *
      * @param string $mode Tipo di operazione
+     * @param int|bool $institutionId ID dell'ente
      * @return array
      * @throws Exception
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
 
         $this->validator->verifyToken()
             ->end();
 
-        $this->validator->label('Struttura')
-            ->value(Input::post('object_structures_id'))
-            ->required()
-            ->isNaturalNoZero()
-            ->end();
+        if($mode === 'update' && empty(Input::post('object_structures_id')) && !empty('o_id')){
+            //pregresso
+            $this->validator->label('Nome struttura')
+                ->value(Input::post('structure_name'))
+                ->required()
+                ->end();
+        }else{
+            $this->validator->label('Struttura')
+                ->value(Input::post('object_structures_id'))
+                ->required()
+                ->isNaturalNoZero()
+                ->end();
+        }
 
         if (Input::post('months')) {
-            foreach (Input::post('months') as $month) {
+            $months = Input::post('months');
+            if (!is_array($months)) {
+                $months = explode(',', $months);
+            }
+            foreach ($months as $month) {
                 $this->validator->label('Periodo ' . $month)
                     ->value($month)
                     ->in(implode(',', array_keys(config('absenceRatesPeriod', null, 'app'))))
@@ -140,20 +163,29 @@ class AbsenceRatesValidator
             ->isNumeric()
             ->end();
 
+
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $absenceRate = AbsenceRatesModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+                    $query = AbsenceRatesModel::where('id', $id);
+                    $absenceRate = $query->first();
                     if (empty($absenceRate)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Tasso di assenza')];
                     }
                 })
                 ->end();
+
         }
 
         return [

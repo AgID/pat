@@ -37,21 +37,57 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+
+                                @if($_storageType == 'update')
+
+                                        {{-- Campo Link alla BDNCP --}}
+                                        <div class="form-group col-md-6" id="input_normative_link">
+                                            <label for="bdncp_link">Link alla Banca Dati Nazionale Contratti
+                                                Pubblici (BDNCP)</label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                                </div>
+                                                {{ form_input([
+                                                'name' => 'bdncp_link',
+                                                'value' => !empty($lot['bdncp_link']) ? $lot['bdncp_link'] : null,
+                                                'placeholder' => 'https://www.',
+                                                'id' => 'input_bdncp_link',
+                                                'class' => 'form-control input_bdncp_link',
+                                            ]) }}
+                                            </div>
+                                        </div>
+
+                                @endif
+                            </div>
 
                             {{-- Campo Bando di gara relativo --}}
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="input_notice">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_notice" id="l_notice_label">Bando relativo *</label>
+                                        <label for="ajax_notice" id="l_notice_label">Bando relativo *</label>
                                     </div>
                                     <div id="ajax_notice"></div>
                                     <input type="hidden" value="" name="relative_notice_id" id="relative_notice_id"
@@ -70,6 +106,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'id' => 'input_object',
                                         'class' => 'form-control input_object'
                                     ]) }}
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    {{ form_button([
+                                        'name' => 'copy',
+                                        'id' => 'btn_copy_obj',
+                                        'class' => 'btn btn-outline-primary',
+                                        'style' => 'width:100%;'
+                                    ],'<i class="far fa-copy "></i> &nbsp; Copia Oggetto dal bando') }}
                                 </div>
                             </div>
 
@@ -105,16 +150,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -166,23 +219,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{--  ************************************************ JAVASCRIPT ************************************************ --}}
 {% block javascript %}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Per il tooltip di info nel form
         let infoSpan = '<span class="far fa-question-circle fa-xs" data-toggle="tooltip" data-placement="right" ';
@@ -230,6 +282,49 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         $dropdownPublishingStatus.select2({
             placeholder: 'Seleziona',
             minimumResultsForSearch: -1
+        });
+
+        /**
+         * Funzione che copia l'oggetto del bando relativo al Lotto
+         */
+        {{-- Copia oggetto bando --}}
+        $('#btn_copy_obj').on('click', function () {
+            let notice = $('#relative_notice_id').val();
+
+            if (notice > 0) {
+                $.ajax({
+                    type: 'GET',
+                    url: '{{siteUrl("/admin/asyncSelectedData")}}',
+                    data: {
+                        id: notice,
+                        model: 15,
+                        institution_id: institutionId,
+                    },
+                    error: function (jqXHR, status) {
+                        let response = parseJson(jqXHR.responseText);
+                        $(document).Toasts('create', {
+                            class: 'bg-danger',
+                            title: 'ERRORE',
+                            subtitle: '',
+                            autohide: true,
+                            delay: 5000,
+                            body: 'Impossibile copiare l\'oggetto del Bando Selezionato'
+                        });
+                    }
+                }).then(function (data) {
+                    let item = data.data.selected;
+                    $('#input_object').val(item[0].text);
+                });
+            } else {
+                $(document).Toasts('create', {
+                    class: 'bg-warning',
+                    title: 'Attenzione',
+                    subtitle: '',
+                    autohide: true,
+                    delay: 5000,
+                    body: 'Nessun bando selezionato!'
+                });
+            }
         });
 
         {{-- Begin salvataggio --}}

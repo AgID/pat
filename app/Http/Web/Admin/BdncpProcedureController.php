@@ -7,20 +7,19 @@
 namespace Http\Web\Admin;
 
 use Exception;
-use Helpers\ActivityLog;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\BdncpProcedureValidator;
 use Helpers\Validators\DatatableValidator;
 use Model\BdncpProcedureModel;
+use Model\UsersModel;
 use Scope\DeletedScope;
-use System\Action;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -65,6 +64,12 @@ class BdncpProcedureController extends BaseAuthController
 
         $data['url'] = uri()->segment(2, 0);
 
+        $data['include'] = '';
+
+
+
+
+
         render('bdncp_procedure/index', $data, 'admin');
     }
 
@@ -98,14 +103,12 @@ class BdncpProcedureController extends BaseAuthController
                 6 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[5] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'updated_at');
+
+
 
             // Query per i dati da mostrare nel datatable
             $totalRecords = BdncpProcedureModel::select('count(id) as allcount')
@@ -113,38 +116,51 @@ class BdncpProcedureController extends BaseAuthController
 
             $totalRecordsWithFilter = BdncpProcedureModel::search($dataTable['searchValue'])
                 ->select('count(object_bdncp_procedure.id) as allcount')
-                ->join('users', 'users.id', '=', 'object_bdncp_procedure.owner_id', 'left outer');
+                ->join('users', 'users.id', '=', 'object_bdncp_procedure.owner_id', 'left outer')
+                ->BdncpProcedureFilterDataTable();
 
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_bdncp_procedure.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'updated_at');
 
+            $selectFields = [
+                'object_bdncp_procedure.id', 'object_bdncp_procedure.owner_id', 'object_bdncp_procedure.amount_liquidated', 'object_bdncp_procedure.institution_id', 'object_bdncp_procedure.object',
+                'object_bdncp_procedure.updated_at', 'bdncp_link', 'object_bdncp_procedure.cig', 'object_bdncp_procedure.type', 'object_bdncp_procedure.multicig', 'object_bdncp_procedure.typology',
+                'users.name as userName', 'i.full_name_institution'
+            ];
+
+
             $records = BdncpProcedureModel::search($dataTable['searchValue'])
-                ->select(['object_bdncp_procedure.id', 'object_bdncp_procedure.owner_id', 'object_bdncp_procedure.amount_liquidated', 'object_bdncp_procedure.institution_id', 'object_bdncp_procedure.object',
-                    'object_bdncp_procedure.updated_at', 'bdncp_link', 'publishing_status', 'object_bdncp_procedure.cig', 'object_bdncp_procedure.type', 'object_bdncp_procedure.typology',
-                    'users.name as userName', 'i.full_name_institution'])
+                ->select($selectFields)
                 ->join('users', 'users.id', '=', 'object_bdncp_procedure.owner_id', 'left outer')
+                ->BdncpProcedureFilterDataTable()
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
-                }]);
+                }])
+                ->with('all_attachs:id,archive_id,bdncp_cat');
+
+            $records = $records ?? null;
+
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_bdncp_procedure.id', '=', $dataTable['searchValue']);
             }
 
-            $records = $records->join('institutions as i', 'object_bdncp_procedure.institution_id', '=', 'i.id', 'left outer')
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
+            $records = optional($records->join('institutions as i', 'object_bdncp_procedure.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
                 ->limit($dataTable['rowPerPage'])
-                ->get();
+                ->get())->toArray();
 
             $response['draw'] = intval($dataTable['draw']);
             $response['iTotalRecords'] = ($totalRecords);
@@ -152,6 +168,10 @@ class BdncpProcedureController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -163,45 +183,88 @@ class BdncpProcedureController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
+
+                    $ecPermits = true;
+
+                    $deletePermits = $this->acl->getDelete() || $updatePermits || $permits;
+
+                    $record = $record ?? null;
+
+                    $acPermits = true;
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente, se non ha i permessi non li setto
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => ($checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits) && $acPermits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => ($checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $deletePermits) && $acPermits,
                     ])
-                        ->addEdit('admin/bdncp-procedure/edit' . ($record['typology'] === 'procedure' ? '' : '-'.$record['typology']) . '/' . $record['id'], $record['id'])
-                        ->addDuplicate('admin/bdncp-procedure/duplicate' . ($record['typology'] === 'procedure' ? '' : '-'.$record['typology']) . '/' . $record['id'], $record['id'])
+                        ->addEdit('admin/bdncp-procedure/edit' . ($record['typology'] === 'procedure' ? '' : '-' . $record['typology']) . '/' . $record['id'], $record['id'], '', true)
+                        ->addDuplicate('admin/bdncp-procedure/duplicate' . ($record['typology'] === 'procedure' ? '' : '-' . $record['typology']) . '/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/bdncp-procedure/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l', siteUrl('admin/bdncp-procedure/show-record-log/' . $record['id']), $record['id'], '91', 'show-record-log', 'view')
+                        ->addCustomButton('btn_c_p_a', siteUrl('admin/measure/create?cpa=' . $record['id'] . '&t=1'), $record['id'], $record['typology'], 'fa-copy', 'edit')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
+                        ->addCustomButton(
+                            's_no_app_io',
+                            '#!',
+                            $record['id'],
+                            'bdncp',
+                            'Invia notifica App IO',
+                            'view'
+                        )
                         ->addDelete('admin/bdncp-procedure/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) && $acPermits ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBoxEc = '';
+
+
+                    $setTempData[] = $checkBox . $checkBoxEc;
                     $setTempData[] = !empty($record['type']) ? ucfirst($record['type']) : '';
-                    $setTempData[] = !empty($record['cig']) ? '<a href="' . siteUrl('/page/10/details/' . $record['id'] . '/' . urlTitle($record['cig'])) . '" target="_blank">' . escapeXss($record['cig']) . '</a>' : '';
+
+                    $txtColonnaCig = !empty($record['cig']) ? $record['cig'] : '';
+
+                    if (!empty($record['cig']) && $record['cig'] != '0000000000') {
+
+                        if (!empty($record['bdncp_link'])) {
+                            $txtColonnaCig = '<a href="' . escapeXss($record['bdncp_link']) . '"   target="_blank"   rel="noopener noreferrer"   class="font-weight-bold text-primary text-decoration-none"   title="Apri il CIG su BDNCP">    ' . escapeXss($record['cig']) . '    <i class="fas fa-external-link-alt ml-1" style="font-size:0.8em;"></i></a>';
+                        } else {
+                            $txtColonnaCig = '<span class="text-muted font-weight-bold">    ' . escapeXss($record['cig']) . '</span>';
+                        }
+                    }
+
+                    $setTempData[] = $txtColonnaCig;
+
                     $setTempData[] = $icon . (!empty($record['object'])
                             ? '<a href="' . siteUrl('/page/10/details/' . $record['id'] . '/' . urlTitle(escapeXss($record['object']))) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
                             : 'N.D.');
-                    $setTempData[] = !empty($record['bdncp_link'])
-                        ? '<a href="' . $record['bdncp_link'] . '" target="_blank">' . escapeXss($record['bdncp_link']) . '</a>'
-                        : '<small class="badge badge-danger">N/A</small>';
+
+
+
+                    $record['created_by'] = $record['created_by'] ?? null;
 
                     $setTempData[] = createdByCheckDeleted($record['created_by']['name'] ?? null, @$record['created_by']['deleted'] ?? 0);
                     $setTempData[] = $updateAt;
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
+                    
+                    $setTempData[] = $this->attachAnchorMenu($record);
 
                     $setTempData[] = $buttonAction;
 
@@ -210,9 +273,7 @@ class BdncpProcedureController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -232,7 +293,7 @@ class BdncpProcedureController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/bdncp-procedure/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/bdncp-procedure/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -257,12 +318,15 @@ class BdncpProcedureController extends BaseAuthController
         $data['_storageType'] = 'insert';
         $data['procedureCat'] = config('config', null, 'bdncp_procedure_config');
 
+
         // Labels
         $data['labels'] = [];
+
         $data['attLabels'] = $data['labels'];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('bdncp_procedure/form_store', $data, 'admin');
     }
@@ -283,7 +347,7 @@ class BdncpProcedureController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/bdncp-procedure/create-alert-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/bdncp-procedure/create-alert-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -310,10 +374,65 @@ class BdncpProcedureController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
+
         render('bdncp_procedure/form_store_alert', $data, 'admin');
+    }
+
+
+    /**
+     * @description Renderizza il form di creazione di un nuovo Avviso
+     *
+     * @return void
+     * @throws Exception
+     * @url /admin/bdncp-procedure/create-alert.html
+     * @method GET
+     */
+    public function createVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute('create');
+
+        $data = [];
+
+        //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/bdncp-procedure/create-variation-box', true);
+
+        //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
+        if (!$data['is_box']) {
+
+            $this->breadcrumb->push('Procedure BDNCP', 'admin/bdncp-procedure');
+            $this->breadcrumb->push('Nuova variante', '/');
+            $data['breadcrumbs'] = $this->breadcrumb->show();
+
+            //Dati header della sezione
+            $data['titleSection'] = 'Bandi di gara e contratti (dal 1/1/2024)';
+            $data['subTitleSection'] = 'GESTIONE DEI BANDI DI GARA E CONTRATTI';
+            $data['sectionIcon'] = '<i class="fas fa-clipboard-list fa-3x"></i>';
+        }
+
+        //Setto dati del form
+        $data['formAction'] = '/admin/bdncp-procedure/store-variation';
+        $data['formSettings'] = [
+            'name' => 'form_bdncp-procedure',
+            'id' => 'form_bdncp-procedure',
+            'class' => 'form_bdncp-procedure',
+        ];
+        $data['_storageType'] = 'insert';
+
+        // Labels
+        $data['labels'] = [];
+        $data['labels'] = @$data['labels']['variation'];
+
+
+        // ID dell'ente corrente.
+        $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+
+        render('bdncp_procedure/form_store_variation', $data, 'admin');
     }
 
     /**
@@ -327,7 +446,7 @@ class BdncpProcedureController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -351,7 +470,7 @@ class BdncpProcedureController extends BaseAuthController
             $attachValidatorError = false;
 
             foreach ($tmpCat as $cat) {
-                $attachValidator = $attach->validate('attach_files' . $cat, false, false, $cat);
+                $attachValidator = $attach->validate('attach_files' . $cat, $cat);
 
                 if (!empty($attachValidator['error'])) {
                     $attachValidatorError = true;
@@ -375,6 +494,8 @@ class BdncpProcedureController extends BaseAuthController
                 $cig = strip_tags(strtoupper(trim(Input::post('cig', true))));
 
                 $bdncpLink = '';
+                $eprocUrl = null;
+
                 //Controllo per vedere se almeno uno dei campi delle checkbox è popolato altrimenti metto la checkbox automaticamente a false
                 $checkForCheckbox = $this->checkCheckbox();
 
@@ -387,6 +508,7 @@ class BdncpProcedureController extends BaseAuthController
                     'object' => $object,
                     'cig' => $cig,
                     'bdncp_link' => !empty(Input::post('bdncp_link')) ? strip_tags(trim(Input::post('bdncp_link', true))) : $bdncpLink,
+                    'eproc_url' => !empty(Input::post('eproc_url')) ? strip_tags(trim(Input::post('eproc_url', true))) : $eprocUrl,
                     'typology' => $typology,
                     'type' => $type,
 
@@ -416,8 +538,11 @@ class BdncpProcedureController extends BaseAuthController
                     'notes' => setDefaultData(Input::post('notes', true), null, ['', null]),
                 ];
 
+
                 // Storage nuova Soluzione Tecnologica
                 $insert = BdncpProcedureModel::createWithLogs($arrayValues);
+
+
 
                 // Storage nelle tabelle di relazione
                 $this->clear(
@@ -436,18 +561,19 @@ class BdncpProcedureController extends BaseAuthController
                         '',
                         null,
                         null,
-                        false,
                         true,
                         $cat . 'O__O' . $i++
                     );
                 }
 
+
+
                 $json->set('message', __('success_save_operation', null, 'patos'));
 
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+//                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                    // Generazione nuovo token
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
             }
 
         } else {
@@ -471,7 +597,7 @@ class BdncpProcedureController extends BaseAuthController
     public function storeAlert(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -513,18 +639,103 @@ class BdncpProcedureController extends BaseAuthController
                     'notes' => setDefaultData(Input::post('notes', true), null, ['', null]),
                 ];
 
+
                 // Storage nuova Soluzione Tecnologica
                 $insert = BdncpProcedureModel::createWithLogs($arrayValues);
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'bdncp_procedure', $insert->id, $insert['object']);
 
+
                 $json->set('message', __('success_save_operation', null, 'patos'));
 
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+//                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                    // Generazione nuovo token
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
+            }
+
+        } else {
+
+            $code = $json->bad();
+            $json->error('error', $check['errors']);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
+    }
+
+
+    /**
+     * @description Funzione che effettua lo storage di una nuova Variante
+     *
+     * @return void
+     * @method POST
+     * @throws Exception
+     * @url /admin/bdncp-procedure/store-variation.html
+     */
+    public function storeVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute('create', true);
+
+        $json = new JsonResponse();
+        $code = $json->success();
+
+        // Validatore form
+        $validator = new BdncpProcedureValidator();
+        $check = $validator->check('insert', 'variation');
+
+        if ($check['is_success']) {
+            $doAction = true;
+
+            $attach = new AttachmentArchive();
+            $attachValidator = $attach->validate('attach_files');
+
+            // Validatore per gli eventuali allegati
+            // Se la validazione non va a buon fine setto il messaggio di errore e non eseguo lo storage dell'oggetto
+            if (!empty($attachValidator['error'])) {
+                $doAction = false;
+                $code = $json->bad();
+                $json->set('error_partial_attach', $attach->errorsToString());
+            }
+
+            // Se la validazione degli allegati va a buon fine eseguo lo storage dell'oggetto
+            if ($doAction) {
+                $getIdentity = authPatOs()->getIdentity(['id', 'name']);
+
+                $object = strip_tags(trim((string)Input::post('object', true)));
+                $typology = 'variation';
+                $type = "Variante in corso d'opera";
+
+                $arrayValues = [
+                    'owner_id' => $getIdentity['id'],
+                    'institution_id' => checkAlternativeInstitutionId(),
+                    'object' => $object,
+                    'typology' => $typology,
+                    'type' => $type,
+                    'notes' => setDefaultData(Input::post('notes', true), null, ['', null]),
+                ];
+
+
+                // Storage nuova Soluzione Tecnologica
+                $insert = BdncpProcedureModel::createWithLogs($arrayValues);
+
+
+                // Storage nelle tabelle di relazione
+                $this->clear(
+                    $insert,
+                    null,
+                    null,
+                    !empty(Input::post('object_bdncp_procedure_id')) ? explode(',', strip_tags((string)Input::post('object_bdncp_procedure_id', true))) : null,
+                );
+
+                // Storage allegati associati al personale.
+                $attach->storage('attach_files', 'bdncp_procedure', $insert->id, $insert['object']);
+
+
+                $json->set('message', __('success_save_operation', null, 'patos'));
+
             }
 
         } else {
@@ -597,6 +808,7 @@ class BdncpProcedureController extends BaseAuthController
             'class' => 'form_bdncp_procedure',
         ];
 
+
         $data['procedure'] = $procedure;
 
         // Lista degli allegati
@@ -619,8 +831,11 @@ class BdncpProcedureController extends BaseAuthController
 
         $data['procedureCat'] = config('config', null, 'bdncp_procedure_config');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $procedure['institution_id'];
+        $data['seo'] = $procedure['p_s_d_r'] ?? null;
+
+
 
         render('bdncp_procedure/form_store', $data, 'admin');
     }
@@ -698,11 +913,97 @@ class BdncpProcedureController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+
+        // ID dell'ente corrente.
         $data['institution_id'] = $alert['institution_id'];
+        $data['seo'] = $alert['p_s_d_r'] ?? null;
+
 
         render('bdncp_procedure/form_store_alert', $data, 'admin');
     }
+
+
+    /**
+     * @description Renderizza il form di modifica/duplicazione di una Procedura BDNCP
+     *
+     * @return void
+     * @noinspection PhpVoidFunctionResultUsedInspection
+     * @throws Exception
+     * @url /admin/bdncp-procedure/edit-variation.html
+     * @method GET
+     */
+    public function editVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute(['update', 'create']);
+
+        //Validatore che verifica se l'elemento da modificare esiste
+        $validator = new BdncpProcedureValidator();
+        $validate = $validator->validateUriSegmentId(!$this->acl->getUpdate());
+
+        if (!$validate['is_success']) {
+            redirect('admin/bdncp-procedure', sessionSetNotify($validate['errors'], 'danger'));
+            exit();
+        }
+
+        // Allegati
+        $attach = new AttachmentArchive();
+
+        // Se la validazione va a buon fine recupero l'elemento da modificare dal registro
+        $variation = Registry::get('bdncp-procedure');
+        $variation = !empty($variation) ? $variation->toArray() : [];
+
+        $this->breadcrumb->push('Procedure BDNCP', 'admin/bdncp-procedure');
+        $this->breadcrumb->push('Modifica variante', '/');
+
+        $data = [];
+        $data['breadcrumbs'] = $this->breadcrumb->show();
+
+        //Dati header della sezione
+        $data['titleSection'] = 'Bandi di gara e contratti (dal 1/1/2024)';
+        $data['subTitleSection'] = 'GESTIONE DEI BANDI DI GARA E CONTRATTI';
+        $data['sectionIcon'] = '<i class="fas fa-clipboard-list fa-3x"></i>';
+
+        // Vedo in sessione se sono arrivato qui da un operazione di ripristino dal versioning
+        $session = new Session();
+        $restore = $session->getFlash('restore');
+        $data['restore'] = $restore;
+
+        // Controllo se si sta duplicando un tasso di assenza
+        $isDuplicate = uri()->segment(3, 0) === 'duplicate-variation';
+
+        // Setto il tipo di storage
+        $data['_storageType'] = $isDuplicate ? 'duplicate' : 'update';
+
+        //In base al tipo di storage setto l'action del form
+        $data['formAction'] = ($isDuplicate) ? '/admin/bdncp-procedure/store-variation' : '/admin/bdncp-procedure/update-variation';
+        $data['formSettings'] = [
+            'name' => 'form_bdncp_procedure',
+            'id' => 'form_bdncp_procedure',
+            'class' => 'form_bdncp_procedure',
+        ];
+
+        $data['variation'] = $variation;
+
+        // Lista degli allegati
+        $data['listAttach'] = $attach->getAllByObject(
+            'bdncp_procedure',
+            $variation['id']
+        );
+
+        // Labels
+        $data['labels'] = [];
+        $data['labels'] = @$data['labels']['variation'];
+
+
+        // ID dell'ente corrente.
+        $data['institution_id'] = $variation['institution_id'];
+        $data['seo'] = $variation['p_s_d_r'] ?? null;
+
+
+        render('bdncp_procedure/form_store_variation', $data, 'admin');
+    }
+
 
     /**
      * @description Funzione che effettua l'update di una procedura
@@ -736,7 +1037,7 @@ class BdncpProcedureController extends BaseAuthController
             $procedure = $procedure->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($procedure['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($procedure['owner_id']) ? ['update', 'create'] : 'update', true);
 
             $tmpCat = [];
             $bdncpProcedureCat = config('config', null, 'bdncp_procedure_config');
@@ -750,7 +1051,7 @@ class BdncpProcedureController extends BaseAuthController
             $attachValidatorError = false;
 
             foreach ($tmpCat as $cat) {
-                $attachValidator = $attach->validate('attach_files' . $cat, false, false, $cat);
+                $attachValidator = $attach->validate('attach_files' . $cat, $cat);
 
                 if (!empty($attachValidator['error'])) {
                     $attachValidatorError = true;
@@ -767,6 +1068,7 @@ class BdncpProcedureController extends BaseAuthController
 
             $cig = !empty(Input::post('cig')) ? strtoupper(strip_tags(trim((string)Input::post('cig', true)))) : null;
             $bdncpLink = '';
+            $eprocUrl = null;
 
             // Se la validazione degli allegati va a buon fine eseguo l'update dell'oggetto
             if ($doAction) {
@@ -774,6 +1076,7 @@ class BdncpProcedureController extends BaseAuthController
                 $data['object'] = !empty(Input::post('object')) ? strip_tags(trim((string)Input::post('object', true))) : null;
                 $data['cig'] = $cig;
                 $data['bdncp_link'] = !empty(Input::post('bdncp_link')) ? strip_tags(trim((string)Input::post('bdncp_link', true))) : $bdncpLink;
+                $data['eproc_url'] = !empty(Input::post('eproc_url')) ? strip_tags(trim((string)Input::post('eproc_url', true))) : $eprocUrl;
 
                 //Controllo per vedere se almeno uno dei campi delle checkbox è popolato altrimenti metto la checkbox automaticamente a false
                 $checkForCheckbox = $this->checkCheckbox();
@@ -803,6 +1106,9 @@ class BdncpProcedureController extends BaseAuthController
                 $data['foster_procedure_notes'] = setDefaultData(Input::post('foster_procedure_notes', true), null, ['', null]);
                 $data['notes'] = setDefaultData(Input::post('notes', true), null, ['', null]);
 
+
+
+
                 BdncpProcedureModel::where('id', $procedureId)->updateWithLogs($procedure, $data);
 
                 // Svuoto le tabelle di relazione e le aggiorno
@@ -822,13 +1128,13 @@ class BdncpProcedureController extends BaseAuthController
                         $procedure['object'],
                         '',
                         null,
-                        false,
                         $cat . 'O__O' . $i++
                     );
                 }
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -871,7 +1177,7 @@ class BdncpProcedureController extends BaseAuthController
             $alert = $alert->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($alert['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($alert['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -893,7 +1199,9 @@ class BdncpProcedureController extends BaseAuthController
                 $data['alert_date'] = !empty(Input::post('alert_date')) ? convertDateToDatabase(strip_tags(Input::post('alert_date', true))) : null;
                 $data['notes'] = setDefaultData(Input::post('notes', true), null, ['', null]);
 
+
                 BdncpProcedureModel::where('id', $alertId)->updateWithLogs($alert, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -904,8 +1212,9 @@ class BdncpProcedureController extends BaseAuthController
                     $alert['object']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -917,6 +1226,94 @@ class BdncpProcedureController extends BaseAuthController
         $json->setStatusCode($code);
         $json->response();
     }
+
+
+    /**
+     * @description Funzione che effettua l'update di una procedura
+     *
+     * @return void
+     * @throws Exception
+     * @url /admin/bdncp-procedure/update-variation.html
+     * @method POST
+     */
+    public function updateVariation(): void
+    {
+        $json = new JsonResponse();
+        $code = $json->success();
+
+        // Validatore form
+        $validator = new BdncpProcedureValidator();
+        $check = $validator->check('update', 'variation');
+
+        if ($check['is_success']) {
+            $doAction = true;
+
+            $variationId = (int)strip_tags(Input::post('id', true));
+
+            // Recupero l'atto attuale prima di modificarlo e lo salvo nel versioning
+            $variation = BdncpProcedureModel::where('id', $variationId)
+                ->with('rel_variation_procedure:id,object,cig')
+                ->with('all_attachs');
+
+            $variation = $variation->first();
+
+            //Setto il metodo della rotta per i permessi
+            $this->acl->setRoute(checkRecordOwner($variation['owner_id']) ? ['update', 'create'] : 'update', true);
+
+            // Validazione upload allegati associati al tasso di assenza
+            $attach = new AttachmentArchive();
+            $attachValidator = $attach->validate('attach_files');
+
+            // Validatore per gli eventuali allegati
+            // Se la validazione non va a buon fine setto il messaggio di errore e non eseguo l'update dell'oggetto
+            if (!empty($attachValidator['error'])) {
+                $doAction = false;
+                $code = $json->bad();
+                $json->set('error_partial_attach', $attach->errorsToString());
+            }
+
+            // Se la validazione degli allegati va a buon fine eseguo l'update dell'oggetto
+            if ($doAction) {
+
+                $data = [];
+                $data['object'] = !empty(Input::post('object')) ? strip_tags(trim((string)Input::post('object', true))) : null;
+                $data['notes'] = setDefaultData(Input::post('notes', true), null, ['', null]);
+
+
+                BdncpProcedureModel::where('id', $variationId)->updateWithLogs($variation, $data);
+
+
+                // Storage nelle tabelle di relazione
+                $this->clear(
+                    $variation,
+                    null,
+                    null,
+                    !empty(Input::post('object_bdncp_procedure_id')) ? explode(',', strip_tags((string)Input::post('object_bdncp_procedure_id', true))) : null,
+                );
+
+
+                // Upload allegati associati al personale.
+                $attach->update(
+                    'attach_files',
+                    'bdncp_procedure',
+                    $variationId,
+                    $variation['institution_id'],
+                    $variation['object']
+                );
+
+
+                $json->set('message', __('success_update_operation', null, 'patos'));
+            }
+        } else {
+
+            $code = $json->bad();
+            $json->error('error', $check['errors']);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
+    }
+
 
     /**
      * @description Funzione che effettua l'eliminazione di una Procedura
@@ -936,20 +1333,23 @@ class BdncpProcedureController extends BaseAuthController
         $validate = $validator->validateUriSegmentId(!$this->acl->getDelete() && $this->acl->getUpdate());
 
         if (!$validate['is_success']) {
-            redirect('admin/notices-act', sessionSetNotify($validate['errors'], 'danger'));
+            redirect('admin/bdncp-procedure', sessionSetNotify($validate['errors'], 'danger'));
             exit();
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
         $procedure = Registry::get('bdncp-procedure');
 
+
         // Elimino l'atto settando deleted = 1
         $procedure->deleteWithLogs($procedure);
+
+
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/bdncp-procedure');
     }
 
@@ -964,14 +1364,12 @@ class BdncpProcedureController extends BaseAuthController
     public function deletes(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new BdncpProcedureValidator();
         $validate = $validator->multipleSelection();
 
         if ($validate['is_success']) {
-
-            sessionSetNotify('Operazione avvenuta con successo');
 
             //Recupero gli elementi da eliminare dal registro
             $procedures = Registry::get('__ids__multi_select_profile__');
@@ -979,13 +1377,25 @@ class BdncpProcedureController extends BaseAuthController
             //Estraggo gli array degli elementi da eliminare
             $ids = Arr::pluck($procedures, 'id');
 
+            $esclusi = [];
+
+
             //Elimino gli elementi
             foreach ($procedures as $procedure) {
+
                 $procedure->deleteWithLogs($procedure);
+
+
+            }
+
+
+            if (empty($esclusi)) {
+                sessionSetNotify('Operazione avvenuta con successo');
+            } else {
             }
 
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -995,182 +1405,16 @@ class BdncpProcedureController extends BaseAuthController
     }
 
     /**
-     * @description Funzione per l'export dei dati in CSV
-     *
-     * @return void
-     * @throws Exception
-     * @url admin/general-acts-documents/export-csv
-     * @method GET
-     */
-    public function exportCsv(): void
-    {
-        //Tassi di assenza
-        $fileName = 'Procedure di gara.csv';
-
-        setFileDownloadCookieCSV($fileName);
-
-        $output = fopen("php://output", 'w');
-
-        $records = BdncpProcedureModel::with('all_attachs')
-            ->with('created_by:id,name')
-            ->with('commission:id,assignment_start,name,object')
-            ->with('board:id,assignment_start,name,object')
-            ->orderBy('created_at', 'DESC')
-            ->get()
-            ->toArray();
-
-        if (!empty($records)) {
-
-            //Setto le colonne
-            $headers = array(
-                'ID',
-                'TIPOLOGIA',
-                'CIG',
-                'OGGETTO',
-                'LINK BDNCP',
-                'DATA AVVISO',
-                'NOTE DIBATTITO PUBBLICO',
-                'ALLEGATI DIBATTITO PUBBLICO',
-                'NOTE DOCUMENTI DI GARA',
-                'ALLEGATI DOCUMENTI DI GARA',
-                'NOTE COMPOSIZIONE DELLE COMMISSIONI GIUDICATRICI',
-                'COMPONENTI DELLE COMMISSIONI GIUDICATRICI',
-                'NOTE PARI OPPORTUNITA',
-                'ALLEGATI PARI OPPORTUNITA',
-                'NOTE PROCEDURE DI AFFIDAMENTO DEI SERVIZI PUBBLICI LOCALI',
-                'ALLEGATI PROCEDURE DI AFFIDAMENTO DEI SERVIZI PUBBLICI LOCALI',
-                'NOTE COMPOSIZIONE COLLEGIO CONSULTIVO TECNICO',
-                'COMPONENTI DEL COMPOSIZIONE COLLEGIO CONSULTIVO TECNICO',
-                'NOTE PARI OPPORTUNITA',
-                'ALLEGATI PARI OPPORTUNITA',
-                'NOTE CONTRATTI GRATUITI E FORME SPECIALI DI PARENTARIATO',
-                'ALLEGATI CONTRATTI GRATUITI E FORME SPECIALI DI PARENTARIATO',
-                'NOTE AFFIDAMENTI DI SOMMA URGENZA',
-                'ALLEGATI AFFIDAMENTI DI SOMMA URGENZA',
-                'NOTE PROCEDURA DI AFFIDAMENTO',
-                'ALLEGATI PROCEDURA DI AFFIDAMENTO',
-                'NOTE',
-                'ALLEGATI',
-                'CREATO DA',
-                'ULTIMA MODIFICA',
-            );
-            fputcsv($output, $headers, ';', '"');
-
-            foreach ($records as $record) {
-
-                $alertDate = !empty($record['alert_date']) ? (date('d-m-Y', strtotime($record['alert_date']))) : '';
-
-                $attachLists = [];
-                if (!empty($record['all_attachs'])) {
-
-                    foreach ($record['all_attachs'] as $attach) {
-                        if (empty($attach['bdncp_cat'])) {
-                            $attach['bdncp_cat'] = '_generalInfo';
-                        }
-                        $attachLists [$attach['bdncp_cat']] [] = '(' . $attach['label'] . ') - Url: '
-                            . siteUrl('/download/' . $attach['id']) . "\n";
-
-                    }
-                }
-
-                // Concateno gli incarichi
-                $commissions = '';
-                if (!empty($record['commission'])) {
-                    foreach ($record['commission'] as $commission) {
-
-                        $commissions .= $commission['name'] . ' - [Url]: '
-                            . siteUrl('page/46/details/' . $commission['id'] . '/' . urlTitle($commission['name'])) . "\n";
-
-                    }
-                }
-
-                // Concateno gli incarichi
-                $boards = '';
-                if (!empty($record['board'])) {
-                    foreach ($record['board'] as $board) {
-
-                        $boards .= $board['name'] . ' - [Url]: '
-                            . siteUrl('page/46/details/' . $board['id'] . '/' . urlTitle($board['name'])) . "\n";
-
-                    }
-                }
-
-                $updateAt = !empty($record['updated_at']) ? date('d-m-Y H:i:s', strtotime($record['updated_at'])) : null;
-
-                //Setto i dati da inserire nelle colonne del CSV
-                $data = [
-                    !empty($record['id']) ? $record['id'] : null,
-                    !empty($record['type']) ? $record['type'] : null,
-                    !empty($record['cig']) ? (string)$record['cig'] . ' ' : null,
-                    !empty($record['object']) ? $record['object'] : null,
-                    !empty($record['bdncp_link']) ? $record['bdncp_link'] : null,
-                    $alertDate,
-                    !empty($record['public_debate_notes']) ? $record['public_debate_notes'] : null,
-                    !empty($attachLists['_publicDebate']) ? trim(implode('', $attachLists['_publicDebate'])) : null,
-                    !empty($record['notice_documents_notes']) ? $record['notice_documents_notes'] : null,
-                    !empty($attachLists['_noticeDocuments']) ? trim(implode('', $attachLists['_noticeDocuments'])) : null,
-                    !empty($record['judging_commission_notes']) ? $record['judging_commission_notes'] : null,
-                    trim($commissions),
-                    !empty($record['equal_opportunities_af_notes']) ? $record['equal_opportunities_af_notes'] : null,
-                    !empty($attachLists['_equalOpportunitiesAf']) ? trim(implode('', $attachLists['_equalOpportunitiesAf'])) : null,
-                    !empty($record['local_public_services_notes']) ? $record['local_public_services_notes'] : null,
-                    !empty($attachLists['_localPublicServices']) ? trim(implode('', $attachLists['_localPublicServices'])) : null,
-                    !empty($record['advisory_board_technical_notes']) ? $record['advisory_board_technical_notes'] : null,
-                    trim($boards),
-                    !empty($record['equal_opportunities_es_notes']) ? $record['equal_opportunities_es_notes'] : null,
-                    !empty($attachLists['_equalOpportunitiesEs']) ? trim(implode('', $attachLists['_equalOpportunitiesEs'])) : null,
-                    !empty($record['free_contract_notes']) ? $record['free_contract_notes'] : null,
-                    !empty($attachLists['_freeContract']) ? trim(implode('', $attachLists['_freeContract'])) : null,
-                    !empty($record['emergency_foster_notes']) ? $record['emergency_foster_notes'] : null,
-                    !empty($attachLists['_emergencyFoster']) ? trim(implode('', $attachLists['_emergencyFoster'])) : null,
-                    !empty($record['foster_procedure_notes']) ? $record['foster_procedure_notes'] : null,
-                    !empty($attachLists['_fosterProcedure']) ? trim(implode('', $attachLists['_fosterProcedure'])) : null,
-                    !empty($record['notes']) ? $record['notes'] : null,
-                    !empty($attachLists['_generalInfo']) ? trim(implode('', $attachLists['_generalInfo'])) : null,
-                    !empty($record['created_by']['name']) ? checkDecrypt($record['created_by']['name']) : null,
-                    $updateAt,
-                ];
-
-                fputcsv($output, $data, ';', '"');
-            }
-            fclose($output);
-
-            // Storage Activity log
-            ActivityLog::create([
-                'action' => 'Esportazione dati dei Bandi di gara e contratti (dal 1/1/2024) in CSV',
-                'action_type' => 'exportCSV',
-                'description' => 'Esportazione dati dei Bandi di gara e contratti (dal 1/1/2024) in CSV',
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
-                'object_id' => 91,
-                'area' => 'object'
-            ]);
-
-            exit();
-        } else {
-
-            //Se non sono presenti tassi di assenza nel db mostro una notifica con il messaggio e faccio il redirect
-            sessionSetNotify(
-                sprintf(__('error_export_csv_', null, 'patos'), 'bando di gara'),
-                'warning'
-            );
-
-            redirect('admin/bdncp-procedure');
-        }
-    }
-
-    /**
      * @description Metodo per lo storage nelle tabelle di relazione
      *
      * @param BdncpProcedureModel|null $procedure Procedura per cui inserire i dati di relazione
      * @param array|int|null $judgingCommission Incarichi che compongono la commissione giudicatrice
      * @param array|int|null $technicalAdvisoryBoard Incarichi che compongono il Collegio consultivo tecnico
+     * @param array|int|null $relativeBdncpProcedure Procedure relative per le varianti
+     * @param array|int|null $measures Provvedimenti associati
      * @return void
      */
-    protected function clear(BdncpProcedureModel $procedure = null, array|int $judgingCommission = null, array|int $technicalAdvisoryBoard = null): void
+    protected function clear(BdncpProcedureModel $procedure = null, array|int $judgingCommission = null, array|int $technicalAdvisoryBoard = null, array|int $relativeBdncpProcedure = null, array|int $measures = null): void
     {
         $dataAssignments = [];
         if ($judgingCommission !== null) {
@@ -1190,6 +1434,24 @@ class BdncpProcedureController extends BaseAuthController
         //Insert/Update nella tabella di relazione
         $procedure->board()->syncWithPivotValues($dataAssignments, ['typology' => 'board']);
 
+        $dataProcedure = [];
+        if ($relativeBdncpProcedure !== null) {
+            foreach ($relativeBdncpProcedure as $proc) {
+                $dataProcedure[] = is_array($proc) ? $proc['id'] : $proc;
+            }
+        }
+        //Insert/Update nella tabella di relazione
+        $procedure->rel_variation_procedure()->syncWithPivotValues($dataProcedure, ['typology' => 'variation']);
+
+        $dataMeasures = [];
+        if ($measures !== null) {
+            foreach ($measures as $measure) {
+                $dataMeasures[] = is_array($measure) ? $measure['id'] : $measure;
+            }
+        }
+        //Insert/Update nella tabella di relazione
+        $procedure->measures()->sync($dataMeasures);
+
     }
 
     private function checkCheckbox()
@@ -1207,5 +1469,67 @@ class BdncpProcedureController extends BaseAuthController
             'emergencyFosterCheck' => (!empty(Input::post('attach_id_emergencyFoster'))) || !empty(trim((string)Input::post('emergency_foster_notes'))),
             'fosterProcedureCheck' => (!empty(Input::post('attach_id_fosterProcedure'))) || !empty(trim((string)Input::post('foster_procedure_notes'))),
         ];
+    }
+
+
+    private function attachAnchorMenu($record)
+    {
+
+        if ($record['typology'] == 'procedure') {
+
+            $linkEdit = siteUrl('admin/bdncp-procedure/edit/' . $record['id']);
+
+            $selectColor = '#dc3545';
+            $hiddenOpt = 0;
+            $attachCount = [];
+
+            if (!empty($record['all_attachs'])) {
+                $hiddenOpt = count($record['all_attachs']);
+                $selectColor = '#28a745';
+                $attachCount = array_count_values(
+                    array_column($record['all_attachs'], 'bdncp_cat')
+                );
+            }
+
+            return '
+                <select style="color: #fff; background-color: ' . $selectColor . ';" id="select-attach-' . $record['id'] . '" class="form-control select-attach" onchange="window.location.href=this.value;">
+                    <option selected disabled value="">' . $hiddenOpt . '</option>
+                
+                    <optgroup label="Fase pubblicazione">
+                        <option value="' . $linkEdit . '#anchor__publicDebate">Dibattito pubblico ' . (!empty($attachCount['_publicDebate']) ? "(" . $attachCount['_publicDebate'] . ")" : "") . '</option>
+                        <option value="' . $linkEdit . '#anchor__noticeDocuments">Documenti di gara e affidamenti diretti ' . (!empty($attachCount['_noticeDocuments']) ? '(' . $attachCount['_noticeDocuments'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Fase affidamento">
+                        <option value="' . $linkEdit . '#anchor__equalOpportunitiesAf">Pari opportunità e inclusione lavorativa ' . (!empty($attachCount['_equalOpportunitiesAf']) ? '(' . $attachCount['_equalOpportunitiesAf'] . ')' : '') . '</option>
+                        <option value="' . $linkEdit . '#anchor__localPublicServices">Procedure di affidamento dei servizi pubblici locali ' . (!empty($attachCount['_localPublicServices']) ? '(' . $attachCount['_localPublicServices'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Fase esecutiva">
+                        <option value="' . $linkEdit . '#anchor__equalOpportunitiesEs">Pari opportunità e inclusione lavorativa ' . (!empty($attachCount['_equalOpportunitiesEs']) ? '(' . $attachCount['_equalOpportunitiesEs'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Sponsorizzazioni">
+                        <option value="' . $linkEdit . '#anchor__freeContract">Contratti gratuiti e forme speciali di partenariato ' . (!empty($attachCount['_freeContract']) ? '(' . $attachCount['_freeContract'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Procedure di somma urgenza e protezione civile">
+                        <option value="' . $linkEdit . '#anchor__emergencyFoster">Affidamenti di somma urgenza ' . (!empty($attachCount['_emergencyFoster']) ? '(' . $attachCount['_emergencyFoster'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Finanza di progetto">
+                        <option value="' . $linkEdit . '#anchor__fosterProcedure">Procedura di affidamento ' . (!empty($attachCount['_fosterProcedure']) ? '(' . $attachCount['_fosterProcedure'] . ')' : '') . '</option>
+                    </optgroup>
+                
+                    <optgroup label="Altre informazioni">
+                        <option value="' . $linkEdit . '#anchor__generalInfo">Altre informazioni ' . (!empty($attachCount['_generalInfo']) ? '(' . $attachCount['_generalInfo'] . ')' : '') . '</option>
+                    </optgroup>
+                </select>';
+        } else {
+            return !empty($record['all_attachs'])
+                ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
+        }
+
     }
 }

@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -45,8 +49,7 @@ class OpenDataCompanyFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -71,7 +74,7 @@ class OpenDataCompanyFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('ente pubblico vigilato');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -99,7 +102,7 @@ class OpenDataCompanyFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('societa partecipata');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -127,7 +130,7 @@ class OpenDataCompanyFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('ente di diritto privato controllato');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -148,10 +151,11 @@ class OpenDataCompanyFrontController extends BaseFrontController
     {
 
         $fileName = 'Enti controllati - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -245,7 +249,8 @@ class OpenDataCompanyFrontController extends BaseFrontController
     private function getData($type = null): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        return CompanyModel::where('archived', '!=', 1)
+        return CompanyModel::where(function ($query) {
+            })
             ->where('typology', $type)
             ->with('attachs')
             ->with('representatives:id,full_name')

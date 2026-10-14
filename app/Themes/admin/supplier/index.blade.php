@@ -15,7 +15,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             <div class="card-header">
                 <div class="row">
                     <div class="col-md-6 mt-2">
-                        <h3 class="card-title">Partecipanti/aggiudicatari presenti</h3>
+                        <h3 class="card-title">Partecipanti/aggiudicatari/fornitori presenti</h3>
                     </div>
 
                     <div class="col-md-6 text-right">
@@ -28,12 +28,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <ul class="dropdown-menu dropdown-menu-right">
 
                                 @if(getAclAdd())
+                                    @php
+                                        $class = checkAlternativeInstitutionId() == 0 ? 'select-institution' : null;
+                                    @endphp
                                     <li>
-                                        <a href="{{siteUrl('admin/supplier/create')}}"
-                                           title="Crea un nuovo partecipante/aggiudicatario"
-                                           id="add-profiles" class="dropdown-item" type="button">
-                                            <i class="fas fa-plus-circle mr-1"></i> Aggiungi un nuovo
-                                            Partecipante/Aggiudicatario
+                                        <a href="{{ empty($class) ? siteUrl('admin/supplier/create') : '#!' }}"
+                                           title="Aggiungi nuovo"
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
+                                            <i class="fas fa-plus-circle mr-1"></i> Aggiungi nuovo
                                         </a>
                                     </li>
 
@@ -47,11 +49,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <a href="#!"
                                            title="Cancella strutture selezionate"
                                            id="delete-items" class="dropdown-item" type="button" data-url="{{ siteUrl('admin/supplier/deletes') }}">
-                                            <i class="fas fa-trash mr-1"></i> Cancella Partecipanti/Aggiudicatari
+                                            <i class="fas fa-trash mr-1"></i> Cancella elementi
                                             selezionati
                                         </a>
                                     </li>
+
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                 @endif
+
+
+                                @php
+                                    if(getAclAdd()){
+                                    }
+                                @endphp
                             </ul>
                         </div>
                     </div>
@@ -59,6 +71,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
 
             <div class="card-body">
+
 
                 <table id="supplier_list" class="table table-bordered table-striped table-hover">
                     <thead class="bg-table-accessibility">
@@ -70,10 +83,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>CODICE FISCALE</th>
                         <th>CREATO DA</th>
                         <th>ULTIMA MODIFICA</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -82,6 +93,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 </div>
+
+
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -133,10 +146,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 null,
                 null,
                 null,
-                {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                    @endif
+
                 {
                     orderable: false,
                     width: "5%"
@@ -146,14 +156,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'
             },
-            fnDrawCallback: function (oSettings) {
-            }
         }).on('init.dt', function () {
+            //Funzione per la ricerca
+            searchDatatable(dtable);
         });
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            getVersionsList('v-spinner');
+
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */
@@ -177,16 +194,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
              */
             {{-- Vedere nel footer --}}
             deleteRecord();
+
+
+            /**
+             * Metodo che apre il modale per i log
+             */
+            openLogModal();
         });
 
-        {{-- Seleziona deseleziona tutti i records nella tabella --}}
-        $('.checkbox_all').bind('click', function () {
-            $isChecked = $(this).is(':checked');
-            if (parseBool($isChecked) === true) {
-                $('.checkbox_item').prop('checked', true);
-            } else {
-                $('.checkbox_item').prop('checked', false);
-            }
+        //Seleziona deseleziona tutti i records nella tabella
+        document.querySelectorAll('.checkbox_all').forEach(checkbox => {
+            checkbox.addEventListener('click', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.checkbox_item').forEach(item => {item.checked = isChecked;});
+            });
         });
     });
 </script>

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ContestModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,34 +37,48 @@ class ContestValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID bando di concorso')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il bando con l'id passato in input
-                $check = ContestModel::where('id', uri()->segment(4, 0))
-                    ->with('assignments:id,name,object')
-                    ->with(['relative_measure' => function ($query) {
+                $check = ContestModel::where('id', uri()->segment($uriSegment, 0));
+
+                $check->with('assignments:id,name,object');
+                $check->with([
+                    'relative_measure' => function ($query) {
                         $query->select(['id', 'object', 'number', 'date']);
-                    }])
-                    ->with(['related_contest' => function ($query) {
+                    }
+                ]);
+
+                $check->with([
+                    'related_contest' => function ($query) {
                         $query->select(['id', 'object', 'typology', 'expiration_date', 'activation_date']);
-                    }])
-                    ->with(['office' => function ($query) {
+                    }
+                ]);
+
+                $check->with([
+                    'office' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->first();
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                    }
+                ]);
 
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
+
+
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
@@ -83,17 +98,6 @@ class ContestValidator
         ];
     }
 
-    /**
-     * Metodo che esegue la validazione dei campi del form
-     *
-     * @param string $mode Indica l'operazione
-     * @return array
-     * @throws Exception
-     */
-    public function check(string $mode = 'insert'): array
-    {
-        return $this->validate($mode);
-    }
 
     /**
      * Metodo che esegue la validazione dei campi del form
@@ -102,7 +106,21 @@ class ContestValidator
      * @return array
      * @throws Exception
      */
-    public function checkContest(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
+    {
+        // validate() è attualmente non utilizzato
+        return $this->validate($mode, false, $institutionId);
+    }
+
+    /**
+     * Metodo che esegue la validazione dei campi del form
+     *
+     * @param string $mode Indica l'operazione
+     * @param int|bool $institutionId
+     * @return array
+     * @throws Exception
+     */
+    public function checkContest(string $mode = 'insert', int|bool $institutionId = false): array
     {
         $this->validator->verifyToken()
             ->end();
@@ -156,6 +174,7 @@ class ContestValidator
             ->isNaturalNoZero()
             ->end();
 
+
         $activationData = Input::post('activation_date');
         $dateFormat = 'Y-m-d';
 
@@ -179,7 +198,6 @@ class ContestValidator
                 if (Input::post('expiration_date') <= $activationData) {
 
                     return ['error' => __('invalid_expiration_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -192,7 +210,6 @@ class ContestValidator
                 if (Input::post('expiration_contest_date') <= Input::post('activation_date')) {
 
                     return ['error' => __('invalid_ending_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -231,7 +248,7 @@ class ContestValidator
 
         $this->validator->label('Maggiori informazioni sul bando')
             ->value(Input::post('description'))
-            ->betweenString(4, 10000)
+            ->betweenString(4, 25000)
             ->end();
 
         $this->validator->label('Provvedimento')
@@ -240,22 +257,29 @@ class ContestValidator
             ->isNaturalNoZero()
             ->end();
 
+
         if ($mode === 'update') {
 
+
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = ContestModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = ContestModel::where('id', '=', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bando di concorso')];
                     }
                 })
                 ->end();
         }
-
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -270,7 +294,7 @@ class ContestValidator
      * @return array
      * @throws Exception
      */
-    public function checkAlert(string $mode = 'insert'): array
+    public function checkAlert(string $mode = 'insert', int|bool $institutionId = false): array
     {
         $this->validator->verifyToken()
             ->end();
@@ -300,6 +324,8 @@ class ContestValidator
             ->isDate('Y-m-d H:i')
             ->end();
 
+
+
         $this->validator->label('Data di scadenza del bando')
             ->value(Input::post('expiration_date'))
             ->isDate('Y-m-d')
@@ -307,7 +333,6 @@ class ContestValidator
                 if (Input::post('expiration_date') <= $activationData) {
 
                     return ['error' => __('invalid_expiration_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -315,18 +340,25 @@ class ContestValidator
 
         $this->validator->label('Maggiori informazioni sul bando')
             ->value(Input::post('description'))
-            ->betweenString(4, 10000)
+            ->betweenString(4, 15000)
             ->end();
+
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = ContestModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = ContestModel::where('id', '=', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bando di concorso')];
                     }
@@ -348,7 +380,7 @@ class ContestValidator
      * @return array
      * @throws Exception
      */
-    public function checkResult(string $mode = 'insert'): array
+    public function checkResult(string $mode = 'insert', int|bool $institutionId = false): array
     {
         $this->validator->verifyToken()
             ->end();
@@ -365,34 +397,44 @@ class ContestValidator
             ->isNaturalNoZero()
             ->end();
 
-        $activationData = !empty(Input::post('activation_date')) ? str_replace('T', ' ', Input::post('activation_date')) : '';
+        $activationData = !empty(Input::post('activation_date'))
+            ? str_replace('T', ' ', Input::post('activation_date'))
+            : '';
+
         $this->validator->label('Data di pubblicazione')
-            ->value($activationData)
-            ->required()
+            ->value((string)$activationData)
+            //->required()
             ->isDate('Y-m-d H:i')
             ->end();
 
         $this->validator->label('Maggiori informazioni sul bando')
             ->value(Input::post('description'))
-            ->betweenString(4, 10000)
+            ->betweenString(4, 15000)
             ->end();
+
+
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = ContestModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = ContestModel::where('id', '=', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bando di concorso')];
                     }
                 })
                 ->end();
         }
-
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -416,6 +458,7 @@ class ContestValidator
 
         $typologies = 'concorso,avviso,esito';
 
+        $typologies = $typologies ?? null;
         $this->validator->label('Tipologia')
             ->value(Input::post('typology'))
             ->required()
@@ -484,7 +527,6 @@ class ContestValidator
                 if (Input::post('expiration_date') <= Input::post('activation_date')) {
 
                     return ['error' => __('invalid_expiration_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -497,7 +539,6 @@ class ContestValidator
                 if (Input::post('expiration_contest_date') <= Input::post('activation_date')) {
 
                     return ['error' => __('invalid_ending_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -536,7 +577,7 @@ class ContestValidator
 
         $this->validator->label('Maggiori informazioni sul bando')
             ->value(Input::post('description'))
-            ->betweenString(4, 10000)
+            ->betweenString(4, 15000)
             ->end();
 
         $this->validator->label('Provvedimento')
@@ -544,6 +585,10 @@ class ContestValidator
             ->isInt()
             ->isNaturalNoZero()
             ->end();
+
+
+
+
 
         if ($mode === 'update') {
 
@@ -619,4 +664,5 @@ class ContestValidator
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 }

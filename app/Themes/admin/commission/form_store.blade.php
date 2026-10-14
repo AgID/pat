@@ -40,14 +40,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             <div class="card-body card-primary">
 
+                {{-- Inclusione di librerie esterne --}}
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     @if(!empty($commission['image']))
-                        <div class="col-md-12 text-center mb-3">
+                        <div class="col-md-12 text-center mb-3" id="commission_image">
                             <div class="widget-user-image">
                                 <img class="img-circle elevation-2" style="width: 60px; height: auto;"
                                      src="{{ baseUrl('media/' . instituteDir() . '/assets/images/' . $commission['image']) }}"
@@ -60,6 +63,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <strong>{{ date("d-m-Y", strtotime($commission['created_at']))}}</strong> alle
                                         ore
                                         <strong>{{ date("H:i:s", strtotime($commission['created_at']))}}</strong>
+                                        <a href="#!" class="text-danger" id="__remove_photo"><strong>Rimuovi
+                                                foto</strong></a>
                                     </small>
                                 </div>
                             @endif
@@ -70,6 +75,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Nome --}}
@@ -85,18 +101,57 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Campo Tipo --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-6" id="input_typology">
                                     <label for="typology">Tipo *</label>
-                                    <div class="select2-blue" id="input_typology">
-                                        {{ form_dropdown(
-                                            'typology',
-                                            ['' => '','commissione'=>'Commissione','gruppo consiliare'=>'Gruppo consiliare'],
-                                            @$commission['typology'],
-                                            'class="form-control select2-typology" style="width: 100%;"'
-                                        ) }}
-                                    </div>
+                                    {{ form_dropdown(
+                                        'typology',
+                                        ['' => '','commissione'=>'Commissione','gruppo consiliare'=>'Gruppo consiliare'],
+                                        @$commission['typology'],
+                                        'class="ts-typology"'
+                                    ) }}
                                 </div>
                             </div>
+
+                            {{generateSeparator("Informazioni sull'organo")}}
+
+                            <div class="form-group">
+                                {{-- Campo competenze --}}
+                                <label for="skills">Competenze *</label>
+                                {{form_editor([
+                                    'name' => 'skills',
+                                    'value' => !empty($commission['skills']) ? $commission['skills'] : null,
+                                    'id' => 'input_skills',
+                                    'class' => 'form-control input_skills'
+                                ]) }}
+                            </div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12" id="management_structure">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_management_structure" id="management_structure_label">Ufficio di livello
+                                            dirigenziale</label>
+                                    </div>
+                                    <div id="ajax_management_structure"></div>
+                                    <input type="hidden" value="" name="management_structure"
+                                           id="input_management_structure"
+                                           class="">
+                                </div>
+                            </div>
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12" id="non_management_structure">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_non_management_structure" id="non_management_structure_label">Ufficio di
+                                            livello non dirigenziale</label>
+                                    </div>
+                                    <div id="ajax_non_management_structure"></div>
+                                    <input type="hidden" value="" name="non_management_structure"
+                                           id="input_non_management_structure"
+                                           class="">
+                                </div>
+                            </div>
+
 
                             {{generateSeparator('Personale componente')}}
 
@@ -267,15 +322,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Immagine da visualizzare --}}
                                 <div class="form-group col-md-6">
-                                    <label for="img">Immagine da visualizzare </label>
+                                    <label for="img_file">Immagine da visualizzare </label>
                                     <div class="custom-file">
                                         <input type="file" class="custom-file-input" id="img_file"
-                                               name="img" accept="image/png, image/gif, image/jpeg">
+                                               name="img" accept="image/png, image/gif, image/jpeg"
+                                               aria-describedby="img_file_help">
                                         <label class="custom-file-label" for="img_file"
                                                id="label_attach_logo">
                                             Allega immagine da visualizzare
                                         </label>
                                     </div>
+                                    <small id="img_file_help" class="form-text text-muted">
+                                        Formati ammessi: PNG, GIF, JPG/JPEG. Dimensione massima:
+                                        {{ \Helpers\Utility\FileUpload::maxSizeLabel(5024 * 1024) }};
+                                        risoluzione da 50 × 50 a 1024 × 1024 pixel.
+                                    </small>
                                 </div>
 
                                 {{-- Campo Ordine --}}
@@ -308,6 +369,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -315,12 +378,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
 
             {{-- Card Footer --}}
             <div class="card-footer" id="__save_">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
 
         </div>
@@ -374,16 +440,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -397,7 +461,71 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         $('#preview-url-image').hide();
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
+
+        let management_structure = $('#ajax_management_structure').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Struttura selezionata',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo empty($commission['management_structure']); ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_management_structure',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'checkbox',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#management_structure_label'
+        });
+
+        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
+        @if(!empty($commission['management_structure']))
+            @foreach($commission['management_structure'] as $structure)
+                management_structure.patOsAjaxPagination.setValue('{{ $structure['id'] }}', '{{ htmlEscape($structure['structure_name']) }}', true);
+            @endforeach
+        @endif
+
+        let non_management_structure = $('#ajax_non_management_structure').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Struttura selezionata',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo empty($commission['non_management_structure']); ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_non_management_structure',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'checkbox',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#non_management_structure_label'
+        });
+
+        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
+        @if(!empty($commission['non_management_structure']))
+            @foreach($commission['non_management_structure'] as $structure)
+                non_management_structure.patOsAjaxPagination.setValue('{{ $structure['id'] }}', '{{ htmlEscape($structure['structure_name']) }}', true);
+            @endforeach
+        @endif
 
         // Tabella per la selezione del presidente della commissione(dal personale)
         let presidentTable = $('#ajax_president').patOsAjaxPagination({
@@ -494,9 +622,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         // Se sono in modifica o in duplicazione setto i valori dei segretari gia selezionati
         @if(in_array($_storageType,['update', 'duplicate']) && !empty($commission['secretaries']))
-        @foreach($commission['secretaries'] as $secretary)
-        vicePresidentsTable.patOsAjaxPagination.setValue('{{ $secretary['id'] }}', '{{ (!empty($secretary['title'])?htmlEscape($secretary['title']).' - ':'').htmlEscape($secretary['full_name']).' - '.htmlEscape($secretary['name']).' - '.(!empty($secretary['email'])?$secretary['email']:'N.D') }}', true);
-        @endforeach
+            @foreach($commission['secretaries'] as $secretary)
+                vicePresidentsTable.patOsAjaxPagination.setValue('{{ $secretary['id'] }}', '{{ (!empty($secretary['title'])?htmlEscape($secretary['title']).' - ':'').htmlEscape($secretary['full_name']).' - '.htmlEscape($secretary['name']).' - '.(!empty($secretary['email'])?$secretary['email']:'N.D') }}', true);
+            @endforeach
         @endif
 
         // Tabella per la selezione dei membri supplenti della commissione(da archivio del personale)
@@ -569,19 +697,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endif
 
         {{-- Begin metodi per campi Select --}}
-        {{-- Select2 campo "Tipo" --}}
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-typology', TS_SINGLE);
         {{-- End metodi per campi Select --}}
 
         {{-- Begin preview Immagine --}}
@@ -609,7 +725,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+       CKEDITOR.replace('input_skills', {
+           customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+       });
 
         /**
          * Metodo per il salvataggio
@@ -665,7 +786,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 createValidatorFormErrorToast(msg, 6000);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
-
             }
         });
         {{-- End salvataggio --}}
@@ -686,17 +806,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
             if (formModified) {
                 event.returnValue = 'Vuoi uscire dalla pagina?';
             }
+        });
+
+        $('#__remove_photo').on('click', function () {
+            $('#commission_image').remove();
+            $('#_storage_type').after('<input type="hidden" name="remove_photo" value="1">');
         });
 
     });

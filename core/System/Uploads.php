@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * CodeIgniter
  *
  * An open source application development framework for PHP
@@ -26,14 +31,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	EllisLab Dev Team
- * @copyright	Copyright (c) 2008 - 2014, EllisLab, Inc. (https://ellislab.com/)
- * @copyright	Copyright (c) 2014 - 2019, British Columbia Institute of Technology (https://bcit.ca/)
- * @copyright	Copyright (c) 2019 - 2022, CodeIgniter Foundation (https://codeigniter.com/)
- * @license	https://opensource.org/licenses/MIT	MIT License
- * @link	https://codeigniter.com
- * @since	Version 1.0.0
+ * @package    CodeIgniter
+ * @author    EllisLab Dev Team
+ * @copyright    Copyright (c) 2008 - 2014, EllisLab, Inc. (https://ellislab.com/)
+ * @copyright    Copyright (c) 2014 - 2019, British Columbia Institute of Technology (https://bcit.ca/)
+ * @copyright    Copyright (c) 2019 - 2022, CodeIgniter Foundation (https://codeigniter.com/)
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link    https://codeigniter.com
+ * @since    Version 1.0.0
  * @filesource
  */
 
@@ -353,8 +358,6 @@ class Uploads
      */
     public function doUpload($field = 'userfile', $doUpload = true, $hasPut = false)
     {
-
-        // @hack chiamate diverse dal tipo PUT.
         if (!$this->hasPutMethod) {
             // Is $_FILES[$field] set? If not, no reason to continue.
             if (isset($_FILES[$field])) {
@@ -553,6 +556,9 @@ class Uploads
             $this->file_name = substr($this->file_name, 0, -$ext_length) . $this->file_ext;
         }
 
+        // Get fingerprint (ritorna l'impronta digitale)
+        $this->fingerprint = $this->get_fingerprint();
+
         /*
          * Validate the file name
          * This function appends an number onto the end of
@@ -575,7 +581,7 @@ class Uploads
             return FALSE;
         }
 
-        if($doUpload){
+        if ($doUpload) {
             /*
              * Move the file to the final destination
              * To deal with different server configurations
@@ -656,6 +662,146 @@ class Uploads
         return TRUE;
     }
 
+    public function doUploadBase64($fileBase64 = null, $fileName = null, $fileExt = null, $doUpload = true)
+    {
+
+        $fileData = base64_decode($fileBase64);
+        $filePath = tempnam(sys_get_temp_dir(), 'upload');
+        file_put_contents($filePath, $fileData);
+        $_file = $filePath;
+
+        // @hack - Controllo dell'errore UPLOAD_ERR_INI_SIZE
+        $size = ini_get('upload_max_filesize');
+
+        $lastChar = strtolower(substr($size, -1));
+        $maxFileSize = (int)substr($size, 0, -1);
+
+        switch ($lastChar) {
+            case 'g':
+                $maxFileSize *= 1024;
+            case 'm':
+                $maxFileSize *= 1024;
+            case 'k':
+                $maxFileSize *= 1024;
+                break;
+        }
+
+        // @hack - Controllo del caso di default
+        if (empty($_file)) {
+            $this->set_error('upload_no_file_selected', 'debug');
+            return FALSE;
+        }
+
+        // @hack - Controllo dell'errore simile a "UPLOAD_ERR_NO_TMP_DIR"
+        if (!is_writable(sys_get_temp_dir())) {
+            $this->set_error('upload_no_temp_directory', 'error');
+            return FALSE;
+        }
+
+        // @hack - Controllo dell'errore simile a "UPLOAD_ERR_NO_FILE"
+        if (!file_exists($_file)) {
+            $this->set_error('upload_no_file_selected', 'debug');
+            return FALSE;
+        }
+
+        if (filesize($_file) > $maxFileSize) {
+            $this->set_error('upload_file_exceeds_limit', 'info');
+            return FALSE;
+        }
+
+        // Set the uploaded data as class variables
+        $this->file_temp = $_file;
+        $this->file_size = filesize($_file);
+
+        // Skip MIME type detection?
+        if ($this->detect_mime !== FALSE) {
+            $this->_file_mime_type_for_filesystem($_file);
+        }
+
+        $this->file_type = preg_replace('/^(.+?);.*$/', '\\1', $this->file_type);
+        $this->file_type = strtolower(trim(stripslashes($this->file_type), '"'));
+        $this->file_name = $this->_prep_filename($fileName);
+        $this->file_ext = '.' . $fileExt;
+        $this->client_name = $this->file_name;
+
+        if (!$this->is_allowed_filetype()) {
+            $this->set_error('upload_invalid_filetype', 'debug');
+            return FALSE;
+        }
+
+        if ($this->_file_name_override !== '') {
+            $this->file_name = $this->_prep_filename($this->_file_name_override);
+
+            if (strpos($this->_file_name_override, '.') === false) {
+                $this->file_name .= $this->file_ext;
+            } else {
+                $this->file_ext = $this->get_extension($this->_file_name_override);
+            }
+
+            if (!$this->is_allowed_filetype(TRUE)) {
+                $this->set_error('upload_invalid_filetype', 'debug');
+                return FALSE;
+            }
+        }
+
+        if ($this->file_size > 0) {
+            $this->file_size = round($this->file_size / 1024, 2);
+        }
+
+        if (!$this->is_allowed_filesize()) {
+            $this->set_error('upload_invalid_filesize', 'info');
+            return FALSE;
+        }
+
+        if (!$this->is_allowed_dimensions()) {
+            $this->set_error('upload_invalid_dimensions', 'info');
+            return FALSE;
+        }
+
+        $security = new Security();
+        $this->file_name = $security->sanitize_filename($this->file_name);
+
+
+        if ($this->max_filename > 0) {
+            $this->file_name = $this->limit_filename_length($this->file_name, $this->max_filename);
+        }
+
+        // Remove white spaces in the name
+        if ($this->remove_spaces === TRUE) {
+            $this->file_name = preg_replace('/\s+/', '_', $this->file_name);
+        }
+
+        if ($this->file_ext_tolower && ($ext_length = strlen($this->file_ext))) {
+            // file_ext was previously lower-cased by a get_extension() call
+            $this->file_name = substr($this->file_name, 0, -$ext_length) . $this->file_ext;
+        }
+
+        $this->fingerprint = $this->get_fingerprint();
+
+        $this->orig_name = $this->file_name;
+        if (FALSE === ($this->file_name = $this->set_filename($this->upload_path, $this->file_name))) {
+            return FALSE;
+        }
+
+        if ($this->xss_clean && $this->do_xss_clean() === FALSE) {
+            $this->set_error('upload_unable_to_write_file', 'error');
+            return FALSE;
+        }
+
+        if ($doUpload) {
+
+            // Percorso del file di destinazione
+            if (!@copy($this->file_temp, $this->upload_path . $this->file_name)) {
+                $this->set_error('upload_destination_error', 'error');
+                return FALSE;
+            }
+
+            $this->set_image_properties($this->upload_path . $this->file_name);
+        }
+
+        return true;
+    }
+
 
     private function checkDot($str)
     {
@@ -696,6 +842,7 @@ class Uploads
             'image_height' => $this->image_height,
             'image_type' => $this->image_type,
             'image_size_str' => $this->image_size_str,
+            'fingerprint' => $this->fingerprint,
         );
 
         if (!empty($index)) {
@@ -961,6 +1108,7 @@ class Uploads
         }
 
         if (empty($this->allowed_types) or !is_array($this->allowed_types)) {
+
             $this->set_error('upload_no_file_types', 'debug');
             return FALSE;
         }
@@ -1035,6 +1183,20 @@ class Uploads
         }
 
         return TRUE;
+    }
+
+    // --------------------------------------------------------------------
+
+    /**
+     * @return string
+     */
+    public function get_fingerprint()
+    {
+        $algo = !empty($this->fingerprint) && in_array($this->fingerprint, ['md5', 'sha1', 'sha256', 'sha512'])
+            ? $this->fingerprint
+            : 'sha256';
+
+        return hash_file($algo, $this->file_temp);
     }
 
     // --------------------------------------------------------------------
@@ -1238,15 +1400,53 @@ class Uploads
      * @param string $filename
      * @return    string
      */
+//    protected function _prep_filename($filename)
+//    {
+//        if ($this->mod_mime_fix === FALSE or $this->allowed_types === '*' or ($ext_pos = strrpos($filename, '.')) === FALSE) {
+//            return $filename;
+//        }
+//
+//        $ext = substr($filename, $ext_pos);
+//        $filename = substr($filename, 0, $ext_pos);
+//        return str_replace('.', '_', $filename) . $ext;
+//    }
+
+
+    /**
+     * Prep Filename
+     *
+     * Prevents possible script execution from Apache's handling
+     * of files' multiple extensions.
+     *
+     * @link    http://httpd.apache.org/docs/1.3/mod/mod_mime.html#multipleext
+     *
+     * @param string $filename
+     * @return    string
+     */
     protected function _prep_filename($filename)
     {
-        if ($this->mod_mime_fix === FALSE or $this->allowed_types === '*' or ($ext_pos = strrpos($filename, '.')) === FALSE) {
+        if ($this->mod_mime_fix === FALSE or $this->allowed_types === '*') {
+            return $filename;
+        }
+
+        if (strtolower(substr($filename, -4)) === '.p7m') {
+            $filename_without_p7m = substr($filename, 0, -4);
+
+            if (($ext_pos = strrpos($filename_without_p7m, '.')) !== FALSE) {
+                $inner_ext = substr($filename_without_p7m, $ext_pos); // es: .pdf
+                $filename_base = substr($filename_without_p7m, 0, $ext_pos);
+
+                return str_replace('.', '_', $filename_base) . $inner_ext . '.p7m';
+            }
+        }
+
+        if (($ext_pos = strrpos($filename, '.')) === FALSE) {
             return $filename;
         }
 
         $ext = substr($filename, $ext_pos);
-        $filename = substr($filename, 0, $ext_pos);
-        return str_replace('.', '_', $filename) . $ext;
+        $filename_without_ext = substr($filename, 0, $ext_pos);
+        return str_replace('.', '_', $filename_without_ext) . $ext;
     }
 
     // --------------------------------------------------------------------
@@ -1276,7 +1476,7 @@ class Uploads
         if (function_exists('finfo_file')) {
             $finfo = @finfo_open(FILEINFO_MIME);
 
-            if (is_resource($finfo)) // It is possible that a FALSE value is returned, if there is no magic MIME database file found on the system
+            if (is_resource($finfo) || $finfo instanceof \finfo) // It is possible that a FALSE value is returned, if there is no magic MIME database file found on the system
             {
                 $mime = @finfo_file($finfo, $file['tmp_name']);
                 finfo_close($finfo);
@@ -1322,7 +1522,7 @@ class Uploads
                 }
             }
 
-            if (!ini_get('safe_mode') && function_usable('shell_exec')) {
+            if (function_usable('shell_exec')) {
                 $mime = @shell_exec($cmd);
                 if (strlen($mime) > 0) {
                     $mime = explode("\n", trim($mime));
@@ -1349,16 +1549,78 @@ class Uploads
             }
         }
 
-        // Fall back to mime_content_type(), if available (still better than $_FILES[$field]['type'])
+        // If all else fails, use the file extension to determine the mime type
         if (function_exists('mime_content_type')) {
-            $this->file_type = @mime_content_type($file['name']);
-            if (strlen($this->file_type) > 0) // It's possible that mime_content_type() returns FALSE or an empty string
-            {
-                return;
+            $this->file_type = @mime_content_type($file['tmp_name']);
+        }
+    }
+
+    protected function _file_mime_type_for_filesystem($filePath)
+    {
+        $regexp = '/^([a-z\-]+\/[a-z0-9\-\.\+]+)(;\s.+)?$/';
+
+        if (function_exists('finfo_file')) {
+            $finfo = @finfo_open(FILEINFO_MIME);
+
+            if (is_resource($finfo) || $finfo instanceof \finfo) {
+                $mime = @finfo_file($finfo, $filePath);
+                finfo_close($finfo);
+
+                if (is_string($mime) && preg_match($regexp, $mime, $matches)) {
+                    $this->file_type = $matches[1];
+                    return;
+                }
             }
         }
 
-        $this->file_type = $file['type'];
+        if (DIRECTORY_SEPARATOR !== '\\') {
+            $cmd = function_exists('escapeshellarg')
+                ? 'file --brief --mime ' . escapeshellarg($filePath) . ' 2>&1'
+                : 'file --brief --mime ' . $filePath . ' 2>&1';
+
+            if (function_usable('exec')) {
+                $mime = @exec($cmd, $mime, $return_status);
+
+                if ($return_status === 0 && is_string($mime) && preg_match($regexp, $mime, $matches)) {
+                    $this->file_type = $matches[1];
+                    return;
+                }
+            }
+
+            if (function_usable('shell_exec')) {
+                $mime = @shell_exec($cmd);
+                if (strlen($mime) > 0) {
+                    $mime = explode("\n", trim($mime));
+                    if (preg_match($regexp, $mime[(count($mime) - 1)], $matches)) {
+                        $this->file_type = $matches[1];
+                        return;
+                    }
+                }
+            }
+
+            if (function_usable('popen')) {
+                $proc = @popen($cmd, 'r');
+                if (is_resource($proc)) {
+                    $mime = @fread($proc, 512);
+                    @pclose($proc);
+                    if ($mime !== FALSE) {
+                        $mime = explode("\n", trim($mime));
+                        if (preg_match($regexp, $mime[(count($mime) - 1)], $matches)) {
+                            $this->file_type = $matches[1];
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (function_exists('mime_content_type')) {
+            $this->file_type = @mime_content_type($filePath);
+
+            if (strlen($this->file_type) > 0) {
+                return;
+            }
+        }
     }
 
 }

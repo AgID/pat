@@ -8,8 +8,11 @@ namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+use System\Database;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -24,6 +27,7 @@ class AbsenceRatesModel extends Model
     protected $table = 'object_absence_rates';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaAbsenceRatesModel';
     protected string $objectName = 'Tasso di assenza';
     protected string $archiveName = 'absence_rates';
     protected int $objectId = 4;
@@ -46,6 +50,9 @@ class AbsenceRatesModel extends Model
         'o_id',
         'source_id',
         'number_readings',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'attachments_id',
         'last_update_date',
         'created_at',
@@ -82,19 +89,21 @@ class AbsenceRatesModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
+    ];
+
+    /**
+     * Costruttore del modello.
      *
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -103,7 +112,7 @@ class AbsenceRatesModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -115,6 +124,15 @@ class AbsenceRatesModel extends Model
     public function created_by()
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -162,5 +180,42 @@ class AbsenceRatesModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'absence_rates');
+    }
+
+    /**
+     * Scope locale per il filtraggio in base all'ente
+     */
+    public function scopeFilter($query, $structure = null, $year = null, $month = null, $structureName = null)
+    {
+
+        if (!empty($structure)) {
+            $query->where('object_structures_id', '=', $structure);
+        }
+
+        if (!empty($year)) {
+            $query->where('year', '=', $year);
+        }
+
+        if (!empty($month)) {
+//            $DB = new Database();
+//            $query->where('month', 'REGEXP', $DB::raw('CONCAT("[[:<:]]",\'' . $month . '\',"[[:>:]]")'));
+            $query->where('month', 'LIKE', '%' . $month . '%');
+        }
+
+        if (!empty($structureName)) {
+            $query->where('structure_name', 'LIKE', '%' . $structureName . '%');
+        }
+
+    }
+
+    /**
+     *
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

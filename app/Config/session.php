@@ -6,91 +6,82 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-
 /**
  * -- MYSQL table sessions:
- * CREATE TABLE `sessions` (
- * `id`     varchar(63) CHARACTER SET ascii NOT NULL DEFAULT '',
- * `data`   text,
- * `expire` int(10) unsigned DEFAULT NULL,
- * `ip`     varchar(64) NOT NULL,
- * PRIMARY KEY (`id`), KEY `expire` (`expire`)
+ * create table sessions
+ * (
+ * id            varchar(191) not null
+ * primary key,
+ * user_id       int          null,
+ * ip_address    varchar(45)  null,
+ * user_agent    text         null,
+ * payload       text         null,
+ * fp            varchar(255) null,
+ * last_activity int          null
  * )
- * ENGINE = InnoDB
- * DEFAULT CHARSET = utf8;
+ * charset = utf8mb4
+ * row_format = COMPACT;
  */
 return [
+    /**
+     * Storage delle sessioni: 'native' o 'file' o 'database'
+     * Se è impostato sul valore native, avvia le sessioni nativa di php.
+     */
+    'save_handler' => 'native',
 
     /**
-     * Il Drivers di storage sul quale salvare la sessione
-     * DRIVERS:
-     * - file
-     * - database
+     * Percorso per i file di sessione (valorizzarlo solamente se lo storage di sessione è impostato su file)
      */
-    'drivers' => 'database',
+    'save_path' => '',
 
     /**
-     * Rigenerazione dell ID di sessione epresso in secondi
+     * nome della session
      */
-    'regenerate_id' => 300,
-
-    //FILE -------------------------------------------------------------------------------------------------------------
+    'name' => 'IsWeb',
 
     /**
-     * Se lo storage della sessione è di tipo file, indicare il percorso
+     * Ciclo di vita della sessione espressa in secondi
      */
-    // 'storage' => APP_PATH . 'Storage' . DIRECTORY_SEPARATOR . 'session' . DIRECTORY_SEPARATOR,
+    'lifetime' => 10800,
 
     /**
-     * Chiave segreta per la crittografia delle sessioni
+     * Ciclo di vita della sessione espressa in secondi in sostituzione del php.ini (Verificare sempre i permessi)
      */
-    'secure_key' => _env('TOKEN_SESSION_KEY'),
+    'max_lifetime' => 43200,
 
     /**
-     * Tempo dio inattività limite validità sessione
-     * 28800 : 8 ore
+     * Sicurezza nei cookie
      */
-    'expire_limit' => 28800,
+    'secure' => false,
 
     /**
-     * Chiave univoca associata all'User Agent nella generazione delle sessioni
+     *
      */
-    'fringe_print' => _env('TOKEN_FRINGE_PRINT'),
+    'httponly' => true,
 
     /**
-     * Se lo storage della sessione è di tipo file, indicare il prefisso del salvataggio file si sessione
+     *
      */
-    'prefix_session_file' => 'sess_',
-
-    //DATABASE ---------------------------------------------------------------------------------------------------------
+    'samesite' => 'Lax',
 
     /**
-     * Se lo storage è il database indicare il nome della tabella
-     * Esempio: session
+     * Rigenerazioni delle sessioni espressa in secondi
      */
-    'table' => 'sessions',
+    'regenerate_interval' => 7200,
 
     /**
-     * Se lo storage è il database indicare il nome della chiave primaria
-     * Esempio: id
+     * Chiave per crittografia
      */
-    'session_id' => 'id',
+    'encryption_key' => _env('TOKEN_SESSION_KEY'),
 
     /**
-     * Se lo storage è il database indicare il nome della data di scadenza
-     * Esempio: expire
+     * Stabilisce se associare la sessione all'indirizzo IP (Session Binding)
+     * Se true, la sessione verrà invalidata se l'IP cambia.
      */
-    'expire' => 'expire',
+    'match_ip' => true,
 
     /**
-     * Se lo storage è il database indicare il nome dello storage dei dati
-     * Esempio: data
+     * Stabilisce se nelle sessioni salvate sul database vegono crittografati IP ed User Agent
      */
-    'data' => 'data',
-
-    /**
-     * Se lo storage è il database indicare il nome dello storage dell'indirizzo IP
-     * Esempio: data
-     */
-    'ip_address' => 'ip'
+    'encryption_ip_ua_session_db' => true,
 ];

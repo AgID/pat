@@ -8,9 +8,7 @@ namespace Helpers;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-use Rakit\Validation\Rule;
-
-class VatRule extends Rule
+class VatRule
 {
     protected $message = ":attribute :value non valido";
 

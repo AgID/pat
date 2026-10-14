@@ -57,14 +57,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 </div>
 {{-- File Manager --}}
+<div class="file-upload-requirements" role="note">
+    <span class="file-upload-requirements__icon" aria-hidden="true">
+        <i class="fas fa-file-upload"></i>
+    </span>
+    <div class="file-upload-requirements__content">
+        <span class="file-upload-requirements__size">
+            Dimensione massima per file: <strong>{{e: $maxUploadSizeLabel }}</strong>
+        </span>
+        <button class="file-upload-requirements__toggle collapsed" type="button" data-toggle="collapse"
+                data-target="#file-upload-requirements-details" aria-expanded="false"
+                aria-controls="file-upload-requirements-details">
+            Formati ammessi (tipi MIME):
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="collapse file-upload-requirements__details" id="file-upload-requirements-details">
+        <p class="file-upload-requirements__mimes">{{e: $allowedMimeTypesLabel }}</p>
+        <p><strong>Estensioni associate:</strong> {{e: $allowedExtensionsLabel }}</p>
+    </div>
+</div>
 <div id="elfinder">
 
 </div>
 @else
     {% include access_denied/index %}
 @endif
-{{-- ********************************************************************************************************************************************** --}}
-{{-- ************************************************ Sistemare bug del tooltip, vedere sul footer ************************************************ --}}
 {{-- ********************************************************************************************************************************************** --}}
 
 {% endblock %}
@@ -75,6 +93,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{css('jquery-ui/jquery-ui.theme.min.css', 'common')}}
 {{ css('elfinder/css/elfinder.min.css', 'common') }}
 {{ css('elfinder/css/theme.css', 'common') }}
+{{ css('elfinder/css/material/css/theme-gray.css', 'common') }}
 <style>
     .modal-open {
         overflow: auto !important;
@@ -102,8 +121,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{ loadElfinderJs() }}
 {% endblock %}
-
-
 
 
 

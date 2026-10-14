@@ -9,12 +9,13 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\Utility\FileUpload;
 use System\Input;
 
 class FileArchiveAdminController extends BaseAuthController
 {
 
-    private bool $hasPerms = true;
+    protected bool $hasPerms = true;
 
     /**
      * @description Costruttore
@@ -24,16 +25,12 @@ class FileArchiveAdminController extends BaseAuthController
     {
         parent::__construct('not_acl');
 
-        if (!isSuperAdmin()) {
+        $getIdentity = authPatOs()->getIdentity();
+        $permFileArchive = (int)$getIdentity['options']['file_archive'];
 
-            $getIdentity = authPatOs()->getIdentity();
-            $permFileArchive = (int)$getIdentity['options']['file_archive'];
+        if ($permFileArchive === 1) {
 
-            if ($permFileArchive === 1) {
-
-                $this->hasPerms = false;
-
-            }
+            $this->hasPerms = false;
 
         }
 
@@ -54,29 +51,25 @@ class FileArchiveAdminController extends BaseAuthController
         $baseDir = baseUrl('/media/');
         $path = MEDIA_PATH;
 
-        if (!isSuperAdmin() || checkAlternativeInstitutionId() !== 0) {
+        $path = MEDIA_PATH . instituteDir();
+        $baseDir .= instituteDir();
 
-            $path = MEDIA_PATH . instituteDir();
-            $baseDir .= instituteDir();
+        $getIdentity = authPatOs()->getIdentity();
+        $permFileArchive = (int)$getIdentity['options']['file_archive'];
 
-            $getIdentity = authPatOs()->getIdentity();
-            $permFileArchive = (int)$getIdentity['options']['file_archive'];
+        if ($permFileArchive === 1) {
+            $path = null;
+            $baseDir = null;
+        }
 
-            if ($permFileArchive === 1) {
-                $path = null;
-                $baseDir = null;
-            }
+        if ($permFileArchive === 2) {
+            $path .= '/file_archive/utente' . $getIdentity['id'];
+            $baseDir .= '/file_archive/utente' . $getIdentity['id'];
+        }
 
-            if ($permFileArchive === 2) {
-                $path .= '/file_archive/utente' . $getIdentity['id'];
-                $baseDir .= '/file_archive/utente' . $getIdentity['id'];
-            }
-
-            if ($permFileArchive === 3) {
-                $path .= '/file_archive/';
-                $baseDir .= '/file_archive/';
-            }
-
+        if ($permFileArchive === 3) {
+            $path .= '/file_archive/';
+            $baseDir .= '/file_archive/';
         }
 
         $this->breadcrumb->push('Archivio file', '/');
@@ -98,7 +91,7 @@ class FileArchiveAdminController extends BaseAuthController
 
         $view = (Input::get('f') == 1) ? 'file_archive/elfinder' : 'file_archive/index';
 
-        render($view, $data, 'admin');
+        render($view, array_merge($data, $this->getUploadRequirementsData()), 'admin');
 
     }
 
@@ -113,7 +106,27 @@ class FileArchiveAdminController extends BaseAuthController
         //Setto il metodo della rotta
         //$this->acl->setRoute('read');
 
-        render('file_archive/elfinder', [], 'admin');
+        render('file_archive/elfinder', $this->getUploadRequirementsData(), 'admin');
+    }
+
+    /**
+     * Prepara i requisiti di upload mostrati nelle due viste dell'archivio file.
+     * I valori derivano dalla stessa mappa usata da elFinder, così l'informativa
+     * resta allineata ai formati realmente accettati dal backend.
+     *
+     * @return array
+     */
+    private function getUploadRequirementsData(): array
+    {
+        $allowedTypes = FileManagerAdminController::getMimes(true);
+        $applicationMaxSize = (int)config('max_size', 0, 'perms_files');
+        $applicationMaxSize = $applicationMaxSize > 0 ? $applicationMaxSize * 1024 : null;
+
+        return [
+            'allowedMimeTypesLabel' => implode(', ', array_values(array_unique($allowedTypes))),
+            'allowedExtensionsLabel' => strtoupper(implode(', ', array_keys($allowedTypes))),
+            'maxUploadSizeLabel' => FileUpload::maxSizeLabel($applicationMaxSize),
+        ];
     }
 
     /**

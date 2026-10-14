@@ -10,6 +10,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
  $_js = config('vfo', null, 'app') .'/js/';
  $_css = config('vfo', null, 'app') .'/css/';
  $_institution_info = patOsInstituteInfo();
+ $_hideInfo = [];
+ $_extraMail = null;
 @endphp
 <html lang="{{ config('language',null,'app') }}">
 <head>
@@ -17,7 +19,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 {{-- Se l'applicazione è indicizzabile nel motore di ricreca o meno. --}}
-@if(empty($_institution_info['indexable']))
+@if(empty($_institution_info['indexable']) || !empty($register))
 <meta name="robots" content="noindex,nofollow">
 @else
 <meta name="robots" content="all">
@@ -25,35 +27,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{-- Meta data dinamici --}}
 @if(!empty($_meta_page))
 {{$_meta_page}}
+@elseif(!empty($_page_title))
+<title>{{e: $_page_title }}</title>
 @endif
 
-    <meta name="dcterms:language" content="it" />
-    <meta name="dcterms:format" content="text/html" />
-    <meta name="dcterms:publisher" content="Portale Trasparenza <?php echo $_institution_info['full_name_institution']; ?>" />
-    <meta name="description" content="Il portale della Trasparenza conforme al D.Lgs. 33/2013 - Amministrazione Trasparente" />
-    <meta name="keywords" content="servizi,uffici,contatti,procedimenti,trasparenza" />
-    <meta name="base_url" content="{{ baseUrl() }}">
-    <meta name="current_url" content="{{ currentUrl() }}">
-    {{-- Favicon pesonalizzata --}}
-    {{ getFavicon() }}
-    {{ css($_css.'titillium_web.css?v='. VERSION_STYLE_CSS,'frontend') }}
-    {{ css('fontawesome-free-5.15.4-web/css/all.css','common') }}
-    {{ css('fontawesome-6/all.min.css','common') }}
-    {{ css($_css.'bootstrap-italia.min.css','frontend') }}
-    {{ css($_css.'swiper-bundle.min.css','frontend') }}
-    {{ css($_css.'style.css?v='. VERSION_STYLE_CSS,'frontend') }}
-    {{ css($_css.'custom.css?v=' . VERSION_CUSTOM_CSS,'frontend') }}
-    {{-- BEGIN: Css --}}
-    @yield(css)
-    {{-- END: Css --}}
+<meta name="dcterms:language" content="it" />
+<meta name="dcterms:format" content="text/html" />
+<meta name="base_url" content="{{xss: baseUrl(verifyFirstOrLastSlash("/")) }}">
+<meta name="current_url" content="{{ currentUrl() }}">
 
-    {{--  Eventuali codici di tracciamento --}}
-    @if(!empty($_institution_info['statistics_tracking_code']) && empty($register))
-        {{  "\n" . $_institution_info['statistics_tracking_code'] . "\n" }}
-    @endif
-    <script>
-        window.__PUBLIC_PATH__ = '/assets/frontend/v1/bootstrap-italia/dist/fonts'
-    </script>
+{{-- Favicon pesonalizzata --}}
+{{ getFavicon() }}
+{{ css($_css.'titillium_web.css?v='. VERSION_STYLE_CSS,'frontend') }}
+{{ css('tom-select/tom-select.css','common') }}
+{{ css('fontawesome-free-5.15.4-web/css/all.css','common') }}
+{{ css('fontawesome-6/all.min.css','common') }}
+{{ css($_css.'bootstrap-italia.min.css','frontend') }}
+{{ css($_css.'swiper-bundle.min.css','frontend') }}
+{{ css($_css.'style.css?v='. VERSION_STYLE_CSS,'frontend') }}
+{{ css($_css.'custom.css?v=' . VERSION_CUSTOM_CSS,'frontend') }}
+{{-- BEGIN: Css --}}
+@yield(css)
+{{-- END: Css --}}
+<!-- Plugins -->
+
+
+
+{{--  Eventuali codici di tracciamento --}}
+@if(!empty($_institution_info['statistics_tracking_code']) &&  preg_match('/<script\b[^>]*>(.*?)<\/script>/is', $_institution_info['statistics_tracking_code']) && empty($register))
+{{  "\n" . trim($_institution_info['statistics_tracking_code']) . "\n" }}
+@endif
+<script>
+    window.__PUBLIC_PATH__ = '/assets/frontend/v1/bootstrap-italia/dist/fonts'
+</script>
+
+{{-- JSON LD: stessa condizione del meta robots qui sopra, niente dati strutturati sulle pagine noindex --}}
+@if(!empty($_institution_info['indexable']) && empty($register))
+@endif
 </head>
 <body>
 
@@ -89,11 +99,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     {{-- END: Content --}}
 
     {{-- BEGIN: Javascript di sistema --}}
+    {{ js('tom-select/tom-select.complete.min.js','common') }}
     {{ js($_js.'jquery-3.7.1.min.js','frontend') }}
     {{ js($_js.'popper.min.js','frontend') }}
     {{ js($_js.'bootstrap-italia.bundle.min.js','frontend') }}
     {{ js('autonumeric/autonumeric.js','common') }}
     {{ js('fontawesome-6/all.min.js','common') }}
+
+
 
     {{ js($_js.'swiper-bundle.min.js','frontend') }}
     {{ js($_js.'script.js','frontend') }}
@@ -101,8 +114,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     {{-- END: Javascript di sistema --}}
 </main>
 
+@if(empty($register))
+@endif
+
 {{-- BEGIN: Footer --}}
 {% include v1/layout/partials/footer %}
+
 {{-- END: Footer --}}
 {% include v1/layout/partials/credits_footer %}
 <script type="text/javascript">
@@ -176,9 +193,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             @if(!empty($filterUsed))
                 dataParams['filter'] = true;
             @foreach($searchFieldsOpenData as $name => $value)
-                    @if(!empty($value))
-                dataParams['{{ $name }}'] = '{{ $value }}';
-            @endif
+                @if(!empty($value))
+                    @if(!is_array($value))
+                        dataParams['{{ $name }}'] = '{{ $value }}';
+                    @else
+                        dataParams['{{ $name }}'] = '{{ @json_encode($value) }}';
+                    @endif
+                @endif
             @endforeach
             @endif
 
@@ -258,6 +279,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             return false;
         });
         @endif
+
+
 
     });
 

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\NoticesActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,25 +37,36 @@ class NoticeActValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID atto amministrativo')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero l'atto con l'id passato in input
-                $notice = NoticesActsModel::where('id', uri()->segment(4, 0))
+                $notice = NoticesActsModel::where('id', uri()->segment($uriSegment, 0));
+
+                $notice->with('structure:id,structure_name')
                     ->with('assignments:id,name,object,assignment_start')
                     ->with(['public_in' => function ($query) {
-                        $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
+                        $query->select([
+                            'section_fo_id',
+                            'section_fo_config_publication_archive.id',
+                            'section_fo.name'
+                        ])
                             ->join('section_fo', 'section_fo.id', '=', 'section_fo_id')
                             ->groupBy('section_fo_id');
                     }])
                     ->with('relative_contest_act:id,object,cig,type,activation_date,expiration_date')
-                    ->first();
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+                $notice = $notice->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -72,12 +84,12 @@ class NoticeActValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 
     /**
      * Metodo che esegue la validazione dei campi del form
@@ -86,9 +98,9 @@ class NoticeActValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -99,13 +111,14 @@ class NoticeActValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
 
         $requiredRelativeProcedure = true;
 
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Data')
             ->value(Input::post('date'))
@@ -202,20 +215,34 @@ class NoticeActValidator
             ->betweenString(2, 1000)
             ->end();
 
+        //dati SCP
+
+        //dati SEO
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $lot = NoticesActsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = NoticesActsModel::where('id', $id);
+
+                    $lot = $query->first();
+
                     if (empty($lot)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Atto amministrativo')];
                     }
                 })
                 ->end();
+
         }
 
 

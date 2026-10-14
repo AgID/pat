@@ -4,7 +4,7 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+defined('_FRAMEWORK_') or exit('No direct script access allowed'); ?>
 
 <?php if (!empty($results['data'])) : ?>
 <div class="wrapper-risultati">
@@ -28,7 +28,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <!-- Termini temporali per i provvedimenti straordinari -->
                 <?php if (!empty($item['time_limits'])) : ?>
                 <span>Termini temporali:</span> <span
-                    class="grigio"><?php echo date('d-m-Y', strtotime($item['time_limits'])); ?></span>
+                    class="grigio"><?php echo date('d/m/Y', strtotime($item['time_limits'])); ?></span>
                 <?php endif; ?>
 
                 <!-- Termini temporali per i provvedimenti straordinari -->
@@ -43,7 +43,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             $date = !empty($item['updated_at']) ? $item['updated_at'] : $item['created_at'];
                         ?>
                 <div style="font-size:.8rem;">
-                    Data ultima modifica:<br><?php echo date('d-m-Y', strtotime($date)); ?>
+                    Data ultima modifica:<br><?php echo date('d/m/Y', strtotime($date)); ?>
                 </div>
                 <?php endif; ?>
                 <a href="<?php echo $link ?>" class="pulsante-freccia" aria-label="Leggi di più <?php echo !empty($item['name']) ? escapeXss($item['name']) : 'N.D.' ?>">Leggi di più</a>

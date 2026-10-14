@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ContestsActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -33,29 +34,35 @@ class LotValidator
      * Controlla la validità dell'ID nell'URI segment e se esiste un lotto con quell'ID per l'ente
      *
      * @param null $checkOwner Indica se effettuare il controllo sul proprietario dell'elemento o meno
+     * @param int $uriSegment
+     * @param null $institutionId
+     * @param null $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID lotto')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il lotto con l'id passato in input
-                $check = ContestsActsModel::where('typology', 'lot')
-                    ->where('id', uri()->segment(4, 0))
-                    ->with('relative_notice:id,object,cig,type,activation_date,expiration_date')
-                    ->first();
+                $check = ContestsActsModel::where('typology', 'lot');
+                $check->where('id', uri()->segment($uriSegment, 0));
+                $check->with('relative_notice:id,object,cig,type,activation_date,expiration_date')
+                ->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'lotto ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -76,27 +83,29 @@ class LotValidator
     /**
      * Metodo che esegue la validazione dei campi del form
      *
-     * @param string $mode Indica l'operazione che si sta eseguendo
-     * @return array
+     * @param string   $mode          Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId indica l'id dell'istituto     * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
      * Metodo per la validazione dei campi del form
      *
-     * @param string $mode Indica l'operazione che si sta eseguendo
+     * @param string $mode          Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int    $institutionId
      * @return array
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Bando relativo')
             ->value(Input::post('relative_notice_id'))
@@ -108,6 +117,11 @@ class LotValidator
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
+            ->betweenString(1, 250)
+            ->end();
+
+        $this->validator->label('Link alla Banca Dati Nazionale Contratti Pubblici (BDNCP)')
+            ->value(Input::post('bdncp_link'))
             ->betweenString(1, 250)
             ->end();
 
@@ -128,26 +142,36 @@ class LotValidator
             ->isNumeric()
             ->end();
 
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $lot = ContestsActsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = ContestsActsModel::where('id', $id);
+
+                    $lot = $query->first();
+
                     if (empty($lot)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Lotto')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
+
     }
 }

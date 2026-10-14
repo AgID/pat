@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ReliefChecksModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,25 +37,34 @@ class ReliefCheckValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID controllo/rilievo')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il controllo con l'id passato in input
-                $check = ReliefChecksModel::where('id', uri()->segment(4, 0))
-                    ->with(['public_in' => function ($query) {
-                        $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
-                            ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
-                    }])
-                    ->with(['office' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email', 'parent.structure_name as parent_name'])
-                            ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }]);
+				$check = ReliefChecksModel::where('id', uri()->segment($uriSegment, 0));
+
+                $check->with(['public_in' => function ($query) {
+                    $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
+                        ->withoutGlobalScope(DeletedScope::class)
+                        ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
+                }]);
+
+                $check->with(['office' => function ($query) {
+                    $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                        ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                }]);
+
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
+
 
                 $check = $check->first();
 
@@ -88,9 +98,9 @@ class ReliefCheckValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -101,12 +111,12 @@ class ReliefCheckValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
             ->end();
-
+        
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
@@ -124,7 +134,7 @@ class ReliefCheckValidator
             ->required()
             ->end();
 
-        if (Input::post('public_in')) {
+        if (!empty(Input::post('public_in'))) {
             foreach (Input::post('public_in') as $in) {
                 $this->validator->label('Pubblica in ' . $in)
                     ->value($in)
@@ -132,6 +142,17 @@ class ReliefCheckValidator
                     ->isNaturalNoZero()
                     ->end();
             }
+
+
+            if(in_array('608', Input::post('public_in'))){
+
+                $this->validator->label('Oggetto del rilievo')
+                    ->value(Input::post('act_object'))
+                    ->required()
+                    ->end();
+
+            }
+
         }
 
         $this->validator->label('Ufficio')
@@ -142,25 +163,34 @@ class ReliefCheckValidator
 
         $this->validator->label('Descrizione')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 15000)
             ->end();
+
+        
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $company = ReliefChecksModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = ReliefChecksModel::where('id', $id);
+
+                    $company = $query->first();
+
                     if (empty($company)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Controllo/Rilievo')];
                     }
+
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

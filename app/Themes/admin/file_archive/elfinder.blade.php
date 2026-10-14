@@ -9,6 +9,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% extends layout/mini %}
 {{--  ************************************************ CONTENT ************************************************ --}}
 {% block content %}
+@if($perms===true)
 <div class="modal" id="message" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -56,9 +57,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 </div>
 {{-- File Manager --}}
+<div class="file-upload-requirements" role="note">
+    <span class="file-upload-requirements__icon" aria-hidden="true">
+        <i class="fas fa-file-upload"></i>
+    </span>
+    <div class="file-upload-requirements__content">
+        <span class="file-upload-requirements__size">
+            Dimensione massima per file: <strong>{{e: $maxUploadSizeLabel }}</strong>
+        </span>
+        <button class="file-upload-requirements__toggle collapsed" type="button" data-toggle="collapse"
+                data-target="#file-upload-requirements-details" aria-expanded="false"
+                aria-controls="file-upload-requirements-details">
+            Formati ammessi (tipi MIME):
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="collapse file-upload-requirements__details" id="file-upload-requirements-details">
+        <p class="file-upload-requirements__mimes">{{e: $allowedMimeTypesLabel }}</p>
+        <p><strong>Estensioni associate:</strong> {{e: $allowedExtensionsLabel }}</p>
+    </div>
+</div>
 <div id="elfinder">
 
 </div>
+@else
+    {% include access_denied/index %}
+@endif
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -96,8 +120,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{ loadElfinderJs(['isCkEditor'=> true]) }}
 {% endblock %}
-
-
 
 
 

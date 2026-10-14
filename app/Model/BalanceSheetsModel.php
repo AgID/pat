@@ -7,9 +7,10 @@
 namespace Model;
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -23,6 +24,7 @@ class BalanceSheetsModel extends Model
     protected $table = 'object_balance_sheets';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaBalanceSheetsModel';
     protected string $archiveName = 'balance_sheets';
 
     protected string $objectName = 'Bilanci';
@@ -33,6 +35,7 @@ class BalanceSheetsModel extends Model
         'owner_id',
         'institution_id',
         'object_measure_id',
+        'object_structures_id',
         'state',
         'workflow_state',
         'name',
@@ -43,6 +46,9 @@ class BalanceSheetsModel extends Model
         'o_id',
         'source_id',
         'number_readings',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'attachments_id',
         'last_update_date',
         'created_at',
@@ -63,7 +69,15 @@ class BalanceSheetsModel extends Model
         'object_balance_sheets.name',
         'typology',
         'year',
-        'userName'
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -73,29 +87,13 @@ class BalanceSheetsModel extends Model
     protected $searchableWhereHas = [];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
-    }
-
-    /**
-     * Rimuove la ricerca sul campo creato da nel front-office
-     * @return void
-     */
-    public static function disableUserSearcheable(): void
-    {
-        $self = new static;
-        unset($self->searchable[3]);
     }
 
     /**
@@ -106,7 +104,7 @@ class BalanceSheetsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -131,6 +129,15 @@ class BalanceSheetsModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con i Provvedimenti
      * Rappresenta il procedimento associato al bilancio
      * @return BelongsTo
@@ -139,7 +146,6 @@ class BalanceSheetsModel extends Model
     {
         return $this->belongsTo(MeasuresModel::class, 'object_measure_id');
     }
-
 
     /**
      * Relazione con gli allegati
@@ -167,5 +173,52 @@ class BalanceSheetsModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'balance_sheets');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati dei bilanci
+     * @param Builder $query Query
+     * @param string|null $name Nome
+     * @param int|null $year Anno
+     * @param string|null $typ
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $name = null,
+        int $year = null,
+        string|null $typ = ''
+    ): void
+    {
+        if (!empty($name)) {
+            $query->where('object_balance_sheets.name', 'LIKE', '%' . $name . '%');
+        }
+
+        if (!empty($year)) {
+            $query->where('object_balance_sheets.year', 'LIKE', '%' . $year . '%');
+        }
+
+        if (!empty($typ)) {
+            $query->where('object_balance_sheets.typology', $typ);
+        }
+    }
+
+    /**
+     * Relazione con Strutture Organizzative (tabella object_structures)
+     * Rappresenta la struttura
+     */
+    public function structure(): belongsTo
+    {
+        return $this->belongsTo(StructuresModel::class, 'object_structures_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

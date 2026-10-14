@@ -47,8 +47,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -70,11 +69,22 @@ class OpenDataContestActsFrontController extends BaseFrontController
             ->where('id', uri()->segment(3, 0))
             ->first();
 
+        $liquidationDate = "2025-07-01 00:00:00";
+
         // Recupero i bandi di concorso attivi
         $queryContents = ContestsActsModel::select(['object_contests_acts.*'])
             ->where('object_contests_acts.typology', '=', 'liquidation')
             ->where('object_contests_acts.amount_liquidated', '!=', '')
+            ->where('activation_date', '<=', $liquidationDate)
             ->orWhereNotNull('object_contests_acts.amount_liquidated')
+            ->filter(
+                (int)Input::get('structures', true),
+                (Input::get('object', true)),
+                (int)Input::get('contraent', true),
+                (Input::get('cig', true)),
+                Input::get('start_p_date', true),
+                Input::get('end_p_date', true),
+            )
             ->with(['relative_procedure' => function ($query) {
                 $query->select(['id', 'object', 'cig']);
                 $query->select(['object_contests_acts.id', 'object', 'cig', 'relative_procedure_id', 'relative_notice_id', 'object_structures_id']);
@@ -91,20 +101,21 @@ class OpenDataContestActsFrontController extends BaseFrontController
             ->with('relative_procedure_awardees:id,name')
             ->with('attachs')
             ->orderBy('object_contests_acts.activation_date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
             $fileName = 'Bandi di gara e contratti - ' . $resultSection['name'] . '.csv';
-            header('Set-Cookie: fileDownload=true; path=/');
-            header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-            header('Content-Type: text/csv; charset= utf-8');
-            header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//            header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//            header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//            header('Content-Type: text/csv; charset= utf-8');
+//            header('Content-Disposition: attachment; filename="' . $fileName.'"');
+            setFileDownloadCookieCSV($fileName);
             $output = fopen("php://output", 'w');
 
 
@@ -179,7 +190,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
                     // Valore importo liquidato
                     !empty($r['amount_liquidated']) ? '€ ' . S::currency($r['amount_liquidated'], 2, ',', '.') : null,
                     // Data di pubblicazione
-                    !empty($r['activation_date']) ? date('d-m-Y', strtotime($r['activation_date'])) : null,
+                    !empty($r['activation_date']) ? date('d/m/Y', strtotime($r['activation_date'])) : null,
                     // Codice cig
                     !empty($tmpCig) ? $tmpCig : null,
                     // Bando relativo
@@ -228,6 +239,14 @@ class OpenDataContestActsFrontController extends BaseFrontController
                     ->orWhere('object_contests_acts.typology', '=', 'result') //esito
                     ->orWhere('object_contests_acts.typology', '=', 'delibere e determine a contrarre'); // delibera(per retro compatibilità)
                 })
+            ->contestactsfilter(
+                (int)Input::get('str', true),
+                (Input::get('obj', true)),
+                Input::get('c', true),
+                (Input::get('_cig', true)),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
             ->with('structure:id,structure_name')
             ->with('contraent_choice:id,name')
             ->with(['relative_notice' => function ($query) {
@@ -237,17 +256,17 @@ class OpenDataContestActsFrontController extends BaseFrontController
             }])
             ->with('relative_liquidation:relative_procedure_id,id,object,anac_year,amount_liquidated')
             ->with('relative_lots:relative_notice_id,id,object,asta_base_value,cig')
-            ->with('requirement:id,denomination,code')
+            ->with('requirements:id,denomination,code')
             ->with('proceedings:id,object')
             ->with('participants:id,name')
             ->with('awardees:id,name')
             ->with('attachs')
             ->orderBy('activation_date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -278,6 +297,14 @@ class OpenDataContestActsFrontController extends BaseFrontController
         $queryContents = ContestsActsModel::select(['object_contests_acts.*'])
             ->where('object_contests_acts.typology', '!=', 'liquidation')
             ->where('object_contests_acts.activation_date', '<=', date("Y-m-d H:i:s", strtotime('tomorrow')))
+            ->contestactsfilter(
+                (int)Input::get('str', true),
+                Input::get('obj', true),
+                Input::get('c', true),
+                Input::get('_cig', true),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
             ->with(['structure' => function ($query) {
                 $query->select(['id', 'structure_name']);
             }])
@@ -299,17 +326,17 @@ class OpenDataContestActsFrontController extends BaseFrontController
             ->with(['relative_lots' => function ($query) {
                 $query->select(['relative_notice_id', 'id', 'object', 'asta_base_value', 'cig']);
             }])
-            ->with('requirement:id,denomination,code')
+            ->with('requirements:id,denomination,code')
             ->with('proceedings:id,object')
             ->with('participants:id,name')
             ->with('awardees:id,name')
             ->with('attachs')
             ->orderBy('object_contests_acts.activation_date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -350,13 +377,22 @@ class OpenDataContestActsFrontController extends BaseFrontController
             ->with(['structure' => function ($query) {
                 $query->select(['id', 'structure_name']);
             }])
+            ->contestactsfilter(
+                (int)Input::get('str', true),
+                (Input::get('obj', true)),
+                null,
+                (Input::get('_cig', true)),
+                Input::get('s', true),
+                Input::get('e', true),
+                Input::get('sec', true)
+            )
             ->with('attachs')
             ->orderBy('object_contests_acts.expiration_date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -384,7 +420,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(524, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -413,7 +449,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(525, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -444,7 +480,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(526);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -475,7 +511,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(532, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -506,7 +542,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(533, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -537,7 +573,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId(528, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -567,10 +603,10 @@ class OpenDataContestActsFrontController extends BaseFrontController
                         ->orWhereNull('object_contests_acts.expiration_date');
                 } elseif ($currentPageId == 532) {
                     $query->where('object_contests_acts.decree_163' , 1)
-                    ->where(function ($query) {
-                        $query->where('object_contests_acts.expiration_date', '>=', date('Y-m-d H:i:s'))
-                            ->orWhereNull('object_contests_acts.expiration_date');
-                    });
+                        ->where(function ($query) {
+                            $query->where('object_contests_acts.expiration_date', '>=', date('Y-m-d H:i:s'))
+                                ->orWhereNull('object_contests_acts.expiration_date');
+                        });
                 } elseif ($currentPageId == 533) {
                     $query->where('object_contests_acts.expiration_date', '>=', date('Y-m-d H:i:s'))
                         ->orWhereNull('object_contests_acts.expiration_date')
@@ -582,6 +618,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
             })
             ->where('object_contests_acts.activation_date', '<=', date("Y-m-d H:i:s", strtotime('now')))
             ->where(function ($query) use ($currentPageId, $typology) {
+
                 if(!in_array($currentPageId, [532,533,528])){
                     $query->whereHas('public_in_section', function ($query) use ($currentPageId) {
                         $query->where('public_in_id', $currentPageId);
@@ -600,6 +637,15 @@ class OpenDataContestActsFrontController extends BaseFrontController
                     }
                 }
             })
+            ->contestactsfilter(
+                (int)Input::get('str', true),
+                (Input::get('obj', true)),
+                null,
+                (Input::get('_cig', true)),
+                Input::get('s', true),
+                Input::get('e', true),
+                Input::get('sec', true)
+            )
             ->with('structure:id,structure_name')
             ->with('contraent_choice:id,name')
             ->with(['relative_notice' => function ($query) {
@@ -609,7 +655,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
             }])
             ->with('relative_liquidation:relative_procedure_id,id,object,anac_year,amount_liquidated')
             ->with('relative_lots:relative_notice_id,id,object,asta_base_value,cig')
-            ->with('requirement:id,denomination,code')
+            ->with('requirements:id,denomination,code')
             ->with('proceedings:id,object')
             ->with('participants:id,name')
             ->with('awardees:id,name')
@@ -624,8 +670,8 @@ class OpenDataContestActsFrontController extends BaseFrontController
             $contestActs->groupBy('object_contests_acts.id');
         }
 
-        return $contestActs->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+        return $contestActs->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -640,11 +686,14 @@ class OpenDataContestActsFrontController extends BaseFrontController
     private function generateCsv($resultContests = null, $resultSection = null): void
     {
 
+        //lunghezza max windows 260 - ios 255
+        if(strlen($resultSection['name']) > 200){
+            $resultSection['name'] = substr( $resultSection['name'], 0, 200);
+        }
+
         $fileName = 'Bandi di gara e contratti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -680,13 +729,13 @@ class OpenDataContestActsFrontController extends BaseFrontController
             'Procedura di scelta del contraente',
             'Partecipanti alla gara',
             'Aggiudicatari della gara',
+            'Link BDNCP',
             'url origine ' . $resultSection['name'],
             'Allegati'
         );
         fputcsv($output, $headers, ';', '"');
 
         $contract = ['' => '', 1 => 'Lavori', 2 => 'Servizi', 3 => 'Forniture'];
-        $administrationType = ['' => '', 1 => 'Regioni', 2 => 'Provincie', 3 => 'Comuni', 4 => 'Università', 5 => 'Ministeri', 6 => 'Organi istituzionali'];
 
         foreach ($resultContests as $r) {
 
@@ -696,6 +745,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
                     : $r['structure'];
             }
 
+            $bdncpLink = $record['bdncp_link'] ?? '';
             if ($r['typology'] == 'result') {
                 $tmpCig = !empty($r['relative_notice']['cig']) ? $r['relative_notice']['cig'] : null;
             } elseif ($r['typology'] == 'notice') {
@@ -714,7 +764,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
                 foreach ($r['proceedings'] as $proceeding) {
 
                     if (!empty($proceeding['object']) && !empty($proceeding['id'])) {
-                        $otherProceduresList .= $proceeding['object'] . ' - [Url]: ' . siteUrl('page/10/details/' . $proceeding['id'] . '/' . urlTitle($proceeding['object'])) . "\n";
+                        $otherProceduresList .= $proceeding['object'] . ' - [Url]: ' . siteUrl('page/581/details/' . $proceeding['id'] . '/' . urlTitle($proceeding['object'])) . "\n";
                     }
 
                 }
@@ -750,8 +800,8 @@ class OpenDataContestActsFrontController extends BaseFrontController
             }
 
             $requirementsList = '';
-            if (!empty($r['requirement']['code']) && !empty($r['requirement']['denomination'])) {
-                $requirementsList = $r['requirement']['code'] . ' - ' . $r['requirement']['denomination'] . "\n";
+            if (!empty($r['requirements']['code']) && !empty($r['requirements']['denomination'])) {
+                $requirementsList = $r['requirements']['code'] . ' - ' . $r['requirements']['denomination'] . "\n";
             }
 
             $contraentChoice = '';
@@ -801,7 +851,6 @@ class OpenDataContestActsFrontController extends BaseFrontController
                 $astaValueSum = !empty($r['asta_base_value']) ? $r['asta_base_value'] : null;
             }
 
-
             $data = [
                 // Tipo
                 !empty($r['type']) ? $r['type'] : null,
@@ -814,7 +863,7 @@ class OpenDataContestActsFrontController extends BaseFrontController
                 // Codice fiscale dell'Amministrazione aggiudicatrice
                 !empty($r['adjudicator_data']) ? $r['adjudicator_data'] : null,
                 // Tipo di Amministrazione
-                !empty($r['administration_type']) ? $administrationType[$r['administration_type']] : null,
+                !empty($r['administration_type']) ? $r['administration_type'] : null,
                 // Sede di gara - Provincia
                 !empty($r['province_office']) ? $r['province_office'] : null,
                 // Sede di gara - Comune
@@ -867,11 +916,14 @@ class OpenDataContestActsFrontController extends BaseFrontController
                 !empty($participantsList)  ? trim($participantsList) : null,
                 // Aggiudicatari
                 !empty($awardeesLists)  ? trim($awardeesLists) : null,
+                // Link alla bdncp
+                $bdncpLink,
                 // Url origine dato
                 siteUrl('page/' . $resultSection['id'] . '/details/' . $r['id'] . '/' . urlTitle($r['object'])),
                 // Allegati
                 !empty($attachLists)  ? trim($attachLists) : null
             ];
+
             fputcsv($output, $data, ';', '"');
         }
 

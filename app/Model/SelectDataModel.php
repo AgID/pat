@@ -10,10 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use System\Model;
 
-/**
- * Modello per la tabella select_data
- * @method static where(string $string, string $string1, string $string2)
- */
+
 class SelectDataModel extends Model
 {
     protected $table = 'select_data';
@@ -21,6 +18,7 @@ class SelectDataModel extends Model
     protected $fillable = [
         'id',
         'institution_id',
+        'override_value_of',
         'typology',
         'value',
         'is_default'

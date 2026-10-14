@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -46,8 +50,7 @@ class OpenDataCanonsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -74,7 +77,7 @@ class OpenDataCanonsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData(2);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -103,7 +106,7 @@ class OpenDataCanonsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData(1);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -131,11 +134,17 @@ class OpenDataCanonsFrontController extends BaseFrontController
         }
         // Recupero i canoni di locazione percepiti da mostrare
         return LeaseCanonsModel::where('canon_type', $type)
+            ->filter(
+                (Input::get('i', true)),
+                $formattedAmount,
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->with('properties:id,name')
             ->with('structure:id,structure_name')
             ->with('attachs')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -150,10 +159,11 @@ class OpenDataCanonsFrontController extends BaseFrontController
     {
 
         $fileName = 'Canoni di locazione - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -220,9 +230,9 @@ class OpenDataCanonsFrontController extends BaseFrontController
                 // Ufficio referente per il contratto
                 trim($structure),
                 // Data inizio
-                !empty($r['start_date']) ? date('d-m-Y', strtotime($r['start_date'])) : null,
+                !empty($r['start_date']) ? date('d/m/Y', strtotime($r['start_date'])) : null,
                 // Data fine
-                !empty($r['end_date']) ? date('d-m-Y', strtotime($r['end_date'])) : null,
+                !empty($r['end_date']) ? date('d/m/Y', strtotime($r['end_date'])) : null,
                 // Descrizione
                 !empty($r['notes']) ? S::chartsEntityDecode(S::stripTags($r['notes'])) : null,
                 // Url origine dato

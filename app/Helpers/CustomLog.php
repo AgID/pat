@@ -6,6 +6,7 @@
 
 namespace Helpers;
 
+use Maer\Config\Config;
 use System\Log;
 
 class CustomLog extends Log
@@ -16,12 +17,26 @@ class CustomLog extends Log
      * @param $log
      * @return string|null
      */
-    public static function write($notity = 'INFO', $log = '', $exit = false)
+    public static function write($notify = 'INFO', $log = '', $exit = false)
     {
-        self::writeLog($notity, $log);
+        self::writeLog($notify, $log);
 
         if ($exit) {
             die();
         }
+    }
+
+    public static function stats($notify = 'INFO', $log = '', $exit = false)
+    {
+        $config = new Config();
+        $config->load(APP_PATH . 'Config/app.php');
+
+        if (is_array($log) || is_object($log)) {
+            $log = json_encode($log);
+        }
+
+        $pathFile = APP_PATH . $config->get('path_log') . DIRECTORY_SEPARATOR . '[' . $notify . ']' . '.log';
+
+        file_put_contents($pathFile, $log);
     }
 }

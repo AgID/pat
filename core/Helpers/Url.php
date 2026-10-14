@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * CodeIgniter
  *
  * An open source application development framework for PHP
@@ -296,6 +301,104 @@ if (!function_exists('autoLink')) {
 
         return $str;
     }
+}
+
+if ( ! function_exists('safe_mailto'))
+{
+	function safe_mailto($email, $title = '', $attributes = '')
+	{
+		$title = (string) $title;
+
+		if ($title === '')
+		{
+			$title = $email;
+		}
+
+		$x = str_split('<a href="mailto:', 1);
+
+		for ($i = 0, $l = strlen($email); $i < $l; $i++)
+		{
+			$x[] = '|'.ord($email[$i]);
+		}
+
+		$x[] = '"';
+
+		if ($attributes !== '')
+		{
+			if (is_array($attributes))
+			{
+				foreach ($attributes as $key => $val)
+				{
+					$x[] = ' '.$key.'="';
+					for ($i = 0, $l = strlen($val); $i < $l; $i++)
+					{
+						$x[] = '|'.ord($val[$i]);
+					}
+					$x[] = '"';
+				}
+			}
+			else
+			{
+				for ($i = 0, $l = strlen($attributes); $i < $l; $i++)
+				{
+					$x[] = $attributes[$i];
+				}
+			}
+		}
+
+		$x[] = '>';
+
+		$temp = array();
+		for ($i = 0, $l = strlen($title); $i < $l; $i++)
+		{
+			$ordinal = ord($title[$i]);
+
+			if ($ordinal < 128)
+			{
+				$x[] = '|'.$ordinal;
+			}
+			else
+			{
+				if (count($temp) === 0)
+				{
+					$count = ($ordinal < 224) ? 2 : 3;
+				}
+
+				$temp[] = $ordinal;
+				if (count($temp) === $count)
+				{
+					$number = ($count === 3)
+							? (($temp[0] % 16) * 4096) + (($temp[1] % 64) * 64) + ($temp[2] % 64)
+							: (($temp[0] % 32) * 64) + ($temp[1] % 64);
+					$x[] = '|'.$number;
+					$count = 1;
+					$temp = array();
+				}
+			}
+		}
+
+		$x[] = '<'; $x[] = '/'; $x[] = 'a'; $x[] = '>';
+
+		$x = array_reverse($x);
+
+		$output = "<script type=\"text/javascript\">\n"
+			."\t//<![CDATA[\n"
+			."\tvar l=new Array();\n";
+
+		for ($i = 0, $c = count($x); $i < $c; $i++)
+		{
+			$output .= "\tl[".$i."] = '".$x[$i]."';\n";
+		}
+
+		$output .= "\n\tfor (var i = l.length-1; i >= 0; i=i-1) {\n"
+			."\t\tif (l[i].substring(0, 1) === '|') document.write(\"&#\"+unescape(l[i].substring(1))+\";\");\n"
+			."\t\telse document.write(unescape(l[i]));\n"
+			."\t}\n"
+			."\t//]]>\n"
+			.'</script>';
+
+		return $output;
+	}
 }
 
 

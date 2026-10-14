@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -47,32 +47,6 @@ class View
                 $tmpData = explode(':', $theme);
 
                 $this->path = APP_PATH . 'Plugins' . DIRECTORY_SEPARATOR . $tmpData[1] . DIRECTORY_SEPARATOR . $filePath . '.php';
-
-                    // Addons
-            } elseif  (substr($theme, 0, 5) == 'addon') {
-
-                $tmpData = explode(':', $theme);
-                $this->path = APP_PATH . 'Addons' . DIRECTORY_SEPARATOR . ucfirst($tmpData[1]) . DIRECTORY_SEPARATOR .  'Views'  . DIRECTORY_SEPARATOR  .  $filePath . '.php';
-
-                if(!file_exists($this->path)) {
-
-                    $this->path = APP_PATH . 'Addons' . DIRECTORY_SEPARATOR . $tmpData[1] . DIRECTORY_SEPARATOR .  'views'  . DIRECTORY_SEPARATOR  .  $filePath . '.php';
-
-                } else {
-
-                    if(!file_exists($this->path)) {
-
-                        $this->path = APP_PATH . 'Addons' . DIRECTORY_SEPARATOR .ucfirst($tmpData[1]) . DIRECTORY_SEPARATOR .  'views'  . DIRECTORY_SEPARATOR  .  $filePath . '.php';
-
-                    } else {
-
-                        if(!file_exists($this->path)) {
-
-                            $this->path = APP_PATH . 'Addons' . DIRECTORY_SEPARATOR .$tmpData[1] . DIRECTORY_SEPARATOR .  'Views'  . DIRECTORY_SEPARATOR  .  $filePath . '.php';
-
-                        } 
-                    }
-                }
 
             } else {
 
@@ -125,7 +99,7 @@ class View
     {
         $variables = count($arguments) ? current($arguments) : [];
 
-        return new static($method, $variables);
+        return new self($method, $variables);
     }
 
     /**
@@ -137,7 +111,7 @@ class View
      */
     public function partial($name, $path, $variables = [], $theme = false)
     {
-        $this->variables[$name] = static::create($path, $variables, $theme)->render();
+        $this->variables[$name] = self::create($path, $variables, $theme)->render();
 
         return $this;
     }
@@ -173,6 +147,6 @@ class View
      */
     public static function create($path, $variables = [], $theme = false): View
     {
-        return new static($path, $variables, $theme);
+        return new self($path, $variables, $theme);
     }
 }

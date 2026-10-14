@@ -75,6 +75,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </section>
 </main>
 
+{{-- Link utili --}}
+{% include v1/layout/partials/card_link %}
+
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}

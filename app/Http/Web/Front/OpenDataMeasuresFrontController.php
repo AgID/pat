@@ -46,8 +46,7 @@ class OpenDataMeasuresFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -72,7 +71,7 @@ class OpenDataMeasuresFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData(14);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -102,7 +101,7 @@ class OpenDataMeasuresFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData(13);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -122,14 +121,25 @@ class OpenDataMeasuresFrontController extends BaseFrontController
     private function getData($type = null): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        return MeasuresModel::where('type', $type)
+        return MeasuresModel::select(["object_measures.*"])
+        ->where('type', $type)
+            ->filter(
+                (Input::get('num', true)),
+                (Input::get('obj', true)),
+                (int)Input::get('y', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('str', true),
+                (int)Input::get('res', true)
+            )
             ->with('structures:id,structure_name')
             ->with('personnel:id,full_name')
             ->with('relative_procedure_contraent:id,object')
+            ->with('bdncp_procedures:id,object,cig')
             ->with('attachs')
             ->orderBy('date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -144,10 +154,11 @@ class OpenDataMeasuresFrontController extends BaseFrontController
     {
 
         $fileName = 'Provvedimenti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -157,15 +168,14 @@ class OpenDataMeasuresFrontController extends BaseFrontController
             'Struttura responsabile',
             'Funzionario responsabile',
             'Data',
-            'Scelta del contraente',
+            'Procedura relativa fino al 31/12/2023',
+            'Procedure relative dal 01/01/2024',
             'Scelta del contraente per l\'affidamento di lavori, forniture e servizi',
             'Note',
             'url origine ' . $resultSection['name'],
             'allegati'
         );
         fputcsv($output, $headers, ';', '"');
-
-        $measureTypologies = config('measureTypologies', null, 'app');
 
         // Creazione delle celle per i dati in formato CSV
         foreach ($resultContests as $r) {
@@ -202,6 +212,17 @@ class OpenDataMeasuresFrontController extends BaseFrontController
                 }
             }
 
+
+            // Concateno gli allegati
+            $bdncpLists = '';
+            if (!empty($r['bdncp_procedures'])) {
+
+                foreach ($r['bdncp_procedures'] as $bdncp) {
+                    $bdncpLists .= $bdncp['object'] . ' - [Url]: ' . siteUrl('page/10/details/' . $responsible['id']
+                            . '/' . urlTitle($responsible['object'])) . "\n";
+                }
+            }
+
             // Genero l'indice dell'array
             $data = [
                 // Numero del provvedimento
@@ -209,17 +230,19 @@ class OpenDataMeasuresFrontController extends BaseFrontController
                 // Oggetto
                 !empty($r['object']) ? $r['object'] : null,
                 // Tipologia
-                !empty($r['type']) && array_key_exists($r['type'], $measureTypologies) ? $measureTypologies[$r['type']] : null,
+                config('measureTypologies', [], 'app')[$r['type']] ?? null,
                 // Struttura responsabile
                 !empty($structuresLists) ? trim($structuresLists) : null,
                 // Funzionario responsabile
                 !empty($responsiblesLists) ? trim($responsiblesLists) : null,
                 // Data
-                !empty($r['date']) ? date('d-m-Y', strtotime($r['date'])) : null,
+                !empty($r['date']) ? date('d/m/Y', strtotime($r['date'])) : null,
                 // Scelta del contraente
                 !empty($r['choice_of_contractor']) ? S::chartsEntityDecode(S::stripTags($r['choice_of_contractor'])) : null,
-                // Scelta del contraente per l'affidamento di lavori, forniture e servizi
+                //Bando di gara relativo fino al 31/12/2023
                 !empty($r['relative_procedure_contraent']) ? $r['relative_procedure_contraent']['object'] : null,
+                //Bando di gara relativo dal 01/01/2024
+                !empty($bdncpLists) ? trim($bdncpLists) : null,
                 // Note
                 !empty($r['notes']) ? $r['notes'] :null,
                 // Url origine record

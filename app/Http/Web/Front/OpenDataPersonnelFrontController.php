@@ -10,6 +10,7 @@ use Exception;
 use Helpers\S;
 use Helpers\Validators\OpenDataDate;
 use Model\PersonnelModel;
+use Model\SectionFoPoliticOrganModel;
 use Model\SectionsFoModel;
 use System\Input;
 use System\Response;
@@ -21,6 +22,8 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
  */
 class OpenDataPersonnelFrontController extends BaseFrontController
 {
+
+    protected array $validation;
 
     /**
      * Costruttore
@@ -45,8 +48,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -76,15 +78,15 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             ->with('assignments:id,object,name')
             ->with('measures:id,object')
             ->with('attachs')
-            ->with('political_organ:id,object_personnel_id,political_organ_id')
+            ->with('political_organ')
             ->join('rel_personnel_public_in as public_in', 'public_in.object_personnel_id', '=', 'object_personnel.id')
             ->where('public_in.public_in_id', 238)
             ->orderBy('public_in.updated_at', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -118,15 +120,15 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             ->with('assignments:id,name,object')
             ->with('measures:id,object')
             ->with('attachs')
-            ->with('political_organ:id,object_personnel_id,political_organ_id')
+            ->with('political_organ')
             ->join('rel_personnel_public_in as public_in', 'public_in.object_personnel_id', '=', 'object_personnel.id')
             ->where('public_in.public_in_id', 239)
             ->orderBy('public_in.updated_at', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -161,15 +163,15 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             ->with('assignments:id,name,object')
             ->with('measures:id,object')
             ->with('attachs')
-            ->with('political_organ:id,object_personnel_id,political_organ_id')
+            ->with('political_organ')
             ->join('rel_personnel_public_in as public_in', 'public_in.object_personnel_id', '=', 'object_personnel.id')
             ->where('public_in.public_in_id', 242)
             ->orderBy('public_in.updated_at', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -200,7 +202,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale per generare gli open data
         $queryContents = $this->getDataForPublicIn(null, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -231,7 +233,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale non a tempo indeterminato per generare gli open data
         $queryContents = $this->getDataForPublicIn(null, true, true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -262,7 +264,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('60');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -293,7 +295,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('63');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -324,7 +326,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('58');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -356,7 +358,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('240');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -387,7 +389,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('241');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -418,7 +420,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('246');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -449,7 +451,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('59');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -480,13 +482,82 @@ class OpenDataPersonnelFrontController extends BaseFrontController
         // Recupero i dati del personale, in base al pubblica in, per generare gli open data
         $queryContents = $this->getDataForPublicIn('243');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
             // Creo il csv
             $this->generateCsv($resultContests, $resultSection);
+
+        }
+    }
+
+    public function indexPositionHolders(){
+
+
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        $queryContents = PersonnelModel::select(['object_personnel.*']) //non rimuovere
+            ->where(function ($query) {
+            })
+            ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id', 'left outer')
+            ->filter(
+                (Input::get('n', true)),
+            )
+            ->where(function ($query){
+                //tutti coloro che sono associati a un organo politico o che hanno pubblica in questa pagina.
+                $query->whereHas('political_organ')
+                    ->orWhere('rel_personnel_public_in.public_in_id', '246');
+            })
+            ->with('political_organ')
+            ->with('responsible_structures:id,structure_name,archived')
+            ->with('role:id,name')
+            ->groupBy('object_personnel.id')
+            ->orderBy('priority', 'ASC')
+            ->orderBy('full_name', 'ASC')
+            ->get();
+
+        if (!empty($querySection) && !$queryContents->isEmpty()) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            // Creo il csv
+            $this->generateCsv($resultContests, $resultSection);
+
+        }
+
+
+    }
+
+
+    public function politicsPage()
+    {
+        $currentPageId = (int)uri()->segment(3, 0);
+
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', $currentPageId)
+            ->first();
+
+        $politicOrganInfo = SectionFoPoliticOrganModel::where('section_fo_id', $currentPageId)->first();
+
+        if (!empty($querySection) && !empty($politicOrganInfo)) {
+
+            $relationInfo = SectionsFoModel::select(['id'])->where('id', $currentPageId )
+                ->with('management_structure:id,structure_name,archived')
+                ->with('non_management_structure:id,structure_name,archived')
+                ->with('politic_personnel.role')
+                ->first()
+                ->toArray();
+
+            $resultSection = $querySection->toArray();
+
+            // Creo il csv
+            $this->generatePoliticsPageCsv($politicOrganInfo, $resultSection,$relationInfo);
 
         }
     }
@@ -498,11 +569,12 @@ class OpenDataPersonnelFrontController extends BaseFrontController
      * @param bool $notIndefinite {indica se filtrare i record per contratto a tempo non indeterminato}
      * @return mixed
      */
-    private function getDataForPublicIn($publicIn = null, bool $list = false, bool $notIndefinite = false): mixed
+    protected function getDataForPublicIn($publicIn = null, bool $list = false, bool $notIndefinite = false): mixed
     {
 
         // Recupero il personale per gli open data da generare
-        return PersonnelModel::where('archived', '!=', 1)
+        return PersonnelModel::where(function ($query) {
+            })
             // Filtro in base al pubblica in
             ->when($publicIn, function ($query, $publicIn) {
                 $query->whereHas('public_in_filter', function ($query) use ($publicIn) {
@@ -511,20 +583,24 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             })
             ->when($list, function ($query) {
                 $query->where('personnel_lists', 1)
-                    ->where('archived', '!=', 1);
+                    ->where(function ($query) {
+                    });
             })
             ->when($notIndefinite, function ($query) {
                 $query->where('determined_term', 1);
             })
+            ->filter(
+                (Input::get('n', true)),
+            )
             ->with('role:id,name')
             ->with('referent_structures:id,structure_name')
             ->with('assignments:id,name,object')
-            ->with('political_organ:id,object_personnel_id,political_organ_id')
+            ->with('political_organ')
             ->with('attachs')
             ->orderBy('priority', 'ASC')
             ->orderBy('full_name', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -535,14 +611,15 @@ class OpenDataPersonnelFrontController extends BaseFrontController
      * @return Void
      * @throws Exception
      */
-    private function generateCsv($resultContests = null, $resultSection = null): void
+    protected function generateCsv($resultContests = null, $resultSection = null): void
     {
 
         $fileName = 'Referenti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -552,7 +629,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             'Incarichi associati',
             'Strutture organizzative di appartenenza',
             'Incarico di stampo politico',
-            'Organo politico-amministrativo',
+            'Organo politico amministrativo o di gestione',
             'Atto di nomina o proclamazione',
             'Telefono fisso',
             'Telefono mobile',
@@ -598,14 +675,7 @@ class OpenDataPersonnelFrontController extends BaseFrontController
             // Concateno gli organi politici
             $politicalOrgansLists = '';
             if (!empty($r['political_organ'])) {
-
-                $organs = config('politicalAdministrative', null, 'app');
-
-                foreach ($r['political_organ'] as $politicalOrgan) {
-                    if(array_key_exists($politicalOrgan['political_organ_id'], $organs)) {
-                        $politicalOrgansLists .= $organs[$politicalOrgan['political_organ_id']] . "\n";
-                    }
-                }
+                $politicalOrgansLists = implode(",",array_map(fn($item) => $this->getSectionName($item['section_fo_id']), $r['political_organ']));
             }
 
             // Concateno gli allegati
@@ -666,6 +736,90 @@ class OpenDataPersonnelFrontController extends BaseFrontController
 
             fputcsv($output, $data, ';', '"');
         }
+        fclose($output);
+    }
+
+
+    protected function getSectionName($sectionID = 0)
+    {
+
+        if(empty($sectionID)){
+            return "";
+        }
+
+        $name = SectionsFoModel::select(['id', 'name'])->where('id', $sectionID)->first();
+
+        if(!empty($name)){
+            return $name->toArray()['name'];
+        }
+        return "";
+
+    }
+
+    private function generatePoliticsPageCsv($politicOrganInfo, $resultSection, $relationInfo)
+    {
+
+        $fileName = 'Organo.csv';
+
+        setFileDownloadCookieCSV($fileName);
+        $output = fopen("php://output", 'w');
+
+        $headers = array(
+            'Denominazione',
+            'Competenze',
+            'Uffici dirigenziali',
+            'Uffici non dirigenziali',
+            'Motivazione assenza uffici',
+            'Url origine',
+        );
+        fputcsv($output, $headers, ';', '"');
+
+        $politicOrganInfo = $politicOrganInfo->toArray();
+
+        $management_structure = '';
+        if(!empty($relationInfo['management_structure'])){
+            foreach ($relationInfo['management_structure'] as $str){
+
+                $link = !empty($str['archived']) ?
+                    escapeXss($str['structure_name'])." [Elemento archiviato]" :
+                    '<a target="_blank" href="' . siteUrl('page/40/details/' . $str['id'] . '/' . urlTitle($str['structure_name'])) . '">'.escapeXss($str['structure_name']).'</a>';
+
+                $management_structure.= $link.", ";
+            }
+
+            $management_structure = rtrim($management_structure, ", ");
+
+        }
+
+        $non_management_structure = '';
+        if(!empty($relationInfo['non_management_structure'])){
+            foreach ($relationInfo['non_management_structure'] as $str){
+
+                $link = !empty($str['archived']) ?
+                    escapeXss($str['structure_name'])." [Elemento archiviato]" :
+                    '<a target="_blank" href="' . siteUrl('page/40/details/' . $str['id'] . '/' . urlTitle($str['structure_name'])) . '">'.escapeXss($str['structure_name']).'</a>';
+
+                $non_management_structure.= $link.", ";
+            }
+            $non_management_structure = rtrim($non_management_structure, ", ");
+        }
+
+        // Genero l'indice dell'array
+        $data = [
+            // Titolo accademico
+            !empty($politicOrganInfo['denomination']) ? $politicOrganInfo['denomination'] : null,
+            // Nome completo
+            !empty($politicOrganInfo['skills']) ? S::chartsEntityDecode(S::stripTags($politicOrganInfo['skills'])) : null,
+            $management_structure,
+            $non_management_structure,
+            //Motivazione assenza uffici
+            !empty($politicOrganInfo['absence_office_reason']) ? S::stripTags($politicOrganInfo['absence_office_reason']) : null,
+            // Url origine dato
+            siteUrl('page/' . $resultSection['id'] . '/organo.html'),
+
+        ];
+        fputcsv($output, $data, ';', '"');
+
         fclose($output);
     }
 }

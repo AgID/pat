@@ -6,13 +6,7 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-/**
- * @package     Pat OS
- * @author      ISWEB S.p.A
- * @copyright   Copyright (c) 2021, ISWEB S.p.A
- * @since       Version 1.0
- * @filesource
- */
+
 
 return [
 

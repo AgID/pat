@@ -13,12 +13,9 @@ Il Framework offre una libreria che contiene vari metodi di utilità generali.
 - `patOsConfigMail($merge = false)`
 - `arrayMergeRecursiveDistinct($array1, $array2)`
 - `authPatOs()`
-- `isSuperAdmin()`
-- `allowCORS()`
 - `paginateBootstrap($elements, $amount = false, $totalHours = false)`
 - `br2nl($string)`
 - `toFloat($num)`
-- `resolveStringBearer($bearer)`
 - `translateMonth($month = null)`
 - `iconBtn($name = 'Salva', $id = "icon-save", $ico = 'fa-save')`
 - `form_editor($data = '', $value = '', $extra = '')`
@@ -149,7 +146,6 @@ L'esempio precedente stamperebbe, tutte le informazioni dell'ente visto che non 
   'opendata_channel' => null
   'show_update_date' => null
   'statistic_snippet_code' => string 'NULL' (length=4)
-  'google_maps_api_key' => string 'null' (length=4)
   'indexable' => int 1
   'support' => int 0
   'show_regulation_in_structure' => null
@@ -158,8 +154,8 @@ L'esempio precedente stamperebbe, tutte le informazioni dell'ente visto che non 
   'client_code' => null
   'smtp_username' => string 'patos@isweb.it' (length=14)
   'smtp_pec_username' => string 'username@pec.test.it' (length=20)
-  'smtp_password' => string 'passwordTest95!' (length=15)
-  'smtp_pec_password' => string 'passwordTest95!' (length=15)
+  'smtp_password' => string '***************' (length=15)
+  'smtp_pec_password' => string '***************' (length=15)
   'smtp_host' => string 'mail.internetsoluzioni.it' (length=25)
   'smtp_pec_host' => string 'mail.internetsoluzioni.it' (length=25)
   'smtp_port' => string '587' (length=3)
@@ -174,7 +170,6 @@ L'esempio precedente stamperebbe, tutte le informazioni dell'ente visto che non 
   'email_pec_notifications' => string 'esempio@pec.test.it' (length=19)
   'publication_responsible' => string 'Vincenzo Apostolo' (length=17)
   'privacy_url' => string 'htttp://www.esempio.it' (length=22)
-  'private_token' => null
   'last_visit_time_limit' => int 2592000
   'personnel_roles' => null
   'created_at' => string '2021-10-06T08:42:04.000000Z' (length=27)
@@ -251,38 +246,6 @@ Per maggiori informazioni vedere il file AuthPatOS.
 
 ------
 
-`isSuperAdmin()`
-
-
-
-Funzione che verifica se l'utente in sessione è un super admin (Amministratore della piattaforma). 
-
-| Settaggi            | Descrizione                                      |
-| ------------------- | ------------------------------------------------ |
-| **Parametri**       |                                                  |
-| **Ritorno**         | True se l'utente è super admin, false altrimenti |
-| **Tipo di ritorno** | bool                                             |
-
-
-
-------
-
-`allowCORS()`
-
-
-
-Funzione che abilita le richieste CORS.
-
-| Settaggi            | Descrizione |
-| ------------------- | ----------- |
-| **Parametri**       |             |
-| **Ritorno**         |             |
-| **Tipo di ritorno** | null        |
-
-
-
-------
-
 `paginateBootstrap($elements)`
 
 
@@ -326,22 +289,6 @@ Funzione che trasforma il valore passato come parametro nel tipo float.
 | **Parametri**       | **$num** - Numero da trasformare nel tipo float |
 | **Ritorno**         | Il valore trasformato nel tipo float            |
 | **Tipo di ritorno** | float                                           |
-
-
-
-------
-
-`resolveStringBearer($bearer)`
-
-
-
-Funzione che nell'autenticazione con JWT ritorna il token dali headers.
-
-| Settaggi            | Descrizione                                             |
-| ------------------- | ------------------------------------------------------- |
-| **Parametri**       | **$bearer** (string) - Stringa in cui prendere il token |
-| **Ritorno**         | Il token                                                |
-| **Tipo di ritorno** | null\|string                                            |
 
 
 
@@ -578,7 +525,6 @@ trace(authPatOs()->getIdentity());
   'deleted' => string '0'
   'last_visit' => string '2021-12-06 17:54:40' 
   'registration_date' => string '2021-10-08 14:25:06' 
-  'super_admin' => string '0' 
   'prevent_password_repetition' => string '2' 
   'prevent_password_repetition_6_months' => string '' 
   'password_expiration_days' => string '25' 
@@ -1317,14 +1263,12 @@ Funzione per la paginazione del file-manager **elFinder**.
 
 Funzione che ritorna l'ID dell'ente che si sta gestendo.
 
-Se l'utente è super admin ritorna 0 se si stanno gestendo tutti gli enti oppure l'ID dell'ente che ha selezionato per la gestione.
-
-Se l'utente non è super admin, ritorna l'ID dell'ente di appartenenza del dominio in cui si è loggato.
+Ritorna l'ID dell'ente associato al dominio corrente.
 
 | Settaggi            | Descrizione                                                  |
 | ------------------- | ------------------------------------------------------------ |
 | **Parametri**       |                                                              |
-| **Ritorno**         | Ritorna l'ID dell'ente che si sta gestendo, oppure 0 se si stanno gestendo tutti gli enti come super admin |
+| **Ritorno**         | Ritorna l'ID dell'ente associato al dominio corrente |
 | **Tipo di ritorno** | bool\|int                                                    |
 
 

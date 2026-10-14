@@ -40,6 +40,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             <div class="card-body card-primary">
 
+
+                {{-- Inclusione di librerie esterne --}}
+
                 <div class="row">
                     @if(!empty($personnel['photo']))
                         <div class="col-md-12 text-center mb-3" id="personnel_photo">
@@ -67,40 +70,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
-                            <div class="form-row d-flex align-items-end">
-                                {{-- Campo Ruolo --}}
-                                <div class="form-group col-md-6">
-                                    <label for="role">Ruolo *</label>
-                                    <div class="select2-blue" id="input_role">
-                                        {{ form_dropdown(
-                                            'role_id',
-                                            @$roles,
-                                            @$personnel['role_id'],
-                                            'class="select2-role" data-dropdown-css-class="select2-blue" style="width: 100%; height: unset;" id="role_id"'
-                                        ) }}
-                                    </div>
-                                </div>
 
-                                {{-- Campo Pubblica in --}}
-                                <div class="form-group col-md-6" id="input_contact_personnel">
-                                    <label for="contact_personnel">Pubblica in</label>
-                                    <div class="select2-blue">
-                                        {{ form_dropdown(
-                                            'public_in[]',
-                                            @$publicIn,
-                                            @$publicInIDs,
-                                            'class="form-control select2-public_in" multiple="multiple" data-placeholder="Seleziona" data-dropdown-css-class="select2-blue" style="width: 100%;"'
-                                        ) }}
-                                    </div>
-                                </div>
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
                             </div>
 
+
                             <div class="form-row d-flex align-items-start">
+
                                 {{-- Campo Nome --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label for="firstname">Nome *</label>
                                     {{ form_input([
                                     'name' => 'firstname',
@@ -111,13 +100,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
 
                                     <small class="form-text text-muted" style="display: none;" id="alert_name">
-                                        Dato importato, nella nuova versione nome e cognome sono gestititi
-                                        separatamente!
+                                        Dato importato, nella nuova versione nome e cognome sono gestiti separatamente!
                                     </small>
                                 </div>
 
                                 {{-- Campo Cognome --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-4">
                                     <label for="lastname">Cognome *</label>
                                     {{ form_input([
                                         'name' => 'lastname',
@@ -127,23 +115,74 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'class' => 'form-control input_lastname'
                                     ]) }}
                                 </div>
+
+                                <div class="form-group col-md-4" id="input_title">
+                                    <label for="title">Titolo accademico o professionale</label>
+                                    {{ form_dropdown(
+                                        'title',
+                                        ['' => '','arch.' => 'arch.','avv.' => 'avv.','dott.' => 'dott.','dott.ssa' => 'dott.ssa',
+                                            'dr.' => 'dr.', 'ing.' => 'ing.', 'on.le' => 'on.le', 'geom.' => 'geom.', 'prof.' => 'prof.',
+                                            'prof.ssa' => 'prof.ssa','rag.' => 'rag.','sig.' => 'sig.','sig.ra' => 'sig.ra','per.' => 'per.', 'dott.ing.' => 'dott.ing.'],
+                                        @$personnel['title'],
+                                        'class="ts-title" style="width: 100%;"'
+                                    ) }}
+                                </div>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Titolo accademico o professionale --}}
-                                <div class="form-group col-md-6">
-                                    <label for="title">Titolo accademico o professionale</label>
-                                    <div class="select2-blue" id="input_title">
+                                {{-- Campo Ruolo --}}
+                                <div class="form-group col-md-6" id="input_role">
+                                    <label for="role">Ruolo *</label>
+                                    {{ form_dropdown(
+                                        'role_id',
+                                        @$roles,
+                                        @$personnel['role_id'],
+                                        'class="ts-role" style="width: 100%;" id="role_id"'
+                                    ) }}
+                                </div>
+
+
+                                    {{-- Campo Pubblica in --}}
+                                    <div class="form-group col-md-6" id="input_contact_personnel">
+                                        <label for="contact_personnel">Pubblica in</label>
                                         {{ form_dropdown(
-                                            'title',
-                                            ['' => '','arch.' => 'arch.','avv.' => 'avv.','dott.' => 'dott.','dott.ssa' => 'dott.ssa',
-                                                'dr.' => 'dr.','ing.' => 'ing.','on.le' => 'on.le','geom.' => 'geom.','prof.' => 'prof.',
-                                                'reg.' => 'reg.','sig.' => 'sig.','sig.ra' => 'sig.ra','per.' => 'per.'],
-                                            @$personnel['title'],
-                                            'class="form-control select2-title" style="width: 100%;"'
+                                            'public_in[]',
+                                            @$publicIn,
+                                            @$publicInIDs,
+                                            'class="ts-public_in" multiple="multiple" style="width: 100%;"'
                                         ) }}
                                     </div>
+
+                            </div>
+
+                            <div class="form-row d-flex align-items-end">
+
+                                <div class="form-group col-md-6">
+                                    <label for="organs">Organo politico, di amministrazione o gestione</label>
+                                    {{ form_dropdown(
+                                        'organs[]',
+                                        @$politicalAdministrative,
+                                        @$organIds,
+                                        'class="ts-organs" multiple="multiple" style="width: 100%;"'
+                                    ) }}
                                 </div>
+
+                                {{-- Campo Titolo accademico o professionale --}}
+                                @if(!empty($qualifications))
+                                    <div class="form-group col-md-6" id="input_qualification_id">
+                                        <label for="qualification_id">Qualifica</label>
+                                        {{ form_dropdown(
+                                            'qualification_id',
+                                            ['' => ''] + $qualifications,
+                                            @$personnel['qualification_id'],
+                                            'class="ts-qualification" style="width: 100%;"'
+                                        ) }}
+                                    </div>
+                                @endif
+                            </div>
+
+
+                            <div class="form-row d-flex align-items-start">
                             </div>
 
                             <div class="form-group poShow politicalAssignmentShow">
@@ -159,17 +198,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             {{-- Campo Organo politico-amministrativo --}}
                             <div class="form-row d-flex align-items-end">
-                                <div class="form-group col-md-6 politicalAssignmentShow" id="institution_type">
-                                    <label for="assignments">Organo politico-amministrativo</label>
-                                    <div class="select2-blue" id="input_politicalAssignmentShow">
-                                        {{ form_dropdown(
-                                            'organs[]',
-                                            @$politicalAdministrative,
-                                            @$organIds,
-                                            'class="form-control select2-organs" multiple="multiple" data-placeholder="Seleziona o cerca tra gli incarichi..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
-                                        ) }}
-                                    </div>
-                                </div>
 
                                 {{-- Campo Incarico di stampo politico --}}
                                 <div class="form-group col-md-6 politicalAssignmentShow">
@@ -184,42 +212,42 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
-                            <div class="form-row d-flex align-items-end">
-                                {{-- Campo Utilizza negli elenchi del personale --}}
-                                <div class="form-group col-md-6">
-                                    <label for="personnel_lists">Utilizza negli elenchi del personale</label>
-                                    <div class="select2-blue" id="input_personnel_lists">
+
+                                <div class="form-row d-flex align-items-end">
+                                    {{-- Campo Utilizza negli elenchi del personale --}}
+                                    <div class="form-group col-md-6" id="input_personnel_lists">
+                                        <label for="personnel_lists">Utilizza negli elenchi del personale</label>
+                                        <span> ( Si consiglia di selezionare "No" per personale di tipo politico )</span>
                                         {{ form_dropdown(
                                             'personnel_lists',
-                                            [''=>'',1=>'Si',0=>'No'],
+                                            [1=>'Si',0=>'No'],
                                             @$personnel['personnel_lists'],
-                                            'class="form-control select2-personnel_lists" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-personnel_lists" style="width: 100%;"'
                                         ) }}
+                                    </div>
+
+                                    {{-- Campo Ordine di visualizzazione --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="priority">Ordine di visualizzazione *</label>
+                                        {{ form_input([
+                                            'name' => 'priority',
+                                            'type' => 'number',
+                                            'value' => !empty($personnel['priority']) ? $personnel['priority'] : 1,
+                                            'placeholder' => 'Ordine',
+                                            'id' => 'input_priority',
+                                            'class' => 'form-control input_priority'
+                                        ]) }}
                                     </div>
                                 </div>
 
-                                {{-- Campo Ordine di visualizzazione --}}
-                                <div class="form-group col-md-6">
-                                    <label for="priority">Ordine di visualizzazione *</label>
-                                    {{ form_input([
-                                        'name' => 'priority',
-                                        'type' => 'number',
-                                        'value' => !empty($personnel['priority']) ? $personnel['priority'] : 1,
-                                        'placeholder' => 'Ordine',
-                                        'id' => 'input_priority',
-                                        'class' => 'form-control input_priority'
-                                    ]) }}
-                                </div>
-                            </div>
 
                             {{generateSeparator('Strutture collegate ed incarichi')}}
 
-                            {{-- Campo Referente per le strutture --}}
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="structures">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_structures" id="_structures_label">Referente per le
-                                            strutture</label>
+                                            strutture </label>
                                     </div>
                                     <div id="ajax_structures"></div>
                                     <input type="hidden" value="" name="structures"
@@ -228,21 +256,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
-                            {{-- Campo Incarichi associati --}}
-                            <div class="form-row d-flex align-items-end">
-                                <div class="form-group col-md-12">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_assignments" id="_assignments_label">Incarichi
-                                            associati</label>
-                                    </div>
-                                    <div id="ajax_assignments"></div>
-                                    <input type="hidden" value="" name="assignments" id="input_assignments"
-                                           class="assignments">
-                                </div>
-                            </div>
 
-                            {{-- Campo Provvedimenti associati --}}
-                            <!--<div class="form-row d-flex align-items-end">
+                                {{-- Campo Incarichi associati --}}
+                                <div class="form-row d-flex align-items-end">
+                                    <div class="form-group col-md-12">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label for="ajax_assignments" id="_assignments_label">Incarichi
+                                                associati</label>
+                                        </div>
+                                        <div id="ajax_assignments"></div>
+                                        <input type="hidden" value="" name="assignments" id="input_assignments"
+                                               class="assignments">
+                                    </div>
+                                </div>
+
+                                {{-- Campo Provvedimenti associati --}}
+                                <!--<div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12">
                                     <label for="ajax_measures">Provvedimenti associati</label>
                                     <div id="ajax_measures"></div>
@@ -251,20 +280,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>-->
 
+
                             {{generateSeparator('Informazioni e recapiti')}}
 
                             {{-- Campo Foto allegata --}}
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-6">
-                                    <label for="photo">Foto allegata</label>
+                                    <label for="photo_file">Foto allegata</label>
                                     <div class="custom-file">
                                         <input type="file" class="custom-file-input" id="photo_file"
-                                               name="photo" accept="image/png, image/gif, image/jpeg">
+                                               name="photo" accept="image/png, image/gif, image/jpeg"
+                                               aria-describedby="photo_file_help">
                                         <label class="custom-file-label" for="photo_file"
                                                id="label_attach_logo">
                                             Foto allegata
                                         </label>
                                     </div>
+                                    <small id="photo_file_help" class="form-text text-muted">
+                                        Formati ammessi: PNG, GIF, JPG/JPEG. Dimensione massima:
+                                        {{ \Helpers\Utility\FileUpload::maxSizeLabel(1024 * 1024) }};
+                                        risoluzione minima 50 × 50 pixel.
+                                    </small>
                                     <div id="preview-url-logo">
                                         <div class="mt-2">
                                             <img src="" alt="Immagine da visualizzare" id="src-logo-ente"
@@ -282,12 +318,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Contratto a tempo determinato --}}
                                 <div class="form-group col-md-6" id="determined_term">
                                     <label for="determined_term">Contratto a tempo determinato</label>
-                                    <div class="select2-blue" id="input_determined_term">
+                                    <div id="input_determined_term">
                                         {{ form_dropdown(
                                             'determined_term',
                                             ['' => '',1 => 'Si',0 => 'No'],
                                             @$personnel['determined_term'],
-                                            'class="form-control select2-determinet_term" style="width: 100%;"'
+                                            'class="ts-determined_term" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -349,12 +385,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Indirizzo email non disponibile --}}
                                 <div class="form-group col-md-6">
                                     <label for="not_available_email">Indirizzo email disponibile</label>
-                                    <div class="select2-blue" id="input_not_available_email">
+                                    <div id="input_not_available_email">
                                         {{ form_dropdown(
                                             'not_available_email',
                                             [1=>'Si', 0=>'No'],
                                             @$personnel['not_available_email'],
-                                            'class="select2-email_not_available" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-email_not_available" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -418,15 +454,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Contratto a tempo determinato --}}
+                                {{-- Campo CIn aspettativa --}}
                                 <div class="form-group col-md-6" id="on_leave">
                                     <label for="on_leave">In aspettativa</label>
-                                    <div class="select2-blue" id="input_on_leave">
+                                    <div id="input_on_leave">
                                         {{ form_dropdown(
                                             'on_leave',
                                             ['' => '',1 => 'Si',0 => 'No'],
                                             @$personnel['on_leave'],
-                                            'class="form-control select2-on_leave" style="width: 100%;"'
+                                            'class="ts-on_leave" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -456,7 +492,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             <div class="form-group poShow politicalAssignmentShow">
                                 {{-- Campo Dati relativi all'assunzione di altre cariche, presso enti pubblici o privati ed i relativi compensi a qualsiasi titolo corrisposti (art. 14 c.1 lett. d), D.lgs. n. 33/2013)--}}
-                                <label for="other_assignments_institutions">Dati relativi all'assunzione di altre cariche, presso enti pubblici o privati ed i relativi compensi a qualsiasi titolo corrisposti (art. 14 c.1 lett. d), D.lgs. n. 33/2013)
+                                <label for="other_assignments_institutions">Dati relativi all'assunzione di altre
+                                    cariche, presso enti pubblici o privati ed i relativi compensi a qualsiasi titolo
+                                    corrisposti (art. 14 c.1 lett. d), D.lgs. n. 33/2013)
                                 </label>
                                 {{form_editor([
                                     'name' => 'other_assignments_institutions',
@@ -483,6 +521,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Documentazione Art. 14 e Art. 47, c. 1, Dlgs n. 33/2013; Art. 1,2,3,4 l. n. 441/1982 --}}
                                 @php
                                     $label = " Documentazione Art. 14 e Art. 47, c. 1, Dlgs n. 33/2013; Art.1,2,3,4l. n. 441/1982 ";
+                                    $label = $label ?? null;
                                 @endphp
 
                                 <label for="notes"> {{ $label }}</label>
@@ -494,7 +533,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
 
-                            {{generateSeparator('Altre informazioni')}}
+                            <div class="form-group poShow politicalAssignmentShow">
+                                {{-- Campo Emolumenti complessivi percepiti a carico della finanza pubblica ((art. 14 c.1ter), D.lgs. n. 33/2013) --}}
+                                <label for="total_emoluments"> Emolumenti complessivi percepiti a carico della finanza
+                                    pubblica ((art. 14 c.1ter), D.lgs. n. 33/2013) </label>
+                                {{form_editor([
+                                    'name' => 'total_emoluments',
+                                    'value' => !empty($personnel['total_emoluments']) ? $personnel['total_emoluments'] : null,
+                                    'id' => 'total_emoluments',
+                                    'class' => 'form-control total_emoluments'
+                                ]) }}
+                            </div>
+
+
+                                {{generateSeparator('Altre informazioni')}}
 
                                 {{-- Campo Storico Incarichi --}}
                                 <div class="form-group">
@@ -553,21 +605,29 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'class' => 'form-control input_information_archive'
                                     ]) }}
                                 </div>
+
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
 
                         {{-- END: Form --}}
                     </div>
 
-                    {{-- ***** BEGIN: include attach**** --}}
-                    {% include layout/partials/attach %}
-                    {{-- ***** END: include attach**** --}}
+
+                        {{-- ***** BEGIN: include attach**** --}}
+                        {% include layout/partials/attach %}
+                        {{-- ***** END: include attach**** --}}
+
+
 
                 </div>
             </div>
 
             {{-- Card Footer --}}
             <div class="card-footer" id="__save_">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
 
         </div>
@@ -578,6 +638,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             'value' => $_storageType,
             'id' => '_storage_type',
             'class' => '_storage_type',
+        ]) }}
+
+        {{ form_input([
+            'type' => 'hidden',
+            'name' => 'test',
+            'value' => $institution_type_id,
+            'id' => 'test',
+            'class' => 'test',
         ]) }}
 
         @if(!empty($personnel['id']))
@@ -630,16 +698,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -653,15 +719,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         let formModified = false;
 
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value;
 
         @if(empty($personnel['firstname']) && $_storageType == 'update')
-        $('#alert_name').show();
+        document.getElementById('alert_name').style.display = '';
         @endif
 
-        $('#preview-url-logo').hide();
+        document.getElementById('preview-url-logo').style.display = 'none';
 
-                {{-- Nascondo i campi di input in base al ruolo selezionato --}}
         for (let i = 0; i < document.getElementsByClassName("poShow").length; i++) {
             document.getElementsByClassName("poShow")[i].style.display = 'none';
         }
@@ -669,16 +734,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             document.getElementsByClassName("politicalAssignmentShow")[i].style.display = 'none';
         }
 
-        let role = document.getElementById("role_id").options[document.getElementById("role_id").selectedIndex]?.text;
-        let roles = [<?php echo "'" . implode("', '", $political) . "'" ?>];
+        let roleId = document.getElementById('role_id').value;
 
-        if (role === 'P.O.' || role === 'E.Q.' || role === 'Dirigente' || role === 'Segretario generale') {
-            // if (roles.includes(role)) {
+        let politicalRoles = <?php echo json_encode(@$political); ?>;// non mettere le virgolette
+        let po_dir_fields = <?php echo json_encode(@$po_dir_fields); ?>;// non mettere le virgolette
+
+        if (Object.keys(po_dir_fields).includes(roleId)) {
             for (let i = 0; i < document.getElementsByClassName("poShow").length; i++) {
                 document.getElementsByClassName("poShow")[i].style.display = 'block';
             }
-            // } else if (role === 'Incaricato politico' || role === 'Commissario' || role === 'Sub Commissario') {
-        } else if (roles.includes(role)) {
+        } else if (Object.keys(politicalRoles).includes(roleId)) {
             for (let i = 0; i < document.getElementsByClassName("politicalAssignmentShow").length; i++) {
                 document.getElementsByClassName('politicalAssignmentShow')[i].style.display = 'block';
             }
@@ -686,57 +751,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         }
 
         {{-- Begin Campi Select--}}
-        {{-- Select2 per campo "Ruolo" --}}
-        let $dropdownRole = $('.select2-role');
-        $dropdownRole.select2({
-            placeholder: 'Seleziona ruolo',
-            allowClear: true
-        });
+        new TomSelect('.ts-role', TS_SINGLE_CLEAR);
 
-        {{-- Select2 per campo "Pubblica In" --}}
-        let $dropdownPublicIn = $('.select2-public_in');
-        $dropdownPublicIn.select2()
-        $dropdownPublicIn.on('change', function () {
-            $('#public_in').val($(this).val());
-        });
+        if (document.querySelector('.ts-public_in')) {
+            new TomSelect('.ts-public_in', TS_MULTI_NO_SEARCH);
+        }
 
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-determined_term', TS_SINGLE_CLEAR);
+        new TomSelect('.ts-on_leave', TS_SINGLE_CLEAR);
 
-        {{-- Select2 per campo "Contratto a tempo determinato" --}}
-        let $dropdownDeterminetTerm = $('.select2-determinet_term');
-        $dropdownDeterminetTerm.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
+        if (document.querySelector('.ts-personnel_lists')) {
+            new TomSelect('.ts-personnel_lists', TS_SINGLE_PRESELECT);
+        }
 
-        {{-- Select2 per campo "Contratto a tempo determinato" --}}
-        let $dropdownOnLeave = $('.select2-on_leave');
-        $dropdownOnLeave.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-organs', TS_MULTI_NO_SEARCH);
 
-        {{-- Select2 per campo "Utilizza negli elenchi del personale" --}}
-        let $dropdownPersonnelList = $('.select2-personnel_lists');
-        $dropdownPersonnelList.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-email_not_available', TS_SINGLE_PRESELECT);
+        new TomSelect('.ts-title', TS_SINGLE_CLEAR);
 
-        {{-- Select2 per campo "Organo politico-amministrativo" --}}
-        let $dropdownOrgans = $('.select2-organs');
-        $dropdownOrgans.select2()
-        $dropdownOrgans.on('change', function () {
-            $('#structure').val($(this).val());
-        });
+        if (document.querySelector('.ts-qualification')) {
+            new TomSelect('.ts-qualification', TS_SINGLE_CLEAR);
+        }
+        {{-- End Campi Select--}}
 
         // Tabella per la selezione della struttura di appartenenza
         let structures = $('#ajax_structures').patOsAjaxPagination({
@@ -748,6 +784,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($personnel['referent_structures']) ? implode(",", array_column($personnel['referent_structures'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_structure',
             dataParams: {
@@ -838,42 +876,56 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @php
             $tmpStartDate = !empty($measure['date']) ? ' - '.date('d/m/Y', strtotime($measure['date'])) : null;
         @endphp
-        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).' - '.$measure['number'].''.$tmpStartDate }}', true);
+        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape(trim($measure['object'])).' - '.htmlEscape(trim($measure['number'])).''.$tmpStartDate }}', true);
         @endforeach
         @endif
 
-        {{-- Select2 per campo "Indirizzo email non disponibile" --}}
-        let $dropdownEmailNotAvailable = $('.select2-email_not_available');
-        $dropdownEmailNotAvailable.select2({
-            minimumResultsForSearch: -1
-        });
+        /*
+         * Preview Foto
+         */
+        document.getElementById('photo_file').addEventListener('change', () => {
+            const input = document.getElementById('photo_file');
+            const file = input.files[0];
 
-        {{-- Select2 per campo "Titolo accademico o professionale" --}}
-        let $dropdownTitle = $('.select2-title');
-        $dropdownTitle.select2({
-            placeholder: 'Sleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-        {{-- End Campi Select--}}
+            if (!file) {
+                return;
+            }
 
-        {{-- Preview Foto --}}
-        $('#photo_file').bind('change', function (e) {
-            var reader,
-                files = document.getElementById("photo_file").files;
-            reader = new FileReader();
-            reader.onload = function (e) {
-                $('#src-logo-ente').attr('src', e.target.result);
+            const reader = new FileReader();
+
+            reader.onload = e => {
+                document.getElementById('src-logo-ente').src = e.target.result;
             };
-            reader.readAsDataURL(files[0]);
-            $('#preview-url-logo').fadeIn(200);
+
+            reader.readAsDataURL(file);
+
+            document.getElementById('preview-url-logo').style.display = '';
         });
 
-        $('#clear-preview-logo').bind('click', function (e) {
-            document.getElementById("photo_file").value = null;
-            $('#preview-url-logo').hide();
+        /*
+         * Rimuove la preview
+         */
+        document.getElementById('clear-preview-logo').addEventListener('click', () => {
+            document.getElementById('photo_file').value = '';
+
+            document.getElementById('preview-url-logo').style.display = 'none';
         });
-        {{-- End Preview Foto --}}
+
+        /*
+        * Rimozione foto
+        * */
+        @if(!empty($personnel['photo']) && !empty($personnel['id']))
+        document.getElementById('__remove_photo').addEventListener('click', () => {
+            document.getElementById('personnel_photo')?.remove();
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'remove_photo';
+            input.value = '1';
+
+            document.getElementById('_storage_type').after(input);
+        });
+        @endif
 
         {{-- Begin campi EDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -883,19 +935,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             });
         });
 
-        CKEDITOR.replace('input_other_info');
+        CKEDITOR.replace('input_other_info', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_information_archive');
+        CKEDITOR.replace('input_information_archive', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_extremes_of_conference');
+        CKEDITOR.replace('input_extremes_of_conference', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_compensations');
+        CKEDITOR.replace('input_compensations', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_trips_import');
+        CKEDITOR.replace('input_trips_import', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_other_assignments');
+        CKEDITOR.replace('input_other_assignments', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_other_assignments_institutions', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+        CKEDITOR.replace('total_emoluments', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End campi EDITOR --}}
 
         {{-- Begin dinamicizzazione campi form --}}
@@ -908,11 +982,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endif
 
         {{-- Per indirizzo email non disponibile --}}
-        $('#input_not_available_email').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'No') {
+        document.querySelector('.ts-email_not_available').addEventListener('change', function () {
+            if (this.value === '0') {
                 document.getElementById("showEmail").style.display = "none";
                 document.getElementById("showEmailNotAvaiable").style.display = "block";
+                @if($_storageType == 'insert')
+                document.getElementById("input_not_available_email_txt").value = 'Email non disponibile';
+                @endif
             } else {
                 document.getElementById("showEmail").style.display = "block";
                 document.getElementById("showEmailNotAvaiable").style.display = "none";
@@ -920,8 +996,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         {{-- Mostro i campi del form in base al ruolo selezionato--}}
-        $('#input_role').on('select2:select', function (e) {
-            let roles = [<?php echo "'" . implode("', '", $political) . "'" ?>];
+        document.getElementById('role_id').addEventListener('change', function () {
+            let politicalRoles = <?php echo json_encode(@$political); ?>;// non mettere le virgolette
+            let po_dir_fields = <?php echo json_encode(@$po_dir_fields); ?>;// non mettere le virgolette
 
             for (let i = 0; i < document.getElementsByClassName("poShow").length; i++) {
                 document.getElementsByClassName("poShow")[i].style.display = 'none';
@@ -930,12 +1007,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 document.getElementsByClassName('politicalAssignmentShow')[i].style.display = 'none';
             }
             document.getElementById("determined_term").style.display = 'block';
-            let data = e.params.data;
-            if (data.text === 'P.O.' || data.text === 'E.Q.' || data.text === 'Dirigente' || data.text === 'Segretario generale') {
+
+            let selectedRoleId = this.value;
+
+            if (Object.keys(po_dir_fields).includes(selectedRoleId)) {
                 for (let i = 0; i < document.getElementsByClassName("poShow").length; i++) {
                     document.getElementsByClassName("poShow")[i].style.display = 'block';
                 }
-            } else if (roles.includes(data.text)) {
+            } else if (Object.keys(politicalRoles).includes(selectedRoleId)) {
                 for (let i = 0; i < document.getElementsByClassName("politicalAssignmentShow").length; i++) {
                     document.getElementsByClassName('politicalAssignmentShow')[i].style.display = 'block';
                 }
@@ -960,7 +1039,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             success: function (data) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", true);
-
                 let response = parseJson(data);
                 formModified = false;
 
@@ -1012,8 +1090,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         closeModalForm();
 
         {{-- Controllo per l'uscita dal form se i campi di input sono stati toccati --}}
-        $(document).on('focus', '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input', function (e) {
-            formModified = true;
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
+                formModified = true;
+            }
         });
 
         @if(!$is_box)
@@ -1025,10 +1105,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
         @endif
 
-        $('#__remove_photo').on('click', function () {
-            $('#personnel_photo').remove();
-            $('#_storage_type').after('<input type="hidden" name="remove_photo" value="1">');
-        });
 
     });
 </script>

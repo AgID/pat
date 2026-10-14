@@ -51,19 +51,6 @@ Imposta l'errore dell'autenticazione.
 
 * `void`
 
-#### `basiAuthAPI($username = null, $password = null)`
-
-Effettua l'autenticazione di base per un'API utilizzando lo username e la password specificati.
-
-##### Parametri
-
-* `$username`: Lo username dell'utente per l'autenticazione di base.
-* `$password` : La password dell'utente per l'autenticazione di base.
-
-##### Restituisce
-
-* `mixed`: Il risultato dell'autenticazione di base restituito dall'adattatore.
-
 #### `isValid()`
 
 Verifica se l'autenticazione è valida.

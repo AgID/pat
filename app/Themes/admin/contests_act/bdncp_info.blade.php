@@ -3,9 +3,7 @@
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
-
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
-
+?>
 <div class='alert alert-info'>
     <button data-dismiss='alert' class='close' type='button'>&times;</button>
     <div>
@@ -58,7 +56,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 </li>
             </ul>
 
-            <h6>Documenti di gara</h6>
+            <h6>Documenti di gara e affidamenti diretti</h6>
             <ul>
                 <li>
                     Riferimenti normativi
@@ -77,7 +75,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <ul>
                         Documenti di gara. Che comprendono, almeno:
                         <li>
-                            Delibera a contrarre
+                            Delibera a contrarre (anche per gli affidamenti diretti)
                         </li>
                         <li>
                             Bando/avviso di gara/lettera di invito
@@ -278,9 +276,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 
 
-            <!-- ************* Fase Sponsorizzazioni *************************************************************** -->
+            <!-- ************* Sponsorizzazioni *************************************************************** -->
 
-            <h5>Fase Sponsorizzazioni</h5>
+            <h5>Sponsorizzazioni</h5>
 
             <h6>Contratti gratuiti e forme speciali di partenariato</h6>
             <ul>
@@ -310,9 +308,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 
 
-            <!-- ************* Fase Procedura di somma urgenza e di protezione civile *************************************************************** -->
+            <!-- ************* Procedura di somma urgenza e di protezione civile *************************************************************** -->
 
-            <h5>Fase Procedura di somma urgenza e di protezione civile</h5>
+            <h5>Procedura di somma urgenza e di protezione civile</h5>
 
             <h6>Atti e documenti relativi agli affidamenti di somma urgenza</h6>
             <ul>
@@ -354,9 +352,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </ul>
 
 
-            <!-- ************* Fase Finanza di progetto *************************************************************** -->
+            <!-- ************* Finanza di progetto *************************************************************** -->
 
-            <h5>Fase Finanza di progetto</h5>
+            <h5>Finanza di progetto</h5>
 
             <h6>Procedura di affidamento</h6>
             <ul>

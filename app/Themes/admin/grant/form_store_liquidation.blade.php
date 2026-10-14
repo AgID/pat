@@ -37,25 +37,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
-                            {{-- Campo Struttura organizzativa responsabile --}}
-                            <div class="form-group">
-                                <label for="grant_id">Procedura relativa *</label>
-                                <div class="select2-blue" id="input_grant_id">
-                                    {{ form_dropdown(
-                                        'grant_id',
-                                        ['' => ''],
-                                        '',
-                                        'class="select2-grant" data-dropdown-css-class="select2-blue" style="width: 100%; height: unset;"'
-                                    ) }}
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
+                            {{-- Campo Procedura relativa --}}
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_grant_id" id="ajax_grant_id_label">Procedura relativa *</label>
+                                    </div>
+                                    <div id="ajax_grant_id"></div>
+                                    <input type="hidden" value="" name="grant_id"
+                                           id="input_grant_id"
+                                           class="grant_id">
                                 </div>
                             </div>
 
@@ -80,12 +96,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Anno di liquidazione --}}
                                 <div class="form-group col-md-4">
                                     <label for="compensation_paid_date">Anno di liquidazione *</label>
-                                    <div class="select2-blue" id="input_compensation_paid_date">
+                                    <div id="input_compensation_paid_date">
                                             {{ form_dropdown(
                                                 'compensation_paid_date',
                                                 @$liquidationYears,
                                                 !empty($liquidation['compensation_paid_date']) ? $liquidation['compensation_paid_date'] : null,
-                                                'class="form-control select2-compensation_paid_date" style="width: 100%;"'
+                                                'class="ts-compensation_paid_date" style="width: 100%;"'
                                             ) }}
                                     </div>
                                 </div>
@@ -106,6 +122,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
                             <div class="form-group">
                                 {{-- Campo Note --}}
                                 <label for="notes">Note</label>
@@ -117,6 +134,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -124,11 +144,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -187,117 +210,74 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!=='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- BEGIN CAMPI SELECT --}}
-        {{-- Begin Select2 campo "Procedura relativa" --}}
-        let $dropdownGrant = $('.select2-grant');
-        $dropdownGrant.select2({
-            placeholder: 'Seleziona o cerca una sovvenzione....',
-            allowClear: true,
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 35,
-                        institution_id: institutionId,
-                        field: 'object',
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_grant_id').val(),
-                model: 20,
+        {{-- Begin campo "Procedura relativa" --}}
+
+        // Tabella per la selezione della sovvenzione relativa alla liquidazione
+        let grant = $('#ajax_grant_id').patOsAjaxPagination({
+            url: config.grant.url,
+            textLoad: config.grant.textLoad,
+            selectedLabel: 'Procedura relativa selezionata',
+            footerTable: config.grant.footerTable,
+            classTable: config.grant.classTable,
+            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.grant.hideTable,
+            showTable: config.grant.showTable,
+            search_placeholder: config.grant.search_placeholder,
+            setInputDataValue: '#input_grant_id',
+            dataParams: {
+                model: 52,
                 institution_id: institutionId,
-                field: 'object'
             },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
+            dateFormat: config.grant.dateFormat,
+            columns: config.grant.columns,
+            action: {
+                type: 'radio',
             },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownGrant.append(option).trigger('change');
-            }
+            dataSource: config.grant.dataSource,
+            label: '#ajax_grant_id_label'
         });
+
+        // Setto il bando relativo se sono in modifica o duplicazione
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($liquidation['grant_id']))
+        @php
+            $tmpConcessionDate = !empty($liquidation['relative_grant']['concession_act_date']) ? ' - '.date('d/m/Y', strtotime($liquidation['relative_grant']['concession_act_date'])) : null;
+        @endphp
+        grant.patOsAjaxPagination.setValue('{{ $liquidation['relative_grant']['id'] }}', '{{ htmlEscape($liquidation['relative_grant']['beneficiary_name']).' - '.htmlEscape($liquidation['relative_grant']['object']).''.$tmpConcessionDate.''.htmlEscape($liquidation['relative_grant']['concession_amount']) }}', true);
         @endif
-        {{-- End Select2 campo "Procedura relativa" --}}
 
-        {{-- Campo select Anno di liquidazione --}}
-        let $dropdownYear = $('.select2-compensation_paid_date');
-        $dropdownYear.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-compensation_paid_date', TS_SINGLE_CLEAR);
 
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        {{-- END CAMPI SELECT --}}
-
-        {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
             e.editor.on('change', function (event) {
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_notes',{
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
          */
-                {{-- Begin salvataggio --}}
         let btnSend = $('#btn_save');
         $('#{{ $formSettings['id'] }}').ajaxForm({
             method: 'POST',
@@ -340,6 +320,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 createValidatorFormErrorToast(msg, 6000);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
+
             }
         });
         {{-- End salvataggio --}}
@@ -347,11 +328,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

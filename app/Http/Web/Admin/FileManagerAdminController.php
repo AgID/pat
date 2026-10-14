@@ -12,6 +12,8 @@ use Exception;
 use Helpers\ActivityLog;
 use Helpers\FileSystem\Dir;
 use Helpers\FileSystem\File;
+use Helpers\Utility\FileUpload;
+use System\Log;
 use System\Session;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -24,7 +26,7 @@ function access($attr, $path, $data, $volume, $isDir, $relpath)
         return true;
     }
     return $basename[0] === '.'
-    && strlen((string)$relpath) !== 1
+    && strlen((string) $relpath) !== 1
         ? !($attr == 'read' || $attr == 'write')
         : null;
 }
@@ -49,16 +51,25 @@ class FileManagerAdminController extends BaseAuthController
     {
         elFinder::$netDrivers['ftp'] = 'FTP';
 
-        $getMimes = $this->getMimes();
+        $getMimes = self::getMimes();
+        $uploadMaxSize = FileUpload::maxSize();
+        $applicationUploadMaxSize = (int)config('max_size', 0, 'perms_files');
+
+        if ($applicationUploadMaxSize > 0) {
+            $applicationUploadMaxSize *= 1024;
+            $uploadMaxSize = $uploadMaxSize > 0
+                ? min($uploadMaxSize, $applicationUploadMaxSize)
+                : $applicationUploadMaxSize;
+        }
+
         $path = $this->getPath();
 
         $opts = [
-            //'debug' => true,
             'root_options' => array(
                 'defaults' => array('read' => true, 'write' => true, 'locked' => true, 'remove' => true),
             ),
             'bind' => array(
-                'mkdir mkfile rename duplicate upload rm paste' => function ($cmd, $result, $args, $elfinder) {
+                'mkdir mkfile rename duplicate upload rm paste extract' => function ($cmd, $result, $args, $elfinder, $volume) {
 
                     foreach ($result as $key => $value) {
                         if (empty($value)) {
@@ -78,7 +89,7 @@ class FileManagerAdminController extends BaseAuthController
 
                                     if (is_array($file)) {
 
-                                        $filepath = (isset($file['realpath']) ? $file['realpath'] : $elfinder->realpath($file['hash']));
+                                        $filepath = ($file['realpath'] ?? $this->getRelativePath($elfinder, $file['hash'], "file_archive"));
                                         array_push($data, $filepath);
 
                                     }
@@ -92,9 +103,12 @@ class FileManagerAdminController extends BaseAuthController
                             }
 
                         }
+//Log::print($cmd);
+//Log::print($key);
+//Log::print($args);
+                        $this->notificationOutcome($cmd, $key, $result, $args, $elfinder);
 
-                        $this->notificationOutcome($cmd, $key, $data, $args, $elfinder);
-
+                        $this->log($cmd, $result, $args, $elfinder, $volume);
                     }
 
                 }
@@ -112,6 +126,7 @@ class FileManagerAdminController extends BaseAuthController
                         'all'
                     ],
                     'uploadAllow' => $getMimes,
+                    'uploadMaxSize' => $uploadMaxSize,
                     'uploadOrder' => [
                         'deny',
                         'allow'
@@ -126,7 +141,7 @@ class FileManagerAdminController extends BaseAuthController
                         }
 
                         return $basename[0] === '.'
-                        && strlen((string)$relpath) !== 1
+                        && strlen((string) $relpath) !== 1
                             ? !($attr == 'read' || $attr == 'write')
                             : null;
                     },
@@ -203,6 +218,7 @@ class FileManagerAdminController extends BaseAuthController
                         'all'
                     ],
                     'uploadAllow' => $getMimes,
+                    'uploadMaxSize' => $uploadMaxSize,
                     'uploadOrder' => [
                         'deny',
                         'allow'
@@ -256,58 +272,49 @@ class FileManagerAdminController extends BaseAuthController
         $urlTrash = $baseDir;
         $thumbTrash = $baseDir;
 
-        // Se l'utente non è super admin o se lo è ma sta gestendo un determinato ente
-        if (!isSuperAdmin() || checkAlternativeInstitutionId() !== 0) {
+        // Limito il percorso dei file all'ente corrente.
+        // Aggiungo la cartella dell'ente al percorso
+        $path = MEDIA_PATH . instituteDir();
+        $baseDir .= instituteDir();
+        $pathTrash .= instituteDir();
+        $urlTrash .= instituteDir();
+        $thumbTrash .= instituteDir();
 
-            // Aggiungo la cartella dell'ente al percorso
-            $path = MEDIA_PATH . instituteDir();
-            $baseDir .= instituteDir();
-            $pathTrash .= instituteDir();
-            $urlTrash .= instituteDir();
-            $thumbTrash .= instituteDir();
+        $getIdentity = authPatOs()->getIdentity();
+        $permFileArchive = (int) $getIdentity['options']['file_archive'];
 
-            $getIdentity = authPatOs()->getIdentity();
-            $permFileArchive = (int)$getIdentity['options']['file_archive'];
-
-            // Se l'utente è super amdin
-            if ($permFileArchive === 0) {
-                $path .= '/';
-                $baseDir .= '/';
-                $pathTrash .= '/.trash/';
-                $urlTrash .= '/.trash/';
-                $thumbTrash .= '/.trash/.tmb/';
-            }
-
-            // Se l'utente non ha nessun permesso
-            if ($permFileArchive === 1) {
-                $path = null;
-                $baseDir = null;
-            }
-
-            // Se l'utente ha i permessi solo sui prorpri file
-            if ($permFileArchive === 2) {
-                $path .= '/file_archive/utente' . $getIdentity['id'] . '/';
-                $baseDir .= '/file_archive/utente' . $getIdentity['id'] . '/';
-                $pathTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/';
-                $urlTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/';
-                $thumbTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/.tmb/';
-            }
-
-            // Se l'utente ha i permessi su i file di tutti gli utenti
-            if ($permFileArchive === 3) {
-                $path .= '/file_archive/';
-                $baseDir .= '/file_archive/';
-                $pathTrash .= '/file_archive/.trash/';
-                $urlTrash .= '/file_archive/.trash/';
-                $thumbTrash .= '/file_archive/.trash/.tmb/';
-            }
-
-        } else { // Se l'utente è super admin e sta gestendo tutti gli enti
+        // Accesso alla cartella dell'ente previsto dal permesso di archivio.
+        if ($permFileArchive === 0) {
             $path .= '/';
             $baseDir .= '/';
             $pathTrash .= '/.trash/';
             $urlTrash .= '/.trash/';
             $thumbTrash .= '/.trash/.tmb/';
+        }
+
+        // Se l'utente non ha nessun permesso
+        if ($permFileArchive === 1) {
+            $path = null;
+            $baseDir = null;
+            $pathTrash = null;
+        }
+
+        // Se l'utente ha i permessi solo sui prorpri file
+        if ($permFileArchive === 2) {
+            $path .= '/file_archive/utente' . $getIdentity['id'] . '/';
+            $baseDir .= '/file_archive/utente' . $getIdentity['id'] . '/';
+            $pathTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/';
+            $urlTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/';
+            $thumbTrash .= '/file_archive/utente' . $getIdentity['id'] . '/.trash/.tmb/';
+        }
+
+        // Se l'utente ha i permessi su i file di tutti gli utenti
+        if ($permFileArchive === 3) {
+            $path .= '/file_archive/';
+            $baseDir .= '/file_archive/';
+            $pathTrash .= '/file_archive/.trash/';
+            $urlTrash .= '/file_archive/.trash/';
+            $thumbTrash .= '/file_archive/.trash/.tmb/';
         }
 
         return [
@@ -325,75 +332,22 @@ class FileManagerAdminController extends BaseAuthController
         baseUrl('/media/');
     }
 
-    private function getMimes()
+    /**
+     * Restituisce i formati accettati dal file manager.
+     * La mappa completa viene riutilizzata dalla pagina dell'archivio per mostrare
+     * all'utente MIME ed estensioni senza duplicare la configurazione di elFinder.
+     *
+     * @param bool $includeExtensions Se true mantiene le estensioni come chiavi della mappa
+     * @return array
+     */
+    public static function getMimes(bool $includeExtensions = false): array
     {
         $mts = [];
-        $tmpMimetypes = [
-            'ai' => 'application/postscript',
-            'doc' => 'application/msword',
-            'xls' => 'application/vnd.ms-excel',
-            'ppt' => 'application/vnd.ms-powerpoint',
-            'pdf' => 'application/pdf',
-            'p7m' => 'application/pkcs7-mime',
-            'xml' => 'application/xml',
-            'odt' => 'application/vnd.oasis.opendocument.text',
-            'ott' => 'application/vnd.oasis.opendocument.text-template',
-            'oth' => 'application/vnd.oasis.opendocument.text-web',
-            'odm' => 'application/vnd.oasis.opendocument.text-master',
-            'odg' => 'application/vnd.oasis.opendocument.graphics',
-            'otg' => 'application/vnd.oasis.opendocument.graphics-template',
-            'odp' => 'application/vnd.oasis.opendocument.presentation',
-            'otp' => 'application/vnd.oasis.opendocument.presentation-template',
-            'ods' => 'application/vnd.oasis.opendocument.spreadsheet',
-            'ots' => 'application/vnd.oasis.opendocument.spreadsheet-template',
-            'odc' => 'application/vnd.oasis.opendocument.chart',
-            'odf' => 'application/vnd.oasis.opendocument.formula',
-            'odb' => 'application/vnd.oasis.opendocument.database',
-            'odi' => 'application/vnd.oasis.opendocument.image',
-            'oxt' => 'application/vnd.openofficeorg.extension',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'docm' => 'application/vnd.ms-word.document.macroEnabled.12',
-            'dotx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
-            'dotm' => 'application/vnd.ms-word.template.macroEnabled.12',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'xlsm' => 'application/vnd.ms-excel.sheet.macroEnabled.12',
-            'xltx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
-            'xltm' => 'application/vnd.ms-excel.template.macroEnabled.12',
-            'xlsb' => 'application/vnd.ms-excel.sheet.binary.macroEnabled.12',
-            'xlam' => 'application/vnd.ms-excel.addin.macroEnabled.12',
-            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'pptm' => 'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
-            'ppsx' => 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
-            'ppsm' => 'application/vnd.ms-powerpoint.slideshow.macroEnabled.12',
-            'potx' => 'application/vnd.openxmlformats-officedocument.presentationml.template',
-            'potm' => 'application/vnd.ms-powerpoint.template.macroEnabled.12',
-            'ppam' => 'application/vnd.ms-powerpoint.addin.macroEnabled.12',
-            'sldx' => 'application/vnd.openxmlformats-officedocument.presentationml.slide',
-            'sldm' => 'application/vnd.ms-powerpoint.slide.macroEnabled.12',
-            'gz' => 'application/x-gzip',
-            'bz' => 'application/x-bzip2',
-            'xz' => 'application/x-xz',
-            'zip' => 'application/zip',
-            'zip2' => 'application/x-zip-compressed',
-            'rtf2' => 'application/rtf',
-            'rar' => 'application/x-rar',
-            'tar' => 'application/x-tar',
-            '7z' => 'application/x-7z-compressed',
-            'txt' => 'text/plain',
-            'csv' => 'text/csv',
-            'rtf' => 'text/rtf',
-            'log' => 'text/plain',
-            'html' => 'text/html',
-            'bmp' => 'image/x-ms-bmp',
-            'jpg' => 'image/jpeg',
-            'gif' => 'image/gif',
-            'png' => 'image/png',
-            'tif' => 'image/tiff',
-            'tga' => 'image/x-targa',
-            'psd' => 'image/vnd.adobe.photoshop',
-            'xbm' => 'image/xbm',
-            'pxm' => 'image/pxm'
-        ];
+        $tmpMimetypes = (array)config('file_manager_allowed_mimes', [], 'perms_files');
+
+        if ($includeExtensions) {
+            return $tmpMimetypes;
+        }
 
         foreach ($tmpMimetypes as $k => $v) {
             $mts[] = $v;
@@ -406,124 +360,377 @@ class FileManagerAdminController extends BaseAuthController
      * Notifiche operazioni file manager.
      * @param $cmd
      * @param $key
-     * @param $otherData
+     * @param $result
      * @param $args
      * @param $elfinder
      * @return void
      * @throws Exception
      */
-    private function notificationOutcome($cmd = null, $key = null, $otherData = null, $args = null, $elfinder = null)
+    private function notificationOutcome($cmd = null, $key = null, $result = null, $args = null, $elfinder = null)
     {
-        $action = null;
-        $description = null;
-        $operation = null;
-        $naming = false;
-        $idDir = false;
-        $isFile = false;
+        $baseFolder = 'file_archive';
+
+        //Mappatura comandi -> chiave di risultato
+        $commandResultMap = [
+            'upload'    => 'added',
+            'mkdir'     => 'added',
+            'mkfile'    => 'added',
+            'rename'    => 'added',
+            'copy'      => 'added',
+            'move'      => 'added',
+            'paste'     => 'changed',
+            'duplicate' => 'added',
+            'rm'        => 'removed',
+            'archive'   => 'added',
+            'extract'   => 'added'
+        ];
+
+        if (!isset($commandResultMap[$cmd])) {
+            return;
+        }
+
+        if($key != $commandResultMap[$cmd]) {
+            return;
+        }
 
         $getIdentity = authPatOs()->getIdentity();
         $session = new Session();
-        $getTempCmd = $session->getTemp($cmd . '_' . $getIdentity['id']);
 
-        if (empty($getTempCmd) || (!empty($getTempCmd['ts']) && $getTempCmd['ts'] < time())) {
+        $azioni = [
+            'upload' => 'Caricamento file',
+            'mkdir'  => 'Creazione cartella',
+            'mkfile' => 'Creazione file vuoto',
+            'rename' => 'Rinomina',
+            'paste'  => 'Copia/Taglia & Incolla',
+            'rm'     => 'Eliminazione',
+            'duplicate' => 'Duplicazione',
+            'move'   => 'Spostamento',
+            'copy'   => 'Copia',
+            'archive'=> 'Creazione archivio',
+            'extract'=> 'Estrazione da archivio'
+        ];
+        $azione = $azioni[$cmd] ?? ucfirst($cmd);
 
-            $session->setTemp($cmd . '_' . $getIdentity['id'], [
-                'user_id' => $getIdentity['id'],
-                'ts' => !empty($value['ts']) ? $value['ts'] : null,
-                'name' => !empty($value['name']) ? $value['name'] : null,
-            ], 1);
+        $items = [];
 
-            if (!empty($otherData[0])) {
+        // Costruisci descrizione dinamica
+        $descrizione = '';
+        switch ($cmd) {
 
-                // Un file?
-                if (File::exists($otherData[0])) {
+            case 'upload':
+                //Considera soltanto i file, scarta directory perché viene scritto il log di creazione della directory basta quello
+                $files = array_filter($result['added'], function($f){
+                    return ! (isset($f['mime']) && $f['mime'] === 'directory');
+                });
 
-                    $idDir = true;
-                    $naming = 'file';
-                    $operation = 'un ' . $naming;
+                //Registro il solo upload dei file
+                foreach ($files as $file) {
+                    $rel = $this->getRelativePath($elfinder, $file['hash'], $baseFolder);
+                    $descrizione .= sprintf(
+                        'Caricato "%s" in "%s"; ',
+                        $file['name'],
+                        dirname($rel)
+                    );
+                }
+                break;
 
+            case 'mkdir':
+                //Prendo l’hash della cartella appena creata
+                $newHash = $result['added'][0]['hash'] ?? null;
+
+                if ($newHash) {
+                    //Calcolo il percorso relativo a partire dal nuovo hash
+                    $rel = $this->getRelativePath($elfinder, $newHash, $baseFolder);
+                } else {
+                    //se per qualche motivo non ci fosse $result['added']
+                    $parentRel = $this->getRelativePath($elfinder, $args['target'], $baseFolder);
+                    $rel = rtrim($parentRel, '/') . '/' . ($args['name'] ?? '');
                 }
 
-                // Un Cartella ?
-                if (Dir::exists($otherData[0])) {
+                //Estraggo il nome della cartella e cartella padre
+                $folderName = basename($rel);
+                $parentDir  = dirname($rel);
 
-                    $isFile = true;
-                    $naming = 'cartella';
-                    $operation = 'una ' . $naming;
+                //Se c'è trash nel nome della cartella o della cartella padre non scrivo il log (scrivo solo quello di eliminazione)
+                if (
+                    str_contains($parentDir, '.trash') || $parentDir === '.trash' || str_contains($folderName, '.trash')  //destinazioni
+                    || $folderName === "Archivio file" //origini
+                )  {
+                    return;
                 }
 
-            }
+                //Composizione descrizione del log
+                $descrizione = sprintf(
+                    'Creata cartella "%s" in "%s"',
+                    $folderName,
+                    $parentDir === '.' ? '' : $parentDir
+                );
+                break;
 
-            // Creazione di una nuoca cartella
-            if ($cmd == 'mkdir' && $key == 'added') {
 
-                $action = 'Creazione cartella "' . $args['name'] . '" nella gestione degli allegati';
-                $description = 'L\'utente ' . $getIdentity['name'] . ' ha creato una nuova cartella denominata "' . $args['name'] . '" nella gestione degli allegati';
+            case 'mkfile':
+                $targetDir = $this->getRelativePath($elfinder,$args['target'], $baseFolder);
+                $descrizione = sprintf(
+                    'Creato file "%s" in "%s"',
+                    $args['name'],
+                    $targetDir
+                );
+                break;
 
-            }
+            case 'rename':
+                // Prendo il vecchio e il nuovo item dal result
+                $oldItem = isset($result['removed'][0]) ? $result['removed'][0] : null;
+                $newItem = isset($result['added'][0])   ? $result['added'][0]   : null;
 
-            // Rinomina un file
-            if ($cmd == 'rename' && $key == 'added') {
+                // Estraggo i nomi
+                $oldName = $oldItem['name'] ?? '';                // nome prima della rinomina
+                $newName = $newItem['name'] ?? $args['name'] ?? ''; // nome dopo
 
-                $action = 'Rinominato ' . $operation . ' denominato "' . $args['name'] . '" nella gestione degli allegati';
-                $description = 'L\'utente ' . $getIdentity['name'] . ' ha rinominato ' . $operation . ' denominata " ' . $args['name'] . '" nella gestione degli allegati';
+                // Path relativo basato sul nuovo hash (se esiste), altrimenti sul target
+                if ($newItem && isset($newItem['hash'])) {
+                    $rel = $this->getRelativePath($elfinder, $newItem['hash'], $baseFolder);
+                } else {
+                    $rel = $this->getRelativePath($elfinder, $args['target'], $baseFolder);
+                }
 
-            }
+                $items[$azione] = ['old'=>$oldName,'new'=>$newName,'rel'=>$rel];
 
-            // Spostamento di un file
-            if ($cmd == 'paste' && $key == 'changed') {
+                // Composizione descrizione del log
+                $descrizione = sprintf(
+                    'Rinominato "%s" in "%s" (path: %s)',
+                    $oldName,
+                    $newName,
+                    $rel
+                );
+                break;
 
-                $action = 'Spostato ' . $operation . ' denominato "' . $args['name'] . '" nella gestione degli allegati';
-                $description = 'L\'utente ' . $getIdentity['name'] . ' ha spostato ' . $operation . ' denominata " ' . $args['name'] . '" nella gestione degli allegati';
 
-            }
+            case 'rm':
+                //Viene chiamato solo quando elimino nel cestino.
+                //L'eliminazione normale effettua il move
+                foreach ($result['removed'] as $hash) {
 
-            // Aggiunta di un file
-            if ($cmd == 'upload' && $key == 'added') {
+                    $hash = is_array($hash) ? $hash['hash'] : $hash;
+                    $path = $this->getRelativePath($elfinder,$hash, $baseFolder);
+                    if(empty($path)){
+                        $path = "Archivio file/Cestino".$this->_hashDecode($hash);
+                    }
+                    $descrizione .= sprintf('Rimosso "%s"; ', $path);
+                }
+                break;
 
-                $action = 'Caricato ' . $operation . ' denominato "' . $args['name'] . '" nella gestione degli allegati';
-                $description = 'L\'utente ' . $getIdentity['name'] . ' ha caricato ' . $operation . ' denominata " ' . $args['name'] . '" nella gestione degli allegati';
+            case 'paste':
+                //Determino se è cut (taglia) o copy (copia)
+                $isCut  = !empty($args['cut']);
+                $azione = $isCut ? 'Spostamento' : 'Copia';
 
-            }
+                //Cartella di destinazione
+                $dstHash = $args['dst'] ?? $args['target'];
+                $dstRel  = $this->getRelativePath($elfinder, $dstHash, $baseFolder);
 
-            // Rimozione di un file
-            if ($cmd == 'upload' && $key == 'removed') {
+                // Decido da dove prendere gli hash origine
+                if ($isCut && !empty($result['removed'])) {
+                    $origItems = $result['removed'];
+                } else {
+                    $origItems = $args['targets'] ?? [];
+                }
 
-                $action = 'Eliminato ' . $operation . ' denominato "' . $args['name'] . '" nella gestione degli allegati';
-                $description = 'L\'utente ' . $getIdentity['name'] . ' ha eliminato ' . $operation . ' denominata " ' . $args['name'] . '" nella gestione degli allegati';
+                $destinazioni = [];
+                $origini = [];
 
-                $this->addTrackData($key, $args['name']);
-            }
+                //Ciclo sugli elementi origine
+                foreach ($origItems as $idx => $item) {
+                    // estraggo sempre la stringa di hash
+                    $origHash = is_array($item) && isset($item['hash'])
+                        ? $item['hash']
+                        : $item;
+
+                    // calcolo il percorso relativo
+                    $origRel = $this->getRelativePath($elfinder, $origHash, $baseFolder);
+
+                    if(empty($origRel)) {
+                        //Aggiungo "Archivio file che il contenitore di tutto
+                        $trash = str_starts_with($origHash, "t1_") ? "/Cestino" : "";
+                        if($trash){
+                            $azione = "Ripristino";
+                        }
+                        $origRel = "Archivio file".$trash. $this->_hashDecode($origHash);
+                    }
+
+                    $origini[] = $origRel;
+
+                    // cerco il corrispondente hash in 'added'
+                    if (isset($result['added'][$idx]['hash'])) {
+                        $newHash = $result['added'][$idx]['hash'];
+                        $newRel  = $this->getRelativePath($elfinder, $newHash, $baseFolder);
+                    } else {
+                        //stesso nome dentro dst
+                        $newRel = $dstRel . '/' . basename($origRel);
+                    }
+                    $destinazioni[] = $newRel;
+                }
+
+                if($azione == 'Spostamento'){
+                    $items[$azione] = ['ori'=>$origini,'dest'=>$destinazioni];
+                }
+
+                $pairs = [];
+                foreach ($origini as $i => $o) {
+
+                    if (str_contains($destinazioni[$i], '.trash/') || $destinazioni[$i] === '.trash') {
+                        // Descrivo ogni file eliminato
+                        $deleted = !empty($args['targets']) ? $args['targets'] : $args['cut'];
+                        $pairs = [];
+//                        Log::print($args);
+                        foreach ($deleted as $item) {
+                            // estraggo l’hash se necessario
+                            $h = is_array($item) && isset($item['hash']) ? $item['hash'] : $item;
+                            $rel = $this->getRelativePath($elfinder, $h, $baseFolder);
+                            if(empty($rel)){
+                                //Aggiungo "Archivio file che il contenitore di tutto
+                                $rel = "Archivio file".$this->_hashDecode($h);
+                            }
+                            //Descrizione log eliminazione
+                            $pairs[] = sprintf('Eliminato "%s"', $rel);
+                        }
+
+                        $azione      = 'Eliminazione';
+
+                        break;
+                    }
+
+                    $pairs[] = sprintf(
+                        '"%s" da "%s" a "%s"',
+                        basename($o),
+                        $o,
+                        $destinazioni[$i]
+                    );
+                }
+
+                $descrizione = implode('; ', $pairs);
+
+                break;
+
+            case 'archive':
+            case 'extract':
+                $archiveDetails = $cmd == 'archive' ? " archivio" : "";
+                if(isset($result['added']) && !empty($result['added'][0]['hash'])){
+                    $filepath = $this->getRelativePath($elfinder,$result['added'][0]['hash'], $baseFolder);
+                    $descrizione = sprintf('Creato'.$archiveDetails.' "%s"', $filepath);
+                }
+                break;
+
+            case 'duplicate':
+
+                if(!empty($result['added'])){
+                    foreach ($result['added'] as $key => $duplicated){
+                        $file = $this->getRelativePath($elfinder,$duplicated['hash'], $baseFolder);
+                        $descrizione .= ($duplicated['mime'] == 'directory' ? "Nuova cartella: " : "Nuovo file: \"").$file."\"<br>";
+                        //file di partenza dal quale si duplica
+                        //$originFile = $this->getRelativePath($elfinder,$args['targets'][$key], $baseFolder);
+                    }
+                }
+
+                break;
+
+            default:
+                // Generico
+                $descrizione = 'Args: '. json_encode($args);
         }
 
         // Registro l'azione nella tabella Activity LOG.
-        if ($action !== null && $description !== null && $operation !== null) {
+        if ($azione !== null && $descrizione !== null) {
 
             ActivityLog::create([
                 'user_id' => $getIdentity['id'],
-                'action' => $action,
-                'description' => $description,
-                'request_post' => [
-                    'cmd' => @$cmd,
-                    'data' => @$otherData,
-                    'args' => @$args,
-                ]
+                'action' => $azione,
+                'description' => $descrizione,
+                'object_id' => 45,
             ]);
 
         }
 
-        // Se la scrittura nel filesystem è abilitata il log, lo scrivo anche sul disco
-        if (config('write_file_manager_filesystem', null, 'app') === true) {
 
-            $log = '[ User ID: ' . $getIdentity['id'] . ' ] ';
-            $log .= '[ User name: ' . $getIdentity['name'] . ' ] ';
-            $log .= '[ Institution ID: ' . PatOsInstituteId() . ' ] ';
-            $log .= '[ Cmd: ' . @$cmd . ' ] ';
-            $log .= '[ Data: ' . @serialize($otherData) . ' ] ';
-            $log .= '[ Args: ' . @serialize($args) . ' ] ';
+        // Se la scrittura nel filesystem è abilitata il log, lo scrivo anche sul disco
+//        if (config('write_file_manager_filesystem', null, 'app') === true) {
+//
+//            $log = '[ User ID: ' . $getIdentity['id'] . ' ] ';
+//            $log .= '[ User name: ' . checkDecrypt($getIdentity['name']) . ' ] ';
+//            $log .= '[ Institution ID: ' . PatOsInstituteId() . ' ] ';
+//            $log .= '[ Cmd: ' . @$cmd . ' ] ';
+//            $log .= '[ Data: ' . @serialize($result) . ' ] ';
+//            $log .= '[ Args: ' . @serialize($args) . ' ] ';
+//        }
+
+
+    }
+
+    /**
+     * Create log record
+     *
+     * @param string   $cmd      command name
+     * @param array    $result   command result
+     * @param array    $args     command arguments from client
+     * @param elFinder $elfinder elFinder instance
+     * @param volume   $volume   elFinder current volume instance
+     * @return void|true
+     * @author Dmitry (dio) Levashov
+     **/
+    public function log($cmd, $result, $args, $elfinder, $volume)
+    {
+        $log = $cmd . ' [' . date('d.m.Y H:s') . "]\n";
+
+        if (!empty($result['error'])) {
+            $log .= "\tERROR: " . implode(' ', $result['error']) . "\n";
         }
 
+        if (!empty($result['warning'])) {
+            $log .= "\tWARNING: " . implode(' ', $result['warning']) . "\n";
+        }
 
+        if (!empty($result['removed'])) {
+            foreach ($result['removed'] as $file) {
+                // removed file contain additional field "realpath"
+                $log .= "\tREMOVED: " . $file['realpath'] . "\n";
+            }
+        }
+
+        if (!empty($result['added'])) {
+            foreach ($result['added'] as $file) {
+                $log .= "\tADDED: " . $elfinder->realpath($file['hash']) . "\n";
+            }
+        }
+
+        if (!empty($result['changed'])) {
+            foreach ($result['changed'] as $file) {
+                $log .= "\tCHANGED: " . $elfinder->realpath($file['hash']) . "\n";
+            }
+        }
+
+        $this->write($log);
+    }
+
+    /**
+     * Write log into file
+     *
+     * @param string $log log record
+     * @return void
+     * @author Dmitry (dio) Levashov
+     **/
+    protected function write(string $log): void
+    {
+        $getIdentity = authPatOs()->getIdentity();
+
+        $path = '.' . DIRECTORY_SEPARATOR . 'temp' . DIRECTORY_SEPARATOR . 'log_elfinder' . DIRECTORY_SEPARATOR . checkAlternativeInstitutionId() . DIRECTORY_SEPARATOR . 'user_' . $getIdentity['id'] . DIRECTORY_SEPARATOR;
+
+        if (!is_dir($path)) {
+            mkdir($path, 0777, true);
+        }
+
+        if (($fp = @fopen($path . DIRECTORY_SEPARATOR . date('Y-m-d') . '_logElfinder.txt', 'a'))) {
+            fwrite($fp, $log . "\n");
+            fclose($fp);
+        }
     }
 
     /**
@@ -537,5 +744,57 @@ class FileManagerAdminController extends BaseAuthController
     {
         $getIdentity = authPatOs()->getIdentity();
         $institutionId = PatOsInstituteId();
+    }
+
+    /**
+     * Decodifica l'hash del percorso del file modificato/cancellato
+     */
+    private function _hashDecode($hash)
+    {
+        // Trova la posizione del carattere '_'
+        $pos = strpos($hash, '_');
+        // Se non viene trovato '_', prende l'intera stringa, altrimenti la parte successiva al carattere '_'
+        if ($pos === false) {
+            $encPath = $hash;
+        } else {
+            $encPath = substr($hash, $pos + 1);
+        }
+        // Sostituisce i caratteri: '-' diventa '+', '_' diventa '/' e '.' diventa '='
+        $encPath = str_replace(
+            array('-', '_', '.'),
+            array('+', '/', '='),
+            $encPath
+        );
+        // Decodifica la stringa Base64 e aggiunge uno slash iniziale
+        return '/' . base64_decode($encPath);
+    }
+
+    /**
+     * Restituisce il percorso “relativo” a partire da una cartella specifica.
+     *
+     * @param elFinder $elfinder   Istanza di elFinder, per chiamare realpath()
+     * @param string   $hash       Hash dell’item di cui vogliamo il
+     *                             path
+     * @param string   $baseFolder Nome della cartella da cui far partire il path (es. "media")
+     * @return string  Percorso relativo (es. "media/subdir/file.txt") o path completo se la cartella non c’è
+     */
+    function getRelativePath(elFinder $elfinder, string $hash, string $baseFolder): string
+    {
+        $fullPath = $elfinder->realpath($hash);
+        // cercare “/media/” (o "\media\" su Windows)
+        $needle = DIRECTORY_SEPARATOR . $baseFolder . DIRECTORY_SEPARATOR;
+        $pos    = strpos($fullPath, $needle);
+
+        if ($pos !== false) {
+            // +1 per rimuovere il leading DIRECTORY_SEPARATOR
+            $rel = substr($fullPath, $pos + 1);
+        } else {
+            $rel = $fullPath;
+        }
+
+
+        // se non trova la cartella base, restituisce il path completo
+        $rel =  str_replace($baseFolder, "Archivio file", $rel);
+        return str_replace(['\\', DIRECTORY_SEPARATOR], '/', $rel);
     }
 }

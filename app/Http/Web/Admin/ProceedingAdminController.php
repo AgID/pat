@@ -14,14 +14,15 @@ use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\ProceedingValidator;
 use Model\DataMonitoringProceedings;
+use Model\PersonnelModel;
 use Model\ProceedingsModel;
+use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -113,11 +114,6 @@ class ProceedingAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[4] = 'i.full_name_institution';
-            }
-
             ///Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'name');
@@ -132,14 +128,22 @@ class ProceedingAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_proceedings.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
             $records = ProceedingsModel::search($dataTable['searchValue'])
-                ->select(['object_proceedings.id', 'object_proceedings.institution_id', 'object_proceedings.owner_id', 'object_proceedings.name',
-                    'object_proceedings.updated_at', 'archived', 'publishing_status', 'users.name as userName', 'i.full_name_institution'])
+                ->select([
+                    'object_proceedings.id',
+                    'object_proceedings.institution_id',
+                    'object_proceedings.owner_id',
+                    'object_proceedings.name',
+                    'object_proceedings.updated_at',
+                    'archived',
+                    'users.name as userName',
+                    'i.full_name_institution'
+                ])
                 ->with('responsibles:id,full_name,archived')
                 ->with('offices_responsibles:id,structure_name,archived')
                 ->with(['created_by' => function ($query) {
@@ -147,6 +151,7 @@ class ProceedingAdminController extends BaseAuthController
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_proceedings.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_proceedings.owner_id', 'left outer');
 
@@ -167,6 +172,10 @@ class ProceedingAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['responsibles']) && is_array($record['responsibles'])) {
@@ -176,9 +185,11 @@ class ProceedingAdminController extends BaseAuthController
                         $responsibles = str_replace(',', ',' . nbs(2), implode(
                             ',',
                             array_map(
-                                function ($personnel) {
+                                function ($personnel, $archived) {
                                     return ('<small class="badge-primary mb-1" style="margin-bottom: 2px;">'
-                                        . escapeXss($personnel) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($personnel) . '</small>');
                                 },
                                 $tmpResponsibles,
                                 $tmpArchived
@@ -196,9 +207,11 @@ class ProceedingAdminController extends BaseAuthController
                         $officeResponsibles = str_replace(',', ',' . nbs(2), implode(
                             ',',
                             array_map(
-                                function ($office) {
+                                function ($office, $archived) {
                                     return ('<small class="badge-primary mb-1" style="margin-bottom: 2px;">'
-                                        . escapeXss($office) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($office) . '</small>');
                                 },
                                 $tmpOfficeResponsibles,
                                 $tmpArchivedStr
@@ -218,18 +231,35 @@ class ProceedingAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale',
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/proceeding/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/proceeding/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/proceeding/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/proceeding/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/proceeding/archive'), $record['id'], 'proceeding', escapeXss($record['name']), 'archiving')
+                        ->addCustomButton('s_r_l', siteUrl('admin/proceeding/show-record-log/' . $record['id']), $record['id'], '7', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
+                        ->addCustomButton(
+                            's_no_app_io',
+                            '#!',
+                            $record['id'],
+                            'proceeding',
+                            'Invia notifica App IO',
+                            'view'
+                        )
                         ->addDelete('admin/proceeding/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -237,21 +267,20 @@ class ProceedingAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = !empty($record['name'])
-                        ? $icon . '<a href="' . siteUrl('/page/98/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss($record['name']) . '</a>'
+                        ? $icon . '<a href="' . siteUrl('/page/98/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss(html_entity_decode($record['name'])) . '</a>'
                         : 'N.D.';
                     $setTempData[] = $officeResponsibles;
                     $setTempData[] = $responsibles;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -260,8 +289,7 @@ class ProceedingAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -281,7 +309,7 @@ class ProceedingAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/proceeding/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/proceeding/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -305,11 +333,10 @@ class ProceedingAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
-
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('proceeding/form_store', $data, 'admin');
@@ -326,7 +353,7 @@ class ProceedingAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -359,16 +386,19 @@ class ProceedingAdminController extends BaseAuthController
                     'name' => strip_tags(Input::post('name', true)),
                     'contact' => setDefaultData(strip_tags(Input::post('contact', true)), null, ['']),
                     'description' => Input::post('description', true),
+                    'instance_documents' => Input::post('instance_documents', true),
                     'costs' => Input::post('costs', true),
                     'silence_consent' => setDefaultData(strip_tags(Input::post('silence_consent', true)), null, ['']),
                     'declaration' => setDefaultData(strip_tags(Input::post('declaration', true)), null, ['']),
                     'regulation' => Input::post('regulation', true),
+                    'obtaining_info' => Input::post('obtaining_info', true),
                     'deadline' => strip_tags(Input::post('deadline', true)),
                     'protection_instruments' => strip_tags(Input::post('protection_instruments', true)),
                     'service_available' => setDefaultData(strip_tags(Input::post('service_available', true)), null, ['', null]),
-                    'public_monitoring_proceeding' => setDefaultData(Input::post('public_monitoring_proceeding', true), 0, ['', null]),
+                    'public_monitoring_proceeding' => !empty(Input::post('public_monitoring_proceeding')) ? setDefaultData(strip_tags(Input::post('public_monitoring_proceeding', true)), 0, ['', null]) : null,
                     'url_service' => !empty(Input::post('service_available')) ? setDefaultData(strip_tags(Input::post('url_service', true)), null, ['', null]) : null,
                     'service_time' => empty(Input::post('service_available')) ? setDefaultData(strip_tags(Input::post('service_time', true))) : null,
+                    'notes' => Input::post('notes', true),
                 ];
 
                 // Storage nuovo Procedimento
@@ -387,6 +417,7 @@ class ProceedingAdminController extends BaseAuthController
                     !empty(Input::post('measure_responsibles')) ? explode(',', strip_tags((string)Input::post('measure_responsibles', true))) : null,
                     !empty(Input::post('substitute_responsibles')) ? explode(',', strip_tags((string)Input::post('substitute_responsibles', true))) : null,
                     !empty(Input::post('offices_responsibles')) ? explode(',', strip_tags((string)Input::post('offices_responsibles', true))) : null,
+                    !empty(Input::post('final_measure_office')) ? strip_tags((string)Input::post('final_measure_office', true)) : null,
                     !empty(Input::post('to_contacts')) ? explode(',', strip_tags((string)Input::post('to_contacts', true))) : null,
                     !empty(Input::post('other_offices')) ? explode(',', strip_tags((string)Input::post('other_offices', true))) : null,
                     Input::post('normatives', true),
@@ -394,11 +425,6 @@ class ProceedingAdminController extends BaseAuthController
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'proceedings', $insert->id, $insert['name']);
-
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -498,7 +524,7 @@ class ProceedingAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $proceeding['institution_id'];
 
         // Utilizzata per la creazione di un procedimento all'interno di un altro form
@@ -508,6 +534,7 @@ class ProceedingAdminController extends BaseAuthController
         $data['measureResponsibleIds'] = Arr::pluck($proceeding['measure_responsibles'], 'id');
         $data['substituteResponsibleIds'] = Arr::pluck($proceeding['substitute_responsibles'], 'id');
         $data['officesResponsibleIds'] = Arr::pluck($proceeding['offices_responsibles'], 'id');
+        $data['finalMeasureOfficeIds'] = Arr::pluck($proceeding['final_measure_office'], 'id');
         $data['toContactIds'] = Arr::pluck($proceeding['to_contacts'], 'id');
         $data['otherOfficeIds'] = Arr::pluck($proceeding['other_structures'], 'id');
         $data['normativeIds'] = Arr::pluck($proceeding['normatives'], 'id');
@@ -548,19 +575,25 @@ class ProceedingAdminController extends BaseAuthController
                 ->with(['offices_responsibles' => function ($query) {
                     $query->select([
                         'object_structures.id',
-                        'object_structures.structure_name as structure_name', 'object_structures.phone as structure_phone', 'object_structures.reference_email as structure_email',
-                        'belong.structure_name as belong_name', 'belong.phone as belong_phone', 'belong.reference_email as belong_email'
+                        'object_structures.structure_name as structure_name',
+                        'object_structures.phone as structure_phone',
+                        'object_structures.reference_email as structure_email',
+                        'belong.structure_name as belong_name',
+                        'belong.phone as belong_phone',
+                        'belong.reference_email as belong_email'
                     ])
                         ->join('object_structures as belong', 'belong.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
                 }])
+                ->with('final_measure_office:id,structure_name')
                 ->with('other_structures:id,structure_name')
                 ->with('normatives:id,name')
                 ->with('all_attachs');
 
+
             $proceeding = $proceeding->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($proceeding['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($proceeding['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -580,19 +613,23 @@ class ProceedingAdminController extends BaseAuthController
                 $data['name'] = strip_tags(Input::post('name', true));
                 $data['contact'] = setDefaultData(strip_tags(Input::post('contact', true)), null, ['']);
                 $data['description'] = Input::post('description', true);
+                $data['instance_documents'] = Input::post('instance_documents', true);
                 $data['costs'] = Input::post('costs', true);
                 $data['silence_consent'] = setDefaultData(strip_tags(Input::post('silence_consent', true)), null, ['']);
                 $data['declaration'] = setDefaultData(strip_tags(Input::post('declaration', true)), null, ['']);
                 $data['regulation'] = Input::post('regulation', true);
+                $data['obtaining_info'] = Input::post('obtaining_info', true);
                 $data['deadline'] = strip_tags(Input::post('deadline', true));
                 $data['protection_instruments'] = strip_tags(Input::post('protection_instruments', true));
                 $data['service_available'] = setDefaultData(strip_tags((string)Input::post('service_available', true)), null, ['', null]);
                 $data['public_monitoring_proceeding'] = !empty(Input::post('public_monitoring_proceeding')) ? setDefaultData(strip_tags(Input::post('public_monitoring_proceeding', true)), 0, ['', null]) : null;
                 $data['url_service'] = !empty(Input::post('service_available')) ? setDefaultData(strip_tags(Input::post('url_service', true)), null, ['', null]) : null;
                 $data['service_time'] = empty(Input::post('service_available')) ? setDefaultData(strip_tags(Input::post('service_time', true)), null, ['', null]) : null;
+                $data['notes'] = Input::post('notes', true);
 
                 // Update Procedimento
                 ProceedingsModel::where('id', $proceedingId)->updateWithLogs($proceeding, $data);
+
 
                 if (Input::post('_monitoring', true)) {
                     // Insert e update dei dati del monitoraggio
@@ -607,6 +644,7 @@ class ProceedingAdminController extends BaseAuthController
                     !empty(Input::post('measure_responsibles')) ? explode(',', strip_tags((string)Input::post('measure_responsibles', true))) : null,
                     !empty(Input::post('substitute_responsibles')) ? explode(',', strip_tags((string)Input::post('substitute_responsibles', true))) : null,
                     !empty(Input::post('offices_responsibles')) ? explode(',', strip_tags((string)Input::post('offices_responsibles', true))) : null,
+                    !empty(Input::post('final_measure_office')) ? strip_tags((string)Input::post('final_measure_office', true)) : null,
                     !empty(Input::post('to_contacts')) ? explode(',', strip_tags((string)Input::post('to_contacts', true))) : null,
                     !empty(Input::post('other_offices')) ? explode(',', strip_tags((string)Input::post('other_offices', true))) : null,
                     Input::post('normatives', true)
@@ -621,8 +659,6 @@ class ProceedingAdminController extends BaseAuthController
                     $proceeding['name']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -670,14 +706,23 @@ class ProceedingAdminController extends BaseAuthController
      * @param array|int|null        $measureResponsibles    Personale associato al procedimento (responsabile del provvedimento)
      * @param array|int|null        $substituteResponsibles Personale associato al procedimento (responsabile sostitutivo)
      * @param array|int|null        $officesResponsibles    Strutture associate al procedimento (uffici responsabili)
+     * @param array|int|null        $finalMeasureOffice      Struttura competente all'adozione del provvedimento finale
      * @param array|int|null        $toContacts             Personale associato al procedimento (chi contattare)
      * @param array|int|null        $otherOffices           Strutture associate al procedimento (altre strutture)
      * @param array|int|null        $normatives             Normative associate al procedimento
      * @return void
      */
-    protected function clear(ProceedingsModel $proceeding = null, array|int $responsibles = null, array|int $measureResponsibles = null, array|int $substituteResponsibles = null,
-                             array|int        $officesResponsibles = null, array|int $toContacts = null, array|int $otherOffices = null, array|int $normatives = null): void
-    {
+    protected function clear(
+        ProceedingsModel $proceeding = null,
+        array|int $responsibles = null,
+        array|int $measureResponsibles = null,
+        array|int $substituteResponsibles = null,
+        array|int        $officesResponsibles = null,
+        array|int $finalMeasureOffice = null,
+        array|int $toContacts = null,
+        array|int $otherOffices = null,
+        array|int $normatives = null
+    ): void {
         $dataResponsibles = [];
         if (!empty($responsibles)) {
             foreach ($responsibles as $responsible) {
@@ -713,6 +758,15 @@ class ProceedingAdminController extends BaseAuthController
         }
         //Insert/Update nella tabella di relazione
         $proceeding->offices_responsibles()->syncWithPivotValues($dataOfficesResponsible, ['typology' => 'office-responsible']);
+
+        $dataFinalMeasureOffice = [];
+        if (!empty($finalMeasureOffice)) {
+            foreach ((array)$finalMeasureOffice as $structure) {
+                $dataFinalMeasureOffice[] = is_array($structure) ? $structure['id'] : $structure;
+            }
+        }
+        //Insert/Update nella tabella di relazione
+        $proceeding->final_measure_office()->syncWithPivotValues($dataFinalMeasureOffice, ['typology' => 'final-measure-office']);
 
         $dataToContact = [];
         if (!empty($toContacts)) {
@@ -772,8 +826,7 @@ class ProceedingAdminController extends BaseAuthController
         $proceeding->deleteWithLogs($proceeding);
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+
         redirect('admin/proceeding');
     }
 
@@ -788,7 +841,7 @@ class ProceedingAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new ProceedingValidator();
         $validate = $validator->multipleSelection();
@@ -808,8 +861,6 @@ class ProceedingAdminController extends BaseAuthController
                 $proceeding->deleteWithLogs($proceeding);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');

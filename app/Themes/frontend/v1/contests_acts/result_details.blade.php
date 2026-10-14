@@ -21,16 +21,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
-                        <h1 class="page-title">{{e: !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '') }}</h1>
-                        @if(!empty($instance['type']))
-                            <h5 class="text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
-                                {{e: $instance['type'] }}
-                            </h5>
-                        @endif
+
+                    <div class="div-title">
+                        <div>
+                            <h1 class="page-title">{{e: !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '') }}</h1>
+                            @if(!empty($instance['type']))
+                                <h2 class="h5 text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
+                                    {{e: $instance['type'] }}
+                                </h2>
+                            @endif
+                        </div>
+                        <div class="button-normative">
+                        </div>
                     </div>
 
                     <div class="attributi">
@@ -112,7 +118,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo">
                                     <span class="titolo">Data di effettivo inizio dei lavori o forniture:</span>
                                     <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['activation_date'] }}
+                                    {{date('d/m/Y|date'): $instance['activation_date'] }}
                                 </span>
                                 </div>
                             @endif
@@ -120,7 +126,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo">
                                     <span class="titolo">Data di ultimazione dei lavori o forniture:</span>
                                     <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['work_end_date'] }}
+                                    {{date('d/m/Y|date'): $instance['work_end_date'] }}
                                 </span>
                                 </div>
                             @endif
@@ -192,14 +198,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         @endif
 
-                        @if($instance['relative_notice']['rup'])
+                        @if(!empty($instance['relative_notice']['rup']))
                             @php
                                 $tmpRup = $instance['relative_notice']['rup'];
                             @endphp
                             <div class="attributo">
                                 <span class="titolo">RUP:</span>
                                 <a class="text-muted"
-                                   href="{{ siteUrl('page/58/details/'.$tmpRup['id'].'/'.urlTitle($tmpRup['full_name'])) }}">
+                                   href="{{ siteUrl('page/4/details/'.$tmpRup['id'].'/'.urlTitle($tmpRup['full_name'])) }}">
                                     {{e: $tmpRup['full_name'] }}
                                 </a>
                             </div>
@@ -209,7 +215,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data dell'atto:</span>
                                 <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['act_date'] }}
+                                    {{date('d/m/Y|date'): $instance['act_date'] }}
                                 </span>
                             </div>
                         @endif
@@ -218,7 +224,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data di pubblicazione:</span>
                                 <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['activation_date'] }}
+                                    {{date('d/m/Y|date'): $instance['activation_date'] }}
                                 </span>
                             </div>
                         @endif
@@ -228,7 +234,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Data di pubblicazione sulla
                                 G.U.U.E.:</span>
                                 <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['guue_date'] }}
+                                    {{date('d/m/Y|date'): $instance['guue_date'] }}
                                 </span>
                             </div>
                         @endif
@@ -238,7 +244,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Data di pubblicazione sulla
                                 G.U.R.I.:</span>
                                 <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['guri_date'] }}
+                                    {{date('d/m/Y|date'): $instance['guri_date'] }}
                                 </span>
                             </div>
                         @endif
@@ -248,7 +254,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Data pubblicazione sul sito della Stazione
                                 Appaltante:</span>
                                 <span class="mr-2 text-muted">
-                                    {{date('d-m-Y|date'): $instance['contracting_stations_publication_date'] }}
+                                    {{date('d/m/Y|date'): $instance['contracting_stations_publication_date'] }}
                                 </span>
                             </div>
                         @endif
@@ -409,25 +415,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
-                </div>
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                    {{-- Inclusione di librerie esterne --}}
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

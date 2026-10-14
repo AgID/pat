@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -10,38 +10,46 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 class Hierarchy
 {
-    protected $DB;
-    protected $primary_key;
-    protected $parent_id;
-    protected $lineage;
-    protected $deep;
-    protected $institution_id;
-    protected $is_system;
-    protected $deleted;
-    protected $hide;
-    protected $created_at;
-    protected $updated_at;
-    protected $deleted_at;
-    protected $parent_id_default;
-    protected $padding_count;
-    protected $padding_string;
-    protected $has_sort;
-    private $identity = null;
+    protected Database $DB;
+    protected string $primary_key;
+    protected string $parent_id;
+    protected string $lineage;
+    protected string $deep;
+    protected string $institution_id;
+    protected string $is_system;
+    protected string $deleted;
+    protected string $hide;
+    protected string $created_at;
+    protected string $updated_at;
+    protected string $deleted_at;
+    protected int $parent_id_default;
+    protected int $padding_count;
+    protected string $padding_string;
+    protected bool $has_sort;
+    private ?array $identity = null;
+    protected array $config;
+    protected string $table;
+    protected string $sort;
 
     public function __construct($field = 'back_office')
     {
         $this->DB = new Database();
-        $config = config($field, null, 'hierarchy');
+        $this->config = config($field, null, 'hierarchy');
 
-        foreach ($config as $key => $val) {
-
-            $this->$key = $val;
-
+        foreach ($this->config as $key => $val) {
+            if (property_exists($this, $key)) {
+                $this->$key = $val;
+            }
         }
 
-        $this->parent_id_default = $config['parent_id_default'];
-        $this->has_sort = $config['has_sort'];
+        $this->parent_id_default = $this->config['parent_id_default'];
+        $this->has_sort = $this->config['has_sort'];
         $this->identity = authPatOs()->getIdentity();
+    }
+
+    public function getConfigValue($key)
+    {
+        return $this->config[$key] ?? null;
     }
 
     /**
@@ -168,9 +176,11 @@ class Hierarchy
      * Recupera tutti i record in base alla chiave primaria, ordinati in base alla loro discendenza ed ordine.
      *
      * @param int $topId
+     * @param int|null $institutionId
+     * @param bool $onlySystem
      * @return array
      */
-    public function get($topId = 0, $institutionId = null)
+    public function get(int $topId = 0, int $institutionId = null, bool $onlySystem = false): array
     {
         $query = $this->DB::table($this->table);
 
@@ -185,23 +195,12 @@ class Hierarchy
         $query->where($this->hide, '=', 0);
 
         if (!empty($institutionId)) {
-            $query->where(function ($query) use ($institutionId) {
-                $query->where($this->is_system, 1)
-                    ->orWhere($this->table.'.'.$this->institution_id, $institutionId);
-            });
-        }
+            $query->where(function ($query) use ($institutionId, $onlySystem) {
+                $query->where($this->is_system, 1);
 
-        $addons = !empty($this->identity['options']['addons'])
-            ? unserialize($this->identity['options']['addons'])
-            : null;
-
-        if ($addons !== null) {
-            $query->where(function ($query) use ($addons) {
-                $query->whereNull('addon_id');
-                $query->orWhere(function ($query) use ($addons) {
-                    $query->whereNotNull('addon_id')
-                        ->whereIn('addon_id', $addons);
-                });
+                if(empty($onlySystem)) {
+                    $query->orWhere($this->table.'.'.$this->institution_id, $institutionId);
+                }
             });
         }
 
@@ -223,10 +222,10 @@ class Hierarchy
      * @param int $top_id
      * @return array
      */
-    public function getGroupedChildren($top_id = 0, $institutionId = null)
+    public function getGroupedChildren($top_id = 0, $institutionId = null, bool $onlySystem = false)
     {
 
-        $result = $this->get($top_id, $institutionId);
+        $result = $this->get($top_id, $institutionId, $onlySystem);
 
         return $this->findChildren($result);
     }
@@ -353,7 +352,7 @@ class Hierarchy
         }
 
         return $this->DB::table($this->table)
-            ->where($this->primary_ke, $current[$this->parent_id])
+            ->where($this->primary_key, $current[$this->parent_id])
             ->first()
             ->toArray();
     }
@@ -363,7 +362,7 @@ class Hierarchy
      *
      * @return int
      */
-    public function maxDeep()
+    public function maxDeep(): int
     {
         $row = $this->DB::select("select max(`{$this->deep}`) AS max_deep from {$this->table}");
         return $row[0]->max_deep + 1;

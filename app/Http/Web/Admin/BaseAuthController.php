@@ -41,21 +41,14 @@ class BaseAuthController extends BaseController
             die();
         }
 
-        if (isSuperAdmin(true)) {
-            // Sono super admin..
-            $this->acl = new Acl();
-            Acl::notRun();
+        // Sono in una sezione di b.o. dove sono necessari i permessi
+        if ($controller !== 'not_acl') {
+
+            $this->acl = new Acl($controller);
         } else {
 
-            // Sono in una sezione di b.o. dove sono necessari i permessi
-            if ($controller !== 'not_acl') {
-
-                $this->acl = new Acl($controller);
-            } else {
-
-                // L'utente è in una sezione dove non sono necessari i permessi(Dashboard o Profilo Utente)
-                Acl::notRun();
-            }
+            // L'utente è in una sezione dove non sono necessari i permessi(Dashboard o Profilo Utente)
+            Acl::notRun();
         }
 
         // Section info
@@ -73,9 +66,9 @@ class BaseAuthController extends BaseController
         $agent = new Agent();
         $getIdentity = $this->auth->getIdentity();
 
-        //if(!isSuperAdmin()) {
+        // Sessioni concorrenti
         $count = ConcurrentSessModel::where('user_id', '=', $getIdentity['id'])
-            ->where('created_at', '>=', date("Y-m-d H:i:s", strtotime("-8 hours")))
+            ->where('created_at', '>=', date("Y-m-d H:i:s", strtotime("-3 hours")))
             ->where('institution_id', '=', checkAlternativeInstitutionId())
             ->where(function ($query) use ($agent, $getIdentity) {
                 $query->where('platform', '!=', $agent->platform())
@@ -93,9 +86,9 @@ class BaseAuthController extends BaseController
                 ->where('institution_id', '=', checkAlternativeInstitutionId())
                 ->get();
 
+            Registry::set('session_allowed_count', (int)$count);
             Registry::set('session_allowed', true);
             Registry::set('session_allowed_results', $resultsConcurrentSess->toArray());
         }
-        //}
     }
 }

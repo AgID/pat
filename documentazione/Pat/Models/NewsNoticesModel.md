@@ -7,7 +7,6 @@ Il modello `NewsNoticesModel` rappresenta la tabella `object_news_notices` e for
 * `$table`: Il nome della tabella nel database (default: `'object_news_notices'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaNewsNoticeModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'news_notices'`).
 * `$objectName`: Il nome dell'oggetto (default: `'News ed avvisi'`).
 * `$objectId`: L'ID dell'oggetto (default: `49`).
@@ -45,9 +44,3 @@ scopeFilter(Builder $query, string$title = null, string$startDate = null, string
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati delle news o degli avvisi in base al titolo, alla data di inizio e alla data di fine.
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaNewsNoticeModel` rappresentante i metadati associati alla news o all'avviso.

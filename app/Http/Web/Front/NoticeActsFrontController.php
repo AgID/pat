@@ -7,14 +7,15 @@
 namespace Http\Web\Front;
 
 use Exception;
+use Helpers\FormBuilder;
 use Helpers\S;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\ContestsActsModel;
 use Model\NoticesActsModel;
 use Model\SectionsFoModel;
 use System\Input;
+use System\Validator;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -62,34 +63,81 @@ class NoticeActsFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
-        // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
-            ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
-        // Recupero le voci per costruire il menu dei contenuti
-        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+        // Validazione dei campi d'input per la ricerca
+        $validator = new Validator();
+        if (Input::get('o') != null ||
+            Input::get('start') != null ||
+            Input::get('end') != null
+        ) {
+            $validator->verifyToken();
+        }
+        $validator->label('Oggetto')->value(Input::get('o'))->maxLength(100)->end();
+        $validator->label('data dal')->value(Input::get('start'))->isDate('Y-m-d')->end();
+        $validator->label('data al')->value(Input::get('end'))->isDate('Y-m-d')->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
 
         // Recupero i procedimenti(con campo Pubblica automaticamente i dati sul monitoraggio = 1) da mostrare
         $noticeActs = NoticesActsModel::whereHas('public_in_section', function ($query) use ($currentPageId) {
             $query->where('public_in_id', $currentPageId);
         })
+            ->filter(
+                (Input::get('o', true)),
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['o', 'start', 'end', 'sec_token']))
             ->setPath(currentUrl());
 
         $noticeActs = !empty($noticeActs) ? $noticeActs->toArray() : [];
+
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($noticeActs);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $noticeActs;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, filtri, contenuti) serve solo alla pagina
+        // completa e viene saltato. Essendo questo metodo condiviso da tutte le pagine che lo
+        // chiamano, un solo controllo qui copre tutte quelle pagine.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Recupero le informazioni della pagina corrente
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
+            ->where('section_fo.id', $currentPageId)
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
+            ->toArray();
+
+        // Recupero le voci per costruire il menu dei contenuti
+        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($noticeActs['data'])) {
@@ -117,27 +165,156 @@ class NoticeActsFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
-        // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($noticeActs);
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'relief_check',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'o',
+                    'value' => '{object}',
+                    'id' => 'object',
+                    'class' => 'active',
+
+                ],
+                'label' => [
+                    'for' => 'object',
+                    'text' => 'Oggetto',
+                ]
+            ],
+
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'start',
+                    'value' => '{start}',
+                    'type' => 'date',
+                    'id' => 'start',
+
+                ],
+                'label' => [
+                    'for' => 'start',
+                    'text' => 'Data dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'end',
+                    'value' => '{end}',
+                    'type' => 'date',
+                    'id' => 'end',
+
+                ],
+                'label' => [
+                    'for' => 'end',
+                    'text' => 'Data al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'o' => Input::get('o', true),
+            'start' => Input::get('start', true),
+            'end' => Input::get('end', true)
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'object' => htmlEscape(Input::get('o', true)),
+            'start' => htmlEscape(Input::get('start', true)),
+            'end' => htmlEscape(Input::get('end', true)),
+
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
         $data['items'] = $noticeActs;
         $data['instance'] = $currentPage;
-        $data['instances'] = $noticeActs;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/notice_acts/notice_acts', $data, 'frontend');
     }
@@ -165,7 +342,7 @@ class NoticeActsFrontController extends BaseFrontController
 
                 $table->add_row(
                     '<a href="' . siteUrl('page/' . $currentPageId . '/details/' . $noticeAct['id'] . '/' . urlTitle($noticeAct['object'])) . '" data-id="' . $noticeAct['id'] . ' ">' . escapeXss($noticeAct['object']) . '</a>',
-                    !empty($noticeAct['date']) ? date('d-m-Y', strtotime($noticeAct['date'])) : null,
+                    !empty($noticeAct['date']) ? date('d/m/Y', strtotime($noticeAct['date'])) : null,
                 );
             }
         }
@@ -220,17 +397,79 @@ class NoticeActsFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
+        // Validazione dei campi d'input per la ricerca
+        $validator = new Validator();
+        if (Input::get('o') != null ||
+            Input::get('cig') != null ||
+            Input::get('wss') != null ||
+            Input::get('wse') != null ||
+            Input::get('cdws') != null ||
+            Input::get('cdwe') != null ||
+            Input::get('obj') != null ||
+            Input::get('start') != null ||
+            Input::get('end') != null
+        ) {
+            $validator->verifyToken();
+        }
+        $validator->label('Oggetto affidamento')
+            ->value(Input::get('o'))
+            ->maxLength(100)
+            ->end();
+
+        $validator->label('Cig')
+            ->value(Input::get('cig'))
+            ->isAlphaNumSpaces()
+            ->maxLength(30)
+            ->end();
+
+        $validator->label('data di inizio dei lavori - dal')
+            ->value(Input::get('wss'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di inizio dei lavori - al')
+            ->value(Input::get('wse'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di ultimazione dei lavori - dal')
+            ->value(Input::get('cdws'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di ultimazione dei lavori - al')
+            ->value(Input::get('cdwe'))
+            ->isDate('Y-m-d')->end();
+
+        $validator->label('Oggetto atto')->value(Input::get('obj'))->maxLength(100)->end();
+        $validator->label('data dal')->value(Input::get('start'))->isDate('Y-m-d')->end();
+        $validator->label('data al')->value(Input::get('end'))->isDate('Y-m-d')->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system','controller_open_data'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -240,9 +479,14 @@ class NoticeActsFrontController extends BaseFrontController
         $noticeActs = NoticesActsModel::whereHas('public_in_section', function ($query) use ($currentPageId) {
             $query->where('public_in_id', $currentPageId);
         })
+            ->filter(
+                (Input::get('obj', true)),
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['o', 'cig', 'wss', 'wse', 'cdws', 'cdwe', 'obj', 'start', 'end', 'sec_token']))
             ->setPath(currentUrl());
@@ -250,12 +494,7 @@ class NoticeActsFrontController extends BaseFrontController
 
         // Recupero i procedimenti(con campo Pubblica automaticamente i dati sul monitoraggio = 1) da mostrare
         $contestActs = ContestsActsModel::whereIn('object_contests_acts.typology', ['result', 'foster'])
-            ->where(
-                function ($query) {
-                    $query->where('object_contests_acts.expiration_date', '<=', date("Y-m-d H:i:s"))
-                        ->orWhereNull('object_contests_acts.expiration_date');
-                }
-            )
+            ->where('object_contests_acts.work_end_date', '<', date("Y-m-d"))
             ->with(['relative_liquidation' => function ($query) {
                 $query->select(['relative_procedure_id', 'id', 'object', 'anac_year', 'amount_liquidated']);
             }])
@@ -265,10 +504,18 @@ class NoticeActsFrontController extends BaseFrontController
                     $query->select(['id', 'name']);
                 }]);
             }])
-            ->orderBy('expiration_date', 'DESC')
+            ->financialmanagementreports(
+                (Input::get('o', true)),
+                (Input::get('cig', true)),
+                Input::get('wss', true),
+                Input::get('wse', true),
+                Input::get('cdws', true),
+                Input::get('cdwe', true)
+            )
+            ->orderBy('object_contests_acts.work_end_date', 'DESC')
             ->paginate(15, ['object_contests_acts.id', 'object_contests_acts.object', 'object_contests_acts.expiration_date', 'object_contests_acts.award_amount_value',
                 'object_contests_acts.work_start_date', 'object_contests_acts.work_end_date', 'object_contests_acts.cig', 'object_contests_acts.relative_procedure_id',
-                'object_contests_acts.relative_notice_id'], 'p', (int)Input::get('p'))
+                'object_contests_acts.relative_notice_id'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['o', 'cig', 'wss', 'wse', 'cdws', 'cdwe', 'sec_token']))
             ->setPath(currentUrl());
@@ -282,7 +529,7 @@ class NoticeActsFrontController extends BaseFrontController
             // Creo la tabella da mostrare nella pagina con i risultati della ricerca
             $table = new Table();
 
-            $table->set_heading('Cig', 'Oggetto', 'Data inizio', 'Data fine', 'Importo contratto', 'Importo liquidato', 'Scostamento');
+            $table->set_heading('Cig', 'Oggetto', 'Data inizio lavori', 'Data fine lavori', 'Importo contratto', 'Importo liquidato', 'Scostamento');
 
             // Creo le riche della tabella settando i dati da mostrare
             foreach ($contestActs['data'] as $contestAct) {
@@ -296,10 +543,10 @@ class NoticeActsFrontController extends BaseFrontController
                     !empty($contestAct['cig']) ? $contestAct['cig'] : $contestAct['relative_notice']['cig'] ?? null,
                     '<a href="' . siteUrl('page/' . 110 . '/details/' . $contestAct['id'] . '/' . urlTitle($contestAct['object'])) . '" data-id="' . $contestAct['id'] . ' ">' . $contestAct['object'] . '</a>',
                     !empty($contestAct['work_start_date']) ?
-                        date('d-m-Y', strtotime($contestAct['work_start_date']))
+                        date('d/m/Y', strtotime($contestAct['work_start_date']))
                         : null,
                     !empty($contestAct['work_end_date']) ?
-                        date('d-m-Y', strtotime($contestAct['work_end_date']))
+                        date('d/m/Y', strtotime($contestAct['work_end_date']))
                         : null,
                     !empty($contestAct['award_amount_value']) ? '&euro; ' . S::currency($contestAct['award_amount_value'], 2, ',', '.') : null,
                     !empty($contestAct['relative_liquidation']) ? '&euro; ' . S::currency($sumLiquidated, 2, ',', '.') : null,
@@ -315,6 +562,324 @@ class NoticeActsFrontController extends BaseFrontController
         // Creo le righe della tabella settando i dati
         $actsTable = $this->createTableRows($noticeActs);
 
+        // Form per i filtri di ricerca dei bandi
+        $form = json_encode([
+            [
+                'type' => 'tag',
+                'content' => '<h3 class="page-subtitle">Ricerca - Affidamenti</h3>',
+            ],
+            [
+                'type' => 'form_open',
+                'name' => 'relief_check',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6" style="margin-bottom: 1rem;">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'o',
+                    'value' => '{object}',
+                    'id' => 'o',
+                    'class' => 'active',
+
+                ],
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Oggetto',
+                ]
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6" style="margin-bottom: 1rem;">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cig',
+                    'value' => '{cig}',
+                    'id' => 'cig',
+
+                ],
+                'label' => [
+                    'for' => 'cig',
+                    'text' => 'Codice CIG',
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mt-2">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'wss',
+                    'value' => '{wss}',
+                    'type' => 'date',
+                    'id' => 'work_start_date_start',
+
+                ],
+                'label' => [
+                    'for' => 'wss',
+                    'text' => 'Data di inizio dei lavori - dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mt-2">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'wse',
+                    'value' => '{wse}',
+                    'type' => 'date',
+                    'id' => 'work_start_date',
+
+                ],
+                'label' => [
+                    'for' => 'wse',
+                    'text' => 'Data di inizio dei lavori -  al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mt-2">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cdws',
+                    'value' => '{cdws}',
+                    'type' => 'date',
+                    'id' => 'completion_date_works_start',
+
+                ],
+                'label' => [
+                    'for' => 'cdws',
+                    'text' => 'Data di ultimazione dei lavori - dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mt-2">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cdwe',
+                    'value' => '{cdwe}',
+                    'type' => 'date',
+                    'id' => 'completion_date_works_end',
+
+                ],
+                'label' => [
+                    'for' => 'cdwe',
+                    'text' => 'Data di ultimazione dei lavori -  al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'o' => Input::get('o', true),
+            'cig' => Input::get('cig', true),
+            'wss' => Input::get('wss', true),
+            'wse' => Input::get('wse', true),
+            'cdws' => Input::get('cdws', true),
+            'cdwe' => Input::get('cdwe', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'object' => htmlEscape(Input::get('o', true)), // Oggetto
+            'cig' => htmlEscape(Input::get('cig', true)), // Codice CIG
+            'wss' => htmlEscape(Input::get('wss', true)),// Data di inizio dei lavori - dal
+            'wse' => htmlEscape(Input::get('wse', true)), // Data di inizio dei lavori - al
+            'cdws' => htmlEscape(Input::get('cdws', true)), // Data di ultimazione dei lavori - dal
+            'cdwe' => htmlEscape(Input::get('cdwe', true)), // Data di ultimazione dei lavori - al
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
+        // Form per i filtri di ricerca degli atti
+        $formNoticeActs = json_encode([
+            [
+                'type' => 'tag',
+                'content' => '<h3 class="page-subtitle">Ricerca - Atti</h3>',
+            ],
+            [
+                'type' => 'form_open',
+                'name' => 'relief_check',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'obj',
+                    'value' => '{obj}',
+                    'id' => 'obj',
+                    'class' => 'active',
+
+                ],
+                'label' => [
+                    'for' => 'obj',
+                    'text' => 'Oggetto',
+                ]
+            ],
+
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'start',
+                    'value' => '{start}',
+                    'type' => 'date',
+                    'id' => 'start',
+
+                ],
+                'label' => [
+                    'for' => 'start',
+                    'text' => 'Data dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'end',
+                    'value' => '{end}',
+                    'type' => 'date',
+                    'id' => 'end',
+
+                ],
+                'label' => [
+                    'for' => 'end',
+                    'text' => 'Data al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form_n',
+                    'name' => 'reset_n',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+
+        $formFilterFieldsNotice = [
+            'obj' => Input::get('obj', true),
+            'start' => Input::get('start', true),
+            'end' => Input::get('end', true),
+        ];
+
+        $countFilterFieldsNotice = 0;
+        foreach ($formFilterFieldsNotice as $value) {
+            if (!empty($value)) {
+                $countFilterFieldsNotice += 1;
+            }
+        }
+
+        $formBuilderNoticeActs = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'obj' => htmlEscape(Input::get('obj', true)),
+            'start' => htmlEscape(Input::get('start', true)),
+            'end' => htmlEscape(Input::get('end', true)),
+
+        ]);
+
+        $formBuilderNoticeActs->loadJsonFromVar($formNoticeActs);
+        $data['formFilterNoticeActs'] = $formBuilderNoticeActs->render();
+        $data['searchFieldsOpenDataNotice'] = $formFilterFieldsNotice;
+        $data['filterUsedNotice'] = $countFilterFieldsNotice;
+
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
@@ -325,19 +890,26 @@ class NoticeActsFrontController extends BaseFrontController
         $data['instances'] = $contestActs;
         $data['notices'] = $noticeActs;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['allowSearch'] = true;
         $data['allowSearchNotices'] = true;
         $data['title'] = true;
         $data['titleNotices'] = true;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         $data['doubleIssue'] = true;
         $data['rangeOpenData'] = 2000;
         $data['openDataPublication'] = 'contest-act';
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/notice_acts/financial_management_reports', $data, 'frontend');
     }
@@ -400,17 +972,79 @@ class NoticeActsFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
+        // Validazione dei campi d'input per la ricerca
+        $validator = new Validator();
+        if (Input::get('o') != null ||
+            Input::get('cig') != null ||
+            Input::get('wss') != null ||
+            Input::get('wse') != null ||
+            Input::get('cdws') != null ||
+            Input::get('cdwe') != null ||
+            Input::get('obj') != null ||
+            Input::get('start') != null ||
+            Input::get('end') != null
+        ) {
+            $validator->verifyToken();
+        }
+        $validator->label('Oggetto affidamento')
+            ->value(Input::get('o'))
+            ->maxLength(100)
+            ->end();
+
+        $validator->label('Cig')
+            ->value(Input::get('cig'))
+            ->isAlphaNumSpaces()
+            ->maxLength(30)
+            ->end();
+
+        $validator->label('data di inizio dei lavori - dal')
+            ->value(Input::get('wss'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di inizio dei lavori - al')
+            ->value(Input::get('wse'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di ultimazione dei lavori - dal')
+            ->value(Input::get('cdws'))
+            ->isDate('Y-m-d')
+            ->end();
+
+        $validator->label('data di ultimazione dei lavori - al')
+            ->value(Input::get('cdwe'))
+            ->isDate('Y-m-d')->end();
+
+        $validator->label('Oggetto atto')->value(Input::get('obj'))->maxLength(100)->end();
+        $validator->label('data dal')->value(Input::get('start'))->isDate('Y-m-d')->end();
+        $validator->label('data al')->value(Input::get('end'))->isDate('Y-m-d')->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -420,9 +1054,14 @@ class NoticeActsFrontController extends BaseFrontController
         $noticeActs = NoticesActsModel::whereHas('public_in_section', function ($query) use ($currentPageId) {
             $query->where('public_in_id', $currentPageId);
         })
+            ->filter(
+                (Input::get('obj', true)),
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_notices_acts.id', 'object_notices_acts.object', 'date'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['o', 'cig', 'wss', 'wse', 'cdws', 'cdwe', 'obj', 'start', 'end', 'sec_token']))
             ->setPath(currentUrl());
@@ -449,10 +1088,18 @@ class NoticeActsFrontController extends BaseFrontController
                     $query->select(['id', 'name']);
                 }]);
             }])
+            ->financialmanagementreports(
+                (Input::get('o', true)),
+                (Input::get('cig', true)),
+                Input::get('wss', true),
+                Input::get('wse', true),
+                Input::get('cdws', true),
+                Input::get('cdwe', true)
+            )
             ->orderBy('expiration_date', 'DESC')
             ->paginate(15, ['object_contests_acts.id', 'object_contests_acts.object', 'object_contests_acts.expiration_date', 'object_contests_acts.award_amount_value',
                 'object_contests_acts.work_start_date', 'object_contests_acts.work_end_date', 'object_contests_acts.cig', 'object_contests_acts.relative_procedure_id',
-                'object_contests_acts.relative_notice_id'], 'p', (int)Input::get('p'))
+                'object_contests_acts.relative_notice_id'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['o', 'cig', 'wss', 'wse', 'cdws', 'cdwe', 'sec_token']))
             ->setPath(currentUrl());
@@ -466,7 +1113,7 @@ class NoticeActsFrontController extends BaseFrontController
             // Creo la tabella da mostrare nella pagina con i risultati della ricerca
             $table = new Table();
 
-            $table->set_heading('Cig', 'Oggetto', 'Data inizio', 'Data fine', 'Importo contratto', 'Importo liquidato', 'Scostamento');
+            $table->set_heading('Cig', 'Oggetto', 'Data inizio', 'Data fine', 'Importo contratto', 'Importo liquidato');
 
             // Creo le riche della tabella settando i dati da mostrare
             foreach ($contestActs['data'] as $contestAct) {
@@ -480,14 +1127,13 @@ class NoticeActsFrontController extends BaseFrontController
                     !empty($contestAct['cig']) ? $contestAct['cig'] : $contestAct['relative_notice']['cig'] ?? null,
                     '<a href="' . siteUrl('page/' . 110 . '/details/' . $contestAct['id'] . '/' . urlTitle($contestAct['object'])) . '" data-id="' . $contestAct['id'] . ' ">' . $contestAct['object'] . '</a>',
                     !empty($contestAct['work_start_date']) ?
-                        date('d-m-Y', strtotime($contestAct['work_start_date']))
+                        date('d/m/Y', strtotime($contestAct['work_start_date']))
                         : null,
                     !empty($contestAct['work_end_date']) ?
-                        date('d-m-Y', strtotime($contestAct['work_end_date']))
+                        date('d/m/Y', strtotime($contestAct['work_end_date']))
                         : null,
                     !empty($contestAct['award_amount_value']) ? '&euro; ' . S::currency($contestAct['award_amount_value'], 2, ',', '.') : null,
                     !empty($contestAct['relative_liquidation']) ? '&euro; ' . S::currency($sumLiquidated, 2, ',', '.') : null,
-                    '&euro; ' . S::currency((float)$contestAct['award_amount_value'] - $sumLiquidated, 2, ',', '.')
                 );
             }
 
@@ -499,6 +1145,322 @@ class NoticeActsFrontController extends BaseFrontController
         // Creo le righe della tabella settando i dati
         $actsTable = $this->createTableRows($noticeActs);
 
+        // Form per i filtri di ricerca dei bandi
+        $form = json_encode([
+            [
+                'type' => 'tag',
+                'content' => '<h3 class="page-subtitle">Ricerca - Affidamenti</h3>',
+            ],
+            [
+                'type' => 'form_open',
+                'name' => 'relief_check',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'o',
+                    'value' => '{object}',
+                    'id' => 'o',
+                    'class' => 'active',
+
+                ],
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Oggetto',
+                ]
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cig',
+                    'value' => '{cig}',
+                    'id' => 'cig',
+
+                ],
+                'label' => [
+                    'for' => 'cig',
+                    'text' => 'Codice CIG',
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 form-group">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'wss',
+                    'value' => '{wss}',
+                    'type' => 'date',
+                    'id' => 'work_start_date_start',
+
+                ],
+                'label' => [
+                    'for' => 'wss',
+                    'text' => 'Data di inizio dei lavori - dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 form-group">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'wse',
+                    'value' => '{wse}',
+                    'type' => 'date',
+                    'id' => 'work_start_date',
+
+                ],
+                'label' => [
+                    'for' => 'wse',
+                    'text' => 'Data di inizio dei lavori -  al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 form-group">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cdws',
+                    'value' => '{cdws}',
+                    'type' => 'date',
+                    'id' => 'completion_date_works_start',
+
+                ],
+                'label' => [
+                    'for' => 'cdws',
+                    'text' => 'Data di ultimazione dei lavori - dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 form-group">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'cdwe',
+                    'value' => '{cdwe}',
+                    'type' => 'date',
+                    'id' => 'completion_date_works_end',
+
+                ],
+                'label' => [
+                    'for' => 'cdwe',
+                    'text' => 'Data di ultimazione dei lavori -  al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'o' => Input::get('o', true),
+            'cig' => Input::get('cig', true),
+            'wss' => Input::get('wss', true),
+            'wse' => Input::get('wse', true),
+            'cdws' => Input::get('cdws', true),
+            'cdwe' => Input::get('cdwe', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'object' => htmlEscape(Input::get('o', true)), // Oggetto
+            'cig' => htmlEscape(Input::get('cig', true)), // Codice CIG
+            'wss' => htmlEscape(Input::get('wss', true)),// Data di inizio dei lavori - dal
+            'wse' => htmlEscape(Input::get('wse', true)), // Data di inizio dei lavori - al
+            'cdws' => htmlEscape(Input::get('cdws', true)), // Data di ultimazione dei lavori - dal
+            'cdwe' => htmlEscape(Input::get('cdwe', true)), // Data di ultimazione dei lavori - al
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
+        // Form per i filtri di ricerca degli atti
+        $formNoticeActs = json_encode([
+            [
+                'type' => 'tag',
+                'content' => '<h3 class="page-subtitle">Ricerca - Atti</h3>',
+            ],
+            [
+                'type' => 'form_open',
+                'name' => 'relief_check',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'obj',
+                    'value' => '{obj}',
+                    'id' => 'obj',
+                    'class' => 'active',
+
+                ],
+                'label' => [
+                    'for' => 'obj',
+                    'text' => 'Oggetto',
+                ]
+            ],
+
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'start',
+                    'value' => '{start}',
+                    'type' => 'date',
+                    'id' => 'start',
+
+                ],
+                'label' => [
+                    'for' => 'start',
+                    'text' => 'Data dal',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'end',
+                    'value' => '{end}',
+                    'type' => 'date',
+                    'id' => 'end',
+
+                ],
+                'label' => [
+                    'for' => 'end',
+                    'text' => 'Data al',
+                    'class' => 'active'
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form_n',
+                    'name' => 'reset_n',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFieldsNotice = [
+            'obj' => Input::get('obj', true),
+            'start' => Input::get('start', true),
+            'end' => Input::get('end', true),
+        ];
+
+        $countFilterFieldsNotice = 0;
+        foreach ($formFilterFieldsNotice as $value) {
+            if (!empty($value)) {
+                $countFilterFieldsNotice += 1;
+            }
+        }
+
+        $formBuilderNoticeActs = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'obj' => htmlEscape(Input::get('obj', true)),
+            'start' => htmlEscape(Input::get('start', true)),
+            'end' => htmlEscape(Input::get('end', true)),
+
+        ]);
+
+        $formBuilderNoticeActs->loadJsonFromVar($formNoticeActs);
+        $data['formFilterNoticeActs'] = $formBuilderNoticeActs->render();
+        $data['searchFieldsOpenDataNotice'] = $formFilterFieldsNotice;
+        $data['filterUsedNotice'] = $countFilterFieldsNotice;
+
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
@@ -509,7 +1471,9 @@ class NoticeActsFrontController extends BaseFrontController
         $data['instances'] = $contestActs;
         $data['notices'] = $noticeActs;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['allowSearch'] = true;
+        $data['allowSearchNotices'] = true;
         $data['title'] = true;
         $data['titleNotices'] = true;
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
@@ -518,12 +1482,43 @@ class NoticeActsFrontController extends BaseFrontController
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         $data['doubleIssue'] = true;
         $data['openDataPublication'] = 'contest-act';
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/notice_acts/financial_management_reports', $data, 'frontend');
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Verbali delle commissioni di gara",
+     * nella sezione dei Bandi di gara e contratti
+     * ID sezione 578
+     *
+     * @url /page/page_id/page_name
+     * @return void
+     * @throws Exception
+     */
+    public function indexCommissionMinutes(): void
+    {
+        $this->getDataResultsForPublicIn();
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Pari opportunità e inclusione lavorativa nei contratti pubblici, nel PNRR e nel PNC",
+     * nella sezione dei Bandi di gara e contratti
+     * ID sezione 579
+     *
+     * @url /page/page_id/page_name
+     * @return void
+     * @throws Exception
+     */
+    public function indexEqualOpportunities(): void
+    {
+        $this->getDataResultsForPublicIn();
     }
 
     /**
@@ -544,8 +1539,10 @@ class NoticeActsFrontController extends BaseFrontController
         // Recupero l'elemento da mostrare
         $element = NoticesActsModel::where('id', $elementId)
             ->with('relative_contest_act:id,object')
-            ->with('assignments:id,name')
-            ->first();
+            ->with('assignments:id,name');
+
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
@@ -599,19 +1596,14 @@ class NoticeActsFrontController extends BaseFrontController
         // $showOnlyPublic = true;
         $sectionId = (int)uri()->segment(2, 0);
 
-        // Allegati
-        $attach = new AttachmentArchive();
-        $data['listAttach'] = $attach->getAllByObject(
-            $label,
-            $elementId,
-            $selectFields,
-            true
-        );
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['object'])
-            ->toHtml();
+            // Allegati
+            $attach = new AttachmentArchive();
+            $data['listAttach'] = $attach->getAllByObject(
+                $label,
+                $elementId,
+                $selectFields,
+                true
+            );
 
         renderFront(config('vfo', null, 'app') . '/notice_acts/details', $data, 'frontend');
     }

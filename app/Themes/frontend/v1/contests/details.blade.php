@@ -22,12 +22,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
-                    <div class="titolo">
-                        {{-- Nome pagina --}}
-                        <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['object'] }}</h1>
-                        <h3 class="text-secondary page-subtitle">{{e: $instance['typology'] }}</h3>
+                    <div class="div-title">
+                        <div>
+                            <h1 class="page-title">{{xss: !empty($h1) ? $h1 : $instance['object'] }}</h1>
+                            <h3 class="text-secondary page-subtitle">{{e: $instance['typology'] }}</h3>
+                        </div>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
 
                     @if(!empty($instance['activation_date']) or !empty($instance['expiration_date']) or !empty($instance['expiration_time']) or !empty($instance['office']) )
                         <div class="attributi">
@@ -37,11 +42,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <h3 id="generic-info" class="testo-blu anchor sr-only"
                                 style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</h3>
                             <div class="mb-4">
+                                @php $instance['meta'] = $instance['meta'] ?? null; @endphp
                                 @if(!empty($instance['activation_date']))
                                     <div class="attributo">
                                         <span class="titolo">Data di pubblicazione:</span>
                                         <span class="mr-2 text-muted">
-                                            {{date('d-m-Y|date'): $instance['activation_date'] }}
+                                            {{date('d/m/Y|date'): $instance['activation_date'] }}
                                         </span>
                                     </div>
                                 @endif
@@ -49,7 +55,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <div class="attributo">
                                         <span class="titolo">Data di scadenza:</span>
                                         <span class="mr-2 text-muted">
-                                            {{date('d-m-Y|date'): $instance['expiration_date'] }}
+                                            {{date('d/m/Y|date'): $instance['expiration_date'] }}
                                         </span>
                                     </div>
                                 @endif
@@ -75,7 +81,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <span class="titolo">Ufficio di riferimento:</span>
                                         <a class="text-muted"
                                            href="{{ siteUrl('page/40/details/'. (int) $instance['office']['id'].'/'.urlTitle($instance['office']['structure_name'])) }}">
-                                            {{e: $instance['office']['structure_name'] }}
+                                            {{xss: $instance['office']['structure_name'] }}
                                         </a>
                                     </div>
                                 @endif
@@ -84,7 +90,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <span class="titolo">Provvedimento:</span>
                                         <a class="text-muted"
                                            href="{{ siteUrl('page/9/details/'. (int)$instance['object_measure_id'].'/'.urlTitle($instance['relative_measure']['object'])) }}">
-                                            {{e: $instance['relative_measure']['object'] }}
+                                            {{xss: $instance['relative_measure']['object'] }}
                                         </a>
                                     </div>
                                 @endif
@@ -168,6 +174,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </ul>
                     @endif
 
+                    @if(!empty($instance['external_assignment']) )
+                        @php
+                            $anchorsNumber++;
+                            $et = "Incarichi ad esterni";
+
+                            $et = $et ?? null;
+                        @endphp
+                        <h3 id="tracce" class="testo-blu anchor page-subtitle">{{ $et }}</h3>
+                        <div class="mb-4">
+                            {{xss: $instance['external_assignment'] }}
+                        </div>
+                    @endif
+
                     @if(!empty($instance['hired_employees']) or !empty($instance['expenditures_made']) or !empty($instance['hired_employees']) or !empty($instance['description']))
                         @php
                             $anchorsNumber++;
@@ -213,6 +232,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             {{--  Created/Update Info --}}
                             {% include v1/layout/partials/created_updated_info %}
+
+                            {{-- Inclusione di librerie esterne --}}
 
                             @if(!empty($instance['alerts']))
                                 @php
@@ -263,7 +284,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             <small>
                                                 @if(!empty($instance['related_contest']['expiration_date']))
                                                     <span style="font-weight: 600;" class="text-black">Data di
-                                                        scadenza:</span> {{ date('d-m-Y', strtotime($instance['related_contest']['expiration_date'])) }}
+                                                        scadenza:</span> {{ date('d/m/Y', strtotime($instance['related_contest']['expiration_date'])) }}
                                                     <br>
                                                 @endif
 
@@ -280,24 +301,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                 </div>
 
-                @if($anchorsNumber > 4)
-
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
             </div>
-        </div>
     </section>
 
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

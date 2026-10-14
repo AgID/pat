@@ -4,15 +4,20 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUnused */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
+use Helpers\FormBuilder;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\RealEstateAssetModel;
 use Model\SectionsFoModel;
 use System\Input;
+use System\Validator;
 
 /**
  * Controller pagina front-end Patrimonio Immobiliare
@@ -48,14 +53,17 @@ class RealEstateAssetFrontController extends BaseFrontController
         // Recupero l'elemento da mostrare
         $element = RealEstateAssetModel::where('id', $elementId)
             ->with('offices:id,structure_name,archived')
-            ->with('canons:id,canon_type,amount,start_date,end_date')
-            ->first();
+            ->with('canons:id,canon_type,amount,start_date,end_date');
+
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
             echo show404('Ops..', 'record not found');
             exit();
         }
+
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
@@ -78,6 +86,10 @@ class RealEstateAssetFrontController extends BaseFrontController
         $data['editRecord'] = true;
         $archiveBread = '';
 
+
+        if(!is_array($element)) {
+            $element = $element->toArray();
+        }
         // aggiungi al Breadcrumbs la pagina del dettaglio
         $data['concatBreadcrumb'] = true;
         $data['bread'] = array();
@@ -105,23 +117,20 @@ class RealEstateAssetFrontController extends BaseFrontController
                 'created_at',
                 'updated_at'
             ];
+            // $showOnlyPublic = true;
+            $sectionId = (int)uri()->segment(2, 0);
 
-            // Allegati
-            $attach = new AttachmentArchive();
-            $data['listAttach'] = $attach->getAllByObject(
-                $label,
-                $elementId,
-                $selectFields,
-                true
-            );
+                // Allegati
+                $attach = new AttachmentArchive();
+                $data['listAttach'] = $attach->getAllByObject(
+                    $label,
+                    $elementId,
+                    $selectFields,
+                    true
+                );
         }
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['name'])
-            ->toHtml();
-
-        $data['instance'] = is_array($element) ? $element : $element->toArray();
+        $data['instance'] = $element;
 
         renderFront(config('vfo', null, 'app') . $detailPage, $data, 'frontend');
     }
@@ -146,6 +155,7 @@ class RealEstateAssetFrontController extends BaseFrontController
      */
     public function pivot(): void
     {
+
         $pivot = new PivotController();
         $pivot->index();
     }
@@ -165,42 +175,86 @@ class RealEstateAssetFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
-        // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
-            ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
-        // Recupero le voci per costruire il menu dei contenuti
-        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+        // Validazione dei campi di input per la ricerca
+        $validator = new Validator();
+        if (Input::get('name') != null || Input::get('address') != null) {
+            $validator->verifyToken();
+        }
+        $validator->label('Nome')->value(Input::get('name'))->maxLength(30)->end();
+        $validator->label('Indirizzo')->value(Input::get('address'))->maxLength(120)->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
 
         // Recupero gli immobili da mostrare
-        $assets = RealEstateAssetModel::where('archived', 0)
-            ->paginate(20, ['id', 'name', 'address'], 'p', (int)Input::get('p'))
+        $assets = RealEstateAssetModel::where(function ($query) {
+        })
+            ->filter(
+                (Input::get('name', true)),
+                (Input::get('address', true))
+            )
+            ->paginate(20, ['id', 'name', 'address'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['name', 'address', 'sec_token']))
             ->setPath(currentUrl());
 
         $assets = !empty($assets) ? $assets->toArray() : [];
 
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($assets);
+
+        $data['table'] = !empty($table) ? $table->generate() : null;
+        $data['instances'] = $assets;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, filtri, contenuti, layout) serve solo alla
+        // pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Recupero le informazioni della pagina corrente
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            ->where('section_fo.id', $currentPageId)
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
+            ->toArray();
+
+        // Recupero le voci per costruire il menu dei contenuti
+        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($assets['data'])) {
             //Prendo la data di creazione del primo elemento creato e di modifica dell'ultimo elemento modificato tra quelli
             //da pubblicare nella pagina
             $firstCreated = optional(RealEstateAssetModel::select(['created_at'])
-                ->where('archived', 0)
+                ->where(function ($query) {
+                })
                 ->orderBy('created_at', 'ASC')
                 ->first())
                 ->toArray();
             $lasUpdated = optional(RealEstateAssetModel::select(['updated_at'])
-                ->where('archived', 0)
+                ->where(function ($query) {
+                })
                 ->orderBy('updated_at', 'DESC')
                 ->first())
                 ->toArray();
@@ -211,25 +265,130 @@ class RealEstateAssetFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
-        // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assets);
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'contest_acts',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6" style="margin-bottom: 1rem;">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'name',
+                    'id' => 'name',
+
+                    'value' => '{name}'
+                ],
+                'label' => [
+                    'for' => 'name',
+                    'text' => 'Nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6" style="margin-bottom: 1rem;">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'address',
+                    'id' => 'address',
+
+                    'value' => '{address}'
+                ],
+                'label' => [
+                    'for' => 'address',
+                    'text' => 'Indirizzo',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'name' => Input::get('name', true),
+            'address' => Input::get('address', true)
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'name' => htmlEscape(Input::get('object', true)),
+            'address' => htmlEscape(Input::get('address', true))
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
-        $data['table'] = !empty($table) ? $table->generate() : null;
-        $data['instances'] = $assets;
         $data['instance'] = $currentPage;
         $data['paragraphs'] = $contents;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/real_estate_asset/real_estate_asset', $data, 'frontend');
     }

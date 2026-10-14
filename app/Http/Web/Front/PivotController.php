@@ -13,7 +13,6 @@ namespace Http\Web\Front;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
-use Helpers\Utility\Meta;
 use Model\SectionsFoModel;
 
 /**
@@ -39,22 +38,48 @@ class PivotController extends BaseFrontController
      */
     public function index(bool $snodo = true): void
     {
+
+
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = (int)uri()->segment(2, 0);
+        $currentPageId = (int) uri()->segment(2, 0);
+
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'parent_id', 'section_fo.id',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+        $currentPage = SectionsFoModel::select([
+            'name',
+            'parent_id',
+            'section_fo.id',
+            'rel_institution_type_sections_labeling.label',
+            'meta_description',
+            'meta_keywords',
+            'section_fo.created_at',
+            'section_fo.updated_at',
+            'is_system',
+            'no_required',
+            'hide'
+        ])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first();
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int) $institutionTypeId);
+
+        $currentPage = $currentPage->first();
+
+        if($currentPage->hide === 1){
+            echo show404();
+            exit();
+        }
 
         $currentPage = !empty($currentPage) ? $currentPage->toArray() : [];
 
@@ -70,13 +95,17 @@ class PivotController extends BaseFrontController
         $data['menuPages'] = (!empty($sectionFO)) ? $sectionFO : [];
         $data['currentPageId'] = $currentPageId;
         $data['instance'] = $currentPage;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
         $data['snodo'] = $snodo;
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
 
         renderFront(config('vfo', null, 'app') . '/pivot/pivot', $data, 'frontend');
     }
+
+
+    public function civicAccess(): void
+    {
+
+            $this::index();
+    }
+
 }

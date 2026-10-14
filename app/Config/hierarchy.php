@@ -6,6 +6,7 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+
 return [
     // Menu BackOffice
     'back_office' => [
@@ -16,6 +17,7 @@ return [
         'lineage' => 'lineage',
         'deep' => 'deep',
         'sort' => 'sort',
+        'source_id' => 'source_id',
         'hide' => 'hide',
         'deleted' => 'deleted',
         'is_system' => 'is_system',
@@ -40,6 +42,7 @@ return [
         'hide' => 'hide',
         'deep' => 'deep',
         'sort' => 'sort',
+        'source_id' => 'source_id',
         'created_at' => 'created_at',
         'updated_at' => 'updated_at',
         'deleted_at' => 'deleted_at',

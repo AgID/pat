@@ -9,17 +9,17 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
 /**
  * Modello per la tabella object_personnel
  * Personale
- * @method static search(mixed $searchValue)
  */
 class PersonnelModel extends Model
 {
@@ -29,6 +29,7 @@ class PersonnelModel extends Model
     protected $primaryKey = 'id';
 
     protected string $archiveName = 'personnel';
+    protected string $metaModel = 'MetaPersonnelModel';
 
     protected string $objectName = 'Personale';
     protected int $objectId = 3;
@@ -38,6 +39,7 @@ class PersonnelModel extends Model
         'owner_id',
         'institution_id',
         'role_id',
+        'qualification_id',
         'state',
         'workflow_state',
         'title',
@@ -66,6 +68,7 @@ class PersonnelModel extends Model
         'trips_import',
         'other_assignments',
         'other_assignments_institutions',
+        'total_emoluments',
         'personnel_lists',
         'in_office_since',
         'in_office_until',
@@ -79,12 +82,16 @@ class PersonnelModel extends Model
         'pubblic_in',
         'publishing_status',
         'o_id',
+        'register_o_id',
         'source_id',
         'number_readings',
         'archived',
         'archived_info',
         'archived_end_date',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -107,6 +114,14 @@ class PersonnelModel extends Model
         'firstname',
         'lastname',
         'political_role',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
         'users.name'
     ];
 
@@ -138,24 +153,19 @@ class PersonnelModel extends Model
         'assignments',
         'companies',
         'structures',
+        'political_organ', //HasMany
         'public_in',
         'proceedings',
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -166,7 +176,7 @@ class PersonnelModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -198,6 +208,49 @@ class PersonnelModel extends Model
     public function role(): BelongsTo
     {
         return $this->belongsTo(RoleModel::class, 'role_id');
+    }
+
+
+    /**
+     * Relazione con i ruoli (tabella role)
+     * Rappresenta il ruolo politico del personale
+     * @return BelongsTo
+     */
+    public function politicalRole(): BelongsTo
+    {
+        return $this->belongsTo(RoleModel::class, 'role_id')
+            ->where('role.political', '=', '1');
+    }
+
+
+    /**
+     * Relazione con le qualifiche (tabella object_personnel_qualifications)
+     * Rappresenta la qualifica del personale
+     * @return BelongsTo
+     */
+    public function qualification(): BelongsTo
+    {
+        return $this->belongsTo(PersonnelQualificationsModel::class, 'qualification_id');
+    }
+
+    /**
+     * Relazione con lo storico degli incarichi del personale.
+     *
+     * @return HasMany
+     */
+    public function historical_datas(): HasMany
+    {
+        return $this->hasMany(DataHistoricalPersonnelModel::class, 'personnel_id', 'id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -244,6 +297,15 @@ class PersonnelModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -339,14 +401,29 @@ class PersonnelModel extends Model
         return $commissions;
     }
 
+
+    /**
+     * Relazione con le commissioni
+     * Commissioni di cui fa parte il personale
+     * @return HasMany
+     */
+    public function president_of(): HasMany
+    {
+        $president = $this->hasMany(CommissionsModel::class, 'president_id', 'id');
+        return $president;
+    }
+
+
     /**
      * Relazione con le section_fo per la gestione del pubblica in
      * @return BelongsToMany
      */
     public function public_in(): BelongsToMany
     {
-        return $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_personnel_public_in', 'object_personnel_id', 'public_in_id', null, 'section_fo_id')
+        $publicIn = $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_personnel_public_in', 'object_personnel_id', 'public_in_id', null, 'section_fo_id')
             ->withTimestamps();
+
+        return $publicIn;
     }
 
     /**
@@ -355,7 +432,8 @@ class PersonnelModel extends Model
      */
     public function political_organ(): HasMany
     {
-        return $this->hasMany(RelPersonnelPoliticalOrgansModel::class, 'object_personnel_id', 'id');
+        return $this->hasMany(RelSectionsFoPoliticOrganPersonnel::class,  'object_personnel_id', 'id');
+
     }
 
     /**
@@ -398,11 +476,65 @@ class PersonnelModel extends Model
     }
 
     /**
-     * Relazione con lo storico incarichi
+     * Scope locale per il filtraggio del personale in base al nome
+     * @param Builder     $query Query
+     * @param string|null $name  Nome del personale
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $name = null
+    ): void
+    {
+        if (!empty($name)) {
+          //  $query->where('object_personnel.full_name', 'LIKE', '%' . $name . '%');
+
+            $fullName = trim($name);
+            $items = explode(" ", $name);
+
+            $query->where(function ($q) use ($items, $fullName){
+                $q->where('object_personnel.full_name', 'LIKE', '%' . $fullName . '%');
+                $q->orWhere(function($q2) use ($items){
+                    foreach ($items as $itm){
+                        $q2->where('object_personnel.full_name', 'LIKE', '%' . $itm . '%');
+                    }
+                });
+            });
+
+        }
+    }
+
+    /**
+     * Scope per il filtraggio dei dati del personale nel DataTable
+     * @param Builder               $query        Query
+     * @param string|int|null       $structures   Id della struttura
+     * @param string|int|null       $role         Id del ruolo
+     * @return void
+     */
+    public function scopePersonnelFilterDataTable(Builder $query, int $structures = null, string|int $role = null): void
+    {
+
+        if (!empty($structures)) {
+            $query->whereHas('referent_structures', function ($query) use ($structures){
+                $query->where('rel_personnel_for_structures.object_structures_id', '=',$structures)
+                        ->where('rel_personnel_for_structures.typology','=','referent');
+            });
+        }
+
+        if (!empty($role)) {
+            $query->where('object_personnel.role_id', '=', $role);
+        }
+
+    }
+
+    /**
+     *
      * @return HasMany
      */
-    public function historical_datas(): HasMany
+    public function scp(): HasMany
     {
-        return $this->hasMany(DataHistoricalPersonnelModel::class, 'personnel_id', 'id');
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

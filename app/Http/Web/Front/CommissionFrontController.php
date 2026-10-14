@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUnused */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -31,6 +35,39 @@ class CommissionFrontController extends BaseFrontController
     }
 
     /**
+     * Metodo chiamato per la pagina "Archivio" delle commissioni
+     * ID sezione 255
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function commissionArchive(): void
+    {
+        $this->archive('commissione');
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Archivio" delle commissioni/gruppi consiliari
+     *
+     * @param string|null $type    Indica il tipo: Commissione || Gruppo Consiliare
+     * @param null        $element commissione/gruppo consiliare, che se settato mostra il dettaglio dell'elemento archiviato,
+     *                             altrimenti li mostra tutti
+     *
+     * @return void
+     * @throws Exception
+     * @url /page/page_id/page_name
+     */
+    private function archive(?string $type = '', $element = null): void
+    {
+
+        if ($type === 'commissione') {
+            $this->indexCommission();
+        } else {
+            $this->indexGroup();
+        }
+    }
+
+    /**
      * Metodo chiamato per la pagina "Commissioni",
      * nella sezione Organizzazione -> Titolari di incarichi politici, di amministrazione, di direzione o di governo
      * ID sezione 245
@@ -44,7 +81,7 @@ class CommissionFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         //Id tipo ente
         $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
@@ -53,13 +90,19 @@ class CommissionFrontController extends BaseFrontController
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
             'archive_name', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -80,13 +123,13 @@ class CommissionFrontController extends BaseFrontController
         $personnel = PersonnelModel::with('referent_structures:id,structure_name')
             ->with('responsible_structures:id,structure_name,archived')
             ->with('role:id,name')
-            ->with('political_organ')
             ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
             ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-            ->where('archived', '!=', 1)
+            ->where(function ($query) {
+            })
             ->orderBy('priority', 'ASC')
             ->orderBy('full_name', 'ASC')
-            ->paginate(20, ['object_personnel.id', 'full_name', 'email', 'photo', 'not_available_email_txt', 'role_id', 'political_role'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_personnel.id', 'full_name', 'email', 'photo', 'not_available_email_txt', 'role_id', 'political_role'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['sec_token']))
             ->setPath(currentUrl());
@@ -101,14 +144,16 @@ class CommissionFrontController extends BaseFrontController
             $pFirstCreated = optional(PersonnelModel::select(['object_personnel.created_at'])
                 ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
                 ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('object_personnel.created_at', 'ASC')
                 ->first())
                 ->toArray();
             $pLasUpdated = optional(PersonnelModel::select(['object_personnel.updated_at'])
                 ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
                 ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('object_personnel.updated_at', 'DESC')
                 ->first())
                 ->toArray();
@@ -132,6 +177,10 @@ class CommissionFrontController extends BaseFrontController
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
         $data['pLatsUpdatedElement'] = $pCreatedUpdatedInfo ?? [];
 
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/commissions/commissions', $data, 'frontend');
     }
 
@@ -148,8 +197,9 @@ class CommissionFrontController extends BaseFrontController
 
         // Recupero i canoni di locazione percepiti da mostrare
         $commissions = CommissionsModel::where('typology', $type)
-            ->where('archived', '!=', 1)
-            ->paginate(20, ['id', 'name', 'image'], 'p', (int)Input::get('p'))
+            ->where(function ($query) {
+            })
+            ->paginate(20, ['id', 'name', 'image'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             //->appends(Input::get(['operator', 'service', 'type', 'municipal', 'service', 'start', 'end', 'customer', 'per_page']))
             ->setPath(currentUrl());
@@ -161,13 +211,15 @@ class CommissionFrontController extends BaseFrontController
             //da pubblicare nella pagina
             $firstCreated = optional(CommissionsModel::select(['created_at'])
                 ->where('typology', $type)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('created_at', 'ASC')
                 ->first())
                 ->toArray();
             $lasUpdated = optional(CommissionsModel::select(['updated_at'])
                 ->where('typology', $type)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('updated_at', 'DESC')
                 ->first())
                 ->toArray();
@@ -194,7 +246,7 @@ class CommissionFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         //Id tipo ente
         $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
@@ -203,13 +255,19 @@ class CommissionFrontController extends BaseFrontController
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
             'archive_name', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -224,13 +282,13 @@ class CommissionFrontController extends BaseFrontController
         $personnel = PersonnelModel::with('referent_structures:id,structure_name')
             ->with('responsible_structures:id,structure_name,archived')
             ->with('role:id,name')
-            ->with('political_organ')
             ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
             ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-            ->where('archived', '!=', 1)
+            ->where(function ($query) {
+            })
             ->orderBy('priority', 'ASC')
             ->orderBy('full_name', 'ASC')
-            ->paginate(20, ['object_personnel.id', 'full_name', 'email', 'photo', 'not_available_email_txt', 'role_id', 'political_role'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_personnel.id', 'full_name', 'email', 'photo', 'not_available_email_txt', 'role_id', 'political_role'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['sec_token']))
             ->setPath(currentUrl());
@@ -245,14 +303,16 @@ class CommissionFrontController extends BaseFrontController
             $pFirstCreated = optional(PersonnelModel::select(['object_personnel.created_at'])
                 ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
                 ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('object_personnel.created_at', 'ASC')
                 ->first())
                 ->toArray();
             $pLasUpdated = optional(PersonnelModel::select(['object_personnel.updated_at'])
                 ->join('rel_personnel_public_in', 'rel_personnel_public_in.object_personnel_id', '=', 'object_personnel.id')
                 ->where('rel_personnel_public_in.public_in_id', $currentPageId)
-                ->where('archived', '!=', 1)
+                ->where(function ($query) {
+                })
                 ->orderBy('object_personnel.updated_at', 'DESC')
                 ->first())
                 ->toArray();
@@ -281,7 +341,24 @@ class CommissionFrontController extends BaseFrontController
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
         $data['pLatsUpdatedElement'] = $pCreatedUpdatedInfo ?? [];
 
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
+
         renderFront(config('vfo', null, 'app') . '/commissions/commissions', $data, 'frontend');
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Archivio" dei gruppi consiliari
+     * ID sezione 254
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function groupArchive(): void
+    {
+        $this->archive('gruppo consiliare');
     }
 
     /**
@@ -297,8 +374,8 @@ class CommissionFrontController extends BaseFrontController
         $archive = false;
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
-        $elementId = uri()->segment(4, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+        $elementId = (int)uri()->segment(4, 0);
 
         // Recupero l'elemento da mostrare
         $element = CommissionsModel::where('id', $elementId)
@@ -309,7 +386,12 @@ class CommissionFrontController extends BaseFrontController
             ->with('secretaries:id,full_name,archived')
             ->with('substitutes:id,full_name,archived')
             ->with('members:id,full_name,archived')
-            ->first();
+            ->with('management_structure:id,structure_name,archived')
+            ->with('non_management_structure:id,structure_name,archived');
+
+        $element = $element ?? null;
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
@@ -317,7 +399,16 @@ class CommissionFrontController extends BaseFrontController
             exit();
         }
 
+        $archive = $archive ?? null;
+
+        // Se l'elemento è archiviato mostro la vista apposita per gli elementi archiviati
+        if ($archive) {
+            $this->archive($element['typology'], $element);
+            exit();
+        }
+
         $element = $element->toArray();
+
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
@@ -359,7 +450,6 @@ class CommissionFrontController extends BaseFrontController
         // $showOnlyPublic = true;
         $sectionId = (int)uri()->segment(2, 0);
 
-
             // Allegati
             $attach = new AttachmentArchive();
             $data['listAttach'] = $attach->getAllByObject(
@@ -369,8 +459,13 @@ class CommissionFrontController extends BaseFrontController
                 true
             );
 
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
 
-        $data['instance'] = is_array($element) ? $element : $elementId->toArray();
+        //Inclusione del nodo JSON-LD della pagina
+        $data = $data ?? null;
+
+        $data['instance'] = is_array($element) ? $element : $element->toArray();
 
         renderFront(config('vfo', null, 'app') . '/commissions/details', $data, 'frontend');
     }

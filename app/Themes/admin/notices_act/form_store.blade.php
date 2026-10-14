@@ -39,15 +39,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
@@ -80,6 +95,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
 
+                                {{-- Inclusione di librerie esterne --}}
+
                             </div>
 
                             {{-- Campo Pubblica in --}}
@@ -109,6 +126,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             </div>
+
 
                             <div id="multiple_contest">
                                 {{-- Campo Procedure relative --}}
@@ -231,6 +249,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
+                        {{-- Inclusione di librerie esterne --}}
+
+
                         {{-- END: Form --}}
                     </div>
 
@@ -238,11 +259,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -303,23 +327,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Tabella per la selezione della Procedura relativa all'affidamento
         let relativeProcedureSingle = $('#ajax_procedure_single').patOsAjaxPagination({
@@ -471,7 +494,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_details');
+        CKEDITOR.replace('input_details', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -489,10 +514,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             beforeSend: function () {
                 btnSend.empty().append('{{ __('brn_save_spinner',null,'patos') }}').attr("disabled", true);
+
                 $('.error-toast').remove();
             },
             success: function (data) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
+
                 let response = parseJson(data);
                 formModified = false;
 
@@ -508,12 +535,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
             },
             complete: function (xhr) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
+
             },
             error: function (jqXHR, status) {
                 let response = parseJson(jqXHR.responseText);
@@ -526,6 +555,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 createValidatorFormErrorToast(msg, 6000, '', false);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
+
             }
         });
         {{-- End salvataggio --}}

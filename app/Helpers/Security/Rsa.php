@@ -101,7 +101,7 @@ class Rsa
     {
         $variables = count($arguments) ? current($arguments) : [];
 
-        return new static($method, $variables);
+        return new self($method, $variables);
     }
 
     /**
@@ -109,11 +109,11 @@ class Rsa
      * @param $privateKeyBits
      * @param $privateKeyType
      * @param $digestAlg
-     * @return static
+     * @return self
      */
-    public static function create($privateKeyBits = 2048, $privateKeyType = OPENSSL_KEYTYPE_RSA, $digestAlg = null): static
+    public static function create($privateKeyBits = 2048, $privateKeyType = OPENSSL_KEYTYPE_RSA, $digestAlg = null): self
     {
-        return new static($privateKeyBits, $privateKeyType, $digestAlg);
+        return new self($privateKeyBits, $privateKeyType, $digestAlg);
     }
 
     /**

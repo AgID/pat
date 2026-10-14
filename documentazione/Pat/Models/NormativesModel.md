@@ -7,7 +7,6 @@ Il modello `NormativesModel` rappresenta la tabella `object_normatives` e fornis
 * `$table`: Il nome della tabella nel database (default: `'object_normatives'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaNormativesModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'normatives'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Normativa'`).
 * `$objectId`: L'ID dell'oggetto (default: `14`).
@@ -73,9 +72,3 @@ scopeFilter(Builder $query, string$normativeName = null, string$typology = null,
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati delle normative in base al nome, alla tipologia, al numero, alla data di inizio, alla data di fine e all'ufficio.
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaNormativesModel` rappresentante i metadati associati alla normativa.

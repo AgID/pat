@@ -8,8 +8,10 @@ namespace Helpers\Validators;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Carbon\Carbon;
 use Exception;
 use Model\AssignmentsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,32 +38,36 @@ class AssignmentValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID Incarico')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero l'incarico con l'id passato in input
-                $check = AssignmentsModel::where('id', uri()->segment(4, 0))
-//                    ->with(['measures' => function ($query) {
-//                        $query->select(['object_assignments_id', 'object_measures_id', 'm.object', 'm.number', 'm.date']);
-//                    }])
-                    ->with('measures:id,object,number,date')
-                    ->with(['structure' => function ($query) {
+                $check = AssignmentsModel::where('id', uri()->segment($uriSegment, 0));
+
+                $check->with('measures:id,object,number,date');
+                $check->with([
+                    'structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                    }
+                ])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
                     }]);
+
+
                 $check = $check->first();
 
-                //Se non esiste l'incarico con questo id, mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
-
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'incarico ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -86,9 +92,9 @@ class AssignmentValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -99,7 +105,7 @@ class AssignmentValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
@@ -108,13 +114,13 @@ class AssignmentValidator
         $this->validator->label('Soggetto incaricato')
             ->value(Input::post('name'))
             ->required()
-            ->betweenString(4, 60)
+            ->betweenString(2, 120)
             ->end();
 
         $this->validator->label('Oggetto incarico o consulenza')
             ->value(Input::post('object'))
             ->required()
-            ->betweenString(4, 60)
+            ->betweenString(2, 500)
             ->end();
 
 
@@ -137,17 +143,28 @@ class AssignmentValidator
             ->isNaturalNoZero()
             ->end();
 
+
         $this->validator->label('Data di inizio incarico')
             ->value(Input::post('assignment_start'))
             ->required()
             ->isDate('Y-m-d')
             ->end();
 
+
         $this->validator->label('Data di fine incarico non disponibile')
             ->value(Input::post('end_of_assignment_not_available'))
             ->required()
             ->in('0,1')
             ->end();
+
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
 
         if (Input::post('end_of_assignment_not_available') == '0') {
 
@@ -169,7 +186,7 @@ class AssignmentValidator
             $this->validator->label('Note data di fine incarico non disponibile')
                 ->value(Input::post('end_of_assignment_not_available_txt'))
                 ->required()
-                ->betweenString(4, 60)
+                ->betweenString(1, 120)
                 ->end();
         }
 
@@ -181,13 +198,15 @@ class AssignmentValidator
 
         $this->validator->label('Componenti variabili del compenso')
             ->value(Input::post('variable_compensation'))
-            ->betweenString(4, 500)
+            ->betweenString(1, 500)
             ->end();
 
         $this->validator->label('Estremi atto di conferimento')
-            ->value(Input::post('acts_extremes'))
-            ->required()
-            ->betweenString(4, 1000)
+            ->value(Input::post('acts_extremes'));
+        if (Input::post('assignment_type') != 1) {
+            $this->validator->required();
+        }
+        $this->validator->betweenString(1, 10000)
             ->end();
 
         if (Input::post('measures')) {
@@ -202,29 +221,39 @@ class AssignmentValidator
 
         $this->validator->label('Ragione dell\'incarico')
             ->value(Input::post('assignment_reason'))
-            ->required()
-            ->betweenString(4, 120)
-            ->end();
+            ->betweenString(2, 500);
+        if (Input::post('assignment_type') != 1) {
+            $this->validator->required();
+        }
+        $this->validator->end();
+
 
         $this->validator->label('Note (incarichi, cariche, altre attività)')
             ->value(Input::post('notes'))
-            ->betweenString(4, 1000)
+            ->betweenString(2, 10000)
             ->end();
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $assignment = AssignmentsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = AssignmentsModel::where('id', $id);
+
+                    $assignment = $query->first();
+
                     if (empty($assignment)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Incarico')];
                     }
                 })
                 ->end();
+
         }
 
 

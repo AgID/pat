@@ -8,6 +8,8 @@ namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Scope\DeletedScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 

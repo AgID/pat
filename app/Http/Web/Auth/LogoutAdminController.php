@@ -11,7 +11,6 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 use Exception;
 use Helpers\ActivityLog;
 use System\BaseController;
-use Model\ConcurrentSessModel;
 
 class LogoutAdminController extends BaseController
 {
@@ -41,21 +40,20 @@ class LogoutAdminController extends BaseController
             ActivityLog::create([
                 'user_id' => $getIdentity['id'],
                 'action' => __('auth_logout_title', null, 'patos_auth'),
-                'description' => sprintf(__('auth_logout_description', null, 'patos_auth'), checkDecrypt($getIdentity['email']), date('d-m-Y'), date('H:i:s')),
+                'description' => sprintf(__('auth_logout_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s')),
                 'object_id' => 54
             ]);
 
 
             // Elimino il log delle sessioni concorrenti
             if(!empty($getIdentity['options']['sess_id'])) {
-
                 // ConcurrentSessModel::where('sess_id','=',$getIdentity['options']['sess_id'])->delete();
-
             }
         }
 
         authPatOs()->clearIdentity();
         session()->setFlash('logout_user_ok', 'Logout effettuato con successo!');
+        session()->kill('plugin_mfa');
 
         redirect('auth');
         exit();

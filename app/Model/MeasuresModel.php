@@ -8,11 +8,13 @@ namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
+use System\Log;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -26,14 +28,18 @@ class MeasuresModel extends Model
     protected $table = 'object_measures';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaMeasuresModel';
     protected string $archiveName = 'measures';
     protected string $objectName = 'Provvedimenti Amministrativi';
     protected int $objectId = 26;
+
+    protected int $institutionTypeID = 0; //NON rimuovere - utilizzata da cli per l'export
 
     protected $fillable = [
         'id',
         'owner_id',
         'institution_id',
+        'workflow_state',
         'state',
         'object_contests_acts_id',
         'object_bdncp_procedure_id',
@@ -53,9 +59,14 @@ class MeasuresModel extends Model
         'number_readings',
         'attachments_id',
         'last_update_date',
+        'accordi_pa_dir',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
+        'publishing_responsable',
+        '__tag',
         'created_at',
-        'updated_at',
-        'publishing_responsable'
+        'updated_at'
     ];
 
     /**
@@ -73,6 +84,14 @@ class MeasuresModel extends Model
     protected $searchable = [
         'object',
         'number',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
         'users.name'
     ];
 
@@ -96,42 +115,36 @@ class MeasuresModel extends Model
         'structures',
         'interventions',
         'charges',
-        'assignments'
+        'assignments',
+        'bdncp_procedures'
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
-     * @throws \Exception
+     * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
      * Per non chiamare il global scope
      * NomeClasse::withoutGlobalScope(new HasActive)
      */
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
-     * @return BelongsTo
      * Relazione con InstitutionsModel
      * Rappresenta l'Ente di appartenenza.
      * @return BelongsTo
      */
-    public function institution()
+    public function institution(): BelongsTo
     {
         return $this->belongsTo(\Model\InstitutionsModel::class, 'institution_id');
     }
@@ -144,6 +157,24 @@ class MeasuresModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(\Model\UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+
+    /**
+     * NON rimuovere - utilizzata da cli per l'export
+     */
+    public function setInstitutionType($id = 0): void
+    {
+        $this->institutionTypeID = $id;
     }
 
     /**
@@ -164,6 +195,17 @@ class MeasuresModel extends Model
     public function assignments(): BelongsToMany
     {
         return $this->belongsToMany(AssignmentsModel::class, 'rel_assignments_measures', 'object_measures_id', 'object_assignments_id');
+    }
+
+    /**
+     *
+     * @return HasMany
+     */
+    public function scp(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -200,14 +242,25 @@ class MeasuresModel extends Model
         return $this->belongsTo(ContestsActsModel::class, 'object_contests_acts_id');
     }
 
+//    Vecchia relazione con Bandi di gara dal 01/01/2024, sostituita da bdncp_procedures
+//    /**
+//     * @return BelongsTo
+//     * Relazione con Bandi di gara dal 01/01/2024
+//     * Rappresenta la procedura di scelta del contraente associata
+//     */
+//    public function relative_bdncp_procedure(): BelongsTo
+//    {
+//        return $this->belongsTo(BdncpProcedureModel::class, 'object_bdncp_procedure_id');
+//    }
+
     /**
-     * @return BelongsTo
      * Relazione con Bandi di gara dal 01/01/2024
      * Rappresenta la procedura di scelta del contraente associata
+     * @return BelongsToMany
      */
-    public function relative_bdncp_procedure(): BelongsTo
+    public function bdncp_procedures(): BelongsToMany
     {
-        return $this->belongsTo(BdncpProcedureModel::class, 'object_bdncp_procedure_id');
+        return $this->belongsToMany(BdncpProcedureModel::class,'rel_measures_bdncp_procedure','object_measures_id','object_procedure_id')->withTimestamps();
     }
 
     /**
@@ -251,35 +304,70 @@ class MeasuresModel extends Model
             ->where('archive_name', '=', 'measures');
     }
 
+
     /**
-     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
-     * @param Builder $query Query
-     * @param string|null $typology Tipologia
-     * @param string|null $measureFrom
-     * @param string|null $measureTo
-     * @param int|null $structures
+     * Scope locale per il filtraggio dei dati dei Provvedimenti
+     * @param Builder     $query       Query
+     * @param string|null $number      Numero provvedimento
+     * @param string|null $object      Oggetto provvedimento
+     * @param int|null    $year        Anno
+     * @param string|null $startDate   Data inizio
+     * @param string|null $endDate     Data fine
+     * @param int|null    $structure   Id struttura
+     * @param int|null    $responsible Id responsabile
      * @return void
      */
-    public function scopeMeasureFilterDataTable( $query, string $typology = null, string $measureFrom = null, string $measureTo = null, int $structures = null): void
+    public function scopeFilter(
+        Builder $query,
+        string  $number = null,
+        string  $object = null,
+        int     $year = null,
+        string  $startDate = null,
+        string  $endDate = null,
+        int     $structure = null,
+        int     $responsible = null
+    ): void
     {
-
-        if(!empty($typology)){
-            $query->where('object_measures.type','=', (int)$typology);
+        if (!empty($number)) {
+            $query->where('object_measures.number', 'LIKE', '%' . $number . '%');
         }
 
-        if(!empty($measureFrom)){
-            $query->where('object_measures.date', '>=', date('Y-m-d H:i:s', strtotime($measureFrom)));
+        if (!empty($object)) {
+            $query->where('object_measures.object', 'LIKE', '%' . $object . '%');
         }
 
-        if(!empty($measureTo)){
-            $query->where('object_measures.date', '<=', date('Y-m-d H:i:s', strtotime($measureTo)));
+        if (!empty($year)) {
+            $query->whereYear('object_measures.date', '=', $year);
         }
 
-        if (!empty($structures)) {
-            $query->whereHas('structures', function ($query) use ($structures){
-                $query->where('object_structures.id', '=',$structures);
-            });
+        if (!empty($startDate)) {
+            $query->where('object_measures.date', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
         }
 
+        if (!empty($endDate)) {
+            $query->where('object_measures.date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+
+        if (!empty($structure)) {
+            $query->join('rel_measures_structures as rest', 'rest.object_measures_id', '=', 'object_measures.id')
+                ->where('rest.object_structures_id', '=', $structure);
+        }
+
+        if (!empty($responsible)) {
+            $query->join('rel_measures_personnel as repe', 'repe.object_measures_id', '=', 'object_measures.id')
+                ->where('repe.object_personnel_id', '=', $responsible);
+        }
+    }
+
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

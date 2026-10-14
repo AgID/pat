@@ -39,41 +39,69 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
-                            {{-- Campo Struttura --}}
+
                             <div class="form-row d-flex align-items-end">
-                                <div class="form-group col-md-12" id="structure">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_structure" id="abs_structure_label">Struttura *</label>
-                                    </div>
-                                    <div id="ajax_structure"></div>
-                                    <input type="hidden" value="" name="object_structures_id"
-                                           id="input_object_structures_id"
-                                           class="object_structures_id">
-                                </div>
                             </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
+                            @if($_storageType === 'update' && empty($absenceRates['object_structures_id']) && !empty($absenceRates['o_id']))
+                                <div class="form-row d-flex align-items-end">
+                                    <div class="form-group col-md-12">
+                                        <label for="name">Nome struttura *</label>
+                                        {{ form_input([
+                                            'name' => 'structure_name',
+                                            'value' => !empty($absenceRates['structure_name']) ? $absenceRates['structure_name'] : null,
+                                            'placeholder' => 'Nome struttura',
+                                            'id' => 'input_structure_name',
+                                            'class' => 'form-control input_structure_name',
+                                        ]) }}
+                                    </div>
+                                </div>
+                            @else
+                                {{-- Campo Struttura --}}
+                                <div class="form-row d-flex align-items-end">
+                                    <div class="form-group col-md-12" id="structure">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label for="ajax_structure" id="abs_structure_label">Struttura *</label>
+                                        </div>
+                                        <div id="ajax_structure"></div>
+                                        <input type="hidden" value="" name="object_structures_id"
+                                               id="input_object_structures_id"
+                                               class="object_structures_id">
+                                    </div>
+                                </div>
+                            @endif
+
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Periodo --}}
                                 <div class="form-group col-md-6" id="input_month">
                                     <label for="months">Periodo *</label>
-                                    <div class="select2-blue">
-                                        {{ form_dropdown(
-                                            'months[]',
-                                            @config('absenceRatesPeriod', null, 'app'),
-                                            @$period,
-                                            'class="form-control select2-month" multiple="multiple" data-placeholder="Seleziona periodo" data-dropdown-css-class="select2-blue" style="width: 100%;"'
-                                        ) }}
-                                    </div>
+                                    {{ form_dropdown(
+                                        'months[]',
+                                        @config('absenceRatesPeriod', null, 'app'),
+                                        @$period,
+                                        'class="ts-month" multiple="multiple" style="width: 100%;"'
+                                    ) }}
                                 </div>
 
                                 {{-- Campo Anno --}}
@@ -132,17 +160,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             </div>
+
+                            {{-- Inclusione di librerie esterne --}}
+
                         </div>
                         {{-- END: Form --}}
                     </div>
+
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -195,21 +232,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {% block javascript %}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
-
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
-
     $(document).ready(function () {
 
         {{-- Vedere nel footer --}}
@@ -220,7 +253,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         let formModified = false;
 
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Tabella per la selezione della struttura
         let structure = $('#ajax_structure').patOsAjaxPagination({
@@ -232,6 +265,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($absenceRates['structure']) ? implode(",",array_column($absenceRates['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -250,22 +285,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
         @if(in_array($_storageType,['update', 'duplicate']) && !empty($absenceRates['structure']))
-        structure.patOsAjaxPagination.setValue('{{ $absenceRates['object_structures_id'] }}', '{{ htmlEscape($absenceRates['structure']['structure_name']).(!empty($absenceRates['structure']['parent_name'])?' - '.htmlEscape($absenceRates['structure']['parent_name']):'').(!empty($absenceRates['structure']['reference_email'])?' - '.$absenceRates['structure']['reference_email']:'N.D') }}', true);
+            structure.patOsAjaxPagination.setValue('{{ $absenceRates['object_structures_id'] }}', '{{ htmlEscape($absenceRates['structure']['structure_name']).(!empty($absenceRates['structure']['reference_email'])?' - '.$absenceRates['structure']['reference_email']:'N.D') }}', true);
         @endif
 
-        {{-- Select2 per campo "Periodo" --}}
-        let $dropdownMonth = $('.select2-month');
-        $dropdownMonth.select2()
-        $dropdownMonth.on('change', function () {
-            $('#month').val($(this).val());
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        new TomSelect(".ts-month", {...TS_MULTI_NO_SEARCH, placeholder: "Seleziona periodo"});
 
         /**
          * Metodo per il salvataggio
@@ -311,11 +334,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

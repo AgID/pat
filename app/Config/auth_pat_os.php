@@ -15,7 +15,7 @@ return [
     /**
      * Crittografia file di sessione per l'autenticazione
      */
-    'has_encryption' => true,
+    'has_encryption' => false,
 
     /**
      * Chiave per la crittografia dei dati in Sessione, JWT es LDAP
@@ -65,11 +65,6 @@ return [
     'session_name' => '_patos',
 
     /**
-     * Nome colonna utente super admin
-     */
-    'super_admin' => 'super_admin',
-
-    /**
      * Nome colonna utente admin
      */
     'admin' => 'admin',
@@ -108,20 +103,5 @@ return [
      * Chiave primaria Institution
      */
     'name_institution_pk' => 'id',
-
-    /**
-     * Nome colonna token
-     */
-    'token_password' => 'password_ws',
-
-    /**
-     * abilitazione utente a chiamate API
-     */
-    'enable_api' => 'is_api',
-
-    /**
-     * Limita chiamate api
-     */
-    'limit_calls_api' => 'limits_call_api'
 
 ];

@@ -21,7 +21,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
-                <div class="col-lg-8">
+                @if($anchorsNumber > 4)
+                    {{-- Index anchor --}}
+                    {% include v1/layout/partials/anchor_index %}
+                @else
+                    {{-- Right Menu --}}
+                    {% include v1/layout/partials/anchor_index %}
+                @endif
+
+                <div class="col-lg-9">
                     <p id="generic-info" class="anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
                     <div class="titolo mb-4">
@@ -38,10 +46,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @if(!empty($instance['assignment_start']) || !empty($instance['assignment_end']) || !empty($instance['end_of_assignment_not_available']))
                             <div class="attributo">
                                 <span class="titolo">Inizio incarico:</span>
-                                <span class="text-muted">{{xss: date('d-m-Y',strtotime($instance['assignment_start']))}}</span>
+                                <span class="text-muted">{{xss: date('d/m/Y',strtotime($instance['assignment_start']))}}</span>
 
                                 <span class="titolo"> - Fine incarico:</span>
-                                <span class="mr-2 text-muted">{{e: !empty($instance['assignment_end']) ? date('d-m-Y', strtotime($instance['assignment_end'])) : $instance['end_of_assignment_not_available_txt'] }}</span>
+                                <span class="mr-2 text-muted">{{e: !empty($instance['assignment_end']) ? date('d/m/Y', strtotime($instance['assignment_end'])) : $instance['end_of_assignment_not_available_txt'] }}</span>
                             </div>
                         @endif
 
@@ -111,7 +119,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data liquidazione:</span>
                                 <span class="text-muted">
-                                         {{e: date('d-m-Y',strtotime($instance['liquidation_date'])) }}
+                                         {{e: date('d/m/Y',strtotime($instance['liquidation_date'])) }}
                                     </span>
                             </div>
                         @endif
@@ -160,6 +168,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </ul>
                     @endif
 
+                    @php $instance['contests'] = $instance['contests'] ?? null; @endphp
+
                     {{-- Tabella delle liquidazioni per gli esiti --}}
                     @if(!empty($instance['relative_liquidation']))
                         @php
@@ -180,11 +190,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 @foreach($instance['relative_liquidation'] as $liquidation)
                                     <tr>
                                         <td>
-                                            &euro; {{currency('filter=escape decimal_separator=, thousands_separator=.'): $liquidation['compensation_provided'] }}</td>
-                                        <td>{{date('d-m-Y|date'): $liquidation['liquidation_date'] }}</td>
+                                            &euro; {{currency('filter=escape decimal_separator=, thousands_separator=.'):$liquidation['compensation_provided'] }}</td>
+                                        <td>{{ !empty($liquidation['liquidation_date']) ? date('d-m-Y', strtotime($liquidation['liquidation_date'])) : '' }}</td>
                                         <td>{{e: $liquidation['liquidation_year'] }}</td>
                                         <td class="text-center">
-                                            <a href="{{ siteUrl('page/46/details/'.$liquidation['id'].'/'.urlTitle($pageName)) }}"
+                                            <a href="{{ siteUrl('page/'.$currentPageId.'/details/'.$liquidation['id'].'/'.urlTitle($pageName)) }}"
                                                title="Visualizza dettaglio liquidazione">
                                                 <i class="fas fa-search"></i>
                                             </a>
@@ -195,6 +205,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </table>
                         </div>
                     @endif
+
+                    @php $instance = $instance ?? null; $anchorsNumber = $anchorsNumber ?? null; @endphp
 
                     @if(!empty($instance['assignment_reason']))
                         @php
@@ -218,15 +230,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
@@ -237,6 +242,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     {{-- Bottom Menu --}}
     {% include v1/layout/partials/bottom_menu %}
 @endif
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

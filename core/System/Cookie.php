@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -28,6 +28,9 @@ class Cookie
      */
     public static function set($name, $value = '', $expire = '', $domain = '', $path = '/', $prefix = '', $secure = NULL, $httpOnly = NULL)
     {
+        if (empty($domain)) {
+            $domain = \System\Input::server('HTTP_HOST') ?: '';
+        }
         return \System\Input::setCookie($name, $value, $expire, $domain, $path, $prefix, $secure, $httpOnly);
     }
 
@@ -51,7 +54,10 @@ class Cookie
      */
     public static function delete($name, $domain = '', $path = '/', $prefix = '')
     {
-        return set_cookie($name, '', '', $domain, $path, $prefix);
+        if (empty($domain)) {
+            $domain = \System\Input::server('HTTP_HOST') ?: '';
+        }
+        return \System\Input::setCookie($name, '', -86400, $domain, $path, $prefix);
     }
 
 }

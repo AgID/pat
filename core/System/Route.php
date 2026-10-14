@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -149,24 +149,11 @@ class Route
     private static function add($methods, $uri, $callback)
     {
         $segments = defined('CUSTOM_PATH') ? CUSTOM_PATH : '';
-//        $uri = trim($uri, '/');
-//
-//        if (strlen($segments) >= 1 && strlen($uri) >= 1) {
-//            $uri = (substr($segments, -1) !== '/' && $uri[0] !== '/')
-//                ? $segments . '/' . $uri
-//                : $segments . $uri;
-//        }
-//
-//        $uri = rtrim(static::$prefix . '/' . trim($uri, '/'), '/');
-//        // $uri = $uri ?: '/';
-//        if ((int)strlen($uri) === 0) {
-//            $uri = strlen($segments)>=0 ? $segments : '/';
-//        }
         $uri = rtrim(static::$prefix . '/' . trim($uri, '/'), '/');
         $uri = verifyFirstOrLastSlash($uri);
 
-        if ((int)strlen($uri) === 0) {
-            $uri = strlen($segments)>=0 ? $segments : '/';
+        if ($uri === '') {
+            $uri = $segments;
         }
 
         foreach (explode('|', $methods) as $method) {
@@ -193,17 +180,23 @@ class Route
 
         static::$prefix .= '/' . trim($prefix, '/');
 
-        if (is_callable($callback)) {
+        try {
 
-            call_user_func($callback);
+            if (is_callable($callback)) {
 
-        } else {
+                call_user_func($callback);
 
-            throw new \BadFunctionCallException('[Route/Middleware] - non è una funzione richiamabile nelle Rotte.');
+            } else {
+
+                throw new \BadFunctionCallException('[Route/Middleware] - non è una funzione richiamabile nelle Rotte.');
+
+            }
+
+        } finally {
+
+            static::$prefix = $parentPrefix;
 
         }
-
-        static::$prefix = $parentPrefix;
     }
 
     /**
@@ -218,17 +211,23 @@ class Route
 
         static::$middleware .= '|' . trim($middleware, '|');
 
-        if (is_callable($callback)) {
+        try {
 
-            call_user_func($callback);
+            if (is_callable($callback)) {
 
-        } else {
+                call_user_func($callback);
 
-            throw new \BadFunctionCallException('[Route/Middleware] - non è una funzione richiamabile nelle Rotte.');
+            } else {
+
+                throw new \BadFunctionCallException('[Route/Middleware] - non è una funzione richiamabile nelle Rotte.');
+
+            }
+
+        } finally {
+
+            static::$middleware = $parentMiddleware;
 
         }
-
-        static::$middleware = $parentMiddleware;
 
     }
 
@@ -259,16 +258,6 @@ class Route
 
                 $params = array_values($matches);
 
-                foreach ($params as $param) {
-
-                    if (strpos($param, '/')) {
-
-                        $matched = false;
-
-                    }
-
-                }
-
                 if ((string)$route['method'] !== (string)static::getMethod($route['method'])) {
 
                     $matched = false;
@@ -293,11 +282,11 @@ class Route
         // Rotta non trovata, stampo l'errore 404
         if (static::$routeFound === false) {
 
-            if (!HAS_API) {
+            if (!Input::isAjax()) {
                 // WEB
                 echo show404();
             } else {
-                // API
+                // AJAX
                 $response = new \System\JsonResponse();
                 $response->error('error', 'Ops.. Risorsa non trovata');
                 $response->setStatusCode(404);
@@ -330,17 +319,27 @@ class Route
             [
                 ':any',
                 ':num',
+                ':alpha_num_hyphen',
                 ':alpha_num',
                 ':alpha',
-                ':alpha_num_hyphen',
+                ':{p}',
+                ':{pagina}',
+                ':{archivio}',
+                ':{contenuto}',
+                ':{archiviofile}',
             ],
 
             [
                 '[^/]+',
                 '[0-9]+',
+                '[\w-]+',
                 '[a-zA-Z\-0-9]+',
                 '[a-zA-Z]+',
-                '[\w-]+'
+                '(?:page_tg|page)',
+                'pagina[0-9]+_[a-zA-Z-0-9]+',
+                'archivio[0-9]+_[a-zA-Z-_0-9]+',
+                'contenuto[0-9]+_[a-zA-Z-_0-9]+',
+                'archiviofile\/[a-zA-Z0-9-_%\/.]+',
             ],
 
             self::removeDupleSlash($pattern)
@@ -405,7 +404,23 @@ class Route
 
             return call_user_func_array($callback, $params);
 
-        } elseif (strpos((string)$callback, '@') !== false) {
+        }
+
+        return static::resolveStringCallback($callback, $params);
+    }
+
+    /**
+     * @param $callback
+     * @param array $params
+     * @return mixed
+     * @throws \ReflectionException
+     * @description Risolve una callback in formato stringa "Controller@metodo" (usata sia dal dispatch
+     * normale sia da rotte con risoluzione pigra del controller tramite closure).
+     */
+    public static function resolveStringCallback($callback, $params = [])
+    {
+
+        if (strpos((string)$callback, '@') !== false) {
 
             list($controller, $method) = explode('@', $callback);
 
@@ -422,7 +437,8 @@ class Route
                     if (ENVIRONMENT === 'development') {
                         throw new \BadFunctionCallException('[Route/invoke] - il Metodo ' . $method . 'non esiste nel Controlloer ' . $controller);
                     } else {
-                        echo showError('Error', '[Route/invoke] - il Metodo ' . $method . 'non esiste nel Controlloer ' . $controller);
+//                        echo showError('Error', '[Route/invoke] - il Metodo ' . $method . 'non esiste nel Controlloer ' . $controller);
+                        echo show404();
                         die();
                     }
 
@@ -433,7 +449,8 @@ class Route
                 if (ENVIRONMENT === 'development') {
                     throw new \ReflectionException('[Route/invoke] - Classe ' . $controller . ' non trovata');
                 } else {
-                    echo showError('Error', '[Route/invoke] - Classe ' . $controller . ' non trovata');
+//                    echo showError('Error', '[Route/invoke] - Classe ' . $controller . ' non trovata');
+                    echo show404();
                     die();
                 }
 
@@ -444,7 +461,8 @@ class Route
             if (ENVIRONMENT === 'development') {
                 throw new \InvalidArgumentException('[Route/invoke] - Inserisci una rotta valida');
             } else {
-                echo showError('Error', '[Route/invoke] - Inserisci una rotta valida');
+                echo show404();
+//                echo showError('Error', '[Route/invoke] - Inserisci una rotta valida');
                 die();
             }
 
@@ -479,7 +497,8 @@ class Route
                         if (ENVIRONMENT === 'development') {
                             throw new \ReflectionException('[Route/invoke] - Classe Middleware ' . $middleware . ' non trovato');
                         } else {
-                            echo showError('Error', '[Route/invoke] - Classe Middleware ' . $middleware . ' non trovato');
+                            echo show404();
+//                            echo showError('Error', '[Route/invoke] - Classe Middleware ' . $middleware . ' non trovato');
                             die();
                         }
                     }

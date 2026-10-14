@@ -9,6 +9,8 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\ActivityLog;
+use Helpers\S;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
@@ -20,7 +22,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -103,11 +104,6 @@ class NormativeAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'name');
@@ -123,21 +119,23 @@ class NormativeAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_normatives.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
             $records = NormativesModel::search($dataTable['searchValue'])
                 ->select(['object_normatives.id', 'object_normatives.owner_id', 'object_normatives.institution_id', 'object_normatives.name', 'normative_topic',
-                    'normative_link', 'publishing_status', 'object_normatives.updated_at', 'users.name as userName', 'i.full_name_institution'])
+                    'normative_link', 'object_normatives.updated_at',
+                    'users.name as userName', 'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_normatives.owner_id', 'left outer')
                 ->with('structures:id,structure_name,archived')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
-                ->with(['institution:id,full_name_institution']);
+                ->with(['institution:id,full_name_institution'])
+                ->with('all_attachs:id,archive_id');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_normatives.id', '=', $dataTable['searchValue']);
@@ -150,9 +148,12 @@ class NormativeAdminController extends BaseAuthController
                 ->get()
                 ->toArray();
 
+            $checkWf = false;
+            $manageableStates = [];
+            $getIdentity = authPatOs()->getIdentity(['id']);
+
             foreach ($records as $record) {
 
-                //TODO gestione del 'normative_topic' = 3 - necessario bugfix per defire la sezione finale di pubblicazione
                 if ($record['normative_topic'] == 2) {
                     $recordUrl = siteUrl('/page/125/details/' . $record['id'] . '/' . urlTitle($record['name']));
                 } else {
@@ -166,9 +167,11 @@ class NormativeAdminController extends BaseAuthController
                     $structures = str_replace(',', ',' . nbs(2), implode(
                         ',',
                         array_map(
-                            function ($structure) {
+                            function ($structure, $archived) {
                                 return ('<small class="badge-primary mb-1">'
-                                    . escapeXss($structure) . '</small>');
+                                    . ($archived
+                                        ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                        : '') . escapeXss($structure) . '</small>');
                             },
                             $tmpStructures,
                             $tmpArchStructures
@@ -188,18 +191,25 @@ class NormativeAdminController extends BaseAuthController
                     $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                 }
 
-                // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                $wfPermits = false;
+                $workflowState = $record['workflow_state'] ?? 'finale';
+                $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                 // Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                 $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                    'edit' => $this->acl->getUpdate() || $permits,
-                    'duplicate' => $this->acl->getCreate(),
-                    'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                    'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                    'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                    'versioning' => getAclVersioning(),
+                    'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                 ])
-                    ->addEdit('admin/normative/edit/' . $record['id'], $record['id'])
+                    ->addEdit('admin/normative/edit/' . $record['id'], $record['id'], '', true)
                     ->addDuplicate('admin/normative/duplicate/' . $record['id'], $record['id'])
+                    ->addCustomButton('b_a_v', siteUrl('admin/normative/versioning'), $record['id'], '', '', 'versioning')
+                    ->addCustomButton('s_r_l',siteUrl('admin/normative/show-record-log/'.$record['id']), $record['id'], '14', 'show-record-log', 'view')
+                    ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                     ->addDelete('admin/normative/delete/' . $record['id'], $record['id'])
                     ->render() : '';
 
@@ -207,21 +217,20 @@ class NormativeAdminController extends BaseAuthController
 
                 // Setto i dati da mostrare nelle colonne del datatable
                 $setTempData = [];
-                $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                $setTempData[] = $checkBox;
                 $setTempData[] = $icon . (!empty($record['name'])
-                        ? '<a href="' . $recordUrl . '" target="_blank">' . escapeXss($record['name']) . '</a>'
+                        ? '<a href="' . $recordUrl . '" target="_blank">' . escapeXss(html_entity_decode($record['name'])) . '</a>'
                         : 'N.D.');
                 $setTempData[] = $structures;
                 $setTempData[] = !empty($record['normative_link']) ? escapeXss($record['normative_link']) : 'N.D.';
                 $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                 $setTempData[] = $updateAt;
-
-                // Se è un SuperAdmin mostro la colonna dell'Ente
-                if (isSuperAdmin(true)) {
-                    $setTempData[] = !empty($record['institution']['full_name_institution'])
-                        ? escapeXss($record['institution']['full_name_institution'])
-                        : 'N.D.';
-                }
+                $setTempData[] = !empty($record['all_attachs'])
+                    ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                    : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                 $setTempData[] = $buttonAction;
 
@@ -234,8 +243,7 @@ class NormativeAdminController extends BaseAuthController
                 "iTotalDisplayRecords" => $totalRecordsWithFilter,
                 "aaData" => $data,
             ];
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -255,7 +263,7 @@ class NormativeAdminController extends BaseAuthController
         $data = [];
 
         // Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/normative/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/normative/create-box', true);
 
         // Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -283,10 +291,20 @@ class NormativeAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        $data['actTypes'] = [null => ''] + config('normativeTypologies', null, 'app');
+        $data['actTypes'] = [null => ''] + config('normativeTypologies', [], 'app');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $normativeTopic = [
+            '' => '',
+            1=>'Organizzazione dell\'Ente (pubblica in Riferimenti normativi su organizzazione e attività)',
+            4=>'Attività (pubblica in Riferimenti normativi su organizzazione e attività)',
+            2=>'Sovvenzioni e contributi (pubblica in Criteri e modalità)',
+            3=>'Altro (disponibile solo in back-end e non pubblicato)'
+        ];
+
+        $data['normativeTopic'] = $normativeTopic;
 
         render('normative/form_store', $data, 'admin');
     }
@@ -302,7 +320,7 @@ class NormativeAdminController extends BaseAuthController
     public function store(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -348,16 +366,12 @@ class NormativeAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $insert,
-                    explode(',', strip_tags((string)Input::post('structures', true)))
+                    !empty(Input::post('structures')) ? explode(',', strip_tags((string)Input::post('structures', true))) : null,
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'normatives', $insert->id, $insert['name']);
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
         } else {
@@ -473,7 +487,7 @@ class NormativeAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $normative['institution_id'];
 
         $data['issue_date'] = $date['date'];
@@ -481,7 +495,18 @@ class NormativeAdminController extends BaseAuthController
         $data['structureIds'] = Arr::pluck($normative['structures'], 'id');
         $data['seo'] = $normative['p_s_d_r'] ?? null;
 
-        $data['actTypes'] = [null => ''] + config('normativeTypologies', null, 'app');
+        $data['actTypes'] = [null => ''] + config('normativeTypologies', [], 'app');
+
+        $normativeTopic = [
+            '' => '',
+            1=>'Organizzazione dell\'Ente (pubblica in Riferimenti normativi su organizzazione e attività)',
+            4=>'Attività (pubblica in Riferimenti normativi su organizzazione e attività)',
+            2=>'Sovvenzioni e contributi (pubblica in Criteri e modalità)',
+            3=>'Altro (disponibile solo in back-end e non pubblicato)'
+        ];
+
+        //Argomenti della normativa
+        $data['normativeTopic'] = $normativeTopic;
 
         render('normative/form_store', $data, 'admin');
     }
@@ -513,10 +538,11 @@ class NormativeAdminController extends BaseAuthController
                 ->with('structures:id,structure_name')
                 ->with('all_attachs');
 
+
             $normative = $normative->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($normative['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($normative['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -560,16 +586,14 @@ class NormativeAdminController extends BaseAuthController
                     $normative['institution_id'],
                     $normative['name']
                 );
+
+
                 // Errore di alcuni o tutti gli allegati nella pagina.
                 if (!empty($dataAttach['error'])) {
                     $code = $json->bad();
                     $json->set('error_partial_attach', $attach->errorsToString());
                 }
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -594,7 +618,7 @@ class NormativeAdminController extends BaseAuthController
     protected function clear(NormativesModel $normative = null, int|array $structures = null): void
     {
         $dataStructures = [];
-        if (!empty($structures) && is_array($structures)) {
+        if (!empty($structures)) {
             foreach ($structures as $structure) {
                 $dataStructures[] = is_array($structure) ? $structure['id'] : $structure;
             }
@@ -633,8 +657,6 @@ class NormativeAdminController extends BaseAuthController
         // Elimino la normativa
         $normative->deleteWithLogs($normative);
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/normative');
@@ -651,7 +673,7 @@ class NormativeAdminController extends BaseAuthController
     public function deletes(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new NormativeValidator();
         $validate = $validator->multipleSelection();
@@ -668,8 +690,6 @@ class NormativeAdminController extends BaseAuthController
                 $normative->deleteWithLogs($normative);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -677,4 +697,5 @@ class NormativeAdminController extends BaseAuthController
 
         redirect('/admin/normative');
     }
+
 }

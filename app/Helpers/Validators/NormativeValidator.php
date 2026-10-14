@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\NormativesModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -30,36 +31,50 @@ class NormativeValidator
     }
 
     /**
-     * Controlla la validità dell'ID nell'URI segment e se esiste una normativa con quell'ID per l'ente
+     *  Controlla la validità dell'ID nell'URI segment e se esiste una normativa con quell'ID per l'ente
      *
-     * @param null $checkOwner Indica se controllare il proprietario del record
+     * @param $checkOwner Indica se controllare il proprietario del record
+     * @param $uriSegment
+     * @param $institutionId
+     * @param $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID normativa')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la normativa con l'id passato in input
-                $check = NormativesModel::where('id', uri()->segment(4, 0))
-                    ->with(['structures' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id',
-                            'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                $check = NormativesModel::where('id', uri()->segment($uriSegment, 0));
+
+                $check->with([
+                    'structures' => function ($query) {
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->first();
+                    }
+                ])
+                ->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
 
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'normativa ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -81,12 +96,13 @@ class NormativeValidator
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId indica l'id dell'istituto
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -97,10 +113,11 @@ class NormativeValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Tipologia atto')
             ->value(Input::post('act_type'))
@@ -135,7 +152,7 @@ class NormativeValidator
         $this->validator->label('Argomento della Normativa')
             ->value(Input::post('normative_topic'))
             ->required()
-            ->in('1,2,3')
+            ->in('1,2,3,4,50,51,52,53')
             ->end();
 
         $this->validator->label('Inserisci link a Normativa')
@@ -145,7 +162,7 @@ class NormativeValidator
             ->end();
 
         if (Input::post('structures')) {
-            foreach (explode(',', (string)Input::post('structures')) as $structure) {
+            foreach (explode(',', (string) Input::post('structures')) as $structure) {
                 $this->validator->label('Struttura ' . $structure)
                     ->value($structure)
                     ->isInt()
@@ -156,23 +173,35 @@ class NormativeValidator
 
         $this->validator->label('Testo di descrizione')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 25000)
             ->end();
+
+
+
+
+
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value(value: $id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = NormativesModel::where('id', Input::post('id'))->first();
-                    if (empty($regulation)) {
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = NormativesModel::where('id', $id);
+
+                    $result = $query->first();
+
+                    if (empty($result)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Normativa')];
                     }
                 })
                 ->end();
+
         }
 
 

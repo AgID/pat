@@ -4,46 +4,40 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed');
+defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 
 use System\Event;
 
 Event::add('pre_system', function () {
-    $pathFile = APP_PATH . 'Addons' . DIRECTORY_SEPARATOR . 'Isweb' . DIRECTORY_SEPARATOR . 'Plugins.php';
 
-    if (file_exists($pathFile)) {
-        require_once $pathFile;
-
-    } else {
-        // Comportamento standard dell'applicazione.
-        $domainInfo = new \Events\DomainInfo();
-        $domainInfo->handle();
-    }
+    $domainInfo = new \Events\DomainInfo();
+    $domainInfo->handle();
 
     // Sessione
-    $session = new \System\Session();
+    $session = session();
     \System\Registry::set('last_history_url', $session->getFlash('last_history_url'));
 
-    // Init Addons
-    \Helpers\Addons::init();
+    // Origine della navigazione verso i form di creazione/modifica (chiave __frm_history_t,
+    // letta da referenceOriginForRegenerateToken()). Saltata per le richieste frammento
+    // (paginazione AJAX, vedi renderFrontFragment() in FrontOffice/Utility.php): un cambio
+    // pagina di una tabella non e' una navigazione da tracciare. Stessa condizione di
+    // isFrontFragmentRequest(), duplicata qui perche' quell'helper non e' ancora caricato a
+    // questo punto di pre_system.
+    if (empty($_SERVER['HTTP_X_PATOS_FRAGMENT']) || !\System\Input::isAjax()) {
+        $history = new \Events\BrowsingHistory();
+        $history->addUrl(currentQueryStringUrl());
+    }
 
-    // Storico navigazione
-    $history = new \Events\BrowsingHistory(10);
-
-    // Aggiunge lo storico di navigazione..
-    $history->addUrl(currentQueryStringUrl());
-
+    // Headers Sicurezza
+    $headers = new \Events\HeadersSecurity();
+    $headers->handle();
 });
 
 Event::add('pre_route', function () {
-    $session = new \System\Session();
+    $session = session();
     $session->setFlash('last_history_url', escapeXss(currentQueryStringUrl(), true, false));
 });
-
-Event::add('pre_job', function () {
-});
-
 
 /**
  *
@@ -72,4 +66,3 @@ Event::add('pre_job', function () {
  * Event::add('post_job',function (){});
  *
  */
-

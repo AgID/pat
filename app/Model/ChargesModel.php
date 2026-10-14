@@ -7,7 +7,9 @@
 namespace Model;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -21,6 +23,7 @@ class ChargesModel extends Model
     protected $table = 'object_charges';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaChargesModel';
     protected string $archiveName = 'charges';
 
     protected string $objectName = 'Oneri informativi e obblighi';
@@ -46,6 +49,9 @@ class ChargesModel extends Model
         'number_readings',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -63,6 +69,14 @@ class ChargesModel extends Model
     protected $searchable = [
         'title',
         'type',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
         'users.name'
     ];
 
@@ -92,18 +106,12 @@ class ChargesModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -113,15 +121,15 @@ class ChargesModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
-     * @return BelongsTo
+     * @return HasOne
      * Relazione con InstitutionsModel
      * Rappresenta l'Ente di appartenenza.
      */
-    public function institution(): BelongsTo
+    public function institution()
     {
         return $this->belongsTo(InstitutionsModel::class, 'institution_id');
     }
@@ -133,6 +141,15 @@ class ChargesModel extends Model
     public function created_by()
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -204,5 +221,15 @@ class ChargesModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'charges');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

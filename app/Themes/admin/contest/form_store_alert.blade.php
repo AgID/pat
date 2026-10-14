@@ -39,15 +39,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data di pubblicazione *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="datetime-local" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ @$alert['activation_date'] }}"
+                                               id="activation_date">
+                                    </div>
+                                </div>
+
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
                                 <div class="form-group col-md-12">
@@ -61,6 +89,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     ]) }}
                                 </div>
                             </div>
+
+
+
+                            @php $s_c_t = $s_c_t ?? null; @endphp
 
                             {{generateSeparator('Informazioni collegate')}}
 
@@ -82,7 +114,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="object_structures_id">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_structure" id="c_ajax_structure_label">Ufficio di
-                                            riferimento</label>
+                                            riferimento  </label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -94,20 +126,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             {{generateSeparator('Date di riferimento')}}
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Data di pubblicazione --}}
-                                <div class="form-group col-md-6">
-                                    <label for="activation_date">Data di pubblicazione *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="datetime-local" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ @$alert['activation_date'] }}"
-                                               id="activation_date">
-                                    </div>
-                                </div>
 
                                 {{-- Campo Data di scadenza del bando --}}
                                 <div class="form-group col-md-6">
@@ -138,6 +156,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -145,11 +166,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -181,6 +205,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -191,8 +216,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
-{{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
 <style type="text/css">
     .ck-editor__editable_inline {
         min-height: 200px;
@@ -203,22 +226,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
+
+
+    const institutionId = $('#institution_id').val();
+    let contest;
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
 
         // Tabella per la selezione della struttura
         let structure = $('#ajax_structure').patOsAjaxPagination({
@@ -230,6 +255,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($alert['office']) ? implode(",",array_column($alert['office'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -247,53 +274,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($alert['office']))
-        structure.patOsAjaxPagination.setValue('{{ $alert['object_structures_id'] }}', '{{ htmlEscape($alert['office']['structure_name']).(!empty($alert['office']['parent_name'])?' - '.htmlEscape($alert['office']['parent_name']):'').(!empty($alert['office']['reference_email'])?' - '.$alert['office']['reference_email']:'') }}', true);
+        @if(!empty($alert['office']))
+        structure.patOsAjaxPagination.setValue('{{ $alert['office']['id'] }}', '{{ htmlEscape($alert['office']['structure_name']).(!empty($alert['office']['parent_name'])?' - '.htmlEscape($alert['office']['parent_name']):'').(!empty($alert['office']['reference_email'])?' - '.$alert['office']['reference_email']:'') }}', true);
         @endif
 
-        {{-- Begin Select2 campo "Concorso o Avviso relativo" --}}
         // Tabella per la selezione del Concorso relativo
-        let contest = $('#ajax_contest').patOsAjaxPagination({
-            url: config.contest.url,
-            textLoad: config.contest.textLoad,
-            selectedLabel: 'Concorso relativo selezionato',
-            footerTable: config.contest.footerTable,
-            classTable: config.contest.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
-            hideTable: config.contest.hideTable,
-            showTable: config.contest.showTable,
-            search_placeholder: config.contest.search_placeholder,
-            setInputDataValue: '#input_related_contest',
-            dataParams: {
-                model: 34,
-                institution_id: institutionId,
-                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $alert['id'] ?>
-            },
-            dateFormat: config.contest.dateFormat,
-            columns: config.contest.columns,
-            action: {
-                type: 'radio',
-            },
-            dataSource: config.contest.dataSource,
-            addRecord: config.contest.addRecord,
-            label: '#ajax_contest_label'
-        });
-
-        // Setto il concorso relativo se sono in modifica o duplicazione
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($alert['related_contest']))
-        @php
-            $tmpActivationDate = !empty($alert['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($alert['related_contest']['activation_date'])) : null;
-            $tmpExpirationDate = !empty($alert['related_contest']['expiration_date']) ? ' - '.date('d/m/Y', strtotime($alert['related_contest']['expiration_date'])) : null;
-        @endphp
-        contest.patOsAjaxPagination.setValue('{{ $alert['related_contest']['id'] }}', '{{htmlEscape($alert['related_contest']['object']).' - '.$alert['related_contest']['typology'].''.$tmpActivationDate.''.$tmpExpirationDate }}', true);
-        @endif
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        contest = refreshContest(institutionId, null, false);
 
         {{-- Begin creazione campi CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -303,15 +289,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             });
         });
 
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End creazione campi CKEDITOR --}}
 
         // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
-        if ($('#_storage_type').val() == 'insert') {
-            @if(empty($alert['activation_date']))
-            $('#activation_date').attr('value', "<?= date('Y-m-d H:i') ?>");
-            @endif
-        }
+        @if(empty($alert['activation_date']) && $_storageType == 'insert')
+            $('#activation_date').attr('value', "<?= date('Y-m-d\TH:i') ?>");
+        @endif
+
         {{-- End creazione campi data --}}
 
         /**
@@ -349,6 +336,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -386,11 +374,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -404,7 +392,46 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
          */
         {{-- Vedere nel footer --}}
         checkIfRestore();
-
     });
+
+    function refreshContest(institutionId, tag, showTable) {
+        let c = $('#ajax_contest').patOsAjaxPagination({
+            url: config.contest.url,
+            textLoad: config.contest.textLoad,
+            selectedLabel: 'Concorso relativo selezionato',
+            footerTable: config.contest.footerTable,
+            classTable: config.contest.classTable,
+            hideShowTable: showTable ? showTable : Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.contest.hideTable,
+            showTable: config.contest.showTable,
+            search_placeholder: config.contest.search_placeholder,
+            setInputDataValue: '#input_related_contest',
+            dataParams: {
+                model: 34,
+                institution_id: institutionId,
+                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $alert['id'] ?>,
+                tag: tag
+            },
+            dateFormat: config.contest.dateFormat,
+            columns: config.contest.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.contest.dataSource,
+            addRecord: config.contest.addRecord,
+            label: '#ajax_contest_label'
+        });
+
+        // Setto il concorso relativo se sono in modifica o duplicazione
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($alert['related_contest']))
+        @php
+            $tmpActivationDate = !empty($alert['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($alert['related_contest']['activation_date'])) : null;
+            $tmpExpirationDate = !empty($alert['related_contest']['expiration_date']) ? ' - '.date('d/m/Y', strtotime($alert['related_contest']['expiration_date'])) : null;
+        @endphp
+        c.patOsAjaxPagination.setValue('{{ $alert['related_contest']['id'] }}', '{{htmlEscape($alert['related_contest']['object']).' - '.$alert['related_contest']['typology'].''.$tmpActivationDate.''.$tmpExpirationDate }}', true);
+        @endif
+
+            return c;
+    }
 </script>
 {% endblock %}

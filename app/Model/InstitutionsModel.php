@@ -9,6 +9,7 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Scope\DeletedScope;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -30,6 +31,7 @@ class InstitutionsModel extends Model
         'full_name_institution',
         'short_institution_name',
         'vat',
+        'fiscal_code',
         'email_address',
         'certified_email_address',
         'institutional_website_name',
@@ -51,7 +53,7 @@ class InstitutionsModel extends Model
         'trasparenza_urls',
         'url_pat',
         'bulletin_board_url',
-        'online_register_id',
+        'bulletin_board_url_name',
         'customer_support',
         'domain_cookies',
         'simple_logo_file',
@@ -59,36 +61,51 @@ class InstitutionsModel extends Model
         'favicon_file',
         'opendata_channel',
         'show_update_date',
-        'google_maps_api_key',
         'indexable',
         'support',
         'show_regulation_in_structure',
         'tabular_display_org_ind_pol',
         'max_users',
         'client_code',
+        'sender_type_mailer',
         'smtp_username',
-        'smtp_pec_username',
+        'smtp_from',
         'smtp_password',
-        'smtp_pec_password',
         'smtp_host',
-        'smtp_pec_host',
         'smtp_port',
-        'smtp_pec_port',
         'smtp_security',
-        'smtp_pec_security',
         'smtp_auth',
         'show_smtp_auth',
         'smtp_test_email',
-        'smtp_pec_auth',
+        'pec_smtp_user',
+        'pec_smtp_from',
+        'pec_smtp_pass',
+        'pec_smtp_host',
+        'pec_smtp_port',
+        'pec_smtp_security',
+        'pec_show_smtp_auth',
+        'ms_smtp_username',
+        'ms_smtp_password',
+        'ms_smtp_tenant_id',
+        'ms_smtp_client_id',
+        'ms_smtp_client_secret',
+        'ms_acs_sender_email',
+        'ms_acs_endpoint',
+        'ms_acs_access_key',
+        'ms_graph_email',
+        'ms_graph_tenant_id',
+        'ms_graph_client_id',
+        'ms_graph_client_secret',
         'email_notifications',
         'email_pec_notifications',
         'link_site_home',
         'condition_archive_notices',
-        'private_token',
-        'limits_call_api',
+        'disable_iframe_ckeditor',
+        'disable_media_embed_ckeditor',
         'token',
         'refresh_token',
         'active',
+        'force_two_auth_factor',
         'deleted',
         'created_at',
         'updated_at',
@@ -111,18 +128,119 @@ class InstitutionsModel extends Model
     protected static function boot()
     {
         parent::boot();
-
     }
 
     /**
-     * Relazione con RelSectionExcludedModel
-     * Relazione "OneToMany" per prelevare le sezioni escluse per l'ente
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function meta()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__,
+            'o' => true
+        ]);
+    }
+
+    /**
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function excluded_sections()
+    public function meta_datas()
     {
-        return $this->hasMany(\Model\RelSectionExcludedModel::class, 'institution_id', 'id');
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function socials()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function scp()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function perlapa()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function unfix()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function civicaccess()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function notice_acts_info()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function ck_b()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function register_info()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -364,5 +482,4 @@ class InstitutionsModel extends Model
     {
         return $this->hasMany(\Model\NewsNoticesModel::class, 'institution_id', 'id');
     }
-
 }

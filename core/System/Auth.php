@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -86,6 +86,12 @@ class Auth
         return $this->adaptor->authenticate($usernameOrEmail, $password, $otherWhere);
     }
 
+    public function authenticateWithSPID($FiscalCode = '')
+    {
+        return $this->adaptor->authenticate('@user', '@password', $FiscalCode, true);
+    }
+
+
     /**
      * @return mixed
      */
@@ -100,15 +106,6 @@ class Auth
     protected function setErrorAuth($error)
     {
         $this->adaptor->error = $error;
-    }
-
-    /**
-     * @param null $token
-     * @return mixed
-     */
-    public function basiAuthAPI($username=null,$password=null)
-    {
-        return $this->adaptor->basiAuthAPI($username,$password);
     }
 
     /**

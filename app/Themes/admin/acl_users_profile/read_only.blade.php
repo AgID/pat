@@ -43,21 +43,56 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <p>{{ $description }}</p>
                     </div>
 
+
                     <div class="col-md-12">
                         <hr/>
                     </div>
 
                     <div class="col-sm-12">
                         <div class="form-group">
-                            <label for="lock_user">Permesso delle operazioni di blocco/sblocco utenti</label>
+                            <label for="is_system">Profilo di Sistema</label>
                             <div>
-                                @if($lock_user === 1)
+                                @if($is_system === 1)
                                     <small class="badge badge-success" style="font-size: 16px;" data-toggle="tooltip"
-                                           data-placement="top" data-original-title="Permesso attivo">Si</small>
+                                           data-placement="top" data-original-title="Rendi di sistema">Si</small>
                                 @else
                                     <small class="badge badge-danger" style="font-size: 16px;" data-toggle="tooltip"
-                                           data-placement="top" data-original-title="Permesso non attivo">No</small>
+                                           data-placement="top" data-original-title="Dedicato all'Ente">No</small>
                                 @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Inclusione di librerie esterne --}}
+
+
+
+
+
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <span>Gestione immagini ed allegati</span>
+                            <div>
+                                @if((int)($fileArchive ?? 1) === 2)
+                                    <span class="badge badge-warning">Gestione solo della cartella personale</span>
+                                @elseif((int)($fileArchive ?? 1) === 3)
+                                    <span class="badge badge-success">Gestione di tutti i file dell'ente</span>
+                                @else
+                                    <span class="badge badge-danger">Nessun accesso</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <label for="editor_wishing">Modalità di visualizzazione dell'editor redazionale dei
+                                contenuti</label>
+                            <div>
+                                <small class="badge badge-primary" style="font-size: 16px;" data-toggle="tooltip"
+                                       data-placement="top" data-original-title="Modalità  {{ $editorWishing }}">
+                                    {{ $editorWishing }}
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -138,6 +173,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     <i class="fas fa-question-circle"></i>
                                                 </span>
                                                 </th>
+
+
                                             </tr>
                                             </thead>
                                             <tbody>
@@ -149,6 +186,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                         $read = 'No';
                                                         $update = 'No';
                                                         $delete = 'No';
+                                                        $appIO = 'No';
+
+                                                        $children = $children ?? null;
 
                                                         if (!empty($permits)) {
 
@@ -161,6 +201,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                                 $read = ($item['read'] === 1) ? 'Si' : 'No';
                                                                 $update = ($item['update'] === 1) ? 'Si' : 'No';
                                                                 $delete = ($item['delete'] === 1) ? 'Si' : 'No';
+                                                                $appIO = ($item['send_notify_app_io'] === 1) ? 'Si' : 'No';
+
                                                             }
 
                                                         }
@@ -168,6 +210,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     <tr>
                                                         @php
                                                             $allowedSection = true;
+                                                            $allowedSection = $allowedSection ?? null;
                                                         @endphp
 
                                                         <td style="width: 30%;">
@@ -185,6 +228,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                         <td class="text-center">
                                                             {{ badgeAclUserProfile($delete) }}
                                                         </td>
+
+
                                                     </tr>
                                                 @endif
                                             @endforeach

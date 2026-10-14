@@ -21,19 +21,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="description" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : ( !empty($instance['company_name']) ? $instance['company_name'] : '') }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
 
                     @if(!empty($instance['website_url']))
                         <p>
                             <span class="fas fa-link testo-blu mr-1"></span>
                             <span>Sito web:</span>
                             <a class="text-muted" href="{{ $instance['website_url'] }}">
-                                {{ parse_url($instance['website_url'], PHP_URL_HOST) }}
+                                {{xss: $instance['website_url'] }}
                             </a>
                         </p>
                     @endif
@@ -87,7 +92,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <ul>
                             @foreach($instance['representatives'] as $representative)
                                 <li>
-                                    <a class="text-muted" href="{{ siteUrl('page/58/details/'.$representative['id'].'/'.urlTitle($representative['full_name'])) }}">
+                                    <a class="text-muted" href="{{ siteUrl('page/4/details/'.$representative['id'].'/'.urlTitle($representative['full_name'])) }}">
                                         {{ ($representative['archived'] ? '<b>[Cessato]</b>' : '') }} {{e: $representative['full_name'] }}
                                     </a>
                                 </li>
@@ -124,31 +129,31 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </p>
                     @endif
 
+                    @if(!empty($instance['notes']))
+                        <h3 id="anchor6" class="testo-blu anchor page-subtitle mt-2">Note</h3>
+                        {{xss: $instance['notes'] }}
+                    @endif
+
                     {{-- Attach List --}}
                     {% include v1/layout/partials/attach_list %}
 
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
+                    {{-- Inclusione di librerie esterne --}}
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

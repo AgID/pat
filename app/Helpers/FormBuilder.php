@@ -6,6 +6,8 @@
 
 namespace Helpers;
 
+use Exception;
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 class FormBuilder

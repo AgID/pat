@@ -46,8 +46,7 @@ class OpenDataReliefChecksController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -74,7 +73,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('139');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -104,7 +103,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('144');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -134,7 +133,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('145');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -165,7 +164,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('140');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -196,7 +195,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('141');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -205,6 +204,101 @@ class OpenDataReliefChecksController extends BaseFrontController
 
         }
     }
+
+
+    /**
+     * Metodo download open data per i Controlli e rilievi,
+     * nella sezione Controlli e rilievi sull'amministrazione->Relazioni degli organi di revisione amministrativa
+     * e contabile al bilancio di previsione o budget e alle relative variazioni
+     * ID sezione 606
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     */
+    public function indexBudgetForecastReports(): void
+    {
+
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso attivi
+        $queryContents = $this->getData('606');
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests, $resultSection);
+
+        }
+    }
+
+    /**
+     * Metodo download open data per i Controlli e rilievi,
+     * nella sezione Controlli e rilievi sull'amministrazione->Relazioni degli organi di revisione amministrativa
+     * e contabile al conto consuntivo o al bilancio di esercizio
+     * ID sezione 607
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     */
+    public function indexFinancialStatementReports(): void
+    {
+
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso attivi
+        $queryContents = $this->getData('607');
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests, $resultSection);
+
+        }
+    }
+
+    /**
+     * Metodo download open data per i Controlli e rilievi,
+     * nella sezione Controlli e rilievi sull'amministrazione->Rilievi - recepiti e non - della Corte dei conti
+     * riguardanti l'organizzazione e l'attività delle amministrazioni stesse e dei loro uffici
+     * ID sezione 608
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     */
+    public function indexReviewOrganizationsOrganisms(): void
+    {
+
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso attivi
+        $queryContents = $this->getData('608');
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests, $resultSection);
+
+        }
+    }
+
 
     /**
      * Metodo download open data per i Controlli e rilievi,
@@ -227,7 +321,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('142');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -258,7 +352,7 @@ class OpenDataReliefChecksController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('143');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -278,7 +372,12 @@ class OpenDataReliefChecksController extends BaseFrontController
     private function getData($type = null): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        return ReliefChecksModel::with('office:id,structure_name')
+        return ReliefChecksModel::filter(
+            (int)Input::get('str', true),
+            (Input::get('obj', true)),
+            (int)Input::get('year', true)
+        )
+            ->with('office:id,structure_name')
             ->with('attachs')
             ->when($type, function ($query, $type) {
                 $query->whereHas('public_in_filter', function ($query) use ($type) {
@@ -286,8 +385,8 @@ class OpenDataReliefChecksController extends BaseFrontController
                 });
             })
             ->orderBy('date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -302,21 +401,22 @@ class OpenDataReliefChecksController extends BaseFrontController
     {
 
         $fileName = 'Controlli e rilievi - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
             'Oggetto',
             'Data',
+            'Oggetto del rilievo',
             'Ufficio',
             'Descrizione',
             'url origine - ' . $resultSection['name'],
             'Allegati'
         );
         fputcsv($output, $headers, ';', '"');
+
+        $reliefTaken = [1 => 'Recepito', 2 => 'Non recepito', 3 => 'Parzialmente recepito'];
+        $actObject = [ 1 => 'Organizzazione', 2 => 'Attività'];
 
         // Creazione delle celle per i dati in formato CSV
         foreach ($resultContests as $r) {
@@ -335,19 +435,23 @@ class OpenDataReliefChecksController extends BaseFrontController
                 }
             }
 
+            $actObjectTxt = "";
+            if(!empty($r['act_object'])){
+                $opt = explode(",", $r['act_object']);
+                foreach ($opt as $op){
+                    $actObjectTxt .= $actObject[(int)$op].", ";
+                }
+                $actObjectTxt = rtrim($actObjectTxt, ', ');
+            }
+
             // Genero l'indice dell'array
             $data = [
-                // Tipo canone
                 !empty($r['object']) ? $r['object'] : null,
-                // Data
-                !empty($r['date']) ? date('d-m-Y', strtotime($r['date'])) : null,
-                // Ufficio referente per il contratto
+                !empty($r['date']) ? date('d/m/Y', strtotime($r['date'])) : null,
+                $actObjectTxt,
                 trim($structure),
-                // Descrizione
                 !empty($r['description']) ? S::chartsEntityDecode(S::stripTags($r['description'])) : null,
-                // Url origine dato
                 siteUrl('page/' . $resultSection['id'] . '/details/' . $r['id'] . '/' . urlTitle($r['object'])),
-                // Allegati
                 trim($attachLists)
             ];
             fputcsv($output, $data, ';', '"');

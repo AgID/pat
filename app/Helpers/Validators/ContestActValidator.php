@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ContestsActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -30,50 +31,61 @@ class ContestActValidator
     }
 
     /**
-     * Controlla la validità dell'ID nell'URI segment e se esiste un bando di gara con quell'ID per l'ente
-     *
-     * @param null $checkOwner Indica se controllare il proprietario del record
+     *  Controlla la validità dell'ID nell'URI segment e se esiste un bando di gara con quell'ID per l'ente
+     * @param $checkOwner
+     * @param int $uriSegment
+     * @param int|bool $institutionId
+     * @param int|bool $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, int $uriSegment = 4, int|bool $institutionId = false, int|bool $userId = false): array
     {
         $this->validator->label('ID bando di gara')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il bando con l'id passato in input
-                $check = ContestsActsModel::where('typology', 'notice')
-                    ->where('id', uri()->segment(4, 0))
-                    ->with('proceedings:id,object,cig,activation_date,expiration_date,type')
-                    ->with('relative_measure:id,object,number,date')
-                    ->with('relative_lots:id,object,asta_base_value,cig,relative_notice_id')
-                    ->with(['structure' => function ($query) {
+                $query = ContestsActsModel::where('id', uri()->segment($uriSegment, 0));
+                $query->where('id', uri()->segment($uriSegment, 0));
+                $query->with('proceedings:id,object,cig,activation_date,expiration_date,type');
+                $query->with('relative_measure:id,object,number,date');
+                $query->with('relative_lots:id,object,asta_base_value,cig,relative_notice_id');
+                $query->with([
+                    'structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->with(['rup' => function ($query) {
+                    }
+                ]);
+                $query->with([
+                    'rup' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'object_personnel.role_id');
-                    }])
-                    ->with('requirements:id')
-                    ->with(['public_in' => function ($query) {
+                    }
+                ]);
+                $query->with('requirements:id');
+                $query->with([
+                    'public_in' => function ($query) {
                         $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
                             ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                    }])
-                    ->first();
+                    }
+                ]);
+                $query->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+
+                $check = $query->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di gara ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
-
                 //Se esiste il bando lo salvo nel registro
                 Registry::set('notice', $check);
 
@@ -92,12 +104,13 @@ class ContestActValidator
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId indica l'id dell'istituto
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -109,10 +122,11 @@ class ContestActValidator
      * @noinspection PhpInconsistentReturnPointsInspection
      * @noinspection DuplicatedCode
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int|null $institutionId): array
     {
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('ANAC - Anno di riferimento')
             ->value(Input::post('anac_year'))
@@ -133,7 +147,9 @@ class ContestActValidator
 
         if (Input::post('cig')) {
             $i = 1;
+
             foreach (Input::post('cig') as $cig) {
+
                 $this->validator->label('Codice CIG [' . $i++ . ']')
                     ->value($cig)
                     ->exactLength(10)
@@ -187,8 +203,9 @@ class ContestActValidator
         $this->validator->label('Amministrazione aggiudicatrice')
             ->value(Input::post('adjudicator_name'))
             ->required()
-            ->betweenString(4, 120)
+            ->betweenString(2, 120)
             ->end();
+
 
         $this->validator->label('Codice Fiscale Amministrazione aggiudicatrice')
             ->value(Input::post('adjudicator_data'))
@@ -250,14 +267,14 @@ class ContestActValidator
             ->value(Input::post('act_date'))
             ->isDate('Y-m-d')
             ->end();
-        
+
         $activationData = !empty(Input::post('activation_date')) ? str_replace('T', ' ', Input::post('activation_date')) : '';
 
         $this->validator->label('Data di pubblicazione sul sito')
             ->value($activationData)
             ->required()
             ->isDate('Y-m-d H:i')
-            ->add(function () use ($activationData){
+            ->add(function () use ($activationData) {
                 if ($activationData < Input::post('act_date')) {
 
                     return ['error' => __('invalid_end_date_publication_2', null, 'patos')];
@@ -314,7 +331,7 @@ class ContestActValidator
             ->end();
 
         if (Input::post('procedures')) {
-            foreach (explode(',', (string)Input::post('procedures')) as $procedure) {
+            foreach (explode(',', (string) Input::post('procedures')) as $procedure) {
                 $this->validator->label('Procedura ' . $procedure)
                     ->value($procedure)
                     ->isInt()
@@ -343,7 +360,7 @@ class ContestActValidator
 
         $this->validator->label('Note')
             ->value(Input::post('details'))
-            ->betweenString(2, 1000)
+            ->betweenString(2, 5000)
             ->end();
 
         $this->validator->label('Provvedimento')
@@ -352,22 +369,37 @@ class ContestActValidator
             ->isNaturalNoZero()
             ->end();
 
+
+
+
+
         if ($mode === 'update') {
 
+
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $notice = ContestsActsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = ContestsActsModel::where('id', '=', $id);
+
+                    $notice = $query->first();
+
                     if (empty($notice)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Bando di gara')];
                     }
                 })
                 ->end();
 
-            $notice = ContestsActsModel::where('id', Input::post('id'))->first();
+            // $notice = ContestsActsModel::where('id', Input::post('id'))->first();
+            $query = ContestsActsModel::where('id', '=', $id);
+
+            $notice = $query->first();
+
             $isMulticig = $notice['is_multicig'];
 
             // il CIG può essere modificato solo se non è multicig
@@ -384,7 +416,6 @@ class ContestActValidator
                 }
             }
         }
-
 
         return [
             'is_success' => $this->validator->isSuccess(),

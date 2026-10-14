@@ -32,18 +32,28 @@ class OS
     static public function isWin()
     {
 
-        return (bool) self::get() === self::WIN;
+        return self::get() === self::WIN;
     }
 
     static public function isOSX()
     {
 
-        return (bool) self::get() === self::OSX;
+        return self::get() === self::OSX;
     }
 
     static public function isLinux()
     {
 
-        return  (bool) self::get() === self::LINUX;
+        return self::get() === self::LINUX;
+    }
+
+    static public function convertPath($path) {
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            $newPath = str_replace('\\', DIRECTORY_SEPARATOR, $path);
+        }
+        else {
+            $newPath = str_replace('\\', DIRECTORY_SEPARATOR, $path);
+        }
+        return $newPath;
     }
 }

@@ -12,8 +12,9 @@ use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +28,7 @@ class AssignmentsModel extends Model
     protected $table = 'object_assignments';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaAssignmentsModel';
     protected string $objectName = 'Incarichi e consulenze';
     protected string $archiveName = 'assignments';
     protected int $objectId = 25;
@@ -68,6 +70,9 @@ class AssignmentsModel extends Model
         'o_id',
         'source_id',
         'number_readings',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'last_update_date',
         'created_at',
         'updated_at',
@@ -90,7 +95,15 @@ class AssignmentsModel extends Model
         'object_assignments.object',
         'object_assignments.name',
         'object_assignments.type',
-        'userName',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -115,29 +128,23 @@ class AssignmentsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
      * Per non chiamare il global scope
      * NomeClasse::withoutGlobalScope(new HasActive)
      */
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -159,6 +166,15 @@ class AssignmentsModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * @return BelongsTo
      * Relazione con InstitutionsModel
      * Rappresenta l'Ente di appartenenza.
@@ -173,7 +189,7 @@ class AssignmentsModel extends Model
      * Provvedimenti associati all'incarico
      * @return BelongsToMany
      */
-    public function measures(): BelongsToMany
+    public function measures()
     {
         $measures = $this->belongsToMany(MeasuresModel::class, 'rel_assignments_measures', 'object_assignments_id', 'object_measures_id')
             ->withTimestamps();
@@ -195,7 +211,9 @@ class AssignmentsModel extends Model
      */
     public function contests()
     {
-        return $this->belongsToMany(ContestModel::class, 'rel_contest_assignments', 'object_assignments_id', 'object_contest_id');
+        return $this->belongsToMany(ContestModel::class, 'rel_contest_assignments', 'object_assignments_id', 'object_contest_id')
+        ->wherePivot('typology', '=', 'contest')
+        ->withTimestamps();
     }
 
     /**
@@ -218,11 +236,11 @@ class AssignmentsModel extends Model
     }
 
     /**
-     * @return HasOne
+     * @return BelongsTo
      * Relazione con AssignmentsModel
      * Rappresenta l'Incarico relativo alla liquidazione
      */
-    public function related_assignment()
+    public function related_assignment(): BelongsTo
     {
         return $this->belongsTo(AssignmentsModel::class, 'related_assignment_id');
     }
@@ -266,24 +284,98 @@ class AssignmentsModel extends Model
 
     /**
      * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
-     * @param Builder      $query               Query
-     * @param string|null  $typology            Tipologia
-     * @param string|null  $assignmentStartFrom Data inizio incarico dal
-     * @param string|null  assignmentStartTo    Data inizio incarico al
+     * @param Builder     $query    Query
+     * @param string|null $fullName Nominativo incarico
+     * @param string|null $object   Oggetto incarico
+     * @param int|null    $year     Anno liquidazione
      * @return void
      */
-    public function scopeAssignmentFilterDataTable( $query, $typology = null, $assignmentStartFrom = null, $assignmentStartTo = null): void
+    public function scopeLiquidationFilter(
+        Builder $query,
+        string  $fullName = null,
+        string  $object = null,
+        int     $year = null): void
     {
-
-        if(!empty($typology)){
-            $query->where('object_assignments.typology','=', $typology);
-        }
-        if(!empty($assignmentStartFrom)){
-            $query->where('object_assignments.assignment_start', '>=', date('Y-m-d H:i:s', strtotime($assignmentStartFrom)));
-        }
-        if(!empty($assignmentStartTo)){
-            $query->where('object_assignments.assignment_start', '<=', date('Y-m-d H:i:s', strtotime($assignmentStartTo)));
+        if (!empty($year)) {
+            $query->where('object_assignments.liquidation_year', '=', $year);
         }
 
+        if (!empty($fullName)) {
+            $query->join('object_assignments as relative', 'relative.id', 'object_assignments.related_assignment_id');
+            $query->where('relative.name', 'LIKE', '%' . $fullName . '%');
+        }
+
+        if (!empty($object)) {
+            $query->join('object_assignments as relative_obj', 'relative_obj.id', 'object_assignments.related_assignment_id');
+            $query->where('relative_obj.object', 'LIKE', '%' . $object . '%');
+        }
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query               Query
+     * @param string|null $fullName            Nominativo incarico
+     * @param string|null $object              Oggetto incarico
+     * @param int|null    $office              Id ufficio incarico
+     * @param string|null $startDate           Data inizio incarico
+     * @param string|null $endDate             Data fine incarico
+     * @param int|null    $assignmentStartYear Anno di inizio incarico
+     * @return void
+     */
+    public function scopeAssignmentFilter(
+        Builder $query,
+        string  $fullName = null,
+        string  $object = null,
+        int     $office = null,
+        string  $startDate = null,
+        string $endDate = null,
+        int|null $assignmentStartYear = null
+    ): void
+    {
+        if (!empty($fullName)) {
+
+            $fullName = trim($fullName);
+            $items = explode(" ", $fullName);
+
+            $query->where(function ($q) use ($items, $fullName){
+                $q->where('object_assignments.name', 'LIKE', '%' . $fullName . '%');
+                $q->orWhere(function($q2) use ($items){
+                    foreach ($items as $itm){
+                        $q2->where('object_assignments.name', 'LIKE', '%' . $itm . '%');
+                    }
+                });
+            });
+
+        }
+
+        if (!empty($object)) {
+            $query->where('object_assignments.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($office)) {
+            $query->where('object_assignments.object_structures_id', '=', $office);
+        }
+
+        if (!empty($startDate)) {
+            $query->where('object_assignments.assignment_start', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
+        }
+
+        if (!empty($endDate)) {
+            $query->where('object_assignments.assignment_end', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+
+        if (!empty($assignmentStartYear)) {
+            $query->whereYear('object_assignments.assignment_start', (int)$assignmentStartYear);
+        }
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

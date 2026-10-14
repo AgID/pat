@@ -76,16 +76,16 @@ return [
     // Custom PAT OS ---------------------------------------------------------------------------------------------------
 
     /**
-     * Nome colonna utente super admin
-     */
-    'super_admin' => 'super_admin',
-
-    /**
      * Nome colonna utente cancellata
      */
     'deleted' => 'deleted',
 
     //JWT --------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Chiave segreta per la firma dei token JWT
+     */
+    'jwt_key' => _env('TOKEN_JWT'),
 
     /**
      * Temp di validità del token espresso in secondi

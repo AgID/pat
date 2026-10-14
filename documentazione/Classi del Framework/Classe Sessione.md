@@ -285,7 +285,7 @@ Esempio:
       'last_regen' => int 1638877672
       'begin' => int 1638864577
   'pat_os_domain_info' => 
-    array (size=64)
+    array (size=63)
       'id' => int 1
       'id_creator' => int 2
       'institution_type_id' => int 1
@@ -319,7 +319,6 @@ Esempio:
       'opendata_channel' => null
       'show_update_date' => null
       'statistic_snippet_code' => string 'NULL' (length=4)
-      'google_maps_api_key' => string 'null' (length=4)
       'indexable' => int 1
       'support' => int 0
       'show_regulation_in_structure' => null
@@ -328,8 +327,8 @@ Esempio:
       'client_code' => null
       'smtp_username' => string 'patos@isweb.it' (length=14)
       'smtp_pec_username' => string 'username@pec.test.it' (length=20)
-      'smtp_password' => string 'passwordTest95!' (length=15)
-      'smtp_pec_password' => string 'passwordTest95!' (length=15)
+      'smtp_password' => string '***************' (length=15)
+      'smtp_pec_password' => string '***************' (length=15)
       'smtp_host' => string 'mail.internetsoluzioni.it' (length=25)
       'smtp_pec_host' => string 'mail.internetsoluzioni.it' (length=25)
       'smtp_port' => string '587' (length=3)
@@ -344,7 +343,6 @@ Esempio:
       'email_pec_notifications' => string 'esempio@pec.test.it' (length=19)
       'publication_responsible' => string 'Vincenzo Apostolo' (length=17)
       'privacy_url' => string 'htttp://www.esempio.it' (length=22)
-      'private_token' => null
       'last_visit_time_limit' => int 2592000
       'personnel_roles' => null
       'created_at' => string '2021-10-06T08:42:04.000000Z' (length=27)

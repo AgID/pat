@@ -20,6 +20,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <div class="col-12">
                     <h1 class="page-title">{{e: !empty($h1) ? $h1 : $pageName }}</h1>
 
+                    {{-- Inclusione di librerie esterne --}}
+
+
                     {{-- Contenuto della pagina --}}
                     {% include v1/layout/partials/page_content %}
 
@@ -28,12 +31,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </section>
 
+
     {{-- Sezione per i risultati della ricerca --}}
     {% include v1/layout/partials/search_results %}
 
 </main>
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

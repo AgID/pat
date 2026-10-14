@@ -15,37 +15,48 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 @php
     $anchorsNumber = 1;
+
+    $chekForPoliticalFields = ($instance['role']['political'] || $instance['role']['po_dir_fields']);
 @endphp
 
 <main>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {{-- Indice della pagina --}}
+                {% include v1/layout/partials/anchor_index %}
+
                 <div class="col-lg-8">
-                    <h1 class="mb-2 page-title">
-                        {{ !empty($pageName) && in_array($currentPageId, [238,239,242]) ? ($pageName . '<br> <hr>') : '' }}
-                        {{e: !empty($h1) ? $h1 : ( !empty($instance['firstname']) ? $instance['title'] . ' ' . $instance['lastname'] . ' ' . $instance['firstname'] : $instance['title'] . ' ' . $instance['full_name']) }}
-                    </h1>
+                    <div class="row">
+                        <div class="d-flex align-items-center mb-4" style="gap:1rem;">
+                            <div class="avatar size-xxl" style="display:block">
+                                <img class="img-evidenza-personale" title="Foto Personale"
+                                     src="{{baseUrl('media/' . $_institution_info['short_institution_name'] . '/assets/images/' . $instance['photo'])}}"
+                                     onerror="this.onerror=null;this.src='/assets/admin/img/avatar.png';">
+                                alt="Foto di {{escape_xss: $instance['full_name'] }}">
+                            </div>
+                            <div>
+                                <h1 class="mb-0 h2">
+                                    {{ !empty($pageName) && in_array($currentPageId, [238,239,242]) ? ($pageName . '<br> <hr>') : '' }}
+                                    {{e: !empty($h1) ? $h1 : ( !empty($instance['firstname']) ? $instance['title'] . ' ' . $instance['lastname'] . ' ' . $instance['firstname'] : $instance['title'] . ' ' . $instance['full_name']) }}
+                                </h1>
+                                @if(!empty($instance['role']))
+                                    <h3 class="text-secondary page-subtitle mb-0">
+                                        {{e: $instance['role']['name'] }}
+                                    </h3>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
                     @if(!empty($instance))
 
-                        @if(!empty($instance['role']))
-                            <h3 class="text-secondary page-subtitle">
-                                {{e: $instance['role']['name'] }}
-                            </h3>
-                        @endif
-
                         @if(!empty($openData))
-                                <button type="button" class="btn btn-xs btn-primary open-data-download-btn" id="btn-open-model-data">
+                                <button id="btn-open-model-data" type="button" class="btn btn-primary btn-xs open-data-download-btn" data-bs-toggle="modal" data-bs-target="#modalOpenData">
                                     <span class="fas fa-save"></span> Scarica Open data
                                 </button>
                             <br><br>
                         @endif
 
-                        @if(!empty($instance['photo']))
-                            <img class="img-evidenza-personale" title="Foto Personale"
-                                 src="{{baseUrl('media/' . $_institution_info['short_institution_name'] . '/assets/images/' . $instance['photo'])}}"
-                                 alt="Foto di {{escape_xss: $instance['full_name'] }}">
-                        @endif
 
                         <div class="attributi">
                             @if(!empty($instance['role']))
@@ -74,33 +85,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 @endif
 
+                                @if(!empty($instance['qualification']))
+                                    <div class="attributo">
+                                        <span class="titolo">Qualifica:</span>
+                                        <span class="mr-2 text-muted">{{e: $instance['qualification']['name'] }}</span>
+                                    </div>
+                                @endif
+
                                 <div class="attributo">
                                     <span class="titolo">Ruolo:</span>
                                     <span class="mr-2 text-muted">{{e: $instance['role']['name'] }}</span>
                                 </div>
 
-                                @if(in_array($instance['role_id'],['8', '7', '9', '12']) && !empty($instance['political_organ']))
+                                @php
+                                    $i = 0;
+                                    $len = 0;
+                                @endphp
+
+                                @if($instance['role']['political'] && !empty($instance['political_organ']))
                                     @php
-                                        $i = 0;
                                         $len = count($instance['political_organ'])-1;
-                                        $organs = config('politicalAdministrative', null, 'app');
                                     @endphp
 
                                     <div class="attributo">
-                                        <span class="titolo">Organo politico-amministrativo:</span>
+                                        <span class="titolo">Organo:</span>
                                         @foreach($instance['political_organ'] AS $political_organ)
-                                            @if(array_key_exists($political_organ['political_organ_id'], $organs))
-                                            <span class="text-muted">{{e: $organs[$political_organ['political_organ_id']] }}</span>
+                                            <span class="text-muted">{{$political_organ['value'] }}</span>
                                             {{ $i++ < $len ? ',  ' : '' }}
-                                            @endif
                                         @endforeach
                                     </div>
                                 @endif
 
-                                @if(in_array($instance['role_id'],['5', '7']) && !empty($instance['political_role']))
+                                @if($instance['role']['political'] && !empty($instance['political_role']))
 
                                     <div class="attributo">
-                                            <span class="titolo">Incarico di stampo politico</span>
+                                            <span class="titolo">Incarico di stampo politico:</span>
 
                                         <span class="mr-2 text-muted">{{e: $instance['political_role'] }}</span>
                                         {{ $i++ < $len ? ',  ' : '' }}
@@ -137,7 +156,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @if(!empty($instance['phone']))
                                 <div class="attributo">
                                     <span class="titolo">Telefono:</span>
-                                    <a class="mr-2 text-muted" href="{{escape_xss: $instance['phone'] }}">
+                                    <a class="mr-2 text-muted" href="tel:{{escape_xss: $instance['phone'] }}">
                                         {{e: $instance['phone'] }}
                                     </a>
                                 </div>
@@ -146,7 +165,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @if(!empty($instance['mobile_phone']))
                                 <div class="attributo">
                                     <span class="titolo">Telefono mobile:</span>
-                                    <a class="mr-2 text-muted" href="{{escape_xss: $instance['mobile_phone'] }}">
+                                    <a class="mr-2 text-muted" href="tel:{{escape_xss: $instance['mobile_phone'] }}">
                                         {{e: $instance['mobile_phone'] }}
                                     </a>
                                 </div>
@@ -161,36 +180,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             @endif
 
-                            @if(!empty($instance['responsible_structures']))
-                                <h3 id="anchor3" class="testo-blu anchor page-subtitle mt-2">Referente per le
-                                    strutture</h3>
-                                <ul>
-                                    @foreach($instance['responsible_structures'] as $structure)
-                                        <li>
+                            @if(!empty($instance['responsible_structures']) || !empty($instance['referent_structures']))
+                                <h3 id="anchor3" class="testo-blu anchor page-subtitle mt-2">Strutture organizzative</h3>
+                                @if(!empty($instance['responsible_structures']))
+                                    @php
+                                        $i = 0;
+                                        $len = count($instance['responsible_structures'])-1;
+                                    @endphp
+                                    <div class="attributo">
+                                        <span class="titolo">Responsabile per le strutture:</span>
+                                        @foreach($instance['responsible_structures'] as $s)
                                             <a class="text-muted"
-                                               href="{{ siteUrl('page/40/details/'.$structure['id'].'/'.urlTitle($structure['structure_name'])) }}">
-                                                {{e: $structure['structure_name'] }}
+                                               href="{{ siteUrl('page/40/details/'.$s['id'].'/'.urlTitle($s['structure_name'])) }}">
+                                                {{e: $s['structure_name']}}
                                             </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
+                                            {{ $i++ < $len ? ', ' : '' }}
+                                        @endforeach
+                                    </div>
+                                @endif
 
-                            @if(!empty($instance['referent_structures']))
-                                @php
-                                    $i = 0;
-                                    $len = count($instance['referent_structures'])-1;
-                                @endphp
-                                <div class="attributo">
-                                    <span class="titolo">Strutture organizzative:</span>
-                                    @foreach($instance['referent_structures'] as $s)
-                                        <a class="text-muted"
-                                           href="{{ siteUrl('page/40/details/'.$s['id'].'/'.urlTitle($s['structure_name'])) }}">
-                                            {{e: $s['structure_name']}}
-                                        </a>
-                                        {{ $i++ < $len ? ', ' : '' }}
-                                    @endforeach
-                                </div>
+                                @if(!empty($instance['referent_structures']))
+                                    @php
+                                        $i = 0;
+                                        $len = count($instance['referent_structures'])-1;
+                                    @endphp
+                                    <div class="attributo">
+                                        <span class="titolo">{{$labeling['referent_structures']}}:</span>
+                                        @foreach($instance['referent_structures'] as $s)
+                                            <a class="text-muted"
+                                               href="{{ siteUrl('page/40/details/'.$s['id'].'/'.urlTitle($s['structure_name'])) }}">
+                                                {{e: $s['structure_name']}}
+                                            </a>
+                                            {{ $i++ < $len ? ', ' : '' }}
+                                        @endforeach
+                                    </div>
+                                @endif
                             @endif
                         </div>
 
@@ -224,19 +248,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </ul>
                         @endif
 
-                        @if(!empty($instance['commissions']))
-                            <h3 id="anchor6" class="testo-blu anchor page-subtitle mt-2">Membro di</h3>
-                            <ul>
-                                @foreach($instance['commissions'] as $commission)
-                                    <li>
-                                        <a class="mr-2 text-muted"
-                                           href="{{ siteUrl('page/245/details/'.$commission['id'].'/'.urlTitle($commission['name'])) }}">
-                                            {{e: $commission['name'] }}
-                                            {{ !empty($commission['pivot']['typology']) ? '-  ' . getCommissionRole($commission['pivot']['typology']) : '' }}
-                                        </a>
-                                    </li>
-                                @endforeach
-                            </ul>
+
+                        @if(!empty($commissions))
+                                <h3 id="anchor6" class="testo-blu anchor page-subtitle mt-2">Commissioni e Gruppi consiliari</h3>
+                                <ul>
+                                    @foreach($commissions as $id => $commission)
+                                        @php
+                                        list($order,$elementId) = explode("_", $id);
+                                        if($commission['typology'] == 'commissione'){
+                                            $href = siteUrl('page/245/details/'.$elementId.'/'.urlTitle($commission['name']));
+                                        }else{
+                                            $href = siteUrl('page/244/details/'.$elementId.'/'.urlTitle($commission['name']));
+                                        }
+                                        @endphp
+                                        <li>
+                                            <a class="mr-2 text-muted"
+                                               href="{{ $href }}">
+                                                {{e: $commission['name'] }}
+                                            </a>{{ !empty($commission['roles']) ? ' - '.$commission['roles'] : '' }}
+                                        </li>
+                                    @endforeach
+                                </ul>
                         @endif
 
                         @if(!empty($instance['assignments']))
@@ -253,13 +285,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </ul>
                         @endif
 
-                        <h3 id="anchor8" class="testo-blu anchor page-subtitle mt-2">Altri dati</h3>
-                        <p>
-                            Contratto a tempo
-                            determinato: {{ !empty($instance['determined_term']) ? 'si' : 'no' }}
-                        </p>
+                        @if(!$instance['role']['political'])
+                            <!-- Da modificare appena saranno disponibili le personalizzazioni -->
+                            <h3 id="anchor8" class="testo-blu anchor page-subtitle mt-2">Altri dati</h3>
+                            <p>
+                                Contratto a tempo
+                                determinato: {{ !empty($instance['determined_term']) ? 'si' : 'no' }}
+                            </p>
+                        @endif
 
-                        @if(!empty($instance['notes']) && $instance['role']['political'])
+                        @if(!empty($instance['notes']) && $chekForPoliticalFields)
                             <h3 id="anchor9" class="testo-blu anchor page-subtitle">
                                 Documentazione Art. 14 e Art. 47, c. 1, Dlgs n.
                                 33/2013; Art. 1,2,3,4 l. n. 441/1982
@@ -269,7 +304,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </p>
                         @endif
 
-                        @if(!empty($instance['extremes_of_conference']))
+                            @if(!empty($instance['total_emoluments']))
+                                <h3 id="anchor15" class="testo-blu anchor page-subtitle">Emolumenti complessivi
+                                    percepiti a carico della finanza pubblica ((art. 14 c.1ter), D.lgs. n.
+                                    33/2013) </h3>
+                                {{xss: $instance['total_emoluments'] }}
+                            @endif
+
+                            @if(!empty($instance['extremes_of_conference']) && $chekForPoliticalFields)
                             <h3 id="anchor10" class="testo-blu anchor page-subtitle">Estremi atto di nomina o
                                 proclamazione</h3>
                             {{xss: $instance['extremes_of_conference'] }}
@@ -289,28 +331,35 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </ul>
                         @endif
 
-                        @if(!empty($instance['compensations']))
+                        @if(!empty($instance['compensations']) && $chekForPoliticalFields)
                             <h3 id="anchor12" class="testo-blu anchor page-subtitle">
                                 Compensi connessi alla carica
                             </h3>
                             {{xss: $instance['compensations'] }}
                         @endif
 
-                        @if(!empty($instance['trips_import']))
+                        @if(!empty($instance['trips_import'])  && $chekForPoliticalFields)
                             <h3 id="anchor13" class="testo-blu anchor page-subtitle">Importi di viaggi di servizio e
                                 missioni</h3>
                             {{xss: $instance['trips_import'] }}
                         @endif
 
+                        <!-- Campo visualizzato anche per ruoli non politici -->
+                        @if(!empty($instance['other_assignments_institutions']))
+                            <h3 id="anchor14" class="testo-blu anchor page-subtitle">Dati relativi all'assunzione di altre cariche, presso enti pubblici o privati ed i relativi compensi a qualsiasi titolo corrisposti </h3>
+                            {{xss: $instance['other_assignments_institutions'] }}
+                        @endif
+
+                        <!-- Campo visualizzato anche per ruoli non politici -->
                         @if(!empty($instance['other_assignments']))
-                            <h3 id="anchor14" class="testo-blu anchor page-subtitle">Altri incarichi con oneri a
+                            <h3 id="anchor15" class="testo-blu anchor page-subtitle">Altri incarichi con oneri a
                                 carico della finanza
                                 pubblica e relativi compensi </h3>
                             {{xss: $instance['other_assignments'] }}
                         @endif
 
                         @if(!empty($instance['other_info']))
-                            <h3 id="anchor15" class="testo-blu anchor page-subtitle">Altre informazioni </h3>
+                            <h3 id="anchor16" class="testo-blu anchor page-subtitle">Altre informazioni </h3>
                             {{xss: $instance['other_info'] }}
                         @endif
 
@@ -319,7 +368,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @php
                                 $anchorsNumber++;
                             @endphp
-                            <h3 id="anchor16" class="anchor testo-blu page-subtitle mt-4">
+                            <h3 id="anchor17" class="anchor testo-blu page-subtitle mt-4">
                                 Storico incarichi</h3>
                             <div class="table-responsive">
                                 <table class="table table-bordered table-sm mb-4">
@@ -348,7 +397,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @endif
 
                         @if(!empty($instance['information_archive']))
-                            <h3 id="anchor17" class="testo-blu anchor page-subtitle">Archivio informazioni </h3>
+                            <h3 id="anchor18" class="testo-blu anchor page-subtitle">Archivio informazioni </h3>
                             {{xss: $instance['information_archive'] }}
                         @endif
 
@@ -359,13 +408,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         {{--  Created/Update Info --}}
                         {% include v1/layout/partials/created_updated_info %}
 
+                        {{-- Inclusione di librerie esterne --}}
+
                     @else
-                        <h5 class="font-weight-bold">Nessun elemento presente</h5>
+                        <div class="box-card-shadow my-4">
+                <h5 class="title">
+                    <svg class="icon">
+                        <use href="/assets/frontend/v1/css/sprites.svg#it-note"></use>
+                    </svg>
+                    Nessun elemento presente
+                </h5>
+            </div>
                     @endif
                 </div>
 
-                {{-- Indice della pagina --}}
-                {% include v1/layout/partials/anchor_index %}
+
 
             </div>
         </div>
@@ -375,7 +432,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{-- Bottom Menu --}}
 {% include v1/layout/partials/bottom_menu %}
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {{-- Modal success open data--}}
 <div class="modal fade" tabindex="-1" role="dialog" id="modalOpenDataSuccessPersonnel"

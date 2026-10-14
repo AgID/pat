@@ -10,6 +10,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -37,7 +38,9 @@ class AclProfilesModel extends Model
         'advanced',
         'archiving',
         'export_csv',
-        'editor_wishing'
+        'import_allowed_for',
+        'editor_wishing',
+        'file_archive'
     ];
 
     /**
@@ -57,7 +60,7 @@ class AclProfilesModel extends Model
     protected $searchableWhereHas = [];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      *
      * @param array $attributes
      * @throws Exception
@@ -65,12 +68,6 @@ class AclProfilesModel extends Model
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -81,7 +78,6 @@ class AclProfilesModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-//        static::addGlobalScope(new InstitutionScope);
     }
 
     /**
@@ -114,6 +110,19 @@ class AclProfilesModel extends Model
         return $this->hasMany(RelUsersAclProfilesModel::class, 'acl_profile_id', 'id');
     }
 
+    /**
+     *
+     *
+     * @return HasOne
+     */
+    public function scp()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__,
+            'o' => true
+        ]);
+    }
+
     public function delete()
     {
         $this->permits()->delete();
@@ -125,9 +134,8 @@ class AclProfilesModel extends Model
      * Scope locale per il filtraggio in base all'ente
      *
      * @param Builder $query
-     * @return Builder
      */
-    public function scopeInstitutionFilter(Builder $query)
+    public function scopeInstitutionFilter(Builder $query): void
     {
         $institutionId = checkAlternativeInstitutionId() ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
@@ -139,5 +147,16 @@ class AclProfilesModel extends Model
                 $query->where('acl_profiles.is_system', 1)
                     ->whereNull('acl_profiles.institution_id');
             });
+    }
+
+    /**
+     *
+     * @return HasMany
+     */
+    public function m_permits(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

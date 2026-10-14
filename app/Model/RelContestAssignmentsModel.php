@@ -21,6 +21,7 @@ class RelContestAssignmentsModel extends Pivot
         'id',
         'object_contest_id',
         'object_assignments_id',
+        'typology',
         'created_at',
         'updated_at'
     ];

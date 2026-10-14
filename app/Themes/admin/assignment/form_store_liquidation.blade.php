@@ -37,15 +37,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             {{-- Campo Incarico relativo --}}
                             <div class="form-row d-flex align-items-end">
@@ -81,12 +96,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Anno di liquidazione --}}
                                 <div class="form-group col-md-4">
                                     <label for="liquidation_year">Anno di liquidazione *</label>
-                                    <div class="select2-blue" id="input_liquidation_year">
+                                    <div id="input_liquidation_year">
                                         {{ form_dropdown(
                                             'liquidation_year',
                                             @$liquidationYears,
                                             !empty($liquidation['liquidation_year']) ? $liquidation['liquidation_year'] : null,
-                                            'class="form-control select2-liquidation_year" style="width: 100%;"'
+                                            'class="ts-liquidation_year" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -107,6 +122,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
                             <div class="form-group">
                                 {{-- Campo Note --}}
                                 <label for="notes">Note</label>
@@ -118,17 +134,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
+
                         {{-- END: Form --}}
                     </div>
+
+
 
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -181,22 +207,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- Begin campo "Incarico relativo" --}}
         // Tabella per la selezione dell'incarico relativo alla liquidazoine
@@ -215,6 +240,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 model: 36,
                 institution_id: institutionId,
             },
+            showExactSearch: true,
             dateFormat: config.assignment.dateFormat,
             columns: config.assignment.columns,
             action: {
@@ -234,19 +260,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         assignment.patOsAjaxPagination.setValue('{{ $liquidation['related_assignment']['id'] }}', '{{ htmlEscape($liquidation['related_assignment']['name']).' - '.htmlEscape($liquidation['related_assignment']['object']).''.$tmpStartDate.''.$tmpEndDate }}', true);
         @endif
 
-        {{-- Campo select per anno liquidazione --}}
-        let $dropdownPaidDate = $('.select2-liquidation_year');
-        $dropdownPaidDate.select2({
-            placeholder: 'Seleziona',
-            allowClear: true
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        {{-- Campo TomSelect per anno liquidazione --}}
+        new TomSelect('.ts-liquidation_year', TS_SINGLE_CLEAR);
 
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -255,7 +270,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_notes',{
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -309,11 +326,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

@@ -38,25 +38,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Tipo canone --}}
                                 <div class="form-group col-md-12">
                                     <label for="canon_type">Tipo canone *</label>
-                                    <div class="select2-blue" id="input_canon_type">
+                                    <div id="input_canon_type">
                                         {{ form_dropdown(
                                             'canon_type',
                                             [null => '',1=>'Canoni di locazione o di affitto versati',2=>'Canoni di locazione o di affitto percepiti'],
                                             @$canon['canon_type'],
-                                            'class="form-control input_canon_type" style="width: 100%;"'
+                                            'class="ts-canon_type" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -65,7 +81,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Informazioni sul beneficiario --}}
                                 <div class="form-group col-md-6 _beneficiary-info">
-                                    <label for="beneficiary">Informazioni sul beneficiario *</label>
+                                    <label for="beneficiary" id="label_beneficiary">Informazioni sul beneficiario *</label>
                                     {{ form_input([
                                         'name' => 'beneficiary',
                                         'value' => !empty($canon['beneficiary']) ? (($_storageType === 'duplicate') ? 'Copia di ' . $canon['beneficiary'] : $canon['beneficiary']) : null,
@@ -122,7 +138,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Data inizio --}}
                                 <div class="form-group col-md-6">
-                                    <label for="start_date">Data inizio *</label>
+                                    <label for="start_date" id="start_date_label">Data inizio *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
@@ -136,7 +152,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 {{-- Campo Data fine --}}
                                 <div class="form-group col-md-6">
-                                    <label for="end_date">Data fine *</label>
+                                    <label for="end_date" id="end_date_label">Data fine *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
@@ -153,12 +169,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="property">Immobile *</label>
-                                    <div class="select2-blue" id="input_property">
+                                    <div id="input_property">
                                         {{ form_dropdown(
                                             'properties[]',
                                             '',
                                             '',
-                                            'class="form-control select2-property" multiple="multiple" data-placeholder="Seleziona o cerca un immobile..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-property" multiple="multiple" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -179,7 +195,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="president">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_structure" id="canon_structure_label">Ufficio referente per il
-                                            contratto</label>
+                                            contratto </label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -199,6 +215,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
+
                         {{-- END: Form --}}
                     </div>
 
@@ -206,11 +226,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -272,15 +295,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -291,70 +313,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endif
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
-        {{-- Begin Select2 campo "Immobile" --}}
-        let $dropdownProperty = $('.select2-property');
-        $dropdownProperty.select2({
-            placeholder: 'Seleziona o cerca tra i gli immobili....',
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 7,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            },
-            escapeMarkup: function (text) {
-                return text;
-            },
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_propertyIds').val(),
-                model: 7,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
 
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownProperty.append(option).trigger('change');
+        const propertyTomSelect = createAjaxTomSelect({
+            selector: '.ts-property',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_propertyIds',
+
+            model: 7,
+            institutionId: institutionId,
+
+            placeholder: 'Seleziona o cerca tra gli immobili...',
+
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+
+            onError(error) {
+                console.error('Errore Tom Select immobili:', error);
+                createValidatorFormErrorToast('Ops, c\'è un problema. Si prega di contattare l\'assistenza clienti.', 5000, 'Validatore select');
             }
         });
-        @endif
-        {{-- End Select2 campo "Immobile" --}}
 
         // Tabella per la selezione della struttura di appartenenza
         let office = $('#ajax_structure').patOsAjaxPagination({
@@ -366,6 +345,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($canon['structure']) ? implode(",", array_column($canon['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -394,35 +375,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_notes');
-
-        {{-- Select2 campo "Tipo Canone" --}}
-        let $dropdownCanon = $('.input_canon_type');
-        $dropdownCanon.select2({
-            placeholder: 'Seleziona tipo',
-            allowClear: true,
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
 
         /**
-         * Metodo che viene chiamato quando si seleziona un tipo canone
          * Nasconde o mostra i campi di input per i dati del beneficiario
          */
-        $dropdownCanon.on('select2:select', function (e) {
-            let selected = e.params.data.id
-            if (selected == 2) {
-                $('._beneficiary-info').hide();
-            } else {
-                $('._beneficiary-info').show();
+        new TomSelect('.ts-canon_type', {
+            ...TS_SINGLE,
+            onChange(value) {
+                if(value === "2"){
+                    document.querySelectorAll('._beneficiary-info').forEach(element => {
+                        element.style.display = 'none';
+                    });
+                } else {
+                    document.querySelectorAll('._beneficiary-info').forEach(element => {
+                        element.style.display = '';
+                    });
+                }
             }
-        })
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
         });
+
 
         {{-- Begin salvataggio --}}
         /**
@@ -475,24 +449,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -504,7 +476,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo se sono arrivato in questa pagina dal versioning
          */
-        {{-- Vedere nel footer --}}
         checkIfRestore();
     });
 

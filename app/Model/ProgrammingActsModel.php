@@ -9,9 +9,10 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -25,6 +26,7 @@ class ProgrammingActsModel extends Model
     protected $table = 'object_programming_acts';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaProgrammingActsModel';
     protected string $archiveName = 'programming_acts';
 
     protected string $objectName = 'Atti di programmazione';
@@ -37,6 +39,7 @@ class ProgrammingActsModel extends Model
         'state',
         'workflow_state',
         'attachments_id',
+        'object_structures_id',
         'object',
         'date',
         'act_type',
@@ -47,6 +50,9 @@ class ProgrammingActsModel extends Model
         'source_id',
         'number_readings',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -70,6 +76,14 @@ class ProgrammingActsModel extends Model
     ];
 
     /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
+    ];
+
+    /**
      * Campi di relazione su cui effettuare la ricerca
      * @var array[]
      */
@@ -82,19 +96,13 @@ class ProgrammingActsModel extends Model
     protected array $relationshipsToDelete = [];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -105,7 +113,7 @@ class ProgrammingActsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -126,6 +134,15 @@ class ProgrammingActsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -155,5 +172,58 @@ class ProgrammingActsModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'programming_acts');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati degli atti di programmazione
+     * @param Builder     $query       Query
+     * @param string|null $object      Oggetto
+     * @param string|null $description Descrizione
+     * @param string|null $startDate   Data inizio
+     * @param string|null $endDate     Data fine
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $object = null,
+        string  $description = null,
+        string  $startDate = null,
+        string  $endDate = null
+    ): void
+    {
+        if (!empty($object)) {
+            $query->where('object_programming_acts.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($description)) {
+            $query->where('object_programming_acts.description', 'LIKE', '%' . $description . '%');
+        }
+
+        if (!empty($startDate)) {
+            $query->where('object_programming_acts.date', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
+        }
+
+        if (!empty($endDate)) {
+            $query->where('object_programming_acts.date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+    }
+
+    /**
+     * Relazione con Strutture Organizzative (tabella object_structures)
+     * Rappresenta la struttura
+     */
+    public function structure(): belongsTo
+    {
+        return $this->belongsTo(StructuresModel::class, 'object_structures_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

@@ -9,10 +9,11 @@ namespace Helpers\Validators;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
-use Model\GrantsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
+use Model\GrantsModel;
 
 /**
  * Validator per l'oggetto Sovvenzione (object_grants)
@@ -36,34 +37,42 @@ class GrantValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
+
         $this->validator->label('ID sovvenzione')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la sovvenzione con l'id passato in input
-                $check = GrantsModel::where('id', uri()->segment(4, 0))
-                    ->with(['personnel' => function ($query) {
+                $check = GrantsModel::where('id', uri()->segment($uriSegment, 0));
+                $check->with([
+                    'personnel' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'role_id');
-                    }])
-                    ->with(['structure' => function ($query) {
+                    }
+                ]);
+                $check->with([
+                    'structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->with('normatives:id')
-                    ->first();
+                    }
+                ]);
+                $check->with('normatives:id');
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'sovvenzione ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -81,6 +90,7 @@ class GrantValidator
         ];
     }
 
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
@@ -88,9 +98,9 @@ class GrantValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -101,16 +111,17 @@ class GrantValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
             ->end();
 
+
         $this->validator->label('Nominativo del beneficiario')
             ->value(Input::post('beneficiary_name'))
             ->required()
-            ->betweenString(4, 40)
+            ->betweenString(4, 191)
             ->end();
 
         $this->validator->label('Dati fiscali non disponibili')
@@ -134,7 +145,7 @@ class GrantValidator
             ->end();
 
         if (Input::post('managers')) {
-            foreach (explode(',', (string)Input::post('managers')) as $manager) {
+            foreach (explode(',', (string) Input::post('managers')) as $manager) {
                 $this->validator->label('Dirigente o funzionario responsabile ' . $manager)
                     ->value($manager)
                     ->isInt()
@@ -152,7 +163,7 @@ class GrantValidator
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
-            ->betweenString(4, 60)
+            ->betweenString(4, 500)
             ->end();
 
         $this->validator->label('Importo atto di concessione')
@@ -195,7 +206,6 @@ class GrantValidator
                 if (Input::post('end_date') < Input::post('start_date')) {
 
                     return ['error' => __('invalid_end_date_less', null, 'patos')];
-
                 }
                 return null;
             })
@@ -212,27 +222,43 @@ class GrantValidator
             ->betweenString(4, 1000)
             ->end();
 
+        $this->validator->label('Link al progetto')
+            ->value(Input::post('project_link'))
+            ->isUrl(null, true)
+            ->betweenString(4, 255)
+            ->end();
+
         $this->validator->label('Omissis (Privacy)')
             ->value(Input::post('privacy'))
             ->in('0,1')
             ->end();
 
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = GrantsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = GrantsModel::where('id', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
+
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Sovvenzione')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

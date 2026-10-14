@@ -9,10 +9,11 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -25,6 +26,8 @@ class ProceedingsModel extends Model
 
     protected $table = 'object_proceedings';
     protected $primaryKey = 'id';
+
+    protected string $metaModel = 'MetaProceedingsModel';
     protected string $archiveName = 'proceedings';
 
     protected string $objectName = 'Procedimenti';
@@ -39,10 +42,12 @@ class ProceedingsModel extends Model
         'name',
         'contact',
         'description',
+        'instance_documents',
         'costs',
         'silence_consent',
         'declaration',
         'regulation',
+        'obtaining_info',
         'url_service',
         'protection_instruments',
         'service_available',
@@ -52,12 +57,16 @@ class ProceedingsModel extends Model
         'source_id',
         'number_readings',
         'service_time',
+        'notes',
         'public_monitoring_proceeding',
         'archived',
         'archived_end_date',
         'archived_info',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -74,7 +83,15 @@ class ProceedingsModel extends Model
      */
     protected $searchable = [
         'object_proceedings.name',
-        'userName'
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -106,19 +123,13 @@ class ProceedingsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -129,7 +140,7 @@ class ProceedingsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -161,6 +172,15 @@ class ProceedingsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -243,6 +263,19 @@ class ProceedingsModel extends Model
 
     /**
      * Relazione con Strutture
+     * Ufficio competente all'adozione del provvedimento finale
+     * @return BelongsToMany
+     */
+    public function final_measure_office(): BelongsToMany
+    {
+        $finalMeasureOffice = $this->belongsToMany(StructuresModel::class, 'rel_proceedings_structures', 'object_proceedings_id', 'object_structures_id')
+            ->withTimestamps()
+            ->wherePivot('typology', '=', 'final-measure-office');
+        return $finalMeasureOffice;
+    }
+
+    /**
+     * Relazione con Strutture
      * Altre strutture associate al procedimento
      * @return BelongsToMany
      */
@@ -319,6 +352,16 @@ class ProceedingsModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
      * Relazione con gli allegati
      * Restituisce tutti gli allegati non nascosti, per il front-office
      * @return HasMany
@@ -345,5 +388,28 @@ class ProceedingsModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'proceedings');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati dei procedimenti
+     * @param Builder     $query      Query
+     * @param string|null $name       Nome del procedimento
+     * @param int|null    $structures Id della struttura
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $name = null,
+        int $structures = null
+    ): void
+    {
+        if (!empty($name)) {
+            $query->where('object_proceedings.name', 'LIKE', '%' . $name . '%');
+        }
+
+        if (!empty($structures)) {
+            $query->join('rel_proceedings_structures as rel', 'rel.object_proceedings_id', '=', 'object_proceedings.id', 'left outer')
+                ->where('rel.object_structures_id', '=', $structures);
+        }
     }
 }

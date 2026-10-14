@@ -11,7 +11,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block content %}
 <section id="intro-home">
     <div class="container">
-        <h2 class="mb-2"><span class="fas fa-university"></span> {{ $title }}</h2>
+        <h2 class="mb-2" id="titolo-home-page"><span class="fas fa-university"></span> {{ $title }}</h2>
         <div>
             @if(!empty($welcomeText))
                 {{ $welcomeText }}
@@ -32,9 +32,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 </section>
 
+{{-- Inclusione di librerie esterne --}}
+
 <section id="argomenti">
     <div class="container">
-        <h3 class="mb-5">Argomenti</h3>
+        <h3 class="mb-5" id="argomenti-trasparenza">Argomenti</h3>
         <ul class="lista-argomenti">
             @foreach($sections as $section)
                 @php
@@ -49,6 +51,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </ul>
     </div>
 </section>
+
+{{-- Card Link --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

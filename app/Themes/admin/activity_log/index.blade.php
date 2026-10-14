@@ -17,10 +17,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <div class="col-md-6 mt-2">
                         <h3 class="card-title">Log delle attività</h3>
                     </div>
+
+                    <div class="col-md-6 text-right">
+                        <div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="card-body">
+
+
                 <table id="activity_list" class="table table-bordered table-striped table-hover">
                     <thead class="bg-table-accessibility">
                     <tr>
@@ -28,11 +35,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>DATA</th>
                         <th>AZIONE</th>
                         <th>DESCRIZIONE</th>
-                        <!--<th>AREA</th>-->
-                        {{-- Ente di appartenenza se l'utente è super admin --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
+                        <th>ORIGINE</th>
+
                     </tr>
                     </thead>
                 </table>
@@ -40,6 +46,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 </div>
+
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
@@ -54,12 +61,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{ js('datatables-responsive/js/responsive.bootstrap4.min.js','common') }}
 
 <script type="text/javascript">
+
+
+
     $(document).ready(function () {
 
         {{-- Begin Paginazione records datatable --}}
         let dtable = $("#activity_list").DataTable({
             sPaginationType: "full_numbers",
-            lengthMenu: [25, 50, 75, 100, 150],
+            lengthMenu: [50, 75, 100, 150, 200],
             responsive: true,
             lengthChange: true,
             autoWidth: false,
@@ -68,9 +78,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             bProcessing: true,
             bServerSide: true,
             bDeferRender: true,
-            ajax: "{{siteUrl('admin/activity-log/list')}}",
+            ajax: {
+                url: "{{siteUrl('admin/activity-log/list')}}",
+                type: "GET",
+            },
             order: [
-                [2, 'DESC']
+                [1, 'DESC']
             ],
             columns: [
                 null,
@@ -78,17 +91,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 null,
                 null,
                 {{-- null, --}}
-                {{-- Ente di appartenenza se l'utente è super admin --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                @endif
+
+                null,
+            ],
+            {{-- Nome utente, descrizione e origine non sono ordinabili lato server (il nome e' cifrato sul DB) --}}
+            columnDefs: [
+                { targets: -1, className: 'text-center', orderable: false },
+                { targets: [0, 3], orderable: false }
             ],
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'
             },
-            fnDrawCallback: function (oSettings) {
-
-            }
         }).on('init.dt', function () {
 
             {{-- La ricerca non inizia con meno di 3 lettere --}}
@@ -100,7 +113,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     let item = $(this);
                     searchWait = 0;
                     searchTerm = $(item).val();
-                    if(e.keyCode == 13) {
+                    if(e.keyCode === 13) {
                         dtable.search(searchTerm).draw();
                     }
 
@@ -126,6 +139,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         $.fn.DataTable.ext.pager.numbers_length = 5;
         {{-- End Paginazione records datatable --}}
+
+        dtable.on('draw responsive-display', function () {
+        });
 
     });
 </script>

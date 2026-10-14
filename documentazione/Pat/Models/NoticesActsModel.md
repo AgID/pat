@@ -7,7 +7,6 @@ Il modello `NoticesActsModel` rappresenta la tabella `object_notices_acts` e for
 * `$table`: Il nome della tabella nel database (default: `'object_notices_acts'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaNoticesActsModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'notices_acts'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Atti delle amministrazioni'`).
 * `$objectId`: L'ID dell'oggetto (default: `20`).
@@ -38,11 +37,6 @@ relative_contest_act(): BelongsToMany
 
 Il metodo `relative_contest_act` definisce la relazione con il modello `ContestsActsModel` rappresentante le procedure relative dell'atto amministrativo. La relazione è di tipo molti-a-molti.
 
-```
-scp(): HasMany
-```
-
-Il metodo `scp` definisce la relazione con il modello `MetaNoticesActsModel` rappresentante i dati aggiuntivi per SCP associati all'atto amministrativo.
 
 ```
 assignments(): BelongsToMany
@@ -79,9 +73,3 @@ scopeFilter(Builder $query, string$object = null, string$startDate = null, strin
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati degli atti amministrativi in base all'oggetto, alla data di inizio e alla data di fine.
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaNoticesActsModelEcco la documentazione per il modello `NoticesActsModel`:

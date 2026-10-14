@@ -19,6 +19,7 @@ use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Registry;
 use System\Session;
 use System\Token;
@@ -37,6 +38,7 @@ class RegulationAdminController extends BaseAuthController
     public function __construct()
     {
         parent::__construct(__CLASS__);
+
     }
 
     /**
@@ -104,11 +106,6 @@ class RegulationAdminController extends BaseAuthController
                 6 => 'object_regulations.updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[7] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'title');
@@ -118,7 +115,7 @@ class RegulationAdminController extends BaseAuthController
                 ->count();
 
             $totalRecordsWithFilter = RegulationsModel::search($dataTable['searchValue'])
-                ->select(['count(object_regulations.id) as allcount',])
+                ->select(['count(object_regulations.id) as allcount'])
                 ->join('rel_regulations_public_in as public_in', 'object_regulations.id', '=', 'public_in.object_regulation_id', 'left outer')
                 ->join('section_fo as section', 'section.id', '=', 'public_in.public_in_id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_regulations.owner_id', 'left outer')
@@ -127,39 +124,76 @@ class RegulationAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_regulations.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'title');
 
             $records = RegulationsModel::search($dataTable['searchValue'])
-                ->select(['object_regulations.id', 'object_regulations.institution_id', 'object_regulations.owner_id', 'title', 'publishing_status',
-                    'object_regulations.updated_at', 'section.id as sectionId', 'section.name', 'users.name', 'i.full_name_institution'])
+                ->select([
+                    'object_regulations.id',
+                    'object_regulations.institution_id',
+                    'object_regulations.owner_id',
+                    'title',
+                    'object_regulations.updated_at',
+                    'section.id as sectionId',
+                    'section.name',
+                    'users.name',
+                    'i.full_name_institution'
+                ])
                 ->with('structures:id,structure_name,archived')
                 ->with('proceedings:id,name,archived')
-                ->with(['created_by' => function ($query) {
-                    $query->withoutGlobalScopes([DeletedScope::class]);
-                    $query->select(['id', 'name', 'deleted']);
-                }])
+                ->with([
+                    'created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }
+                ])
                 ->with('institution:id,full_name_institution')
-                ->with(['public_in' => function ($query) {
-                    $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
-                }]);
+                ->with('all_attachs:id,archive_id')
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
+                    }
+                ]);
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_regulations.id', '=', $dataTable['searchValue']);
             }
 
+            $DB = new \System\Database();
+
             $records = $records->join('institutions as i', 'object_regulations.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_regulations.owner_id', 'left outer')
                 ->join('rel_regulations_public_in as public_in', 'object_regulations.id', '=', 'public_in.object_regulation_id', 'left outer')
                 ->join('section_fo as section', 'section.id', '=', 'public_in.public_in_id', 'left outer')
-                ->groupBy('object_regulations.id')
+                ->select([
+                    'object_regulations.id',
+                    'object_regulations.institution_id',
+                    'object_regulations.owner_id',
+                    'object_regulations.title',
+                    'object_regulations.updated_at',
+                    $DB::raw('MAX(section.id) as sectionId'),
+                    $DB::raw('MAX(section.name) as section_name'),
+                    $DB::raw('MAX(users.name) as user_name'),
+                    $DB::raw('MAX(i.full_name_institution) as full_name_institution')
+                ])
+                ->groupBy([
+                    'object_regulations.id',
+                    'object_regulations.institution_id',
+                    'object_regulations.owner_id',
+                    'object_regulations.title',
+                    'object_regulations.updated_at'
+                ]);
+
+            $records = $records
                 ->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
                 ->limit($dataTable['rowPerPage'])
                 ->get()
                 ->toArray();
+
 
             $response['draw'] = intval($dataTable['draw']);
             $response['iTotalRecords'] = ($totalRecords);
@@ -167,6 +201,10 @@ class RegulationAdminController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -177,9 +215,11 @@ class RegulationAdminController extends BaseAuthController
                         $structures = str_replace(',', ',' . '<br>', implode(
                             ',',
                             array_map(
-                                function ($structure) {
+                                function ($structure, $archived) {
                                     return ('<small class="badge-primary mb-1">'
-                                        . escapeXss($structure) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($structure) . '</small>');
                                 },
                                 $tmpStructures,
                                 $tmpArchStructures
@@ -197,9 +237,11 @@ class RegulationAdminController extends BaseAuthController
                         $proceedings = str_replace(',', ',' . '<br>', implode(
                             ',',
                             array_map(
-                                function ($proceeding) {
+                                function ($proceeding, $archived) {
                                     return ('<small class="badge badge-primary mb-1">'
-                                        . escapeXss($proceeding) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($proceeding) . '</small>');
                                 },
                                 $tmpProceedings,
                                 $tmpArchProceedings
@@ -222,8 +264,10 @@ class RegulationAdminController extends BaseAuthController
                                 $tmpPublicIn
                             )
                         ));
-                    } else {
 
+                        $detailsPageId = $record['public_in'][0]['section_fo_id'];
+
+                    } else {
                         $sections = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definiti">N.D.</small>';
                     }
 
@@ -236,18 +280,25 @@ class RegulationAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning(),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/regulation/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/regulation/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/regulation/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/regulation/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l', siteUrl('admin/regulation/show-record-log/' . $record['id']), $record['id'], '12', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/regulation/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -255,22 +306,22 @@ class RegulationAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['title'])
-                            ? '<a href="' . siteUrl('/page/29/details/' . $record['id'] . '/' . urlTitle($record['title'])) . '" target="_blank">' . escapeXss($record['title']) . '</a>'
-                            : 'N.D.');
+                        ? '<a href="' . siteUrl('/page/'.($detailsPageId??'29').'/details/' . $record['id'] . '/' . urlTitle($record['title'])) . '" target="_blank">' . escapeXss(html_entity_decode($record['title'])) . '</a>'
+                        : 'N.D.');
                     $setTempData[] = $structures;
                     $setTempData[] = $sections;
                     $setTempData[] = $proceedings;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    Log::print($record['all_attachs']);
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -279,8 +330,7 @@ class RegulationAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -300,7 +350,7 @@ class RegulationAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/regulation/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/regulation/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -327,11 +377,16 @@ class RegulationAdminController extends BaseAuthController
         $data['labels'] = [];
 
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_regulations')
-            ->with(['section' => function ($query) {
-                $query->select(['section_fo.id', 'name']);
-            }])
-            ->get()
-            ->toArray();
+            ->with([
+                'section' => function ($query) {
+                    $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                        ->leftJoin("rel_institution_type_sections_labeling", function ($join) {
+                            $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id");
+                        });
+                }
+            ]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
@@ -342,7 +397,7 @@ class RegulationAdminController extends BaseAuthController
         // Per pubblica in
         $data['publicIn'] = $dataPublicIn;
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('regulation/form_store', $data, 'admin');
@@ -359,7 +414,7 @@ class RegulationAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -404,7 +459,7 @@ class RegulationAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $insert,
-                    explode(',', strip_tags((string)Input::post('structures', true))),
+                    !empty(Input::post('structures')) ? explode(',', strip_tags((string) Input::post('structures', true))) : null,
                     Input::post('proceedings', true),
                     Input::post('public_in', true)
                 );
@@ -414,7 +469,7 @@ class RegulationAdminController extends BaseAuthController
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                    Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
                 }
 
                 if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -457,7 +512,7 @@ class RegulationAdminController extends BaseAuthController
         $data['is_box'] = implode('/', $segments) === 'admin/regulation/edit-box';
 
         if (!$validate['is_success']) {
-            if(!$data['is_box']){
+            if (!$data['is_box']) {
                 redirect('admin/regulation', sessionSetNotify($validate['errors'], 'danger'));
             } else {
                 render('access_denied/modal_access_denied', [], 'admin');
@@ -534,11 +589,16 @@ class RegulationAdminController extends BaseAuthController
         $data['labels'] = [];
 
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_regulations')
-            ->with(['section' => function ($query) {
-                $query->select(['section_fo.id', 'name']);
-            }])
-            ->get()
-            ->toArray();
+            ->with([
+                'section' => function ($query) {
+                    $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                        ->leftJoin("rel_institution_type_sections_labeling", function ($join) {
+                            $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id");
+                        });
+                }
+            ]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
@@ -547,6 +607,7 @@ class RegulationAdminController extends BaseAuthController
         }
 
         // Per pubblica in
+
         $data['publicIn'] = $dataPublicIn;
         $data['publicInIDs'] = Arr::pluck($regulation['public_in'], 'section_fo_id');
 
@@ -554,7 +615,7 @@ class RegulationAdminController extends BaseAuthController
         $data['structureIds'] = Arr::pluck($regulation['structures'], 'id');
         $data['proceedingIds'] = Arr::pluck($regulation['proceedings'], 'id');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $regulation['institution_id'];
 
         $data['seo'] = $regulation['p_s_d_r'] ?? null;
@@ -582,22 +643,25 @@ class RegulationAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $regulationId = (int)strip_tags(Input::post('id', true));
+            $regulationId = (int) strip_tags(Input::post('id', true));
 
             // Recupero il regolamento attuale prima di modificarlo e lo salvo nel versioning
             $regulation = RegulationsModel::where('id', $regulationId)
                 ->with('structures:id,structure_name')
                 ->with('proceedings:id,name')
-                ->with(['public_in' => function ($query) {
-                    $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
-                }])
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
+                    }
+                ])
                 ->with('all_attachs');
+
 
             $regulation = $regulation->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($regulation['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($regulation['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -628,7 +692,7 @@ class RegulationAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $regulation,
-                    explode(',', strip_tags(Input::post('structures', true))),
+                    !empty(Input::post('structures')) ? explode(',', strip_tags(Input::post('structures', true))) : null,
                     Input::post('proceedings', true),
                     Input::post('public_in', true)
                 );
@@ -644,7 +708,7 @@ class RegulationAdminController extends BaseAuthController
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                    Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
                 }
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
@@ -677,6 +741,7 @@ class RegulationAdminController extends BaseAuthController
                 $dataStructures[] = is_array($structure) ? $structure['id'] : $structure;
             }
         }
+
         //Insert/Update nella tabella di relazione
         $regulation->structures()->sync($dataStructures);
 
@@ -730,7 +795,7 @@ class RegulationAdminController extends BaseAuthController
         $regulation->deleteWithLogs($regulation);
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/regulation');
@@ -747,7 +812,7 @@ class RegulationAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new RegulationValidator();
         $validate = $validator->multipleSelection();
@@ -768,7 +833,7 @@ class RegulationAdminController extends BaseAuthController
             }
 
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+            Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -776,4 +841,5 @@ class RegulationAdminController extends BaseAuthController
 
         redirect('/admin/regulation');
     }
+
 }

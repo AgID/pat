@@ -4,12 +4,15 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUnused */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\CompanyModel;
 use Model\SectionsFoModel;
 use System\Input;
@@ -45,19 +48,28 @@ class CompanyFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -81,12 +93,17 @@ class CompanyFrontController extends BaseFrontController
         $data['instances'] = $companies;
         $data['instance'] = $currentPage;
         $data['paragraphs'] = $contents;
+        $data['allowSearch'] = false;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
+
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/companies/companies', $data, 'frontend');
     }
@@ -105,19 +122,28 @@ class CompanyFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -141,12 +167,16 @@ class CompanyFrontController extends BaseFrontController
         $data['instances'] = $companies;
         $data['instance'] = $currentPage;
         $data['paragraphs'] = $contents;
+        $data['allowSearch'] = false;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/companies/companies', $data, 'frontend');
     }
@@ -165,19 +195,28 @@ class CompanyFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
-            'archive_name', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'archive_name', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -202,12 +241,16 @@ class CompanyFrontController extends BaseFrontController
         $data['instances'] = $companies;
         $data['instance'] = $currentPage;
         $data['paragraphs'] = $contents;
+        $data['allowSearch'] = false;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/companies/companies', $data, 'frontend');
     }
@@ -216,9 +259,9 @@ class CompanyFrontController extends BaseFrontController
     /**
      * Funzione che ritorna i dati da mostrare nella tabella
      *
-     * @param null $type {la tipologia per cui filtrare i dati}
+     * @param null     $type     {la tipologia per cui filtrare i dati}
      * @param int|null $archived {Parametro per il filtraggio}
-     * @param array $data {Dati da passare alla vista}
+     * @param array    $data     {Dati da passare alla vista}
      * @return mixed
      * @throws Exception
      */
@@ -226,12 +269,31 @@ class CompanyFrontController extends BaseFrontController
     {
 
         // Recupero i canoni di locazione percepiti da mostrare
-        $companies = CompanyModel::where('archived', '=', $archived)
+        $companies =  CompanyModel::where(function ($query) use ($archived) {
+                if ((int)$archived === 1) {
+                    $query->where('object_company.archived', '=', 1);
+                } else {
+                }
+            })
             ->where('typology', $type)
-            ->paginate(20, ['id', 'company_name', 'participation_measure', 'duration'], 'p', (int)Input::get('p'))
+            ->filter(
+                $archived
+            )
+            ->orderBy('company_name',"ASC")
+            ->paginate(20, ['id', 'company_name', 'participation_measure', 'duration'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             //->appends(Input::get(['operator', 'service', 'type', 'municipal', 'service', 'start', 'end', 'customer', 'per_page']))
             ->setPath(currentUrl());
+
+        // Richiesta del solo frammento (paginazione AJAX): essendo getDataResults() chiamato da
+        // tutte le pagine di questo controller prima del lavoro pesante (render completo), un
+        // solo controllo qui copre tutte quelle pagine.
+        if (isFrontFragmentRequest()) {
+            $resultsArray = $companies->toArray();
+            $table = $this->createTableRows($resultsArray);
+            renderFrontFragment(['table' => !empty($table) ? $table->generate() : null, 'instances' => $resultsArray]);
+            exit;
+        }
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($companies) && !empty($companies->toArray()['data'])) {
@@ -239,13 +301,23 @@ class CompanyFrontController extends BaseFrontController
             //Prendo la data di creazione del primo elemento creato e di modifica dell'ultimo elemento modificato tra quelli
             //da pubblicare nella pagina
             $firstCreated = optional(CompanyModel::select(['created_at'])
-                ->where('archived', '=', $archived)
+                ->where(function ($query) use ($archived) {
+                    if ((int)$archived === 1) {
+                        $query->where('object_company.archived', '=', 1);
+                    } else {
+                    }
+                })
                 ->where('typology', $type)
                 ->orderBy('created_at', 'ASC')
                 ->first())
                 ->toArray();
             $lasUpdated = optional(CompanyModel::select(['updated_at'])
-                ->where('archived', '=', $archived)
+                ->where(function ($query) use ($archived) {
+                    if ((int)$archived === 1) {
+                        $query->where('object_company.archived', '=', 1);
+                    } else {
+                    }
+                })
                 ->where('typology', $type)
                 ->orderBy('updated_at', 'DESC')
                 ->first())
@@ -271,7 +343,7 @@ class CompanyFrontController extends BaseFrontController
         $table = null;
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         if (!empty($companies['data'])) {
 
@@ -305,20 +377,22 @@ class CompanyFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
-        $elementId = uri()->segment(4, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+        $elementId = (int)uri()->segment(4, 0);
         $getAttachments = true;
 
         // Recupero l'elemento da mostrare
         $element = CompanyModel::where('id', $elementId)
-            ->with('representatives:id,full_name,archived')
-            ->first();
+            ->with('representatives:id,full_name,archived');
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
             echo show404('Ops..', 'record not found');
             exit();
         }
+
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
@@ -333,11 +407,18 @@ class CompanyFrontController extends BaseFrontController
         $data['pageName'] = $element['company_name'];
         $data['menuPages'] = $sectionFO;
 
+        $data['currentPageId'] = $currentPageId;
+
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
         $data['editRecord'] = true;
         $detailPage = '/companies/details';
         $archiveBread = '';
+
+
+        if(!is_array($element)) {
+            $element = $element->toArray();
+        }
 
         $data['concatBreadcrumb'] = true;
         $data['bread'] = array();
@@ -367,24 +448,58 @@ class CompanyFrontController extends BaseFrontController
                 'created_at',
                 'updated_at'
             ];
+            // $showOnlyPublic = true;
+            $sectionId = (int)uri()->segment(2, 0);
 
-            // Allegati
-            $attach = new AttachmentArchive();
-            $data['listAttach'] = $attach->getAllByObject(
-                $label,
-                $elementId,
-                $selectFields,
-                true
-            );
+                // Allegati
+                $attach = new AttachmentArchive();
+                $data['listAttach'] = $attach->getAllByObject(
+                    $label,
+                    $elementId,
+                    $selectFields,
+                    true
+                );
         }
 
-        $data['instance'] = is_array($element) ? $element : $element->toArray();
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['company_name'])
-            ->toHtml();
+        //Inclusione del nodo JSON-LD della pagina
+        $data['instance'] = $element;
 
         renderFront(config('vfo', null, 'app') . $detailPage, $data, 'frontend');
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Archivio" degli enti pubblici vigilati
+     * ID sezione 90
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function archivedPublicEntities(): void
+    {
+        $this->indexPublicEntities();
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Archivio" delle società partecipate
+     * ID sezione 92
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function archivedParticipatedCompanies(): void
+    {
+        $this->indexParticipatedCompanies();
+    }
+
+    /**
+     * Metodo chiamato per la pagina "Archivio" degli Enti di diritto privato controllati
+     * ID sezione 94
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function archivedControlledPrivateEntities(): void
+    {
+        $this->indexControlledPrivateEntities();
     }
 }

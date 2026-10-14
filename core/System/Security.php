@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * CodeIgniter
  *
  * An open source application development framework for PHP
@@ -39,6 +44,8 @@
 
 namespace System;
 
+use Exception;
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 class Security
@@ -50,10 +57,25 @@ class Security
      * @var    array
      */
     public $filename_bad_chars = array(
-        '../', '<!--', '-->', '<', '>',
-        "'", '"', '&', '$', '#',
-        '{', '}', '[', ']', '=',
-        ';', '?', '%20', '%22',
+        '../',
+        '<!--',
+        '-->',
+        '<',
+        '>',
+        "'",
+        '"',
+        '&',
+        '$',
+        '#',
+        '{',
+        '}',
+        '[',
+        ']',
+        '=',
+        ';',
+        '?',
+        '%20',
+        '%22',
         '%3c',        // <
         '%253c',    // <
         '%3e',        // >
@@ -161,6 +183,58 @@ class Security
     );
 
     /**
+     * Proprietà accettate negli stili CSS.
+     *
+     * @var    array
+     */
+    private array $allowedCss = [
+
+        // Testo
+        'font-size',
+        'font-family',
+        'font-style',
+        'font-weight',
+        'text-decoration',
+        'text-align',
+        'color',
+
+        // Sfondo
+        'background',
+        'background-color',
+
+        // Spaziature
+        'margin',
+        'margin-top',
+        'margin-right',
+        'margin-bottom',
+        'margin-left',
+        'padding',
+        'padding-top',
+        'padding-right',
+        'padding-bottom',
+        'padding-left',
+
+        // Bordi
+        'border',
+        'border-width',
+        'border-style',
+        'border-color',
+
+        // Dimensioni
+        'width',
+        'height',
+        'max-width',
+        'max-height',
+
+        // Layout
+        'display',
+        'flex',
+        'align-items',
+        'justify-content',
+
+    ];
+
+    /**
      * Security constructor.
      * @param bool $charset
      */
@@ -171,6 +245,40 @@ class Security
 
 
     // --------------------------------------------------------------------
+
+    private function filterInlineStyle(string $style): string
+    {
+        $out = [];
+
+        // suddividiamo per ‘;’
+        foreach (explode(';', $style) as $declaration) {
+            $declaration = trim($declaration);
+            if ($declaration === '') {
+                continue;
+            }
+
+            // separiamo proprietà e valore
+            [$prop, $val] = array_map('trim', explode(':', $declaration, 2) + ['', '']);
+
+            $prop = strtolower($prop);
+
+            // proprietà non in whitelist → scarta
+            if (!in_array($prop, $this->allowedCss, true)) {
+                continue;
+            }
+
+            // valori pericolosi? blocca se contiene ‘expression’, ‘javascript’, ‘url(’ ecc.
+            if (preg_match('#expression|javascript:|behaviour:|url\s*\(#i', $val)) {
+                continue;
+            }
+
+            // tutto ok, ricomponiamo
+            $out[] = $prop . ':' . $val;
+        }
+
+        return implode(';', $out);
+    }
+
 
     /**
      * XSS Clean
@@ -198,8 +306,103 @@ class Security
      * @param bool $is_image Whether the input is an image
      * @return    string
      */
-    public function xssClean($str, $is_image = FALSE)
+    public function xssClean($str, bool $isImage = false)
     {
+        if ($str === null) {
+            return null;
+        }
+
+        if ($str === '') {
+            return '';
+        }
+
+        if (is_bool($str)) {
+            return $str;
+        }
+
+        if (is_array($str)) {
+            foreach ($str as $key => $value) {
+                $str[$key] = $this->xssClean($value, $isImage);
+            }
+            return $str;
+        }
+
+        $placeholders = [];
+        $str = preg_replace_callback(
+            '#\sstyle\s*=\s*([\'"])(.*?)\1#is',
+            function ($m) use (&$placeholders) {
+                $safe = $this->filterInlineStyle($m[2]);
+                if ($safe === '') {
+                    return '';
+                }
+
+                $token = 'data-xsstoken-' . count($placeholders);
+                $placeholders[$token] = htmlspecialchars($safe, ENT_QUOTES, 'UTF-8');
+                return ' ' . $token . '="1"';
+            },
+            $str ?? ''
+        );
+
+        $str = $this->legacyXssClean($str, $isImage);
+
+        if (!empty($placeholders)) {
+            $str = preg_replace_callback(
+                '#\sdata\-xsstoken\-([0-9]+)="1"#',
+                function ($m) use ($placeholders) {
+                    $idx = (int) $m[1];
+                    if (isset($placeholders['data-xsstoken-' . $idx])) {
+                        return ' style="' . $placeholders['data-xsstoken-' . $idx] . '"';
+                    }
+                    return '';
+                },
+                $str
+            );
+        }
+
+        return $str;
+    }
+
+
+    /**
+     * XSS Clean
+     *
+     * Sanitizes data so that Cross Site Scripting Hacks can be
+     * prevented.  This method does a fair amount of work but
+     * it is extremely thorough, designed to prevent even the
+     * most obscure XSS attempts.  Nothing is ever 100% foolproof,
+     * of course, but I haven't been able to get anything passed
+     * the filter.
+     *
+     * Note: Should only be used to deal with data upon submission.
+     *     It's not something that should be used for general
+     *     runtime processing.
+     *
+     * @link    http://channel.bitflux.ch/wiki/XSS_Prevention
+     *        Based in part on some code and ideas from Bitflux.
+     *
+     * @link    http://ha.ckers.org/xss.html
+     *        To help develop this script I used this great list of
+     *        vulnerabilities along with a few other hacks I've
+     *        harvested from examining vulnerabilities in other programs.
+     *
+     * @param string|string[] $str Input data
+     * @param bool $is_image Whether the input is an image
+     * @return    string
+     */
+    public function legacyXssClean($str, $is_image = FALSE)
+    {
+        if ($str === null) {
+            return null;
+        }
+
+        if ($str === '') {
+            return '';
+        }
+
+        if (is_bool($str)) {
+            return $str;
+        }
+
         // Is the string an array?
         if (is_array($str)) {
             foreach ($str as $key => &$value) {
@@ -222,12 +425,18 @@ class Security
          * Note: Use rawurldecode() so it does not remove plus signs
          */
         if (stripos($str, '%') !== false) {
-            do {
-                $oldstr = $str;
-                $str = rawurldecode($str);
-                $str = preg_replace_callback('#%(?:\s*[0-9a-f]){2,}#i', array($this, '_urldecodespaces'), $str);
-            } while ($oldstr !== $str);
-            unset($oldstr);
+            $str = preg_replace('/%(?![0-9a-f]{2})/i', '___PERCENT___', $str);
+
+            if (preg_match('/%[0-9a-f]{2}/i', $str)) {
+                do {
+                    $oldstr = $str;
+                    $str = rawurldecode($str);
+                    $str = preg_replace_callback('#%(?:\s*[0-9a-f]){2,}#i', array($this, '_urldecodespaces'), $str);
+                } while ($oldstr !== $str);
+                unset($oldstr);
+            }
+
+            $str = str_replace('___PERCENT___', '%', $str);
         }
 
         /*
@@ -284,9 +493,23 @@ class Security
          * These words are compacted back to their correct state.
          */
         $words = array(
-            'javascript', 'expression', 'vbscript', 'jscript', 'wscript',
-            'vbs', 'script', 'base64', 'applet', 'alert', 'document',
-            'write', 'cookie', 'window', 'confirm', 'prompt', 'eval'
+            'javascript',
+            'expression',
+            'vbscript',
+            'jscript',
+            'wscript',
+            'vbs',
+            'script',
+            'base64',
+            'applet',
+            'alert',
+            'document',
+            'write',
+            'cookie',
+            'window',
+            'confirm',
+            'prompt',
+            'eval'
         );
 
         foreach ($words as $word) {
@@ -348,9 +571,6 @@ class Security
             . ')*)' // end optional attributes group
             . '[^>]*)(?<closeTag>\>)?#isS';
 
-        // Note: It would be nice to optimize this for speed, BUT
-        //       only matching the naughty elements here results in
-        //       false positives and in turn - vulnerabilities!
         do {
             $old_str = $str;
             $str = preg_replace_callback($pattern, array($this, '_sanitize_naughty_html'), $str);
@@ -436,41 +656,43 @@ class Security
      */
     public function get_random_bytes($length)
     {
-        if (empty($length) or !ctype_digit((string)$length)) {
+        if (empty($length) || !ctype_digit((string)$length)) {
             return FALSE;
         }
 
+        $length = (int)$length;
+
+        // Preferred method: random_bytes()
         if (function_exists('random_bytes')) {
             try {
-                // The cast is required to avoid TypeError
-                return random_bytes((int)$length);
+                return random_bytes($length);
             } catch (Exception $e) {
-                // If random_bytes() can't do the job, we can't either ...
-                // There's no point in using fallbacks.
-                return FALSE;
+                // If random_bytes() fails, we'll try the next method
             }
         }
 
-        // Unfortunately, none of the following PRNGs is guaranteed to exist ...
-        if (defined('MCRYPT_DEV_URANDOM') && ($output = mcrypt_create_iv($length, MCRYPT_DEV_URANDOM)) !== FALSE) {
-            return $output;
-        }
-
-
-        if (is_readable('/dev/urandom') && ($fp = fopen('/dev/urandom', 'rb')) !== FALSE) {
-            // Try not to waste entropy ...
-            isPhp('5.4') && stream_set_chunk_size($fp, $length);
-            $output = fread($fp, $length);
-            fclose($fp);
-            if ($output !== FALSE) {
-                return $output;
-            }
-        }
-
+        // Second choice: OpenSSL
         if (function_exists('openssl_random_pseudo_bytes')) {
-            return openssl_random_pseudo_bytes($length);
+            $strong = false;
+            $bytes = openssl_random_pseudo_bytes($length, $strong);
+            if ($bytes !== false && $strong) {
+                return $bytes;
+            }
         }
 
+        // Third choice: reading from /dev/urandom
+        if (DIRECTORY_SEPARATOR === '/' && is_readable('/dev/urandom')) {
+            $fp = fopen('/dev/urandom', 'rb');
+            if ($fp !== FALSE) {
+                $bytes = fread($fp, $length);
+                fclose($fp);
+                if (strlen($bytes) === $length) {
+                    return $bytes;
+                }
+            }
+        }
+
+        // If all else fails
         return FALSE;
     }
 
@@ -647,14 +869,57 @@ class Security
     protected function _sanitize_naughty_html($matches)
     {
         static $naughty_tags = array(
-            'alert', 'area', 'prompt', 'confirm', 'applet', 'audio', 'basefont', 'base', 'behavior', 'bgsound',
-            'blink', 'body', 'embed', 'expression', 'form', 'frameset', 'frame', 'head', 'html', 'ilayer',
-            'iframe', 'input', 'button', 'select', 'isindex', 'layer', 'link', 'meta', 'keygen', 'object',
-            'plaintext', 'style', 'script', 'textarea', 'title', 'math', 'video', 'svg', 'xml', 'xss'
+            'alert',
+            'area',
+            'prompt',
+            'confirm',
+            'applet',
+            'audio',
+            'basefont',
+            'base',
+            'behavior',
+            'bgsound',
+            'blink',
+            'body',
+            'embed',
+            'expression',
+            'form',
+            'frameset',
+            'frame',
+            'head',
+            'html',
+            'ilayer',
+            'iframe',
+            'input',
+            'button',
+            'select',
+            'isindex',
+            'layer',
+            'link',
+            'meta',
+            'keygen',
+            'object',
+            'plaintext',
+            'style',
+            'script',
+            'textarea',
+            'title',
+            'math',
+            'video',
+            'svg',
+            'xml',
+            'xss'
         );
 
         static $evil_attributes = array(
-            'on\w+', 'style', 'xmlns', 'formaction', 'form', 'xlink:href', 'FSCommand', 'seekSegmentTime'
+            'on\w+',
+            'style',
+            'xmlns',
+            'formaction',
+            'form',
+            'xlink:href',
+            'FSCommand',
+            'seekSegmentTime'
         );
 
         // First, escape unclosed tags
@@ -841,6 +1106,11 @@ class Security
      */
     protected function _do_never_allowed($str)
     {
+        // Se l'input è null, ritorna null
+        if ($str === null) {
+            return null;
+        }
+
         $str = str_replace(array_keys($this->_never_allowed_str), $this->_never_allowed_str, $str);
 
         foreach ($this->_never_allowed_regex as $regex) {
@@ -864,8 +1134,10 @@ class Security
             // We don't necessarily want to regenerate it with
             // each page load since a page could contain embedded
             // sub-pages causing this feature to fail
-            if (isset($_COOKIE[$this->_csrf_cookie_name]) && is_string($_COOKIE[$this->_csrf_cookie_name])
-                && preg_match('#^[0-9a-f]{32}$#iS', $_COOKIE[$this->_csrf_cookie_name]) === 1) {
+            if (
+                isset($_COOKIE[$this->_csrf_cookie_name]) && is_string($_COOKIE[$this->_csrf_cookie_name])
+                && preg_match('#^[0-9a-f]{32}$#iS', $_COOKIE[$this->_csrf_cookie_name]) === 1
+            ) {
                 return $this->_csrf_hash = $_COOKIE[$this->_csrf_cookie_name];
             }
 
@@ -877,5 +1149,4 @@ class Security
 
         return $this->_csrf_hash;
     }
-
 }

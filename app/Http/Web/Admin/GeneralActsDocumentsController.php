@@ -7,8 +7,6 @@
 namespace Http\Web\Admin;
 
 use Exception;
-use Helpers\ActivityLog;
-use Helpers\S;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
@@ -16,7 +14,6 @@ use Helpers\Validators\GeneralActsDocumentsValidator;
 use Model\GeneralActsDocumentsModel;
 use Model\SectionFoConfigPublicationArchive;
 use Scope\DeletedScope;
-use System\Action;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
@@ -67,6 +64,8 @@ class GeneralActsDocumentsController extends BaseAuthController
 
         $data['url'] = uri()->segment(2, 0);
 
+        $data['include'] = '';
+
         render('general-acts-documents/index', $data, 'admin');
     }
 
@@ -99,11 +98,6 @@ class GeneralActsDocumentsController extends BaseAuthController
                 4 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[5] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'updated_at');
@@ -121,7 +115,7 @@ class GeneralActsDocumentsController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_bdncp_general_acts_documents.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
@@ -129,7 +123,7 @@ class GeneralActsDocumentsController extends BaseAuthController
             $records = GeneralActsDocumentsModel::search($dataTable['searchValue'])
                 ->select(['object_bdncp_general_acts_documents.id', 'object_bdncp_general_acts_documents.owner_id', 'document_date',
                     'object_bdncp_general_acts_documents.institution_id', 'object_bdncp_general_acts_documents.object',
-                    'object_bdncp_general_acts_documents.updated_at', 'publishing_status', 'object_bdncp_general_acts_documents.notes',
+                    'object_bdncp_general_acts_documents.updated_at', 'object_bdncp_general_acts_documents.notes',
                     'section.id as sectionId', 'section.name', 'users.name as userName', 'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_bdncp_general_acts_documents.owner_id', 'left outer')
                 ->with(['created_by' => function ($query) {
@@ -142,7 +136,8 @@ class GeneralActsDocumentsController extends BaseAuthController
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
-                }]);
+                }])
+                ->with('all_attachs:id,archive_id');;
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_bdncp_general_acts_documents.id', '=', $dataTable['searchValue']);
@@ -151,6 +146,7 @@ class GeneralActsDocumentsController extends BaseAuthController
             $records = $records->join('institutions as i', 'object_bdncp_general_acts_documents.institution_id', '=', 'i.id', 'left outer')
                 ->join('rel_general_acts_documents_public_in as public_in', 'object_bdncp_general_acts_documents.id', '=', 'public_in.general_acts_documents_id', 'left outer')
                 ->join('section_fo as section', 'section.id', '=', 'public_in.public_in_id', 'left outer')
+                ->groupBy('object_bdncp_general_acts_documents.id')
                 ->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
                 ->limit($dataTable['rowPerPage'])
@@ -162,6 +158,10 @@ class GeneralActsDocumentsController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -181,29 +181,39 @@ class GeneralActsDocumentsController extends BaseAuthController
                         $documentDate = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $checkWf && $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente, se non ha i permessi non li setto
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && (!$checkWf || $workflowState == 'finale'),
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/general-acts-documents/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/general-acts-documents/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/general-acts-documents/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/general-acts-documents/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/general-acts-documents/show-record-log/'.$record['id']), $record['id'], '92', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/general-acts-documents/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+
                     $publicSectionId = !empty($record['public_in']) && !empty($record['public_in'][0]) ? $record['public_in'][0]['section_fo_id'] : 582;
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['object'])
                             ? '<a href="'. siteUrl('/page/'.$publicSectionId.'/details/' . $record['id'] . '/' . urlTitle($record['object'])).'" target="_blank">' . escapeXss($record['object']) . '</a>'
                             : 'N.D.');
@@ -211,13 +221,9 @@ class GeneralActsDocumentsController extends BaseAuthController
                     $setTempData[] = !empty($record['public_in'] && !empty($record['public_in'][0])) ? $record['public_in'][0]['name'] : '';
                     $setTempData[] = createdByCheckDeleted($record['created_by']['name'] ?? null, @$record['created_by']['deleted'] ?? 0);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = $record['all_attachs']->isNotEmpty()
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -226,8 +232,7 @@ class GeneralActsDocumentsController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -247,7 +252,7 @@ class GeneralActsDocumentsController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/general-acts-documents/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/general-acts-documents/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -272,9 +277,14 @@ class GeneralActsDocumentsController extends BaseAuthController
         $data['_storageType'] = 'insert';
 
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_bdncp_general_acts_documents')
-            ->with('section:id,name')
-            ->get()
-            ->toArray();
+            ->with(['section' => function ($query) {
+                $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                    ->leftJoin("rel_institution_type_sections_labeling", function ($join) {
+                        $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id");
+                    });
+            }]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
@@ -288,7 +298,7 @@ class GeneralActsDocumentsController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('general-acts-documents/form_store', $data, 'admin');
@@ -305,7 +315,7 @@ class GeneralActsDocumentsController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -463,9 +473,14 @@ class GeneralActsDocumentsController extends BaseAuthController
         $data['labels'] = [];
 
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_bdncp_general_acts_documents')
-            ->with('section:id,name')
-            ->get()
-            ->toArray();
+            ->with(['section' => function ($query) {
+                $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                    ->leftJoin("rel_institution_type_sections_labeling", function ($join) {
+                        $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id");
+                    });
+            }]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
@@ -476,7 +491,7 @@ class GeneralActsDocumentsController extends BaseAuthController
         // Per pubblica in
         $data['publicIn'] = [null => ''] + $dataPublicIn;
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $document['institution_id'];
 
         $data['publicInIDs'] = Arr::pluck($document['public_in'], 'section_fo_id');
@@ -518,7 +533,7 @@ class GeneralActsDocumentsController extends BaseAuthController
             $document = $document->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($document['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($document['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -636,7 +651,7 @@ class GeneralActsDocumentsController extends BaseAuthController
     public function deletes(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new GeneralActsDocumentsValidator();
         $validate = $validator->multipleSelection();
@@ -664,127 +679,6 @@ class GeneralActsDocumentsController extends BaseAuthController
         }
 
         redirect('/admin/general-acts-documents');
-    }
-
-    /**
-     * @description Funzione per l'export dei dati in CSV
-     *
-     * @return void
-     * @throws Exception
-     * @url admin/general-acts-documents/export-csv
-     * @method GET
-     */
-    public function exportCsv(): void
-    {
-        //Tassi di assenza
-        $fileName = 'Atti e Documenti di carattere generale.csv';
-
-        setFileDownloadCookieCSV($fileName);
-
-        $output = fopen("php://output", 'w');
-
-        $records = GeneralActsDocumentsModel::with('created_by:id,name')
-            ->with(['public_in' => function ($query) {
-                $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
-                    ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
-            }])
-            ->with('all_attachs')
-            ->get()
-            ->toArray();
-
-        if (!empty($records)) {
-
-            $typologies = [
-                'lavori' => 'Lavori pubblici, per assenza di lavori',
-                'acquisti' => 'Acquisti di forniture e servizi, per assenza di acquisti di forniture e servizi',
-            ];
-
-            //Setto le colonne
-            $headers = array(
-                'ID',
-                'OGGETTO',
-                'DATA DOCUMENTO',
-                'LINK ESTERNO',
-                'SEZIONE',
-                'NOTE',
-                'TIPOLOGIA',
-                'CUP',
-                'DATA AVVIO',
-                'IMPORTO FINANZIAMENTO',
-                'FONTI FINANZIARIE',
-                'STATO DI ATTUAZIONE PROCEDURALE',
-                'ALLEGATI',
-                'CREATO DA',
-                'ULTIMA MODIFICA',
-            );
-            fputcsv($output, $headers, ';', '"');
-
-            foreach ($records as $record) {
-                $actDate = !empty($record['document_date']) ? (date('d-m-Y', strtotime($record['document_date']))) : '';
-
-                $startDate = !empty($record['start_date']) ? date('d-m-Y', strtotime($record['start_date'])) : '';
-
-                $updateAt = !empty($record['updated_at']) ? date('d-m-Y', strtotime($record['updated_at'])) : '';
-
-                $attachLists = '';
-                if (!empty($record['all_attachs'])) {
-
-                    foreach ($record['all_attachs'] as $attach) {
-
-                        $attachLists .= '(' . $attach['label'] . ') - Url: '
-                            . siteUrl('/download/' . $attach['id']) . "\n";
-
-                    }
-                }
-
-                //Setto i dati da inserire nelle colonne del CSV
-                $data = [
-                    !empty($record['id']) ? $record['id'] : '',
-                    !empty($record['object']) ? escapeXss($record['object']) : '',
-                    $actDate,
-                    !empty($record['external_link']) ? escapeXss($record['external_link']) : '',
-                    !empty($record['public_in']) ? $record['public_in'][0]['name'] : '',
-                    !empty($record['notes']) ? $record['notes'] : '',
-                    !empty($record['typology']) ? $typologies[$record['typology']] ?? '' : '',
-                    !empty($record['cup']) ? escapeXss($record['cup']) : '',
-                    $startDate,
-                    !empty($record['financing_amount']) ? '€ ' . escapeXss(S::currency($record['financing_amount'], 2, ',', '.')) : '',
-                    !empty($record['financial_sources']) ? escapeXss($record['financial_sources']) : '',
-                    !empty($record['procedural_implementation_status']) ? escapeXss($record['procedural_implementation_status']) : '',
-                    trim($attachLists),
-                    !empty($record['created_by']['name']) ? checkDecrypt($record['created_by']['name']) : '',
-                    $updateAt,
-                ];
-
-                fputcsv($output, $data, ';', '"');
-            }
-            fclose($output);
-
-            // Storage Activity log
-            ActivityLog::create([
-                'action' => 'Esportazione dati degli Atti e Documenti di carattere generale in CSV',
-                'description' => 'Esportazione dati degli Atti e Documenti di carattere generale in CSV',
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
-                'action_type' => 'exportCSV',
-                'object_id' => 92,
-                'area' => 'object'
-            ]);
-
-            exit();
-        } else {
-
-            //Se non sono presenti tassi di assenza nel db mostro una notifica con il messaggio e faccio il redirect
-            sessionSetNotify(
-                sprintf(__('error_export_csv_', null, 'patos'), 'atto/documento'),
-                'warning'
-            );
-
-            redirect('admin/general-acts-documents');
-        }
     }
 
     /**

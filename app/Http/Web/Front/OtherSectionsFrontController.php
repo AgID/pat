@@ -38,12 +38,14 @@ class OtherSectionsFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'created_at', 'updated_at'])
-            ->where('id', $currentPageId)
-            ->first()
+            ->where('id', $currentPageId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -66,6 +68,8 @@ class OtherSectionsFrontController extends BaseFrontController
         $data['instances'] = null;
         $data['allowSearch'] = false;
 
+        //Inclusione di eventuali librerie esterne
+
         renderFront(config('vfo', null, 'app') . '/other_sections/privacy', $data, 'frontend');
     }
 
@@ -81,18 +85,22 @@ class OtherSectionsFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
             'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }]);
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ]);
+
 
         $currentPage = $currentPage->first()
             ->toArray();
@@ -111,6 +119,9 @@ class OtherSectionsFrontController extends BaseFrontController
         $data['instances'] = null;
         $data['allowSearch'] = false;
 
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+
 
         renderFront(config('vfo', null, 'app') . '/other_sections/cookie', $data, 'frontend');
     }
@@ -127,20 +138,27 @@ class OtherSectionsFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
             'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ]);
+
+
+        $currentPage = $currentPage->first();
+        $currentPage = !empty($currentPage)
+            ? $currentPage->toArray()
+            : ['name' => 'Accessibilità', 'parent_id' => 19];
 
         // Recupero le voci per costruire il menu dei contenuti
         $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
@@ -154,6 +172,9 @@ class OtherSectionsFrontController extends BaseFrontController
         $data['accessibilityText'] = $instAccessibilityText;
         $data['instances'] = null;
         $data['allowSearch'] = false;
+
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/other_sections/accessibility', $data, 'frontend');
     }

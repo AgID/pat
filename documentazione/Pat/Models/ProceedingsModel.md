@@ -7,7 +7,6 @@ Il modello `ProceedingsModel`  rappresenta la tabella `object_proceedings` e for
 * `$table`: Il nome della tabella nel database (default: `'object_proceedings'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaProceedingsModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'proceedings'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Procedimenti'`).
 * `$objectId`: L'ID dell'oggetto (default: `7`).
@@ -127,11 +126,6 @@ charges(): BelongsToMany
 Il metodo `charges` definisce la relazione con il modello `ChargesModel` rappresentante gli oneri informativi validi per il procedimento. La relazione è di tipo molti-a-molti.
 
 
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaProceedingsModel` rappresentante i metadati associati al procedimento. La relazione è di tipo uno-a-molti.
 
 
 ```

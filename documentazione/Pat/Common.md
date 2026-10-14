@@ -14,7 +14,6 @@
 - `authPatOs()`
 - `br2nl($string)`
 - `toFloat($num)`
-- `resolveStringBearer($bearer)`
 - `translateMonth($month = null)`
 - `iconBtn($name = 'Salva', $id = "icon-save", $ico = 'fa-save')`
 - `endKeyOnlyPagination($pages)`

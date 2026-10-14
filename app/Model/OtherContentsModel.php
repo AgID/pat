@@ -6,7 +6,7 @@
 
 namespace Model;
 
-use Scope\InstitutionScope;
+
 use System\Model;
 
 /**
@@ -36,6 +36,6 @@ class OtherContentsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 }

@@ -24,12 +24,7 @@ class File
      */
     public static function isMultiUpload(string $file_name = 'userfile'): mixed
     {
-        $count = NULL;
-        if (!empty($_FILES[$file_name]["name"])) {
-            $count = $_FILES[$file_name]["name"];
-        }
-
-        return $count;
+        return (bool) isset($_FILES[$file_name]['name']) && is_array($_FILES[$file_name]['name']);
     }
 
     /**

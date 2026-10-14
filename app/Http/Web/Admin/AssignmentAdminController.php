@@ -9,6 +9,7 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\Security\Acl;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\AssignmentLiquidationValidator;
@@ -21,7 +22,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -108,10 +108,6 @@ class AssignmentAdminController extends BaseAuthController
                 6 => 'updated_at'
             ];
 
-            // Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[7] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -132,6 +128,9 @@ class AssignmentAdminController extends BaseAuthController
             if (!empty($searchValue)) {
                 $queryCount->orWhere('object_assignments.id', '=', $searchValue);
             }
+
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $queryCount->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object');
@@ -139,9 +138,9 @@ class AssignmentAdminController extends BaseAuthController
             // Query result - Incarichi e consulenze
             $queryRecords = AssignmentsModel::search($searchValue);
             $queryRecords->select(['object_assignments.id', 'object_assignments.owner_id', 'object_assignments.institution_id',
-                'object_assignments.object_structures_id', 'object_assignments.related_assignment_id', 'object_assignments.typology',
+                'object_assignments.object_structures_id','object_assignments.assignment_type', 'object_assignments.related_assignment_id', 'object_assignments.typology',
                 'object_assignments.type', 'object_assignments.name', 'object_assignments.object', 'users.name as userName', 'i.full_name_institution',
-                'object_assignments.assignment_start', 'object_assignments.publishing_status', 'object_assignments.updated_at']);
+                'object_assignments.assignment_start', 'object_assignments.updated_at']);
             $queryRecords->join('users', 'users.id', '=', 'object_assignments.owner_id', 'left outer');
             $queryRecords->with('related_assignment:id,name,object');
             $queryRecords->with(['created_by' => function ($query) {
@@ -149,6 +148,7 @@ class AssignmentAdminController extends BaseAuthController
                 $query->select(['id', 'name', 'deleted']);
             }]);
             $queryRecords->with('institution:id,full_name_institution');
+            $queryRecords->with('all_attachs:id,archive_id');
             $queryRecords->join('object_assignments as related_assignment', 'related_assignment.id', '=', 'object_assignments.related_assignment_id', 'left outer');
             $queryRecords->join('institutions as i', 'object_assignments.institution_id', '=', 'i.id', 'left outer');
 
@@ -156,6 +156,10 @@ class AssignmentAdminController extends BaseAuthController
             if (!empty($searchValue)) {
                 $queryRecords->orWhere('object_assignments.id', '=', $searchValue);
             }
+
+            // Inclusione di librerie esterne
+            $queryRecords = $queryRecords ?? null;
+
 
             $queryRecords->orderBy($order, $dataTable['columnSortOrder']);
             $queryRecords->offset($dataTable['start']);
@@ -169,6 +173,12 @@ class AssignmentAdminController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
+                $ewepa = [];
 
                 foreach ($records as $record) {
 
@@ -187,19 +197,25 @@ class AssignmentAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/assignment/edit-' . $record['typology'] . '/' . $record['id'], $record['id'])
+                        ->addEdit('admin/assignment/edit-' . $record['typology'] . '/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/assignment/duplicate-' . $record['typology'] . '/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/assignment/versioning'), $record['id'], $record['typology'], $record['typology'], 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/assignment/show-record-log/'.$record['id']), $record['id'], '25', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/assignment/delete-' . $record['typology'] . '/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -219,22 +235,27 @@ class AssignmentAdminController extends BaseAuthController
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $checkBox = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $setTempData[] = $checkBox;
+
                     $setTempData[] = !empty($name) ? $name : 'N.D.';
                     $setTempData[] = !empty($object) ? $object : 'N.D.';
                     $setTempData[] = !empty($record['type']) ? escapeXss($record['type']) : 'N.D.';
                     $setTempData[] = $startDate;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -243,8 +264,7 @@ class AssignmentAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -264,7 +284,7 @@ class AssignmentAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/assignment/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/assignment/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -287,13 +307,15 @@ class AssignmentAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
-        $data['typologies'] = ['' => null] + config('assignmentTypologies', null, 'app');
+
+        $data['typologies'] = [null => ''] + config('assignmentTypologies', [], 'app');
 
         // Labels
         $data['labels'] = [];
+
 
         render('assignment/form_store_assignment', $data, 'admin');
     }
@@ -308,13 +330,15 @@ class AssignmentAdminController extends BaseAuthController
      */
     public function createLiquidation(): void
     {
+        $data = [];
+        $this->acl = new Acl(__CLASS__);
+        
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('create');
 
         $this->breadcrumb->push('Incarichi e consulenze', 'admin/assignment');
         $this->breadcrumb->push('Nuova', '/');
 
-        $data = [];
         $data['breadcrumbs'] = $this->breadcrumb->show();
 
         //Dati header della sezione
@@ -342,8 +366,9 @@ class AssignmentAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('assignment/form_store_liquidation', $data, 'admin');
     }
@@ -359,7 +384,7 @@ class AssignmentAdminController extends BaseAuthController
     public function storeAssignment(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -402,7 +427,7 @@ class AssignmentAdminController extends BaseAuthController
                     'compensation' => !empty(Input::post('compensation')) ? toFloat(strip_tags(Input::post('compensation', true))) : null,
                     'variable_compensation' => strip_tags(Input::post('variable_compensation', true)),
                     'acts_extremes' => Input::post('acts_extremes', true),
-                    'assignment_reason' => strip_tags(Input::post('assignment_reason', true)),
+                    'assignment_reason' => !empty(Input::post('assignment_reason')) ? strip_tags(Input::post('assignment_reason', true)) : '',
                     'notes' => Input::post('notes', true),
                     'typology' => 'assignment',
                     'type' => 'Incarico',
@@ -411,19 +436,22 @@ class AssignmentAdminController extends BaseAuthController
                 // Storage nuovo Incarico
                 $insert = AssignmentsModel::createWithLogs($arrayValues);
 
+
                 // Storage nelle tabelle di relazione
                 $this->clear(
                     $insert,
-                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null
+                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null,
+                    !empty(Input::post('contests')) ? explode(',', strip_tags((string)Input::post('contests', true))) : null,
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'assignments', $insert->id, $arrayValues['name']);
 
+
                 // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+//                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -448,14 +476,14 @@ class AssignmentAdminController extends BaseAuthController
     public function storeLiquidation(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
-
+        $this->acl->setRoute('create', true);
         $json = new JsonResponse();
         $code = $json->success();
 
         // Validatore form
         $validator = new AssignmentLiquidationValidator();
         $check = $validator->check();
+
 
         if ($check['is_success']) {
             $doAction = true;
@@ -491,11 +519,14 @@ class AssignmentAdminController extends BaseAuthController
                 // Storage nuova Liquidazione
                 $insert = AssignmentsModel::createWithLogs($arrayValues);
 
+
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'assignments', $insert->id, $insert->related_assignment['object']);
 
+
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -556,6 +587,7 @@ class AssignmentAdminController extends BaseAuthController
 
         // Se la validazione va a buon fine recupero l'elemento da modificare dal registro
         $assignment = Registry::get('assignment');
+        $assignment->load('contests');
         $assignment = !empty($assignment) ? $assignment->toArray() : [];
 
         // Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
@@ -596,6 +628,7 @@ class AssignmentAdminController extends BaseAuthController
         $assignment['assignment_start'] = $assignmentStart['date'];
         $assignment['assignment_end'] = $assignmentEnd['date'];
 
+
         $data['assignment'] = $assignment;
 
         // Lista degli allegati
@@ -604,11 +637,10 @@ class AssignmentAdminController extends BaseAuthController
             $assignment['id']
         );
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $assignment['institution_id'];
 
-        $institutionTypeId = patOsInstituteInfo(['institution_type_id']);
-        $data['typologies'] = [null => ''] + config('assignmentTypologies', null, 'app');
+        $data['typologies'] = [null => ''] + config('assignmentTypologies', [], 'app');
 
         // Labels
         $data['labels'] = [];
@@ -690,7 +722,7 @@ class AssignmentAdminController extends BaseAuthController
             $liquidation['id']
         );
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $liquidation['institution_id'];
 
         $data['liquidation_date'] = $liquidationDate['date'];
@@ -706,6 +738,7 @@ class AssignmentAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
         $data['seo'] = $liquidation['p_s_d_r'] ?? null;
+
 
         render('assignment/form_store_liquidation', $data, 'admin');
     }
@@ -737,10 +770,11 @@ class AssignmentAdminController extends BaseAuthController
                 ->with('measures:id,object')
                 ->with('structure:id,structure_name')
                 ->with('all_attachs');
+
             $assignment = $assignment->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($assignment['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($assignment['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -769,7 +803,7 @@ class AssignmentAdminController extends BaseAuthController
                 $data['compensation'] = !empty(Input::post('compensation')) ? toFloat(strip_tags(Input::post('compensation', true))) : null;
                 $data['variable_compensation'] = strip_tags(Input::post('variable_compensation', true));
                 $data['acts_extremes'] = Input::post('acts_extremes', true);
-                $data['assignment_reason'] = strip_tags(Input::post('assignment_reason', true));
+                $data['assignment_reason'] = !empty(Input::post('assignment_reason')) ? strip_tags(Input::post('assignment_reason', true)) : '';
                 $data['notes'] = Input::post('notes', true);
 
                 // Update Incarico
@@ -778,7 +812,8 @@ class AssignmentAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $assignment,
-                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null
+                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null,
+                    !empty(Input::post('contests')) ? explode(',', strip_tags((string)Input::post('contests', true))) : null,
                 );
 
                 // Upload allegati associati al personale.
@@ -790,10 +825,11 @@ class AssignmentAdminController extends BaseAuthController
                     $data['object']
                 );
 
+
                 // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+//                if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -834,10 +870,11 @@ class AssignmentAdminController extends BaseAuthController
             $liquidation = AssignmentsModel::where('id', $liquidationId)
                 ->with('related_assignment:id,object,assignment_type,name')
                 ->with('all_attachs');
+
             $liquidation = $liquidation->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($liquidation['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($liquidation['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -861,8 +898,10 @@ class AssignmentAdminController extends BaseAuthController
                 $data['liquidation_year'] = !empty(Input::post('liquidation_year')) ? strip_tags(Input::post('liquidation_year', true)) : null;
                 $data['notes'] = !empty(Input::post('notes')) ? Input::post('notes', true) : null;
 
+
                 // Update Liquidazione
                 AssignmentsModel::where('id', $liquidationId)->updateWithLogs($liquidation, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -873,8 +912,9 @@ class AssignmentAdminController extends BaseAuthController
                     $liquidation->related_assignment['object']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -896,7 +936,7 @@ class AssignmentAdminController extends BaseAuthController
      * @param array|int|null        $measures   Provvedimenti associati all'incarico
      * @return void
      */
-    protected function clear(AssignmentsModel $assignment = null, array|int $measures = null): void
+    protected function clear(AssignmentsModel $assignment = null, array|int $measures = null, array|int $contests = null): void
     {
         $dataMeasure = [];
         if ($measures !== null) {
@@ -904,8 +944,17 @@ class AssignmentAdminController extends BaseAuthController
                 $dataMeasure[] = is_array($measure) ? $measure['id'] : $measure;
             }
         }
+        
+        $dataContest = [];
+        if($contests !== null){
+            foreach($contests as $contest){
+                $dataContest[] = is_array($contest) ? $contest['id'] : $contest;
+            }
+        }
+
         //Insert/Update nella tabella di relazione
         $assignment->measures()->sync($dataMeasure);
+        $assignment->contests()->syncWithPivotValues($dataContest, ['typology' => 'contest']);
     }
 
     /**
@@ -940,10 +989,11 @@ class AssignmentAdminController extends BaseAuthController
         //Elimino l'incarico
         $assignment->deleteWithLogs($assignment);
 
+
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
         redirect('admin/assignment');
     }
@@ -981,7 +1031,7 @@ class AssignmentAdminController extends BaseAuthController
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
         redirect('admin/assignment');
     }
@@ -997,7 +1047,7 @@ class AssignmentAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         // Validatore sugli elementi da eliminare
         $validator = new AssignmentValidator();
@@ -1015,11 +1065,14 @@ class AssignmentAdminController extends BaseAuthController
 
             //Elimino gli elementi
             foreach ($assignments as $assignment) {
+
                 $assignment->deleteWithLogs($assignment);
+
             }
 
+
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -1027,4 +1080,5 @@ class AssignmentAdminController extends BaseAuthController
 
         redirect('/admin/assignment');
     }
+
 }

@@ -63,10 +63,3 @@ scopeFilter(Builder $query, int$structure = null, string$object = null, int$year
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati dei controlli e rilievi in base all'ufficio, all'oggetto e all'anno.
-
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaChargesModel`, rappresentante i metadati associati ai controlli e rilievi. La relazione è di tipo uno-a-molti.

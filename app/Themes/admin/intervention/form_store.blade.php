@@ -39,15 +39,31 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
                             {{-- Campo Nome --}}
                             <div class="form-group">
                                 <label for="title">Nome *</label>
@@ -89,12 +105,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="regulations">Regolamenti correlati</label>
-                                    <div class="select2-blue" id="input_regulations">
+                                    <div id="input_regulations">
                                         {{ form_dropdown(
                                             'regulations[]',
                                             '',
                                             '',
-                                            'class="form-control select2-regulations" multiple="multiple" data-placeholder="Seleziona o cerca regolamento..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-regulations" multiple="multiple" data-placeholder="Seleziona o cerca regolamento..." style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -174,16 +190,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -225,6 +250,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -245,22 +271,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13) {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
+
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Tabella per la selezione dei Provvedimenti associati
         let measures = $('#ajax_measures').patOsAjaxPagination({
@@ -294,75 +320,29 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @php
             $tmpStartDate = !empty($measure['date']) ? ' - '.date('d/m/Y', strtotime($measure['date'])) : null;
         @endphp
-        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).(!empty($measure['number'])?' - '.$measure['number']:'').''.$tmpStartDate }}', true);
+        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).(!empty($measure['number'])?' - '.htmlEscape($measure['number']):'').''.$tmpStartDate }}', true);
         @endforeach
         @endif
 
-        {{-- Begin Select2 campo "Regolamenti correlati" --}}
-        let $dropdownRegulation = $('.select2-regulations');
-        $dropdownRegulation.select2({
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 10,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_regulationIds').val(),
-                model: 10,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
+        {{-- Begin TomSelect campo "Regolamenti correlati" --}}
+        createAjaxTomSelect({
+            selector: '.ts-regulations',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_regulationIds',
+            model: 10,
+            institutionId,
+            placeholder: 'Seleziona o cerca regolamento...',
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+            onError: function () {
                 createValidatorFormErrorToast(
                     'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
                     5000,
                     'Validatore select'
                 );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownRegulation.append(option).trigger('change');
             }
         });
-        @endif
-        {{-- End Select2 campo "Regolamenti correlati" --}}
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        {{-- End TomSelect campo "Regolamenti correlati" --}}
 
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -371,8 +351,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
-        CKEDITOR.replace('input_derogations');
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_derogations', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -409,6 +393,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -446,11 +431,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

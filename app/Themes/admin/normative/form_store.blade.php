@@ -39,32 +39,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
-                            {{-- Campo Tipologia atto --}}
-                            <div class="form-group">
-                                <label for="act_type">Tipologia atto *</label>
-                                <div class="select2-blue" id="input_act_type">
-                                    {{ form_dropdown(
-                                        'act_type',
-                                        @$actTypes,
-                                        @$normative['act_type'],
-                                        'class="form-control select2-typology" id="act_type" style="width: 100%;"'
-                                    ) }}
-                                </div>
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Numero --}}
-                                <div class="form-group col-md-4">
+                                <div class="form-group col-md-5">
+                                    <label for="act_type">Tipologia atto *</label>
+                                    <div id="input_act_type">
+                                        {{ form_dropdown(
+                                            'act_type',
+                                            @$actTypes,
+                                            @$normative['act_type'],
+                                            'class="ts-typology" id="act_type" style="width: 100%;"'
+                                        ) }}
+                                    </div>
+                                </div>
+
+                                <div class="form-group col-md-2">
                                     <label for="number">Numero</label>
                                     {{ form_input([
                                         'name' => 'number',
@@ -77,7 +88,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Campo Protocollo --}}
-                                <div class="form-group col-md-4">
+                                <div class="form-group col-md-2">
                                     <label for="protocol">Protocollo</label>
                                     {{ form_input([
                                         'name' => 'protocol',
@@ -90,7 +101,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Campo Data promulgazione--}}
-                                <div class="form-group col-md-4">
+                                <div class="form-group col-md-3">
                                     <label for="issue_date">Data promulgazione *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -116,19 +127,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'class' => 'form-control input_name',
                                     ]) }}
                                 </div>
+
+                                @if(empty($is_box))
+                                    <div class="form-group col-md-3">
+                                        {{ form_button([
+                                            'name' => 'add',
+                                            'id' => 'btn_auto_compose',
+                                            'class' => 'btn btn-outline-primary',
+                                            'style' => 'width:100%; font-size: .95rem;'
+                                        ],'Componi automaticamente <i class="far fa-copy"></i>') }}
+                                    </div>
+                                @endif
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Argomento della Normativa --}}
                                 <div class="form-group col-md-6">
                                     <label for="normative_topic">Argomento della Normativa *</label>
-                                    <div class="select2-blue" id="input_normative_topic">
+                                    <div  id="input_normative_topic">
                                         {{ form_dropdown(
                                             'normative_topic',
-                                            ['' => '',1=>'Organizzazione dell\'Ente (pubblica in Riferimenti normativi su organizzazione e attività)',
-                                                2=>'Sovvenzioni e contributi (pubblica in Criteri e modalità)',3=>'Altro'],
+                                            @$normativeTopic,
                                             @$normative['normative_topic'],
-                                            'class="form-control select2-normative_topic" style="width: 100%;"'
+                                            'class="ts-normative_topic" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -155,7 +175,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="president">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_structures" id="nor_structures_label">Valida per le strutture organizzative</label>
+                                    <label for="ajax_structures" id="nor_structures_label">Valida per le strutture organizzative </label>
                                     </div>
                                     <div id="ajax_structures"></div>
                                     <input type="hidden" value="" name="structures"
@@ -176,17 +196,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -250,23 +276,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Tabella per la selezione delle strutture
         let structures = $('#ajax_structures').patOsAjaxPagination({
@@ -278,6 +303,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($normative['structures']) ? implode(",",array_column($normative['structures'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_structures',
             dataParams: {
@@ -308,28 +335,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
-
-        {{-- Select2 per campo "Tipologia atto" --}}
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona la tipologia',
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_description',{
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
 
-        {{-- Select2 per campo "Argomento della Normativa" --}}
-        let $dropdownNormativeTopic = $('.select2-normative_topic');
-        $dropdownNormativeTopic.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        new TomSelect(".ts-typology", {...TS_SINGLE,placeholder: "Seleziona una tipologia"});
+        new TomSelect(".ts-normative_topic", TS_SINGLE);
 
         /**
          * Metodo per il salvataggio
@@ -401,14 +412,45 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         {{-- Vedere nel footer --}}
         closeModalForm();
 
+        {{-- Composizione automatica titolo normativa --}}
+        /**
+         * Metodo per la compilazione automatica del titolo della normativa
+         */
+        document.getElementById('btn_auto_compose').addEventListener('click', () => {
+            const actType = document.getElementById('act_type');
+            const inputNumber = document.getElementById('input_number');
+            const inputProtocol = document.getElementById('input_protocol');
+            const issueDate = document.getElementById('issue_date');
+            const inputName = document.getElementById('input_name');
+
+            let title = actType.options[actType.selectedIndex]?.text ?? '';
+
+            if (inputNumber.value !== '') {
+                title += (title === '' ? '' : ' ') + 'Numero ' + inputNumber.value;
+            }
+
+            if (inputProtocol.value !== '') {
+                title += (title === '' ? '' : ' ') + 'Protocollo ' + inputProtocol.value;
+            }
+
+            if (issueDate.value !== '') {
+                title += (title === '' ? '' : ' ') +
+                    'del ' + new Date(issueDate.value).toLocaleDateString();
+            }
+
+            if (title !== '') {
+                inputName.value = title;
+            }
+        });
+
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         @if(!$is_box)
         {{-- Messaggio di uscita senza salvare dal form --}}

@@ -9,10 +9,11 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -26,7 +27,7 @@ class RegulationsModel extends Model
 
     protected $table = 'object_regulations';
     protected string $archiveName = 'regulations';
-
+    protected string $metaModel = 'MetaRegulationModel';
     protected $primaryKey = 'id';
 
     protected string $objectName = 'Regolamenti e documentazione';
@@ -50,6 +51,9 @@ class RegulationsModel extends Model
         'number_readings',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -71,6 +75,14 @@ class RegulationsModel extends Model
         'title',
         'section.name',
         'users.name',
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -101,19 +113,13 @@ class RegulationsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -124,7 +130,7 @@ class RegulationsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -145,6 +151,15 @@ class RegulationsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -177,8 +192,10 @@ class RegulationsModel extends Model
      */
     public function public_in(): BelongsToMany
     {
-        return $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_regulations_public_in', 'object_regulation_id', 'public_in_id', null, 'section_fo_id')
+        $publicIn = $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_regulations_public_in', 'object_regulation_id', 'public_in_id', null, 'section_fo_id')
             ->withTimestamps();
+
+        return $publicIn;
     }
 
     /**
@@ -226,5 +243,46 @@ class RegulationsModel extends Model
             ->where('active', '=', '1')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'regulations');
+    }
+
+    /**
+     * Relazione con gli allegati
+     * Restituisce tutti gli allegati, per il back-office
+     * @return HasMany
+     */
+    public function all_attachs(): HasMany
+    {
+        return $this->hasMany(AttachmentsModel::class, 'archive_id', 'id')
+            ->select(['id', 'archive_id', 'orig_name', 'label', 'client_name'])
+            ->orderBy('sort', 'ASC')
+            ->where('deleted', '=', '0')
+            ->where('archive_name', '=', 'regulations');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query Query
+     * @param string|null $text  Titolo regolamento
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $text = null
+    ): void
+    {
+        if (!empty($text)) {
+            $query->where('object_regulations.title', 'LIKE', '%' . $text . '%');
+        }
+    }
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

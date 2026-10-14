@@ -6,5 +6,4 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-use System\Action;
 use System\CronQueue;

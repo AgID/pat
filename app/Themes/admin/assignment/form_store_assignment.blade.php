@@ -39,15 +39,29 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Soggetto incaricato(cognome e nome) --}}
@@ -79,12 +93,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Tipo di incarico --}}
                                 <div class="form-group col-md-6">
                                     <label for="assignment_type">Tipo di incarico *</label>
-                                    <div class="select2-blue" id="input_assignment_type">
+                                    <div id="input_assignment_type">
                                         {{ form_dropdown(
                                             'assignment_type',
                                             @$typologies,
                                             @$assignment['assignment_type'],
-                                            'class="form-control select2-assignment_type" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-assignment_type" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -92,12 +106,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Tipo consulenza --}}
                                 <div class="form-group col-md-6">
                                     <label for="consulting_type">Tipo consulenza</label>
-                                    <div class="select2-blue" id="input_consulting_type">
+                                    <div id="input_consulting_type">
                                         {{ form_dropdown(
                                             'consulting_type',
                                             ['' => '',1=>'Incarichi professionali',2=>'Incarichi giudiziali',3=>'Incarichi difesa legale danni a terzi',4=>'Incarichi giudiziali giuslavoristici'],
                                             @$assignment['consulting_type'],
-                                            'class="form-control select2-consulting_type" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-consulting_type" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -109,7 +123,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="object_structures_id">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_structure" id="a_ajax_structure_label">Struttura organizzativa responsabile *</label>
+                                        <label for="ajax_structure" id="a_ajax_structure_label">Struttura organizzativa
+                                            responsabile *</label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -122,13 +137,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_measures" id="a_ajax_measures_label">Provvedimenti associati</label>
+                                        <label for="ajax_measures" id="a_ajax_measures_label">Provvedimenti
+                                            associati</label>
                                     </div>
                                     <div id="ajax_measures"></div>
                                     <input type="hidden" value="" name="measures" id="input_measure"
                                            class="measures">
                                 </div>
                             </div>
+
+                            @php $s_c_v = $s_c_v ?? null; $_storageType = $_storageType ?? null; @endphp
 
                             {{generateSeparator('Importi e date di riferimento')}}
 
@@ -152,12 +170,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="end_of_assignment_not_available">Data di fine incarico non
                                         disponibile</label>
-                                    <div class="select2-blue" id="input_end_of_assignment_not_available">
+                                    <div id="input_end_of_assignment_not_available">
                                         {{ form_dropdown(
                                             'end_of_assignment_not_available',
                                             [0=>'No',1=>'Si'],
                                             @$assignment['end_of_assignment_not_available'],
-                                            'class="form-control select2-end_of_assignment_not_available" style="width: 100%;"'
+                                            'class="ts-end_of_assignment_not_available" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -224,11 +242,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
 
+
+
                             {{generateSeparator('Altre informazioni')}}
 
                             {{-- Campo Estremi atto di conferimento --}}
                             <div class="form-group">
-                                <label for="acts_extremes">Estremi atto di conferimento *</label>
+                                <label for="acts_extremes" id="label_acts_extreme">Estremi atto di conferimento *</label>
                                 {{form_editor([
                                     'name' => 'acts_extremes',
                                     'value' => !empty($assignment['acts_extremes']) ? $assignment['acts_extremes'] : null,
@@ -237,9 +257,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
 
+
                             {{-- Campo Ragione dell'incarico --}}
                             <div class="form-group">
-                                <label for="assignment_reason">Ragione dell'incarico *</label>
+                                <label for="assignment_reason" id="label_ass_reason">Ragione dell'incarico *</label>
                                 {{ form_input([
                                     'name' => 'assignment_reason',
                                     'value' => !empty($assignment['assignment_reason']) ? $assignment['assignment_reason'] : null,
@@ -260,17 +281,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
+
                         {{-- END: Form --}}
                     </div>
 
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -312,6 +341,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -332,50 +362,68 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
+
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value ?? '';
 
         document.getElementById("endTxt").style.display = "none";
 
-        {{-- Creazione campi di select --}}
-        let $dropdownRegulation = $('.select2-assignment_type');
-        $dropdownRegulation.select2({
-            placeholder: 'Seleziona il tipo....',
-            minimumResultsForSearch: -1,
-            allowClear: true
+        function reasonManager(value) {
+            const labelAssReason = document.getElementById("label_ass_reason");
+            const labelActsExtreme = document.getElementById("label_acts_extreme");
+
+            if (value === "1") {
+                labelAssReason.textContent = "Ragione dell'incarico";
+                labelActsExtreme.textContent = "Estremi atto di conferimento";
+
+            } else {
+                labelAssReason.textContent = "Ragione dell'incarico *";
+                labelActsExtreme.textContent = "Estremi atto di conferimento *";
+
+            }
+        }
+
+        const assignmentType = new TomSelect('.ts-assignment_type', {
+            ...TS_SINGLE_CLEAR,
+            placeholder: 'Seleziona il tipo ...',
+            onChange(value) {
+                updateClearButtonClass(this);
+                reasonManager(value);
+            }
         });
 
-        let $dropdownConsultingType = $('.select2-consulting_type');
-        $dropdownConsultingType.select2({
-            placeholder: 'Seleziona il tipo....',
-            minimumResultsForSearch: -1,
-            allowClear: true
+        @if($_storageType !== 'insert')
+            reasonManager(assignmentType.getValue());
+        @endif
+
+        new TomSelect('.ts-consulting_type', {
+            ...TS_SINGLE_CLEAR,
+            placeholder: 'Seleziona il tipo ...'
         });
 
-        let $dropdownFiscalData = $('.select2-end_of_assignment_not_available');
-        $dropdownFiscalData.select2({
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        new TomSelect('.ts-end_of_assignment_not_available', {
+            ...TS_SINGLE_PRESELECT,
+            onChange(value) {
+                if (value === '1') {
+                    document.getElementById("endDate").style.display = "none";
+                    document.getElementById("endTxt").style.display = "block";
+                } else if (value === '0') {
+                    document.getElementById("endTxt").style.display = "none";
+                    document.getElementById("endDate").style.display = "block";
+                }
+            }
         });
 
         // Tabella per la selezione della struttura
@@ -388,6 +436,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($assignment['structure']) ? implode(",", array_column($assignment['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -405,8 +455,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($assignment['structure']))
-        structure.patOsAjaxPagination.setValue('{{ $assignment['object_structures_id'] }}', '{{ htmlEscape($assignment['structure']['structure_name']).(!empty($assignment['structure']['parent_name'])?' - '.htmlEscape($assignment['structure']['parent_name']):'').(!empty($assignment['structure']['reference_email'])?' - '.$assignment['structure']['reference_email']:'') }}', true);
+        @if(!empty($assignment['structure']))
+        structure.patOsAjaxPagination.setValue('{{ $assignment['structure']['id'] }}', '{{ htmlEscape($assignment['structure']['structure_name']).(!empty($assignment['structure']['parent_name'])?' - '.htmlEscape($assignment['structure']['parent_name']):'').(!empty($assignment['structure']['reference_email'])?' - '.$assignment['structure']['reference_email']:'') }}', true);
         @endif
 
         // Tabella per la selezione dei Provvedimenti associati
@@ -441,21 +491,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @php
             $tmpStartDate = !empty($measure['date']) ? ' - '.date('d/m/Y', strtotime($measure['date'])) : null;
         @endphp
-        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).(!empty($measure['number'])?' - '.$measure['number']:'').''.$tmpStartDate }}', true);
+        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).(!empty($measure['number'])?' - '.htmlEscape($measure['number']):'').''.$tmpStartDate }}', true);
         @endforeach
         @endif
-
-        {{-- Begin gestione data fine non disponibile --}}
-        $('#input_end_of_assignment_not_available').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'Si') {
-                document.getElementById("endDate").style.display = "none";
-                document.getElementById("endTxt").style.display = "block";
-            } else if (data.text === 'No') {
-                document.getElementById("endTxt").style.display = "none";
-                document.getElementById("endDate").style.display = "block";
-            }
-        });
 
         @if(empty($assignment['end_of_assignment_not_available']) || $assignment['end_of_assignment_not_available'] === 0)
         document.getElementById("endTxt").style.display = "none";
@@ -472,8 +510,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_acts_extremes');
-        CKEDITOR.replace('input_contraent_procedure_type');
+        CKEDITOR.replace('input_acts_extremes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+        if (document.getElementById('input_contraent_procedure_type')) {
+            CKEDITOR.replace('input_contraent_procedure_type', {
+                customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+            });
+        }
+
+
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
             e.editor.on('change', function (event) {
@@ -553,11 +604,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         @if(empty($is_box))
         {{-- Messaggio di uscita senza salvare dal form --}}

@@ -8,9 +8,11 @@ namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Scope\InstitutionScope;
+
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -25,6 +27,7 @@ class CompanyModel extends Model
     protected $primaryKey = 'id';
 
     protected string $archiveName = 'company';
+    protected string $metaModel = 'MetaCompanyModel';
 
     protected string $objectName = 'Enti e società controllate';
     protected int $objectId = 6;
@@ -44,6 +47,7 @@ class CompanyModel extends Model
         'treatment_assignments',
         'website_url',
         'balance',
+        'notes',
         'inconferability_dec_link',
         'incompatibility_dec_link',
         'publishing_status',
@@ -54,6 +58,9 @@ class CompanyModel extends Model
         'archived_info',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -78,6 +85,14 @@ class CompanyModel extends Model
     ];
 
     /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
+    ];
+
+    /**
      * Campi di relazione su cui effettuare la ricerca
      * @var array[]
      */
@@ -92,18 +107,12 @@ class CompanyModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -113,7 +122,7 @@ class CompanyModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -134,6 +143,24 @@ class CompanyModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
+     */
+    public function meta()
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -173,5 +200,23 @@ class CompanyModel extends Model
         $representatives = $this->belongsToMany(PersonnelModel::class, 'rel_personnel_company', 'object_company_id', 'object_personnel_id')
             ->withTimestamps();
         return $representatives;
+    }
+
+    /**
+     * Scope locale per il filtraggio in front-office
+     * @param Builder  $query    Query
+     * @param int|null $archived Filtro
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        ?int    $archived
+    ): void
+    {
+        if ($archived) {
+            if ($applied === false) {
+                $query->whereRaw('1 = 0');
+            }
+        }
     }
 }

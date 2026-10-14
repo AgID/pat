@@ -46,8 +46,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -72,7 +71,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('25');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -102,7 +101,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('26');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -132,7 +131,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('27');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -163,7 +162,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('28');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -191,7 +190,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('29');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -211,7 +210,10 @@ class OpenDataRegulationsFrontController extends BaseFrontController
     private function getData($section = null): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        return RegulationsModel::with('proceedings:id,name')
+        return RegulationsModel::filter(
+            (Input::get('s', true)),
+        )
+            ->with('proceedings:id,name')
             ->with('structures:id,structure_name')
             ->with('attachs')
             ->when($section, function ($query, $section) {
@@ -220,8 +222,8 @@ class OpenDataRegulationsFrontController extends BaseFrontController
                 });
             })
             ->orderBy('order', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -236,10 +238,11 @@ class OpenDataRegulationsFrontController extends BaseFrontController
     {
 
         $fileName = 'Regolamenti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -302,7 +305,7 @@ class OpenDataRegulationsFrontController extends BaseFrontController
                 // Protocollo
                 !empty($r['protocol']) ? $r['protocol'] : null,
                 // Data emissione
-                !empty($r['issue_date']) ? date('d-m-Y', strtotime($r['issue_date'])) : null,
+                !empty($r['issue_date']) ? date('d/m/Y', strtotime($r['issue_date'])) : null,
                 // Strutture Correlati
                 trim($structuresList),
                 // Procedimenti

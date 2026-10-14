@@ -54,7 +54,7 @@ class DatatableValidator
             ->end();
 
         $this->validator->label('Ordine colonna')
-            ->value(!empty($order[0]['column']) ? $order[0]['column'] : null)
+            ->value($order[0]['column'] ?? null)
             ->required()
             ->isNatural()
             ->end();

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Helpers\S;
+use Helpers\Security\Acl;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\AlertValidator;
@@ -20,15 +21,17 @@ use Helpers\Validators\FosterValidator;
 use Helpers\Validators\LotValidator;
 use Helpers\Validators\NoticeLiquidationValidator;
 use Helpers\Validators\ResultValidator;
+use Helpers\Validators\VariationValidator;
 use Model\ContestsActsModel;
+use Model\PersonnelModel;
 use Model\SectionFoConfigPublicationArchive;
+use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -112,16 +115,9 @@ class ContestsActAdminController extends BaseAuthController
                 2 => 'type',
                 3 => 'cig',
                 4 => 'amount_liquidated',
-                5 => 'structure.structure_name',
                 6 => 'work_start_date',
-                8 => 'users.name',
                 9 => 'updated_at'
             ];
-
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[10] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -134,13 +130,15 @@ class ContestsActAdminController extends BaseAuthController
             $searchValue = $dataTable['searchValue'];
 
             // Results contest act
-            $queryCount = ContestsActsModel::search($searchValue);
-            $queryCount->select(['object_contests_acts.id as allcount'])
-                ->join('users', 'users.id', '=', 'object_contests_acts.owner_id', 'left outer');
+            $filter = Input::get('filter');
 
-            if (!empty($dataTable['searchValue'])) {
-                $queryCount->orWhere('object_contests_acts.id', '=', $dataTable['searchValue']);
+            $queryCount = ContestsActsModel::search($searchValue);
+            $queryCount->select(['object_contests_acts.id as allcount']);
+            // Inclusione di librerie esterne
+            if (!empty($dataTable['searchValue']) && ctype_digit($dataTable['searchValue'])) {
+                $queryCount->orWhere('object_contests_acts.id', '=', (int)$dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
 
             $totalRecordsWithFilter = $queryCount->count();
 
@@ -148,43 +146,45 @@ class ContestsActAdminController extends BaseAuthController
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object_contests_acts.object');
 
             // Results contest act
+            $selectFields = ['object_contests_acts.*'];
+
             $queryRecords = ContestsActsModel::search($searchValue);
-            $queryRecords->select('object_contests_acts.*', 'users.name', 'i.full_name_institution');
-            $queryRecords->join('users', 'users.id', '=', 'object_contests_acts.owner_id', 'left outer');
+            $queryRecords->select($selectFields);
+
+            if (!empty($dataTable['searchValue']) && ctype_digit($dataTable['searchValue'])) {
+                $queryRecords->orWhere('object_contests_acts.id', '=', (int)$dataTable['searchValue']);
+            }
+
             $queryRecords->with('awardees:id,name');
             $queryRecords->with('relative_procedure_awardees:id,name');
             $queryRecords->with('structure:id,structure_name,archived');
-//            $queryRecords->with('proceedings');
-            $queryRecords->with(['relative_notice' => function ($query) {
-                $query->select(['id', 'object', 'cig', 'contraent_choice', 'relative_notice_id', 'anac_year', 'adjudicator_name', 'adjudicator_data']);
-                $query->with('relative_lots:id,object,relative_notice_id,asta_base_value,cig');
-                $query->with('contraent_choice:id,name');
-            }]);
-            $queryRecords->with('contraent_choice:id,name');
-            $queryRecords->with(['created_by' => function ($query) {
-                $query->withoutGlobalScopes([DeletedScope::class]);
-                $query->select(['id', 'name', 'deleted']);
-            }]);
-            $queryRecords->with(['institution' => function ($query) {
-                $query->select(['id', 'full_name_institution']);
-            }]);
-            $queryRecords->with('relative_lots:id,relative_notice_id,object,cig,asta_base_value');
+            $queryRecords->with('all_attachs:id,archive_id');
+
+            $queryRecords->with([
+                'relative_notice' => function ($query) {
+                    $query->select(['id', 'object', 'cig', 'relative_notice_id']);
+                }
+            ]);
+
+            $queryRecords->with([
+                'created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }
+            ]);
+
+
+
+            $queryRecords->with('relative_lots:id,relative_notice_id,cig');
             $queryRecords->with('relative_liquidation:id,relative_procedure_id,amount_liquidated');
-            $queryRecords->with(['relative_procedure' => function ($query) {
-                $query->select(['relative_procedure_id', 'object_contests_acts.id', 'relative_notice_id', 'cig', 'object_structures_id']);
-                $query->with('relative_notice:id,cig');
-                $query->with('structure:id,structure_name,archived');
-            }]);
+            $queryRecords->with([
+                'relative_procedure' => function ($query) {
+                    $query->select(['relative_procedure_id', 'object_contests_acts.id', 'relative_notice_id', 'cig', 'object_structures_id']);
+                    $query->with('relative_notice:id,cig');
+                    $query->with('structure:id,structure_name,archived');
+                }
+            ]);
 
-            if (!empty($dataTable['searchValue'])) {
-                $queryRecords->orWhere('object_contests_acts.id', '=', $dataTable['searchValue']);
-            }
-
-            $queryRecords->join('institutions as i', 'object_contests_acts.institution_id', '=', 'i.id', 'left outer');
-            $queryRecords->leftJoin('object_structures as structure', function ($join) {
-                $join->on('structure.id', '=', 'object_contests_acts.object_structures_id');
-            });
-            $queryRecords->limit(100);
             $queryRecords->orderBy($order, $dataTable['columnSortOrder']);
             $queryRecords->offset($dataTable['start']);
             $queryRecords->limit($dataTable['rowPerPage']);
@@ -193,12 +193,18 @@ class ContestsActAdminController extends BaseAuthController
             $results = $queryRecords->get();
             $records = !empty($results) ? $results->toArray() : [];
 
-            $response ['draw'] = intval($dataTable['draw']);
-            $response ['iTotalRecords'] = ($totalRecords);
-            $response ['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
-            $response ['aaData'] = [];
+            $response['draw'] = intval($dataTable['draw']);
+            $response['iTotalRecords'] = ($totalRecords);
+            $response['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
+            $response['aaData'] = [];
+
+            $av = null;
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -206,22 +212,35 @@ class ContestsActAdminController extends BaseAuthController
                     if (!empty($record['awardees']) && is_array($record['awardees'])) {
 
                         $tmpSuppliers = Arr::pluck($record['awardees'], 'name');
-                        $awardees = str_replace(',', ',' . nbs(2), implode(',',
-                            array_map(
-                                function ($number) {
-                                    return ('<small class="badge badge-primary mb-1">' . escapeXss($number) . '</small>');
-                                }, $tmpSuppliers)));
-
+                        $awardees = str_replace(
+                            ',',
+                            ',' . nbs(2),
+                            implode(
+                                ',',
+                                array_map(
+                                    function ($number) {
+                                        return ('<small class="badge badge-primary mb-1">' . escapeXss($number) . '</small>');
+                                    },
+                                    $tmpSuppliers
+                                )
+                            )
+                        );
                     } elseif (!empty($record['relative_procedure_awardees']) && is_array($record['awardees'])) {
 
                         $tmpSuppliers = Arr::pluck($record['relative_procedure_awardees'], 'name');
-                        $awardees = str_replace(',', ',' . nbs(2), implode(',',
-                            array_map(
-                                function ($number) {
-                                    return ('<small class="badge badge-primary mb-1">' . escapeXss($number) . '</small>');
-                                }, $tmpSuppliers)));
-
-
+                        $awardees = str_replace(
+                            ',',
+                            ',' . nbs(2),
+                            implode(
+                                ',',
+                                array_map(
+                                    function ($number) {
+                                        return ('<small class="badge badge-primary mb-1">' . escapeXss($number) . '</small>');
+                                    },
+                                    $tmpSuppliers
+                                )
+                            )
+                        );
                     } else {
                         $awardees = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definiti">N.D.</small>';
                     }
@@ -259,35 +278,60 @@ class ContestsActAdminController extends BaseAuthController
                         $tmpCig = !empty($record['cig']) ? escapeXss($record['cig']) : null;
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $acPermits = true;
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     $tempTypology = $record['typology'];
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
-                    $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
-                        'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
-                        'scp' => getAclProfileInfo('scp'),
-                    ])
-                        ->addEdit('admin/contests-act/edit-' . $tempTypology . '/' . $record['id'], $record['id'])
-                        ->addDuplicate('admin/contests-act/duplicate-' . $tempTypology . '/' . $record['id'], $record['id'])
-                        ->addDelete('admin/contests-act/delete-' . $tempTypology . '/' . $record['id'], $record['id'])
-                        ->render() : '';
+                    if ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) {
+
+                        $btn = ButtonAction::create([
+                            'edit' => ($checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits) && $acPermits,
+                            'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                            'versioning' => getAclVersioning() && $record['typology'] != 'variation',
+                            'delete' => ($checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits) && $acPermits,
+                            'scp' => getAclProfileInfo('scp') && $workflowState == 'finale',
+                        ]);
+
+                        $btn->addEdit('admin/contests-act/edit-' . $tempTypology . '/' . $record['id'], $record['id'],'',true);
+                        $btn->addDuplicate('admin/contests-act/duplicate-' . $tempTypology . '/' . $record['id'], $record['id']);
+                        $btn->addCustomButton('b_a_v', siteUrl('admin/contests-act/versioning'), $record['id'], $record['typology'], $record['typology'], 'versioning');
+                        $btn->addCustomButton('b_a_scp', siteUrl('admin/contests-act/scp/'), $record['id'], $tempTypology, '', 'scp');
+                        if (!in_array($record['typology'], ['alert', 'liquidation', 'lot'])) {
+                            $btn->addCustomButton('btn_c_p_a', siteUrl('admin/measure/create?cpa=' . $record['id'] . '&t=2'), $record['id'], 1, 'fa-copy', 'edit');
+                        }
+                        $btn->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view');
+                        $btn->addCustomButton(
+                            's_no_app_io',
+                            '#!',
+                            $record['id'],
+                            'contest_act',
+                            'Invia notifica App IO',
+                            'view'
+                        );
+                        $btn->addDelete('admin/contests-act/delete-' . $tempTypology . '/' . $record['id'], $record['id']);
+                        $buttonAction = $btn->render();
+                    } else {
+                        $buttonAction = '';
+                    }
 
                     $icon = null;
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $checkbox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+                    $checkbox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) && $acPermits ? ButtonAction::checkList('item[]', $record['id']) : '';
+
                     $setTempData[] = $checkbox;
 
                     $setTempData[] = $icon . (!empty($record['object'])
-                            ? '<a href="' . siteUrl('/page/581/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
-                            : 'N.D.');
+                        ? '<a href="' . siteUrl('/page/581/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss(html_entity_decode($record['object'])) . '</a>'
+                        : 'N.D.');
                     $setTempData[] = !empty($record['type']) ? escapeXss($record['type']) : 'N.D.';
                     $setTempData[] = $tmpCig;
                     $setTempData[] = !empty($record['amount_liquidated'])
@@ -296,37 +340,34 @@ class ContestsActAdminController extends BaseAuthController
 
                     $structureName = '';
                     if (!empty($record['structure'])) {
-                        $structureName = escapeXss($record['structure']['structure_name']);
+                        $structureName = ($record['structure']['archived']
+                            ? '<i class="fas fa-folder" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato" style="color: #8E2558"></i> '
+                            : '') . escapeXss($record['structure']['structure_name']);
                     } elseif (!empty($record['relative_procedure']) && !empty($record['relative_procedure']['structure']) && $record['typology'] != 'foster') {
-                        $structureName = escapeXss($record['relative_procedure']['structure']['structure_name']);
+                        $structureName = ($record['relative_procedure']['structure']['archived']
+                            ? '<i class="fas fa-folder" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato" style="color: #8E2558"></i> '
+                            : '') . escapeXss($record['relative_procedure']['structure']['structure_name']);
                     }
+
 
                     $setTempData[] = $structureName;
                     $setTempData[] = $workStartDate;
                     $setTempData[] = $awardees;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
                 }
 
-                $response ['aaData'] = $data;
-
+                $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
-
+            jsonOut($response);
         }
-
     }
 
     /**
@@ -344,7 +385,7 @@ class ContestsActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contests-deliberation/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contests-deliberation/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -373,8 +414,10 @@ class ContestsActAdminController extends BaseAuthController
         //Recupero le sezioni per il "pubblica in"
         $data['publicIn'] = $this->setPublicInData($this->institutionTypeId, 'object_contest_acts_deliberation');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'deliberation';
 
         render('contests_act/form_store_deliberation', $data, 'admin');
     }
@@ -394,7 +437,7 @@ class ContestsActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contests-act/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contests-act/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -422,8 +465,8 @@ class ContestsActAdminController extends BaseAuthController
 
         // Anno anac
         $years = [null => 'Seleziona un anno'];
-        for ((int)$i = date('Y'); $i >= 2012; $i--) {
-            $years [$i] = $i;
+        for ((int) $i = date('Y'); $i >= 2012; $i--) {
+            $years[$i] = $i;
         }
 
         // Labels
@@ -434,8 +477,10 @@ class ContestsActAdminController extends BaseAuthController
         //Recupero le sezioni per il "pubblica in"
         $data['publicIn'] = $this->setPublicInData($this->institutionTypeId, 'object_contest_acts_notice');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'notice';
 
         render('contests_act/form_store_notice', $data, 'admin');
     }
@@ -474,8 +519,10 @@ class ContestsActAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'lot';
 
         render('contests_act/form_store_lot', $data, 'admin');
     }
@@ -495,7 +542,7 @@ class ContestsActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contests-result/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contests-result/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -524,8 +571,10 @@ class ContestsActAdminController extends BaseAuthController
         //Recupero le sezioni per il "pubblica in"
         $data['publicIn'] = $this->setPublicInData($this->institutionTypeId, 'object_contest_acts_result');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'result';
 
         render('contests_act/form_store_result', $data, 'admin');
     }
@@ -545,7 +594,7 @@ class ContestsActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contests-alert/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contests-alert/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -574,8 +623,10 @@ class ContestsActAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'alert';
 
         render('contests_act/form_store_alert', $data, 'admin');
     }
@@ -595,7 +646,7 @@ class ContestsActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contests-foster/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contests-foster/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -619,8 +670,8 @@ class ContestsActAdminController extends BaseAuthController
 
         // Anno anac
         $years = [null => 'Seleziona un anno'];
-        for ((int)$i = date('Y'); $i >= 2012; $i--) {
-            $years [$i] = $i;
+        for ((int) $i = date('Y'); $i >= 2012; $i--) {
+            $years[$i] = $i;
         }
 
         $data['years'] = $years;
@@ -632,8 +683,10 @@ class ContestsActAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'foster';
 
         render('contests_act/form_store_foster', $data, 'admin');
     }
@@ -647,13 +700,16 @@ class ContestsActAdminController extends BaseAuthController
      */
     public function createLiquidation(): void
     {
+        $data = [];
+
+        $this->acl = new Acl('ContestsActAdminController');
+
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('create');
 
         $this->breadcrumb->push('Liquidazione', 'admin/contests-act');
         $this->breadcrumb->push('Nuova', '/');
 
-        $data = [];
         $data['breadcrumbs'] = $this->breadcrumb->show();
 
         //Dati header della sezione
@@ -671,19 +727,65 @@ class ContestsActAdminController extends BaseAuthController
 
         // Anno anac
         $years = [null => 'Seleziona un anno'];
-        for ((int)$i = date('Y'); $i >= 2012; $i--) {
-            $years [$i] = $i;
+        for ((int) $i = date('Y'); $i >= 2012; $i--) {
+            $years[$i] = $i;
         }
         $data['years'] = $years;
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        $data['notice']['typology'] = 'liquidation';
 
         render('contests_act/form_store_liquidation', $data, 'admin');
     }
+
+    public function createVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute('create');
+
+        $data = [];
+
+        //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
+        $data['is_box'] = false; //uri()->uriString() === 'admin/contest-act/create-variation-box';
+
+        //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
+        if (!$data['is_box']) {
+
+            $data['breadcrumbs'] = $this->breadcrumb->show();
+            $this->breadcrumb->push('Variante', 'admin/contests-act');
+            $this->breadcrumb->push('Nuovo variante', '/');
+
+            //Dati header della sezione
+            $data['titleSection'] = 'Bandi Gare e Contratti';
+            $data['subTitleSection'] = 'GESTIONE DELLE PUBBLICAZIONI DEI BANDI, GARE E CONTRATTI';
+            $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
+        }
+
+        //Setto dati del form
+        $data['formAction'] = '/admin/contests-act/store-variation';
+        $data['formSettings'] = [
+            'name' => 'form_contest_act_variation',
+            'id' => 'form_contest_act_variation',
+            'class' => 'form_contest_act_variation',
+        ];
+        $data['_storageType'] = 'insert';
+
+        // Labels
+        $data['labels'] = [];
+
+        $data['labels'] = !empty($data['labels']) ? array_filter($data['labels'], fn($item) => $item['typology'] == 'variation') : null;
+
+        // ID dell'ente corrente.
+        $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+        render('contests_act/form_store_variation', $data, 'admin');
+    }
+
 
     /**
      * @description Funzione che effettua lo storage di una nuova Delibera
@@ -695,8 +797,9 @@ class ContestsActAdminController extends BaseAuthController
      */
     public function storeDeliberation(): void
     {
+
         //Setto il metodo della rotta
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -711,7 +814,6 @@ class ContestsActAdminController extends BaseAuthController
             $checkCig = $this->checkCig(array(strip_tags(Input::post('cig', true))));
             if (!empty($checkCig) && empty(Input::post('__ignore_cig', true))) {
                 $json->set('cigs', $checkCig);
-
             } else {
                 $doAction = true;
                 $attach = new AttachmentArchive();
@@ -735,7 +837,7 @@ class ContestsActAdminController extends BaseAuthController
                         'type' => 'Determina a contrarre o atto equivalente',
                         'typology' => 'deliberation',
                         'object' => strip_tags(Input::post('object', true)),
-                        'cig' => strip_tags(Input::post('cig', true)),
+                        'cig' => strtoupper(strip_tags(Input::post('cig', true))),
                         'act_date' => !empty(Input::post('act_date')) ? convertDateToDatabase(strip_tags(Input::post('act_date', true))) : null,
                         'activation_date' => !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date', true)) : null,
                         'object_structures_id' => setDefaultData(strip_tags(Input::post('object_structures_id', true)), null, ['']),
@@ -753,29 +855,24 @@ class ContestsActAdminController extends BaseAuthController
                         $insert,
                         null,
                         null,
-                        !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                        !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                         Input::post('public_in', true),
                     );
 
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                     $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Determina '));
                 }
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -789,7 +886,7 @@ class ContestsActAdminController extends BaseAuthController
     public function storeNotice(): void
     {
         //Setto il metodo della rotta
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -805,7 +902,6 @@ class ContestsActAdminController extends BaseAuthController
 
             if (!empty($checkCig) && empty(Input::post('__ignore_cig', true))) {
                 $json->set('cigs', $checkCig);
-
             } else {
 
                 $doAction = true;
@@ -861,9 +957,10 @@ class ContestsActAdminController extends BaseAuthController
                         'url_scp' => strip_tags(Input::post('url_scp', true)),
                         'details' => Input::post('details', true),
                         'is_multicig' => $isMulticig,
-                        'cig' => ($isMulticig) ? null : strip_tags(escapeXss($cig[0])),
+                        'cig' => ($isMulticig) ? null : strtoupper(strip_tags(escapeXss($cig[0]))),
                         'asta_base_value' => ($isMulticig) ? null : toFloat(strip_tags($astaBaseValue[0])),
                         'sector' => setDefaultData(strip_tags(Input::post('sector', true)), null, ['', null, 0]),
+                        'bdncp_link' => !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags(Input::post('bdncp_link', true)), null, ['']) : null
                     ];
 
                     // Storage nuovo Bando di gara
@@ -873,20 +970,21 @@ class ContestsActAdminController extends BaseAuthController
                     if ($isMulticig && (count(Input::post('cig', true)) > 1)) {
                         $i = 0;
                         foreach (Input::post('cig', true) as $cig) {
-                            // Inserisco i lotti associati al bando di gara
-                            ContestsActsModel::createWithLogs([
-                                'relative_notice_id' => $insert->id,
-                                'type' => 'Lotto',
-                                'typology' => 'lot',
-                                'object' => $insert->object,
-                                'cig' => strip_tags(escapeXss($cig)),
-                                'asta_base_value' => toFloat(strip_tags($_POST['asta_base_value'][$i++])),
-                                'activation_date' => $insert->activation_date,
-                                'institution_id' => $insert->institution_id,
-                                'owner_id' => $getIdentity['id'],
-                                'created_at' => date('Y-m-d H:i:s'),
-                                'updated_at' => date('Y-m-d H:i:s')
-                            ]);
+                            $tmpLink =
+                                // Inserisco i lotti associati al bando di gara
+                                ContestsActsModel::createWithLogs([
+                                    'relative_notice_id' => $insert->id,
+                                    'type' => 'Lotto',
+                                    'typology' => 'lot',
+                                    'object' => $insert->object,
+                                    'cig' => strtoupper(strip_tags(escapeXss($cig))),
+                                    'asta_base_value' => toFloat(strip_tags($_POST['asta_base_value'][$i++])),
+                                    'activation_date' => $insert->activation_date,
+                                    'institution_id' => $insert->institution_id,
+                                    'owner_id' => $getIdentity['id'],
+                                    'created_at' => date('Y-m-d H:i:s'),
+                                    'updated_at' => date('Y-m-d H:i:s'),
+                                ]);
                         }
                     }
 
@@ -895,7 +993,7 @@ class ContestsActAdminController extends BaseAuthController
                         $insert,
                         null,
                         null,
-                        !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                        !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                         Input::post('public_in', true),
                         Input::post('requirements', true)
                     );
@@ -903,25 +1001,17 @@ class ContestsActAdminController extends BaseAuthController
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-                    if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                        // Generazione nuovo token
-                        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                    }
-
                     $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Bando di gara '));
                 }
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -935,7 +1025,7 @@ class ContestsActAdminController extends BaseAuthController
     public function storeLot(): void
     {
         //Setto il metodo della rotta
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -950,7 +1040,6 @@ class ContestsActAdminController extends BaseAuthController
             $checkCig = $this->checkCig(array(strip_tags(Input::post('cig', true))));
             if (!empty($checkCig) && empty(Input::post('__ignore_cig', true))) {
                 $json->set('cigs', $checkCig);
-
             } else {
                 $doAction = true;
 
@@ -983,9 +1072,10 @@ class ContestsActAdminController extends BaseAuthController
                         'typology' => 'lot',
                         'relative_notice_id' => setDefaultData(strip_tags(Input::post('relative_notice_id', true)), null, ['']),
                         'object' => strip_tags(Input::post('object', true)),
-                        'cig' => strip_tags(Input::post('cig', true)),
+                        'cig' => strtoupper(strip_tags(Input::post('cig', true))),
                         'asta_base_value' => !empty(Input::post('asta_base_value')) ? toFloat(strip_tags(Input::post('asta_base_value', true))) : null,
-                        'activation_date' => $relativeNotice['activation_date']
+                        'activation_date' => $relativeNotice['activation_date'],
+                        'bdncp_link' => !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags(Input::post('bdncp_link', true)), null, ['']) : null
                     ];
 
                     // Storage nuovo Lotto
@@ -994,8 +1084,6 @@ class ContestsActAdminController extends BaseAuthController
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'contest_acts', $insert->id, $insert->relative_notice['object']);
 
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                     $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Lotto '));
                 }
             }
@@ -1020,7 +1108,7 @@ class ContestsActAdminController extends BaseAuthController
     {
 
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -1073,30 +1161,25 @@ class ContestsActAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $insert,
-                    !empty(Input::post('participants')) ? explode(',', strip_tags((string)Input::post('participants', true))) : null,
-                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string)Input::post('awardees', true))) : null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('participants')) ? explode(',', strip_tags((string) Input::post('participants', true))) : null,
+                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string) Input::post('awardees', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true),
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Esito di gara '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -1155,7 +1238,7 @@ class ContestsActAdminController extends BaseAuthController
                     'expiration_date' => !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date', true))) : null,
                     'object_personnel_id' => setDefaultData(strip_tags(Input::post('object_personnel_id', true)), null, ['', null, 0]),
                     'details' => Input::post('details', true),
-                    'cig' => (!empty($cig)) ? $cig : null,
+                    'cig' => (!empty($cig)) ? strtoupper($cig) : null,
                     'adjudicator_data' => (!empty(Input::post('adjudicator_data', true))) ? strip_tags(Input::post('adjudicator_data', true)) : null,
                     'sector' => setDefaultData(strip_tags(Input::post('sector', true)), null, ['', null, 0]),
                 ];
@@ -1168,28 +1251,23 @@ class ContestsActAdminController extends BaseAuthController
                     $insert,
                     null,
                     null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true)
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Avviso '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -1203,7 +1281,7 @@ class ContestsActAdminController extends BaseAuthController
     public function storeFoster(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -1218,7 +1296,6 @@ class ContestsActAdminController extends BaseAuthController
             $checkCig = $this->checkCig(array(strip_tags(Input::post('cig', true))));
             if (!empty($checkCig) && empty(Input::post('__ignore_cig', true))) {
                 $json->set('cigs', $checkCig);
-
             } else {
                 $doAction = true;
 
@@ -1246,12 +1323,13 @@ class ContestsActAdminController extends BaseAuthController
                         'object' => strip_tags(Input::post('object', true)),
                         'relative_procedure_id' => setDefaultData(strip_tags(Input::post('relative_procedure_id', true)), null, ['', null]),
                         'object_measure_id' => setDefaultData(strip_tags(Input::post('object_measure_id', true)), null, ['', null]),
-                        'cig' => strip_tags(Input::post('cig', true)),
+                        'cig' => strtoupper(strip_tags(Input::post('cig', true))),
                         'no_amount' => strip_tags(Input::post('no_amount', true)),
                         'asta_base_value' => !empty(Input::post('asta_base_value')) ? toFloat(strip_tags(Input::post('asta_base_value', true))) : null,
                         'award_amount_value' => !empty(Input::post('award_amount_value')) ? toFloat(strip_tags(Input::post('award_amount_value', true))) : null,
                         'contraent_choice' => setDefaultData(strip_tags(Input::post('contraent_choice', true)), null, ['']),
-                        'contract' => !empty(Input::post('contract')) ? (int)Input::post('contract', true) : null, //Attenzione
+                        'contract' => !empty(Input::post('contract')) ? (int) Input::post('contract', true) : null,
+                        //Attenzione
                         'adjudicator_name' => strip_tags(Input::post('adjudicator_name', true)),
                         'adjudicator_data' => strip_tags(Input::post('adjudicator_data', true)),
                         'administration_type' => setDefaultData(strip_tags(Input::post('administration_type', true))),
@@ -1277,6 +1355,7 @@ class ContestsActAdminController extends BaseAuthController
                         'details' => Input::post('details', true),
                         'decree_163' => setDefaultData(strip_tags(Input::post('decree_163', true)), 0, ['', null]),
                         'sector' => setDefaultData(strip_tags(Input::post('sector', true)), null, ['', null, 0]),
+                        'bdncp_link' => !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags(Input::post('bdncp_link', true)), null, ['']) : null
                     ];
 
                     // Storage nuovo Esito/Affidamento
@@ -1285,8 +1364,8 @@ class ContestsActAdminController extends BaseAuthController
                     // Svuoto le tabelle di relazione e le aggiorno
                     $this->clear(
                         $insert,
-                        !empty(Input::post('participants')) ? explode(',', strip_tags((string)Input::post('participants', true))) : null,
-                        !empty(Input::post('awardees')) ? explode(',', strip_tags((string)Input::post('awardees', true))) : null,
+                        !empty(Input::post('participants')) ? explode(',', strip_tags((string) Input::post('participants', true))) : null,
+                        !empty(Input::post('awardees')) ? explode(',', strip_tags((string) Input::post('awardees', true))) : null,
                         null,
                         Input::post('public_in', true),
                         Input::post('requirements', true),
@@ -1295,23 +1374,17 @@ class ContestsActAdminController extends BaseAuthController
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                     $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Esito/Affidamento '));
                 }
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -1325,7 +1398,7 @@ class ContestsActAdminController extends BaseAuthController
     public function storeLiquidation(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -1371,21 +1444,93 @@ class ContestsActAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Liquidazione '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
+    }
 
+
+
+
+    /**
+     * @description Funzione che effettua lo storage di un nuova variazione
+     *
+     * @return void
+     * @throws Exception
+     * @url /admin/contests-act/store-variation.html
+     * @method POST
+     */
+    public function storeVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute('create', true);
+
+        $json = new JsonResponse();
+        $code = $json->success();
+
+        // Validatore form
+        $validator = new VariationValidator();
+        $check = $validator->check();
+
+        if ($check['is_success']) {
+            $doAction = true;
+
+            $attach = new AttachmentArchive();
+            $attachValidator = $attach->validate('attach_files');
+
+            // Validatore per gli eventuali allegati
+            // Se la validazione non va a buon fine setto il messaggio di errore e non eseguo lo storage dell'oggetto
+            if (!empty($attachValidator['error'])) {
+                $doAction = false;
+                $code = $json->bad();
+                $json->set('error_partial_attach', $attach->errorsToString());
+            }
+
+            // Se la validazione degli allegati va a buon fine eseguo lo storage dell'oggetto
+            if ($doAction) {
+                $getIdentity = authPatOs()->getIdentity(['id', 'name']);
+
+                $arrayValues = [
+                    'owner_id' => $getIdentity['id'],
+                    'institution_id' => checkAlternativeInstitutionId(),
+                    'type' => "Variante in corso d'opera",
+                    'typology' => 'variation',
+                    'object' => strip_tags(Input::post('object', true)),
+                    'activation_date' => !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date', true)) : null,
+                    'details' => Input::post('details', true),
+                ];
+
+                // Storage nuovo Avviso
+                $insert = ContestsActsModel::createWithLogs($arrayValues);
+
+                // Svuoto le tabelle di relazione e le aggiorno
+                $this->clear(
+                    $insert,
+                    null,
+                    null,
+                    explode(",", strip_tags((string) Input::post('object_contests_acts_id', true)))
+                );
+
+                // Storage allegati associati al personale.
+                $attach->storage('attach_files', 'contest_acts', $insert->id, $insert['object']);
+
+                $json->set('message', sprintf(__('success_save_operation', null, 'patos'), 'Avviso '));
+            }
+        } else {
+
+            $code = $json->bad();
+            $json->error('error', $check['errors']);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
     }
 
     /**
@@ -1409,7 +1554,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -1471,12 +1615,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $deliberation['institution_id'];
 
         //Recupero le sezioni per il "pubblica in"
@@ -1485,7 +1630,7 @@ class ContestsActAdminController extends BaseAuthController
 
         $data['procedureIds'] = Arr::pluck($deliberation['proceedings'], 'id');
         $deliberation['act_date'] = $actDate['date'];
-        $deliberation['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];
+        $deliberation['activation_date'] = $activationDate['date'] . ' ' . $activationDate['hours'];
 
         $data['deliberation'] = $deliberation;
 
@@ -1516,7 +1661,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -1529,11 +1673,11 @@ class ContestsActAdminController extends BaseAuthController
         // Somma delle somme liquidate per il bando di gara
         $astaValueSum = collect(Arr::pluck($notice['relative_lots'], 'asta_base_value'))
             ->map(function ($items) {
-                return (float)S::currency($items, 2, null, null, false);
+                return (float) S::currency($items, 2, null, null, false);
             })->sum();
 
         $astaValueSum = ($astaValueSum > 0) ? $astaValueSum : $notice['asta_base_value'];
-        $astaValueSum = S::currency((string)$astaValueSum, 2, ',', '.');
+        $astaValueSum = S::currency((string) $astaValueSum, 2, ',', '.');
 
         $this->breadcrumb->push('Bando di gara', 'admin/contests-act');
         $this->breadcrumb->push('Modifica', '/');
@@ -1571,8 +1715,10 @@ class ContestsActAdminController extends BaseAuthController
         $activationDate = convertDateToForm($notice['activation_date']);
         $expirationDate = convertDateToForm($notice['expiration_date']);
 
-        $notice['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];
+        $notice['activation_date'] = $activationDate['date'] . ' ' . $activationDate['hours'];
         $notice['expiration_date'] = $expirationDate['date'];
+
+        $notice['act_date'] = $actDate['date'];
 
         $data['notice'] = $notice;
 
@@ -1595,20 +1741,21 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $notice['institution_id'];
 
         $data['provinceShort'] = [null => 'Seleziona'] + config('province_short', null, 'locations');
 
         // Anno anac
         $years = [null => 'Seleziona un anno'];
-        for ((int)$i = date('Y'); $i >= 2012; $i--) {
-            $years [$i] = $i;
+        for ((int) $i = date('Y'); $i >= 2012; $i--) {
+            $years[$i] = $i;
         }
 
         //Recupero le sezioni per il "pubblica in"
@@ -1618,7 +1765,6 @@ class ContestsActAdminController extends BaseAuthController
         $data['anacYears'] = $years;
         $data['requirementIds'] = Arr::pluck($notice['requirements'], 'id');
         $data['procedureIds'] = Arr::pluck($notice['proceedings'], 'id');
-        $data['act_date'] = $actDate['date'];
         $data['guue_date'] = $guueDate['date'];
         $data['guri_date'] = $guriDate['date'];
         $data['astaValueSum'] = $astaValueSum;
@@ -1626,7 +1772,6 @@ class ContestsActAdminController extends BaseAuthController
         $data['seo'] = $notice['p_s_d_r'] ?? null;
 
         render('contests_act/form_store_notice', $data, 'admin');
-
     }
 
     /**
@@ -1651,7 +1796,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -1712,12 +1856,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $lot['institution_id'];
         $data['seo'] = $lot['p_s_d_r'] ?? null;
 
@@ -1745,7 +1890,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -1814,12 +1958,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $result['institution_id'];
 
         //Recupero le sezioni per il "pubblica in"
@@ -1833,7 +1978,7 @@ class ContestsActAdminController extends BaseAuthController
         $data['act_date'] = $actDate['date'];
         $data['guue_date'] = $guueDate['date'];
         $data['guri_date'] = $guriDate['date'];
-        $data['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];;
+        $data['activation_date'] = $activationDate['date'] . ' ' . $activationDate['hours'];
         $data['work_start_date'] = $workStartDate['date'];
         $data['work_end_date'] = $workEndDate['date'];
         $data['contracting_stations_publication_date'] = $contStatPublicationDate['date'];
@@ -1864,7 +2009,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -1927,12 +2071,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $alert['institution_id'];
 
         //Recupero le sezioni per il "pubblica in"
@@ -1941,7 +2086,8 @@ class ContestsActAdminController extends BaseAuthController
 
         $data['procedureIds'] = Arr::pluck($alert['proceedings'], 'id');
         $alert['act_date'] = $actDate['date'];
-        $alert['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];;
+        $alert['activation_date'] = $activationDate['date'] . ' ' . $activationDate['hours'];
+
         $alert['expiration_date'] = $expirationDate['date'];
 
         $data['alert'] = $alert;
@@ -1950,7 +2096,6 @@ class ContestsActAdminController extends BaseAuthController
         $data['seo'] = $alert['p_s_d_r'] ?? null;
 
         render('contests_act/form_store_alert', $data, 'admin');
-
     }
 
     /**
@@ -1974,7 +2119,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -2043,12 +2187,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $foster['institution_id'];
 
         //Recupero le sezioni per il "pubblica in"
@@ -2073,7 +2218,8 @@ class ContestsActAdminController extends BaseAuthController
         $data['guue_date'] = $guueDate['date'];
         $data['guri_date'] = $guriDate['date'];
         $data['contracting_stations_publication_date'] = $contractingStationsDate['date'];
-        $foster['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];;
+        $foster['activation_date'] = $activationDate['date'] . ' ' . $activationDate['hours'];
+
         $data['work_start_date'] = $workStartDate['date'];
         $data['work_end_date'] = $workEndDate['date'];
         $data['scp'] = $foster['scp'] ?? null;
@@ -2103,7 +2249,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -2164,12 +2309,13 @@ class ContestsActAdminController extends BaseAuthController
                 'active',
                 'created_at',
                 'updated_at'
-            ]);
+            ]
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $liquidation['institution_id'];
 
         $startYear = 2013;
@@ -2186,7 +2332,104 @@ class ContestsActAdminController extends BaseAuthController
         $data['seo'] = $liquidation['p_s_d_r'] ?? null;
 
         render('contests_act/form_store_liquidation', $data, 'admin');
+    }
 
+
+    /**
+     * @description Renderizza il form di modifica/duplicazione di una variante
+     * @return void
+     * @noinspection PhpVoidFunctionResultUsedInspection
+     * @throws Exception
+     * @url /admin/contests-act/edit-variation/:id.html
+     * @method GET
+     */
+    public function editVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute(['update', 'create']);
+
+        //Validatore che verifica se l'elemento da modificare esiste
+        $validator = new VariationValidator();
+        $validate = $validator->validateUriSegmentId(!$this->acl->getUpdate());
+
+        if (!$validate['is_success']) {
+
+            redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
+            exit();
+        }
+
+        // Allegati
+        $attach = new AttachmentArchive();
+
+        // Se la validazione va a buon fine recupero l'elemento da modificare dal registro
+        $variation = Registry::get('variation');
+        $variation = !empty($variation) ? $variation->toArray() : [];
+
+        $this->breadcrumb->push('Variante', 'admin/contests-act');
+        $this->breadcrumb->push('Modifica', '/');
+
+        $data = [];
+        $data['breadcrumbs'] = $this->breadcrumb->show();
+
+        //Dati header della sezione
+        $data['titleSection'] = 'Bandi Gare e Contratti';
+        $data['subTitleSection'] = 'GESTIONE DELLE PUBBLICAZIONI DEI BANDI, GARE E CONTRATTI';
+        $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
+
+        // Vedo in sessione se sono arrivato qui da un operazione di ripristino dal versioning
+        $session = new Session();
+        $restore = $session->getFlash('restore');
+        $data['restore'] = $restore;
+
+        // Controllo se si sta duplicando un tasso di assenza
+        $isDuplicate = uri()->segment(3, 0) === 'duplicate-variation';
+
+        // Setto il tipo di storage
+        $data['_storageType'] = $isDuplicate ? 'duplicate' : 'update';
+
+        //In base al tipo di storage setto l'action del form
+        $data['formAction'] = ($isDuplicate) ? '/admin/contests-act/store-variation' : '/admin/contests-act/update-variation';
+        $data['formSettings'] = [
+            'name' => 'form_variation',
+            'id' => 'form_variation',
+            'class' => 'form_variation',
+        ];
+
+        $activationDate = convertDateToForm($variation['activation_date']);
+        $variation['activation_date'] = $activationDate['date'];
+
+        // Lista degli allegati
+        $data['listAttach'] = $attach->getAllByObject(
+            'contest_acts',
+            $variation['id'],
+            [
+                'id',
+                'cat_id',
+                'archive_name',
+                'archive_id',
+                'client_name',
+                'file_name',
+                'file_type',
+                'file_size',
+                'file_ext',
+                'label',
+                'indexable',
+                'active',
+                'created_at',
+                'updated_at'
+            ]
+        );
+
+        // Labels
+        $data['labels'] = [];
+        $data['labels'] = !empty($data['labels']) ? array_filter($data['labels'], fn($item) => $item['typology'] == 'variation') : null;
+
+        // ID dell'ente corrente.
+        $data['institution_id'] = $variation['institution_id'];
+        $data['procedureIds'] = Arr::pluck($variation['proceedings'], 'id');
+        $data['variation'] = $variation;
+
+        render('contests_act/form_store_variation', $data, 'admin');
     }
 
 
@@ -2210,7 +2453,7 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $deliberationId = (int)strip_tags(Input::post('id'));
+            $deliberationId = (int) strip_tags(Input::post('id'));
 
             // Recupero la delibera attuale prima di modificarla e la salvo nel versioning
             $deliberation = ContestsActsModel::where('typology', 'deliberation')
@@ -2219,15 +2462,18 @@ class ContestsActAdminController extends BaseAuthController
                 ->with('structure:id,structure_name')
                 ->with('rup:id,full_name')
                 ->with('relative_measure:id,object')
-                ->with(['public_in' => function ($query) {
-                    $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                }])
-                ->with('all_attachs')
-                ->first();
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
+                    }
+                ])
+                ->with('all_attachs');
+
+            $deliberation = $deliberation->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($deliberation['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($deliberation['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2262,7 +2508,7 @@ class ContestsActAdminController extends BaseAuthController
                     $deliberation,
                     null,
                     null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true)
                 );
 
@@ -2275,16 +2521,15 @@ class ContestsActAdminController extends BaseAuthController
                     $deliberation['object']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Determina '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
@@ -2311,7 +2556,7 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $noticeId = (int)strip_tags(Input::post('id', true));
+            $noticeId = (int) strip_tags(Input::post('id', true));
 
             // Recupero il bando di gara attuale prima di modificarlo e lo salvo nel versioning
             $notice = ContestsActsModel::where('typology', 'notice')
@@ -2322,15 +2567,18 @@ class ContestsActAdminController extends BaseAuthController
                 ->with('rup:id,full_name')
                 ->with('requirements:id,code,denomination')
                 ->with('relative_measure:id,object')
-                ->with(['public_in' => function ($query) {
-                    $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                }])
-                ->with('all_attachs')
-                ->first();
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
+                    }
+                ])
+                ->with('all_attachs');
+
+            $notice = $notice->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($notice->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($notice->owner_id) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2378,6 +2626,7 @@ class ContestsActAdminController extends BaseAuthController
                 $data['details'] = Input::post('details', true);
                 $data['cig'] = ($isMulticig) ? null : strip_tags(escapeXss(Input::post('cig_code')[0]));
                 $data['sector'] = setDefaultData(strip_tags(Input::post('sector', true)), null, ['', null]);
+                $data['bdncp_link'] = !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags(Input::post('bdncp_link', true)), null, ['']) : null;
 
                 // Update Bando di gara
                 ContestsActsModel::where('id', $noticeId)->updateWithLogs($notice, $data);
@@ -2395,7 +2644,7 @@ class ContestsActAdminController extends BaseAuthController
                     $notice,
                     null,
                     null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true),
                     Input::post('requirements', true),
                 );
@@ -2409,21 +2658,16 @@ class ContestsActAdminController extends BaseAuthController
                     $notice['object'],
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Bando di gara '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -2446,28 +2690,33 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $lotId = (int)strip_tags(Input::post('id', true));
+            $lotId = (int) strip_tags(Input::post('id', true));
 
             // Recupero il bando associato al lotto
             $relativeNotice = ContestsActsModel::select(['id', 'activation_date'])
-                ->where('id', (int)strip_tags(Input::post('relative_notice_id', true)))
+                ->where('id', (int) strip_tags(Input::post('relative_notice_id', true)))
                 ->where('typology', 'notice')
                 ->first();
 
             // Recupero il lotto attuale prima di modificarlo e lo salvo nel versioning
             $lot = ContestsActsModel::where('typology', 'lot')
                 ->where('id', $lotId)
-                ->with(['relative_notice' => function ($query) {
-                    $query->select(['object_contests_acts.id', 'object', 'cig', 'activation_date', 'adjudicator_name', 'adjudicator_data', 'contraent_choice']);
-                    $query->with(['contraent' => function ($query) {
-                        $query->select(['id', 'name']);
-                    }]);
-                }])
-                ->with('all_attachs')
-                ->first();
+                ->with([
+                    'relative_notice' => function ($query) {
+                        $query->select(['object_contests_acts.id', 'object', 'cig', 'activation_date', 'adjudicator_name', 'adjudicator_data', 'contraent_choice']);
+                        $query->with([
+                            'contraent' => function ($query) {
+                                $query->select(['id', 'name']);
+                            }
+                        ]);
+                    }
+                ])
+                ->with('all_attachs');
+
+            $lot = $lot->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($lot->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($lot->owner_id) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2489,6 +2738,7 @@ class ContestsActAdminController extends BaseAuthController
                 $data['object'] = strip_tags(Input::post('object', true));
                 $data['cig'] = trim(strip_tags(Input::post('cig', true)));
                 $data['asta_base_value'] = !empty(Input::post('asta_base_value')) ? toFloat(strip_tags(Input::post('asta_base_value', true))) : null;
+                $data['bdncp_link'] = !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags(Input::post('bdncp_link', true)), null, ['']) : null;
 
                 // Update Lotto
                 ContestsActsModel::where('id', $lotId)->updateWithLogs($lot, $data);
@@ -2502,21 +2752,16 @@ class ContestsActAdminController extends BaseAuthController
                     $lot['object']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Lotto '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -2539,7 +2784,7 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $resultId = (int)strip_tags(Input::post('id', true));
+            $resultId = (int) strip_tags(Input::post('id', true));
 
             // Recupero l'esito di gara attuale prima di modificarlo e lo salvo nel versioning
             $result = ContestsActsModel::where('typology', 'result')
@@ -2548,24 +2793,42 @@ class ContestsActAdminController extends BaseAuthController
                 ->with('participants:id,name')
                 ->with('awardees:id,name')
                 ->with('relative_liquidation:relative_procedure_id,id,amount_liquidated,typology,type,object,anac_year')
-                ->with(['relative_notice' => function ($query) {
-                    $query->select(['object_contests_acts.id', 'object', 'cig', 'activation_date', 'anac_year', 'adjudicator_name',
-                        'contraent_choice', 'adjudicator_data', 'relative_notice_id', 'typology', 'object_structures.structure_name as structure_name'])
-                        ->with(['contraent' => function ($query) {
-                            $query->select(['id', 'name']);
-                        }])
-                        ->join('object_structures', 'object_structures.id', '=', 'object_contests_acts.object_structures_id', 'left outer');
-                }])
-                ->with(['public_in' => function ($query) {
-                    $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                }])
+                ->with([
+                    'relative_notice' => function ($query) {
+                        $query->select([
+                            'object_contests_acts.id',
+                            'object',
+                            'cig',
+                            'activation_date',
+                            'anac_year',
+                            'adjudicator_name',
+                            'contraent_choice',
+                            'adjudicator_data',
+                            'relative_notice_id',
+                            'typology',
+                            'object_structures.structure_name as structure_name'
+                        ])
+                            ->with([
+                                'contraent' => function ($query) {
+                                    $query->select(['id', 'name']);
+                                }
+                            ])
+                            ->join('object_structures', 'object_structures.id', '=', 'object_contests_acts.object_structures_id', 'left outer');
+                    }
+                ])
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
+                    }
+                ])
                 ->with('relative_measure:id,object')
-                ->with('all_attachs')
-                ->first();
+                ->with('all_attachs');
+
+            $result = $result->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($result->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($result->owner_id) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2603,9 +2866,9 @@ class ContestsActAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $result,
-                    !empty(Input::post('participants')) ? explode(',', strip_tags((string)Input::post('participants', true))) : null,
-                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string)Input::post('awardees', true))) : null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('participants')) ? explode(',', strip_tags((string) Input::post('participants', true))) : null,
+                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string) Input::post('awardees', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true)
                 );
 
@@ -2618,21 +2881,16 @@ class ContestsActAdminController extends BaseAuthController
                     $result['object']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Esito di gara '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -2655,7 +2913,7 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $alertId = (int)strip_tags(Input::post('id', true));
+            $alertId = (int) strip_tags(Input::post('id', true));
 
             // Recupero l'avviso attuale prima di modificarlo e lo salvo nel versioning
             $alert = ContestsActsModel::where('typology', 'alert')
@@ -2663,22 +2921,29 @@ class ContestsActAdminController extends BaseAuthController
                 ->with('proceedings:id,object')
                 ->with('structure:id,structure_name')
                 ->with('rup:id,full_name')
-                ->with(['relative_notice' => function ($query) {
-                    $query->select(['object_contests_acts.id', 'object', 'cig', 'activation_date', 'adjudicator_name', 'adjudicator_data', 'contraent_choice']);
-                    $query->with(['contraent' => function ($query) {
-                        $query->select(['id', 'name']);
-                    }]);
-                }])
-                ->with(['public_in' => function ($query) {
-                    $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                }])
+                ->with([
+                    'relative_notice' => function ($query) {
+                        $query->select(['object_contests_acts.id', 'object', 'cig', 'activation_date', 'adjudicator_name', 'adjudicator_data', 'contraent_choice']);
+                        $query->with([
+                            'contraent' => function ($query) {
+                                $query->select(['id', 'name']);
+                            }
+                        ]);
+                    }
+                ])
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
+                    }
+                ])
                 ->with('relative_measure:id,object')
-                ->with('all_attachs')
-                ->first();
+                ->with('all_attachs');
+
+            $alert = $alert->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($alert['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($alert['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2721,7 +2986,7 @@ class ContestsActAdminController extends BaseAuthController
                     $alert,
                     null,
                     null,
-                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string)Input::post('procedures', true))) : null,
+                    !empty(Input::post('procedures')) ? explode(',', strip_tags((string) Input::post('procedures', true))) : null,
                     Input::post('public_in', true)
                 );
 
@@ -2734,21 +2999,19 @@ class ContestsActAdminController extends BaseAuthController
                     $alert['object'],
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Avviso '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -2771,7 +3034,7 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $fosterId = (int)strip_tags(Input::post('id', true));
+            $fosterId = (int) strip_tags(Input::post('id', true));
 
             // Recupero l'esito/affidamento attuale prima di modificarlo e lo salvo nel versioning
             $foster = ContestsActsModel::where('typology', 'foster')
@@ -2782,21 +3045,41 @@ class ContestsActAdminController extends BaseAuthController
                 ->with('contraent:id,name')
                 ->with('rup:id,full_name')
                 ->with('requirements:id,code,denomination')
-                ->with(['relative_procedure' => function ($query) {
-                    $query->select(['id', 'object', 'cig', 'relative_procedure_id', 'relative_notice_id', 'typology', 'anac_year', 'updated_at',
-                        'award_amount_value', 'amount_liquidated', 'work_start_date', 'work_end_date', 'contraent_choice', 'adjudicator_name',
-                        'adjudicator_data', 'typology']);
-                }])
-                ->with(['public_in' => function ($query) {
-                    $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
-                        ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                }])
+                ->with([
+                    'relative_procedure' => function ($query) {
+                        $query->select([
+                            'id',
+                            'object',
+                            'cig',
+                            'relative_procedure_id',
+                            'relative_notice_id',
+                            'typology',
+                            'anac_year',
+                            'updated_at',
+                            'award_amount_value',
+                            'amount_liquidated',
+                            'work_start_date',
+                            'work_end_date',
+                            'contraent_choice',
+                            'adjudicator_name',
+                            'adjudicator_data',
+                            'typology'
+                        ]);
+                    }
+                ])
+                ->with([
+                    'public_in' => function ($query) {
+                        $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
+                            ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
+                    }
+                ])
                 ->with('relative_measure:id,object')
-                ->with('all_attachs')
-                ->first();
+                ->with('all_attachs');
+
+            $foster = $foster->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($foster->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($foster->owner_id) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2821,7 +3104,7 @@ class ContestsActAdminController extends BaseAuthController
                 $data['asta_base_value'] = !empty(Input::post('asta_base_value')) ? toFloat(strip_tags(Input::post('asta_base_value', true))) : null;
                 $data['award_amount_value'] = !empty(Input::post('award_amount_value')) ? toFloat(strip_tags(Input::post('award_amount_value', true))) : null;
                 $data['contraent_choice'] = setDefaultData(strip_tags(Input::post('contraent_choice', true)), null, ['']);
-                $data['contract'] = !empty(Input::post('contract')) ? (int)Input::post('contract', true) : null; //Attenzione
+                $data['contract'] = !empty(Input::post('contract')) ? (int) Input::post('contract', true) : null; //Attenzione
                 $data['adjudicator_name'] = strip_tags(Input::post('adjudicator_name', true));
                 $data['adjudicator_data'] = strip_tags(Input::post('adjudicator_data', true));
                 $data['administration_type'] = setDefaultData(strip_tags(Input::post('administration_type', true)), null, ['']);
@@ -2839,7 +3122,7 @@ class ContestsActAdminController extends BaseAuthController
                 $data['work_start_date'] = !empty(Input::post('work_start_date')) ? convertDateToDatabase(strip_tags(Input::post('work_start_date', true))) : null;
                 $data['work_end_date'] = !empty(Input::post('work_end_date')) ? convertDateToDatabase(strip_tags(Input::post('work_end_date', true))) : null;
                 $data['contracting_stations_publication_date'] = !empty(Input::post('contracting_stations_publication_date')) ? convertDateToDatabase(strip_tags(Input::post('contracting_stations_publication_date', true))) : null;
-                $data['typology_result'] = setDefaultData(strip_tags(Input::post('typology_result', true)));
+                $data['typology_result'] = setDefaultData(strip_tags((string)Input::post('typology_result', true)));
                 $data['object_personnel_id'] = setDefaultData(strip_tags(Input::post('object_personnel_id', true)), null, ['']);
                 $data['object_measure_id'] = setDefaultData(strip_tags(Input::post('object_measure_id', true)), null, ['', null]);
                 $data['cpv_code_id'] = setDefaultData(strip_tags(Input::post('cpv_code_id', true)), null, ['', 0]);
@@ -2848,6 +3131,7 @@ class ContestsActAdminController extends BaseAuthController
                 $data['details'] = Input::post('details', true);
                 $data['decree_163'] = setDefaultData(strip_tags(Input::post('decree_163', true)), 0, ['', null]);
                 $data['sector'] = setDefaultData(strip_tags(Input::post('sector', true)), null, ['', null]);
+                $data['bdncp_link'] = !empty(Input::post('bdncp_link')) ? setDefaultData(strip_tags((string) Input::post('bdncp_link', true)), null, ['']) : null;
 
                 // Update Esito/Affidamento
                 ContestsActsModel::where('id', $fosterId)->updateWithLogs($foster, $data);
@@ -2855,8 +3139,8 @@ class ContestsActAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $foster,
-                    !empty(Input::post('participants')) ? explode(',', strip_tags((string)Input::post('participants', true))) : null,
-                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string)Input::post('awardees', true))) : null,
+                    !empty(Input::post('participants')) ? explode(',', strip_tags((string) Input::post('participants', true))) : null,
+                    !empty(Input::post('awardees')) ? explode(',', strip_tags((string) Input::post('awardees', true))) : null,
                     null,
                     Input::post('public_in', true),
                     Input::post('requirements', true),
@@ -2871,21 +3155,19 @@ class ContestsActAdminController extends BaseAuthController
                     $foster['object'],
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Esito/Affidamento '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
 
     /**
@@ -2908,28 +3190,60 @@ class ContestsActAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $liquidationId = (int)strip_tags(Input::post('id', true));
+            $liquidationId = (int) strip_tags(Input::post('id', true));
 
             // Recupero la liquidazione attuale prima di modificarla e la salvo nel versioning
             $liquidation = ContestsActsModel::where('typology', 'liquidation')
                 ->where('id', $liquidationId)
-                ->with(['relative_procedure' => function ($query) {
-                    $query->select(['id', 'object', 'cig', 'relative_procedure_id', 'relative_notice_id', 'typology', 'anac_year', 'updated_at',
-                        'award_amount_value', 'amount_liquidated', 'work_start_date', 'work_end_date', 'contraent_choice', 'adjudicator_name',
-                        'adjudicator_data', 'typology']);
-                    $query->with(['relative_notice' => function ($query) {
-                        $query->select(['object_contests_acts.id', 'object', 'cig', 'relative_notice_id', 'object_structures_id', 'contraent_choice', 'adjudicator_data',
-                            'adjudicator_name', 'anac_year', 'typology']);
-                        $query->with(['structure' => function ($query) {
-                            $query->select(['id', 'structure_name']);
-                        }]);
-                    }]);
-                }])
-                ->with('all_attachs')
-                ->first();
+                ->with([
+                    'relative_procedure' => function ($query) {
+                        $query->select([
+                            'id',
+                            'object',
+                            'cig',
+                            'relative_procedure_id',
+                            'relative_notice_id',
+                            'typology',
+                            'anac_year',
+                            'updated_at',
+                            'award_amount_value',
+                            'amount_liquidated',
+                            'work_start_date',
+                            'work_end_date',
+                            'contraent_choice',
+                            'adjudicator_name',
+                            'adjudicator_data',
+                            'typology'
+                        ]);
+                        $query->with([
+                            'relative_notice' => function ($query) {
+                                $query->select([
+                                    'object_contests_acts.id',
+                                    'object',
+                                    'cig',
+                                    'relative_notice_id',
+                                    'object_structures_id',
+                                    'contraent_choice',
+                                    'adjudicator_data',
+                                    'adjudicator_name',
+                                    'anac_year',
+                                    'typology'
+                                ]);
+                                $query->with([
+                                    'structure' => function ($query) {
+                                        $query->select(['id', 'structure_name']);
+                                    }
+                                ]);
+                            }
+                        ]);
+                    }
+                ])
+                ->with('all_attachs');
+
+            $liquidation = $liquidation->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($liquidation['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($liquidation['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -2949,7 +3263,6 @@ class ContestsActAdminController extends BaseAuthController
                 $data = [];
                 $data['object'] = strip_tags(Input::post('object', true));
                 $data['relative_procedure_id'] = setDefaultData(strip_tags(Input::post('relative_procedure_id', true)), null, ['']);
-//                $data['amount_liquidated'] = !empty(Input::post('amount_liquidated')) ? toFloat(strip_tags(Input::post('amount_liquidated', true))) : null;
                 $data['anac_year'] = setDefaultData(strip_tags(Input::post('anac_year', true)), null, ['']);
                 $data['activation_date'] = !empty(Input::post('activation_date')) ? convertDateToDatabase(strip_tags(Input::post('activation_date', true))) : null;
                 $data['details'] = Input::post('details', true);
@@ -2966,22 +3279,104 @@ class ContestsActAdminController extends BaseAuthController
                     $liquidation['object']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Liquidazione '));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
         $json->response();
-
     }
+
+
+    /**
+     * @description Funzione che effettua l'update di un Avviso
+     *
+     * @return void
+     * @throws Exception
+     * @url /admin/contests-act/update-notice.html
+     * @method POST
+     */
+    public function updateVariation(): void
+    {
+        $json = new JsonResponse();
+        $code = $json->success();
+
+        // Validatore form
+        $validator = new VariationValidator();
+        $check = $validator->check('update');
+
+        if ($check['is_success']) {
+            $doAction = true;
+
+            $variationId = (int) strip_tags(Input::post('id', true));
+
+            // Recupero l'avviso attuale prima di modificarlo e lo salvo nel versioning
+            $variation = ContestsActsModel::where('typology', 'variation')
+                ->where('id', $variationId)
+                ->with('proceedings:id,object')
+                ->with('all_attachs');
+
+            $variation = $variation->first();
+
+            //Setto il metodo della rotta per i permessi
+            $this->acl->setRoute(checkRecordOwner($variation['owner_id']) ? ['update', 'create'] : 'update', true);
+
+            // Validazione upload allegati associati al tasso di assenza
+            $attach = new AttachmentArchive();
+            $attachValidator = $attach->validate('attach_files');
+
+            // Validatore per gli eventuali allegati
+            // Se la validazione non va a buon fine setto il messaggio di errore e non eseguo l'update dell'oggetto
+            if (!empty($attachValidator['error'])) {
+                $doAction = false;
+                $code = $json->bad();
+                $json->set('error_partial_attach', $attach->errorsToString());
+            }
+
+            // Se la validazione degli allegati va a buon fine eseguo l'update dell'oggetto
+            if ($doAction) {
+
+                $data = [];
+                $data['object'] = strip_tags(Input::post('object', true));
+                $data['activation_date'] = !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date', true)) : null;
+                $data['details'] = Input::post('details', true);
+
+                // Update Avviso
+                ContestsActsModel::where('id', $variationId)->updateWithLogs($variation, $data);
+
+                // Svuoto le tabelle di relazione e le aggiorno
+                $this->clear(
+                    $variation,
+                    null,
+                    null,
+                    explode(",", strip_tags((string) Input::post('object_contests_acts_id', true)))
+                );
+
+                // Upload allegati associati al personale.
+                $attach->update(
+                    'attach_files',
+                    'contest_acts',
+                    $variationId,
+                    $variation['institution_id'],
+                    $variation['object'],
+                );
+
+                $json->set('message', sprintf(__('success_update_operation', null, 'patos'), 'Variazione '));
+            }
+        } else {
+
+            $code = $json->bad();
+            $json->error('error', $check['errors']);
+        }
+
+        $json->setStatusCode($code);
+        $json->response();
+    }
+
 
     /**
      * @description Metodo per lo storage nelle tabelle di relazione
@@ -3053,6 +3448,9 @@ class ContestsActAdminController extends BaseAuthController
             $contestAct->awardees()->syncWithPivotValues($dataAwardees, ['typology' => 'awardee']);
         }
 
+        if ($contestAct['typology'] == 'variation') {
+            $contestAct->proceedings()->syncWithPivotValues($dataProcedures, ['typology' => 'variation']);
+        }
     }
 
     /**
@@ -3077,7 +3475,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -3088,9 +3485,8 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Determina '));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
-
     }
 
     /**
@@ -3115,7 +3511,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         $notice = Registry::get('notice');
@@ -3130,8 +3525,6 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Bando di gara '));
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3157,7 +3550,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -3169,7 +3561,7 @@ class ContestsActAdminController extends BaseAuthController
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Lotto '));
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3195,7 +3587,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -3206,8 +3597,6 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Esito di gara '));
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3233,7 +3622,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -3244,7 +3632,7 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Avviso '));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3269,7 +3657,6 @@ class ContestsActAdminController extends BaseAuthController
 
             redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -3279,7 +3666,7 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Esito/Affidamento '));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3313,7 +3700,7 @@ class ContestsActAdminController extends BaseAuthController
 
         sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Liquidazione '));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
         redirect('admin/contests-act');
     }
 
@@ -3328,7 +3715,7 @@ class ContestsActAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new ContestActValidator();
         $validate = $validator->multipleSelection();
@@ -3345,18 +3732,47 @@ class ContestsActAdminController extends BaseAuthController
 
             //Elimino gli elementi
             foreach ($contestsActs as $contestsAct) {
-                $contestsAct->deleteWithLogs($contestsAct);
+
+                if (!empty($contestsAct->id) && is_numeric($contestsAct->id)) {
+                    $contestsAct->deleteWithLogs($contestsAct);
+                }
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
-
         }
 
         redirect('/admin/contests-act');
+    }
+
+
+
+    public function deleteVariation(): void
+    {
+        //Setto il metodo della rotta per i permessi
+        $this->acl->setRoute(['delete', 'create', 'update'], true);
+
+        //Validatore che verifica se l'elemento da eliminare esiste
+        $validator = new VariationValidator();
+        $validate = $validator->validateUriSegmentId(!$this->acl->getDelete() && $this->acl->getUpdate());
+
+        if (!$validate['is_success']) {
+
+            redirect('admin/contests-act', sessionSetNotify($validate['errors'], 'danger'));
+            exit();
+        }
+
+        // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
+        $variation = Registry::get('variation');
+
+        //Elimino il personale settando deleted = 1
+        $variation->deleteWithLogs($variation);
+
+        sessionSetNotify(sprintf(__('success_delete_operation', null, 'patos'), 'Avviso '));
+        // Generazione nuovo token
+        //        Token::forceRegenerate((int) config('csrf_expire', null, 'app'));
+        redirect('admin/contests-act');
     }
 
     /**
@@ -3390,15 +3806,29 @@ class ContestsActAdminController extends BaseAuthController
     protected function setPublicInData(bool|array|string|null $institutionTypeId, null|string $archiveName): array
     {
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', $archiveName)
-            ->with('section:id,name')
-            ->get()
-            ->toArray();
+            ->leftJoin("rel_institution_type_public_in_section", function ($join) use ($institutionTypeId) {
+                $join->on("rel_institution_type_public_in_section.section_public_in_id", "=", "section_fo_config_publication_archive.id")
+                    ->where('rel_institution_type_public_in_section.institution_type_id', '=', $institutionTypeId['institution_type_id']);
+            })
+            //            ->join('rel_institution_type_public_in_section', 'rel_institution_type_public_in_section.section_public_in_id', '=', 'section_fo_config_publication_archive.id')
+            ->with([
+                'section' => function ($query) use ($institutionTypeId) {
+                    $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                        ->leftJoin("rel_institution_type_sections_labeling", function ($join) use ($institutionTypeId) {
+                            $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id")
+                                ->where('rel_institution_type_sections_labeling.institution_type_id', '=', $institutionTypeId['institution_type_id']);
+                        });
+                }
+            ]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
         foreach ($publicIn as $tmp) {
             if (!empty($tmp['section'])) {
-                $dataPublicIn[$tmp['section']['id']] = !empty($tmp['section']['name']) ? $tmp['section']['name'] : '';
+                $dataPublicIn[$tmp['section']['id']] = !empty($tmp['label']) ? $tmp['label'] . ' - ' : '';
+                $dataPublicIn[$tmp['section']['id']] .= !empty($tmp['section']['label']) ? $tmp['section']['label'] : $tmp['section']['name'];
             }
         }
 

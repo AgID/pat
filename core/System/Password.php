@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * Copyright (c) 2016, Taylor Hornby
  * All rights reserved.
  *
@@ -29,6 +34,9 @@ namespace System;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+class CannotPerformOperationException extends \Exception {}
+class InvalidHashException extends \Exception {}
+
 class Password
 {
     const PBKDF2_HASH_ALGORITHM = "sha256";
@@ -51,21 +59,11 @@ class Password
                 "hash(): Expected a string"
             );
         }
-        if (\function_exists('random_bytes')) {
-            try {
-                $salt_raw = \random_bytes(self::PBKDF2_SALT_BYTES);
-            } catch (Error $e) {
-                $salt_raw = false;
-            } catch (Exception $e) {
-                $salt_raw = false;
-            } catch (TypeError $e) {
-                $salt_raw = false;
-            }
-        } else {
-            $salt_raw = @\mcrypt_create_iv(self::PBKDF2_SALT_BYTES, MCRYPT_DEV_URANDOM);
-        }
+
+        $salt_raw = self::generateSecureRandomBytes(self::PBKDF2_SALT_BYTES);
+
         if ($salt_raw === false) {
-            throw new \CannotPerformOperationException(
+            throw new CannotPerformOperationException(
                 "Random number generator failed. Not safe to proceed."
             );
         }
@@ -90,6 +88,26 @@ class Password
             \base64_encode($PBKDF2_Output);
     }
 
+    private static function generateSecureRandomBytes($length)
+    {
+        if (\function_exists('random_bytes')) {
+            try {
+                return \random_bytes($length);
+            } catch (\Exception $e) {
+                // Fall through to next method if random_bytes fails
+            }
+        }
+
+        if (\function_exists('openssl_random_pseudo_bytes')) {
+            $bytes = \openssl_random_pseudo_bytes($length, $strong);
+            if ($bytes !== false && $strong) {
+                return $bytes;
+            }
+        }
+
+        return false;
+    }
+
 
     public static function verify($password, $hash)
     {
@@ -100,35 +118,35 @@ class Password
         }
         $params = \explode(":", $hash);
         if (\count($params) !== self::HASH_SECTIONS) {
-            throw new \InvalidHashException(
+            throw new InvalidHashException(
                 "Fields are missing from the password hash."
             );
         }
 
         $pbkdf2 = \base64_decode($params[self::HASH_PBKDF2_INDEX], true);
         if ($pbkdf2 === false) {
-            throw new \InvalidHashException(
+            throw new InvalidHashException(
                 "Base64 decoding of pbkdf2 output failed."
             );
         }
 
         $salt_raw = \base64_decode($params[self::HASH_SALT_INDEX], true);
         if ($salt_raw === false) {
-            throw new \InvalidHashException(
+            throw new InvalidHashException(
                 "Base64 decoding of salt failed."
             );
         }
 
         $storedOutputSize = (int)$params[self::HASH_SIZE_INDEX];
         if (self::ourStrlen($pbkdf2) !== $storedOutputSize) {
-            throw new \InvalidHashException(
+            throw new InvalidHashException(
                 "PBKDF2 output length doesn't match stored output length."
             );
         }
 
         $iterations = (int)$params[self::HASH_ITERATION_INDEX];
         if ($iterations < 1) {
-            throw new \InvalidHashException(
+            throw new InvalidHashException(
                 "Invalid number of iterations. Must be >= 1."
             );
         }
@@ -188,7 +206,7 @@ class Password
 
         $algorithm = \strtolower($algorithm);
         if (!\in_array($algorithm, \hash_algos(), true)) {
-            throw new \CannotPerformOperationException(
+            throw new CannotPerformOperationException(
                 "Invalid or unsupported hash algorithm."
             );
         }
@@ -198,13 +216,13 @@ class Password
             "ripemd160", "ripemd256", "ripemd320", "whirlpool"
         );
         if (!\in_array($algorithm, $ok_algorithms, true)) {
-            throw new \CannotPerformOperationException(
+            throw new CannotPerformOperationException(
                 "Algorithm is not a secure cryptographic hash function."
             );
         }
 
         if ($count <= 0 || $key_length <= 0) {
-            throw new \CannotPerformOperationException(
+            throw new CannotPerformOperationException(
                 "Invalid PBKDF2 parameters."
             );
         }

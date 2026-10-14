@@ -9,7 +9,9 @@ namespace Http\Web\Admin;
 use Exception;
 use Helpers\Validators\DatatableValidator;
 use Model\ActivityLogModel;
+use Scope\DeletedScope;
 use System\Input;
+use System\Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -36,7 +38,8 @@ class UserLogAdminController extends BaseAuthController
         $responsible = $responsible['trasp_responsible_user_id'] ?? null;
         $data = [];
 
-        if(isSuperAdmin() || getIdentity('technical_user') || getIdentity('id') == $responsible) {
+        $getIdentity = $this->auth->getIdentity();
+        if(!empty($getIdentity['technical_user']) || $getIdentity['id'] == $responsible) {
             //Setto il metodo della rotta per i permessi
             $this->acl->setRoute('read');
 
@@ -81,18 +84,12 @@ class UserLogAdminController extends BaseAuthController
 
             $data = [];
 
-            //Colonne su cui poter effettuare l'ordinamento
+            //Colonne su cui poter effettuare l'ordinamento (devono corrispondere all'ordine delle colonne mostrate:
+            //0 = NOME UTENTE, 1 = DATA, 2 = AZIONE, 3 = DESCRIZIONE)
             $orderable = [
-                0 => 'u.name',
-                1 => 'action',
-                2 => 'created_at',
-                3 => 'referer'
+                1 => 'created_at',
+                2 => 'action',
             ];
-
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[4] = 'i.full_name_institution';
-            }
 
             // Setto proprietà datatable
             $draw = !empty(Input::get('draw')) ? Input::get('draw', true) : 1;
@@ -105,38 +102,36 @@ class UserLogAdminController extends BaseAuthController
             $searchArr = Input::get('search', true);
 
             $columnIndex = !empty($columnIndexArr[0]['column']) ? $columnIndexArr[0]['column'] : null;
-            $columnName = !empty($columnNameArr[$columnIndex]['data']) ? (int)$columnNameArr[$columnIndex]['data'] : 'u.name';
-            $columnSortOrder = !empty($orderArr[0]['dir']) ? $orderArr[0]['dir'] : 'ASC';
+            $columnName = !empty($columnNameArr[$columnIndex]['data']) ? (int)$columnNameArr[$columnIndex]['data'] : 'activity_log.created_at';
+            $columnSortOrder = !empty($orderArr[0]['dir']) ? $orderArr[0]['dir'] : 'DESC';
             $searchValue = !empty($searchArr['value']) ? $searchArr['value'] : null;
 
             // Query per i dati da mostrare nel datatable
             $totalRecords = ActivityLogModel::select(['count(id) as allcount'])
                 ->where('object_id', '=', 54)
-                ->whereIn('is_superadmin', (isSuperAdmin()) ? [0, 1] : [0])
                 ->count();
 
             $totalRecordsWithFilter = ActivityLogModel::search($searchValue)
                 ->select(['count(*) as allcount'])
                 ->where('object_id', '=', 54)
-                ->whereIn('is_superadmin', (isSuperAdmin()) ? [0, 1] : [0])
-                ->join('users as u', 'activity_log.user_id', '=', 'u.id')
+                ->join('users as u', 'activity_log.user_id', '=', 'u.id', 'left outer')
                 ->count();
 
-            $order = setOrderDatatable($columnName, $orderable, 'u.name');
+            $order = setOrderDatatable($columnName, $orderable, 'activity_log.created_at');
 
             $records = ActivityLogModel::search($searchValue)
                 ->select(['activity_log.id', 'activity_log.user_id', 'activity_log.institution_id', 'description', 'object_id', 'record_id', 'area',
-                    'action', 'referer', 'activity_log.updated_at', 'activity_log.created_at', 'u.name', 'i.full_name_institution'])
+                    'action', 'referer', 'activity_log.origin', 'activity_log.updated_at', 'activity_log.created_at', 'u.name', 'i.full_name_institution'])
                 ->where('object_id', '=', 54)
                 ->join('users as u', 'u.id', '=', 'activity_log.user_id', 'left outer')
                 ->join('institutions as i', 'activity_log.institution_id', '=', 'i.id', 'left outer')
                 ->with(['user' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
                 }])
-                ->whereIn('is_superadmin', (isSuperAdmin()) ? [0, 1] : [0])
                 ->orderBy($order, $columnSortOrder)
                 ->offset($start)
                 ->limit($rowPerPage)
@@ -170,14 +165,8 @@ class UserLogAdminController extends BaseAuthController
                     $setTempData[] = $updateAt;
                     $setTempData[] = !empty($record['action']) ? escapeXss($record['action']) : 'N.D.';
                     $setTempData[] = !empty($record['description']) ? ($record['description']) : 'N.D.';
-//                    $setTempData[] = !empty($record['referer']) ? escapeXss($record['referer']) : 'N.D.';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = '<span class="badge badge-secondary border border-dark">Web</span>';
 
                     $data[] = $setTempData;
                 }
@@ -185,7 +174,11 @@ class UserLogAdminController extends BaseAuthController
                 $response ['aaData'] = $data;
 
             }
-            echo json_encode($response);
+
+            jsonOut($response);
+
         }
+
     }
+
 }

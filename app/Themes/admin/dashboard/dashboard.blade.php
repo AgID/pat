@@ -10,11 +10,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{--  ************************************************ CONTENT ************************************************ --}}
 {% block content %}
 <div class="row mb-4">
-    <div class="col-md-12">
-        <div class="callout callout-success">
+    <div class="col-md-6">
+        <div class="callout callout-success h-100">
             <h5>Benvenuto <strong>{{ checkDecrypt($identity['name']) }}!</strong></h5>
-            <p>Hai effettuato l'accesso in data <strong>{{ $identity['options']['last_date_access'] }}</strong> alle ore
-                <strong>{{ $identity['options']['last_hour_access'] }}</strong>.</p>
+            <p>
+                Hai effettuato l'accesso in data
+                <strong>{{ $identity['options']['last_date_access'] }}</strong>
+                alle ore
+                <strong>{{ $identity['options']['last_hour_access'] }}</strong>.
+            </p>
         </div>
     </div>
 </div>
@@ -54,9 +58,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
         </div>
     </div>
-
 </div>
-
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -64,17 +66,4 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ JAVASCRIPT ************************************************ --}}
 {% block javascript %}
-@if($session_allowed!==null)
-    <script type="text/javascript">
-        $(document).ready(function () {
-            $(document).Toasts('create', {
-                class: 'bg-danger',
-                title: 'ATTENZIONE',
-                autohide: true,
-                delay: 15000,
-                body: '{{ $session_allowed }}'
-            });
-        });
-    </script>
-@endif
 {% endblock %}

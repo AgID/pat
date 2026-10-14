@@ -39,15 +39,31 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
                                 <div class="form-group col-md-6" id="input_object">
@@ -78,36 +94,38 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Tipo atto --}}
                                 <div class="form-group col-md-6">
                                     <label for="act_type">Tipo atto *</label>
-                                    <div class="select2-blue" id="input_act_type">
+                                    <div id="input_act_type">
                                         {{ form_dropdown(
                                             'act_type',
-                                            ['' => '',1=>'Programma biennale degli acquisti di beni e servizi',2=>'Programma triennale dei lavori pubblici'],
+                                            [
+                                                '' => '',
+                                                //1=>'Programma biennale degli acquisti di beni e servizi',
+                                                3=>'Programma triennale degli acquisti di beni e servizi',
+                                                2=>'Programma triennale dei lavori pubblici',
+                                            ],
                                             @$programming_act['act_type'],
-                                            'class="form-control select2-act_type" style="width: 100%;"'
+                                            'class="ts-act_type" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
 
-                                {{-- Campo Pubblica in "Opere pubbliche - Documenti di programmazione" --}}
                                 <div class="form-group col-md-6">
-                                    <label for="public_in_public_works">Pubblica in "Opere pubbliche - Documenti di
-                                        programmazione"</label>
-                                    <div class="select2-blue" id="input_public_in_public_works">
+                                    <label for="public_in_public_works">Pubblica in "Opere pubbliche - Documenti di programmazione"</label>
+                                    <div id="input_public_in_public_works">
                                         {{ form_dropdown(
                                             'public_in_public_works',
                                             [0=>'No',1=>'Si'],
                                             @$programming_act['public_in_public_works'],
-                                            'class="form-control select2-public_in_public_works" style="width: 100%;"'
+                                            'class="ts-public_in_public_works" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
                             </div>
 
+
                             <div class="form-group">
-                                {{-- Campo Testo di descrizione --}}
                                 <label for="description">Descrizione</label>
                                 {{form_editor([
                                     'name' => 'description',
@@ -117,16 +135,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -148,6 +175,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+        @if(!empty($institution_id))
+            {{ form_input([
+                'type' => 'hidden',
+                'name' => 'institution_id',
+                'value' => $institution_id,
+                'id' => 'institution_id',
+                'class' => 'institution_id',
+            ]) }}
+        @endif
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -164,18 +201,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{--  ************************************************ JAVASCRIPT ************************************************ --}}
 {% block javascript %}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 
 <script type="text/javascript">
     $(document).ready(function () {
 
         //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-        $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-            var keyCode = e.keyCode || e.which;
-            if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+        document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
                 e.preventDefault();
-                return false;
             }
         });
 
@@ -188,32 +224,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
-
-        {{-- Begin creazione campi select --}}
-        {{-- Campo select Tipo atto --}}
-        let $dropdownActType = $('.select2-act_type');
-        $dropdownActType.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
 
-        {{-- Campo select Pubblica in "Opere pubbliche - Documenti di programmazione" --}}
-        let $dropdownPublic = $('.select2-public_in_public_works');
-        $dropdownPublic.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        {{-- End creazione campi select --}}
+        new TomSelect('.ts-public_in_public_works', TS_SINGLE_CLEAR);
+        new TomSelect('.ts-act_type', TS_SINGLE_CLEAR);
 
         /**
          * Metodo per il salvataggio
@@ -235,6 +251,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             success: function (data) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
+
                 let response = parseJson(data);
                 formModified = false;
 
@@ -250,12 +267,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
             },
             complete: function (xhr) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
+
             },
             error: function (jqXHR, status) {
                 let response = parseJson(jqXHR.responseText);
@@ -268,6 +287,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 createValidatorFormErrorToast(msg, 6000, '', false);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
+
             }
         });
         {{-- End salvataggio --}}
@@ -275,11 +295,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

@@ -51,8 +51,8 @@ class LostPasswordAdminController extends BaseController
     /**
      * @url /lost-password.html
      * @method GET
-     * @throws Exception
      * @return void
+     * @throws Exception
      */
     public function index(): void
     {
@@ -68,8 +68,8 @@ class LostPasswordAdminController extends BaseController
     /**
      * @url /lost-password.html
      * @method POST
-     * @throws Exception
      * @return void
+     * @throws Exception
      */
     public function store(): void
     {
@@ -82,29 +82,10 @@ class LostPasswordAdminController extends BaseController
 
             $validator = new Validator();
             $validator->label('e-mail')
-                ->value(Input::post('email'))
+                ->value(trim(Input::post('email')))
                 ->required()
                 ->isEmail()
-                ->add(function() {
-                    $result = UsersModel::where(function ($query) {
-
-                        $query->where('email', '=', Input::post('email', true))
-                            ->orWhere('email', '=', checkEncrypt(Input::post('email', true)));
-                    })
-                        ->where('deleted', '=', 0)
-                        ->where('active', '=', 1)
-                        ->where('super_admin', '=', 0)
-                        ->where('institution_id', '=', PatOsInstituteId())
-                        ->first();
-
-                    if (empty($result)) {
-                        return [
-                            'error' => 'L\'indirizzo email inserito non &egrave; stato trovato'
-                        ];
-                    }
-
-                    return null;
-                })
+                //Rimosso il controllo sull'esistenza della mail perché dava indicazioni per "User Enumeration"
                 ->end();
 
             if (!$validator->isSuccess()) {
@@ -116,28 +97,25 @@ class LostPasswordAdminController extends BaseController
             if (!$hasErrors) {
 
                 $result = UsersModel::where(function ($query) {
-                    
-                    $query->where('email', '=', Input::post('email', true))
-                          ->orWhere('email', '=', checkEncrypt(Input::post('email', true)));
+
+                    $query->where('email', '=', trim(Input::post('email', true)))
+                        ->orWhere('email', '=', checkEncrypt(trim(Input::post('email', true))));
                 })
                     ->where('deleted', '=', 0)
                     ->where('active', '=', 1)
-                    ->where('super_admin', '=', 0)
                     ->where('institution_id', '=', PatOsInstituteId())
                     ->first();
 
                 $check = false;
-                // var_dump($result->toSql());
-                // var_dump($result->getBindings());
-                
+
                 if (!empty($result) && is_object($result)) {
 
                     $user = $result->toArray();
-                    $lastActivity = (strtotime($user[$this->lastVisited]) + ((int)$user['deactivate_account_no_use'] * 24 * 60 * 60));
+                    $lastActivity = (strtotime($user[$this->lastVisited] ?? date("Y-m-d H:i:s")) + ((int) $user['deactivate_account_no_use'] * 24 * 60 * 60));
 
                     $emailEncrypt = checkDecrypt($user['email']);
 
-                    // Controllo che la data dell'ultima visita sia inferiore alla data attuale per vedere se l'utente è attivo o meno
+                    // Controllo che la data dell'ultima visita+disattiva dop x sia inferiore alla data attuale per vedere se l'utente è attivo o meno
                     if ($lastActivity > time()) {
 
                         $check = true;
@@ -154,8 +132,7 @@ class LostPasswordAdminController extends BaseController
                         // Registro nelle attività dei logs
                         ActivityLog::create([
                             'action' => __('auth_request_recovery_success_title', null, 'patos_auth'),
-                            'description' => sprintf(__('auth_request_recovery_success_description', null, 'patos_auth'), (strip_tags((string)Input::post('email', true))), date('d-m-Y'), date('H:i:s')),
-                            'request_post' => Input::post(),
+                            'description' => sprintf(__('auth_request_recovery_success_description', null, 'patos_auth'), (strip_tags((string) Input::post('email', true))), date('d-m-Y'), date('H:i:s')),
                         ]);
 
                         $link = [
@@ -173,36 +150,54 @@ class LostPasswordAdminController extends BaseController
                             ->partial('footer', 'email/footer')
                             ->render();
 
-                        $configs = patOsConfigMail(true);
+                        // Notifica di reset password: invio garantito, se la configurazione
+                        // dell'Ente non e' valida si parte gia' con quella di piattaforma; se
+                        // invece l'invio con l'Ente fallisce realmente, sendEmailGuaranteed()
+                        // ripiega comunque sulla configurazione di piattaforma quando l'edizione
+                        // in uso fornisce quella capacita' (vedi hook institution.mail.send_guaranteed).
+                        $configs = getMailConfig();
+                        if (!isMailConfigEnteValid($configs)) {
+                            $configs = getMailConfig('platform');
+                        }
 
-                        $email = new Email($configs);
+                        $email = institutionMailSender($configs);
+
                         $subject = sprintf(__('notify_email_subject', null, 'patos_auth'), siteUrl());
-                        $send = $email->from($configs['smtp_user'])
+
+                        $email->from($configs['smtp_user']??'')
                             ->to($emailEncrypt)
                             ->set_newline("\r\n")
                             ->subject($subject)
-                            ->message($template)
-                            ->send();
+                            ->message($template);
+                        $send = sendEmailGuaranteed($email);
 
                         if ($send === true) {
-
+                            Log::info('Invio email reset password riuscito!');
                             session()->setFlash('lost_password_success', true);
                         } else {
+                            Log::danger('Invio email reset password non riuscito!');
 
                             $hasErrors = true;
                             $setErrors = [__('temporary_error', null, 'patos_auth')];
                         }
+                    } else {
+                        //se l'utente non esiste ritorno direttamente come se avesse avuto successo ma non vengono inviate mail
+                        session()->setFlash('lost_password_success', true);
+                        $queryStringParams = '?e=' . trim(Input::post('email'));
                     }
+                    
+                } else {
+                    //se l'utente non esiste ritorno direttamente come se avesse avuto successo ma non vengono inviate mail
+                    session()->setFlash('lost_password_success', true);
+                    $queryStringParams = '?e=' . trim(Input::post('email'));
                 }
 
                 // Se l'utente non è attivo o la mail inserita non viene trovata, viene mostrato il messaggio di errore
                 if (!$check) {
-
                     // Registro nelle attività dei logs
                     ActivityLog::create([
                         'action' => __('auth_request_recovery_failed_title', null, 'patos_auth'),
-                        'description' => sprintf(__('auth_request_recovery_failed_description', null, 'patos_auth'), strip_tags((string)Input::post('email',true)), date('d-m-Y'), date('H:i:s')),
-                        'request_post' => Input::post(),
+                        'description' => sprintf(__('auth_request_recovery_failed_description', null, 'patos_auth'), strip_tags((string) Input::post('email', true)), date('d-m-Y'), date('H:i:s')),
                     ]);
 
                     // $hasErrors = true;
@@ -223,32 +218,39 @@ class LostPasswordAdminController extends BaseController
     /**
      * @url /lost-password-success.html
      * @method GET
-     * @throws Exception
      * @return void
+     * @throws Exception
      */
     public function lostPasswordSuccess(): void
     {
         $validator = new Validator();
         $validator->label('email')
-            ->value(checkDecrypt(Input::get('e',true)))
+            ->value(Input::get('e'))
+            ->required()
+            ->add(function () {
+                if (!(bool) filter_var(checkDecrypt(Input::get('e')), FILTER_VALIDATE_EMAIL)) {
+                    return ['error' => 'Email non valida'];
+                }
+                return null;
+            })
             ->isEmail();
 
         if (!$validator->isSuccess()) {
-            show404();
+            showError('Errore', $validator->getErrorsHtml(), 422, true);
         }
 
         $data = [];
-        $data['email'] = checkDecrypt(Input::get('e',true));
+        $data['email'] = checkDecrypt((string) Input::get('e', true));
 
         render('auth/lostpassword_success', $data, 'admin');
     }
 
 
     /**
+     * @return void
      * @throws Exception
      * @url /recovery/password.html
      * @method GET
-     * @return void
      */
     public function edit(): void
     {
@@ -263,7 +265,7 @@ class LostPasswordAdminController extends BaseController
             ->required()
             ->add(function () {
                 $uId = !empty(Input::get('uid')) ? Obfuscate::decode(Input::get('uid')) : 0;
-                if ((bool)preg_match('/[0-9]/', $uId) !== true || $uId == 0) {
+                if ((bool) preg_match('/[0-9]/', $uId) !== true || $uId == 0) {
                     return ['error' => 1];
                 }
                 return null;
@@ -282,7 +284,7 @@ class LostPasswordAdminController extends BaseController
             ->required()
             ->add(function () {
                 $iId = !empty(Input::get('iid')) ? Obfuscate::decode(Input::get('iid')) : 0;
-                if ((bool)preg_match('/[0-9]/', $iId) !== true || $iId == 0) {
+                if ((bool) preg_match('/[0-9]/', $iId) !== true || $iId == 0) {
                     return ['error' => 1];
                 }
                 return null;
@@ -298,7 +300,7 @@ class LostPasswordAdminController extends BaseController
 
         $resultExpire = RecoveryPassword::whereHas('user', function ($query) use ($userId) {
             $query->where('id', '=', $userId);
-        })->where('token', Input::get('token',true))
+        })->where('token', Input::get('token', true))
             ->where('institution_id', '=', $instituteId)
             ->where('user_id', '=', $userId)
             ->orderBy('created_at', 'DESC')
@@ -327,8 +329,8 @@ class LostPasswordAdminController extends BaseController
         $data['hasError'] = $hasError;
         $data['uriToken'] = $uriToken;
         $data['token'] = Input::get('token', true);
-        $data['uid'] = Input::get('uid',true);
-        $data['iid'] = Input::get('iid',true);
+        $data['uid'] = Input::get('uid', true);
+        $data['iid'] = Input::get('iid', true);
 
         $data['errors'] = session()->getFlash('recovery_password_errors');
 
@@ -336,10 +338,10 @@ class LostPasswordAdminController extends BaseController
     }
 
     /**
+     * @return void
      * @throws Exception
      * @url /recovery/password.html
      * @method POST
-     * @return void
      */
     public function update(): void
     {
@@ -351,7 +353,7 @@ class LostPasswordAdminController extends BaseController
         $link = [
             'uid' => !empty(Input::post('uid')) ? Input::post('uid', true) : '',
             'token' => !empty(Input::post('token')) ? Input::post('token', true) : '',
-            'iid' => !empty(Input::post('iid')) ? Input::post('iid',true) : '',
+            'iid' => !empty(Input::post('iid')) ? Input::post('iid', true) : '',
         ];
 
         if (Token::verify() && Input::get('t', true) === session()->getFlash('recovery_password_uri_token')) {
@@ -362,7 +364,7 @@ class LostPasswordAdminController extends BaseController
                 ->required()
                 ->add(function () {
                     $uId = !empty(Input::post('uid')) ? Obfuscate::decode(Input::post('uid')) : 0;
-                    if ((bool)preg_match('/[0-9]/', $uId) !== true || $uId == 0) {
+                    if ((bool) preg_match('/[0-9]/', $uId) !== true || $uId == 0) {
                         return ['error' => 1];
                     }
                     return null;
@@ -381,14 +383,14 @@ class LostPasswordAdminController extends BaseController
                 ->required()
                 ->add(function () {
                     $iId = !empty(Input::post('iid')) ? Obfuscate::decode(Input::post('iid')) : 0;
-                    if ((bool)preg_match('/[0-9]/', $iId) !== true || $iId == 0) {
+                    if ((bool) preg_match('/[0-9]/', $iId) !== true || $iId == 0) {
                         return ['error' => 1];
                     }
                     return null;
                 }, __('invalid_institution_id', null, 'patos_auth'));
 
             $validator->label('Password')
-                ->value(Input::post('password'))
+                ->value(trim(Input::post('password')))
                 ->required()
                 ->add(
                     function () {
@@ -398,9 +400,9 @@ class LostPasswordAdminController extends BaseController
                 );
 
             $validator->label('Ripeti Password')
-                ->value(Input::post('re_password'))
+                ->value(trim(Input::post('re_password')))
                 ->required()
-                ->isMatches(Input::post('password'), 'Password');
+                ->isMatches(trim(Input::post('password')), 'Password');
 
             if ($validator->isSuccess() === false) {
                 $hasErrors = true;
@@ -433,8 +435,6 @@ class LostPasswordAdminController extends BaseController
                     ActivityLog::create([
                         'action' => __('auth_password_reset_failed_title', null, 'patos_auth'),
                         'description' => sprintf(__('auth_password_reset_failed_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s')),
-                        'request_get' => Input::get(),
-                        'request_post' => Input::post()
                     ]);
                 } else {
 
@@ -451,13 +451,12 @@ class LostPasswordAdminController extends BaseController
                         ActivityLog::create([
                             'action' => __('auth_password_reset_expire_title', null, 'patos_auth'),
                             'description' => sprintf(__('auth_password_reset_expire_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s'), $userEmail),
-                            'request_post' => Input::post()
                         ]);
                     } else {
 
                         // Update della nuova password utente
                         UsersModel::where('id', '=', $getUserId)->update([
-                            'password' => Password::hash(Input::post('password',true))
+                            'password' => Password::hash(trim(Input::post('password', true)))
                         ]);
 
                         // Elimino nella tabella il token del recupero password associato all'ID dell'utente
@@ -473,7 +472,6 @@ class LostPasswordAdminController extends BaseController
                         ActivityLog::create([
                             'action' => __('auth_password_reset_success_title', null, 'patos_auth'),
                             'description' => sprintf(__('auth_password_reset_success_description', null, 'patos_auth'), date('d-m-Y'), date('H:i:s'), $userEmail),
-                            'request_post' => Input::post()
                         ]);
 
                         // Inviare email di notifica procedura recupero password completata
@@ -485,20 +483,27 @@ class LostPasswordAdminController extends BaseController
                             ->partial('footer', 'email/footer')
                             ->render();
 
-                        $configs = patOsConfigMail(true);
+                        // Notifica di conferma reset password completato: invio garantito, stesso
+                        // pattern usato sopra per l'invio del link di reset.
+                        $configs = getMailConfig();
+                        if (!isMailConfigEnteValid($configs)) {
+                            $configs = getMailConfig('platform');
+                        }
 
-                        $email = new Email($configs);
+                        $email = institutionMailSender($configs);
+
                         $subject = sprintf(__('notify_email_subject', null, 'patos_auth'), siteUrl());
-                        $send = $email->from($configs['smtp_user'])
+                        $email->from($configs['smtp_user']??'')
                             ->to($userEmail)
                             ->set_newline("\r\n")
                             ->subject(__('recovery_password_complete', null, 'patos_auth') . siteUrl())
-                            ->message($template)
-                            ->send();
+                            ->message($template);
+                        $send = sendEmailGuaranteed($email);
 
-                        if ($send !== true) {
-
-                            Log::danger($email->print_debugger());
+                        if ($send === true) {
+                            Log::info('Invio email success recovery riuscito!');
+                        } else {
+                            Log::danger('Invio email success recovery non riuscito!');
                         }
                     }
                 }

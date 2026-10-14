@@ -29,6 +29,7 @@ class SectionsFoModel extends Model
         'institution_id',
         'owner_id',
         'parent',
+        'name',
         'text',
         'lineage',
         'deep',
@@ -48,6 +49,7 @@ class SectionsFoModel extends Model
         'meta_description',
         'is_system',
         'default',
+        'tag',
         'typology',
         'paragraph_title',
         'generic_html',
@@ -66,6 +68,7 @@ class SectionsFoModel extends Model
         'hide',
         'no_required',
         'workflow_state',
+        'source_id',
         'created_at',
         'updated_at',
         'deleted_at'
@@ -113,9 +116,7 @@ class SectionsFoModel extends Model
     {
         // Customizzazioni filtraggio enti
         $getIdentity = authPatOs()->getIdentity();
-        $institutionId = (isset($getIdentity['options']['alternative_pat_os_id']) && isSuperAdmin())
-            ? $getIdentity['options']['alternative_pat_os_id']
-            : PatOsInstituteId();
+        $institutionId = PatOsInstituteId();
 
         $query->where('section_fo.is_system', 1);
         $query->orWhere(function ($q) use ($institutionId) {
@@ -126,15 +127,6 @@ class SectionsFoModel extends Model
 
         });
 
-    }
-
-    /**
-     * Relazione con Riferimenti Normativi (tabella rel_normative_references_sections_fo)
-     * @return BelongsToMany
-     */
-    public function normatives(): BelongsToMany
-    {
-        return $this->belongsToMany(\Addons\Trasparenza\Models\NormativeReferencesModel::class, 'rel_normative_references_sections_fo', 'sections_fo_id', 'normative_references_id');
     }
 
     /**
@@ -170,6 +162,15 @@ class SectionsFoModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con i paragrafi
      * @return HasMany
      */
@@ -177,12 +178,71 @@ class SectionsFoModel extends Model
     {
         return $this->hasMany(ContentSectionFoModel::class, 'section_fo_id', 'id')
             ->where('content_section_fo.deleted', 0);
+
+    }
+
+    /**
+     * Relazione con Strutture Organizzative
+     * Strutture di livello dirigenziale
+     * @return BelongsToMany
+     */
+    public function management_structure(): BelongsToMany
+    {
+        $str = $this->belongsToMany(StructuresModel::class, 'rel_sections_fo_politic_organ_structures', 'section_fo_id', 'object_structures_id')
+            ->wherePivot('typology', '=', 'management_structure');
+        return $str;
+    }
+
+    /**
+     *  Relazione con Strutture Organizzative
+     *  Strutture di livello non dirigenziale
+     * @return BelongsToMany
+     */
+    public function non_management_structure(): BelongsToMany
+    {
+        $str = $this->belongsToMany(StructuresModel::class, 'rel_sections_fo_politic_organ_structures', 'section_fo_id', 'object_structures_id')
+            ->wherePivot('typology', '=', 'non_management_structure');
+        return $str;
+    }
+
+
+    /**
+     *  Relazione con personale - personale associato all'organo'
+     * @return BelongsToMany
+     */
+    public function politic_personnel(): BelongsToMany
+    {
+        $pers = $this->belongsToMany(PersonnelModel::class, 'rel_sections_fo_politic_organ_personnel', 'section_fo_id', 'object_personnel_id')
+            ->where('object_personnel.archived', '!=', 1);
+        return $pers;
+    }
+
+    /**
+     * Relazione con i paragrafi
+     * @return HasMany
+     */
+    public function labels(): HasMany
+    {
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+        $institutionId = checkAlternativeInstitutionId();
+        return $this->hasMany(RelInstitutionTypeSectionsLabelingModel::class, 'sections_id', 'id')
+            ->where(function ($query) use ($institutionTypeId, $institutionId) {
+                $query->where(function ($query) use ($institutionTypeId) {
+                    $query->where("rel_institution_type_sections_labeling.institution_type_id", "=", $institutionTypeId);
+                    $query->whereNull("rel_institution_type_sections_labeling.institution_id");
+                })
+                    ->orWhere(function ($query) use ($institutionId) {
+                        $query->where("rel_institution_type_sections_labeling.institution_id", "=", $institutionId);
+                        $query->whereNull("rel_institution_type_sections_labeling.institution_type_id");
+                    });
+            });
+
     }
 
     /**
      * Scope locale per il filtraggio dei dati relativi ai paragrafi
-     * @param Builder $query Query
-     * @param string|null $term Stringa da cercare nel contenuto di un paragrafo
+     * @param Builder     $query Query
+     * @param string|null $term  Stringa da cercare nel contenuto di un paragrafo
      * @return void
      */
     public function scopeContentFilter(Builder $query, string $term = null): void
@@ -190,6 +250,33 @@ class SectionsFoModel extends Model
         if (!empty($term)) {
             $query->join('content_section_fo as content', 'content.section_fo_id', '=', 'section_fo.id', 'left outer');
             $query->where('content.content', ' LIKE ', '%' . $term . '%');
+        }
+    }
+
+    /**
+     * Scope locale per eventuali traduzioni delle sezioni in base al tipo ente
+     * @param Builder  $query             Query
+     * @param int|null $institutionTypeId Id tipo ente
+     * @return void
+     */
+    public function scopeLabelFilter(Builder $query, int $institutionTypeId = null, int $instId = null): void
+    {
+        if (!empty($institutionTypeId)) {
+            $institutionId = $instId ?? checkAlternativeInstitutionId();
+            $query->leftJoin("rel_institution_type_sections_labeling", function ($join) use ($institutionTypeId, $institutionId) {
+                $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id")
+                    ->where(function ($query) use ($institutionTypeId, $institutionId) {
+                        $query->where(function ($query) use ($institutionTypeId) {
+                            $query->where("rel_institution_type_sections_labeling.institution_type_id", "=", $institutionTypeId);
+                            $query->whereNull("rel_institution_type_sections_labeling.institution_id");
+                        })
+                            ->orWhere(function ($query) use ($institutionId) {
+                                $query->where("rel_institution_type_sections_labeling.institution_id", "=", $institutionId);
+                                $query->whereNull("rel_institution_type_sections_labeling.institution_type_id");
+                            });
+                    });
+            })
+                ->orderBy('rel_institution_type_sections_labeling.institution_id', 'DESC');
         }
     }
 }

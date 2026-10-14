@@ -19,16 +19,12 @@ La classe `AuthPatOS` nella namespace `Helpers` fornisce funzionalità per l'aut
 * `$session`: Un'istanza della classe `Session` per la gestione delle sessioni.
 * `$isValid`: Un flag booleano che indica se l'utente è valido (autenticato).
 * `$hasEncryption`: Un flag booleano che indica se è abilitata la crittografia dei dati.
-* `$nameSuperAdmin`: Il nome del campo che indica se l'utente è un super amministratore nella tabella degli utenti.
 * `$nameAdmin`: Il nome del campo che indica se l'utente è un amministratore nella tabella degli utenti.
 * `$nameDeleted`: Il nome del campo che indica se l'utente è stato eliminato nella tabella degli utenti.
-* `$nameIsAPI`: Il nome del campo che indica se l'utente è abilitato per l'API nella tabella degli utenti.
-* `$namePasswordToken`: Il nome del campo che contiene il token della password nella tabella degli utenti.
 * `$lastVisited`: Il nome del campo che rappresenta l'ultima visita dell'utente nella tabella degli utenti.
 * `$institutionsId`: Il nome del campo che rappresenta l'ID dell'istituzione nella tabella degli utenti.
 * `$lastVisitTimeLimit`: Il limite di tempo per la validità dell'ultima visita dell'utente.
 * `$isAuthTwoFactor`: Un flag booleano che indica se l'autenticazione a due fattori è abilitata.
-* `$limitCallsApi`: Il limite di chiamate API consentite per l'utente.
 * `$error`: Un messaggio di errore per l'autenticazione (opzionale).
 
 ### Metodi

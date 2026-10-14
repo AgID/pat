@@ -47,8 +47,7 @@ class OpenDataGrantsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -74,7 +73,7 @@ class OpenDataGrantsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('grant');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -103,7 +102,7 @@ class OpenDataGrantsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('grant');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -133,16 +132,17 @@ class OpenDataGrantsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('liquidation');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
             $fileName = ' Sovvenzioni - ' . $resultSection['name'] . '.csv';
-            header('Set-Cookie: fileDownload=true; path=/');
-            header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-            header('Content-Type: text/csv; charset= utf-8');
-            header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//            header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//            header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//            header('Content-Type: text/csv; charset= utf-8');
+//            header('Content-Disposition: attachment; filename="' . $fileName.'"');
+            setFileDownloadCookieCSV($fileName);
             $output = fopen("php://output", 'w');
 
             $headers = array(
@@ -230,12 +230,35 @@ class OpenDataGrantsFrontController extends BaseFrontController
     private function getData($type = null): mixed
     {
         // Recupero i provvedimenti da mostrare
-        return GrantsModel::where('object_grants.type', $type)
+        $result = GrantsModel::where('object_grants.type', $type)
             ->with(['relative_grant' => function ($query) {
                 $query->select(['object_grants.id', 'object', 'beneficiary_name', 'concession_act_date', 'fiscal_data', 'privacy', 'object_structures_id', 'notes', 'fiscal_data', 'fiscal_data_not_available'])
                     ->with('structure:id,structure_name');
                 $query->with('personnel:id,full_name');
-            }])
+            }]);
+
+        if($type == 'liquidation'){
+            $liquidationDate = "2025-07-01 00:00:00";
+
+            $result = $result->where('object_grants.reference_date', '<=', $liquidationDate);
+        }
+
+        $result = $result->liquidationfilter(
+                (Input::get('b', true)),
+                (int)Input::get('str', true),
+                (int)Input::get('resp', true),
+                (int)Input::get('year', true)
+            )
+            ->grantfilter(
+                (Input::get('obj', true)),
+                (int)Input::get('y', true),
+                (Input::get('ben', true)),
+                (int)Input::get('s', true),
+                (int)Input::get('r', true),
+            )
+            ->beneficiaryfilter(
+                (int)Input::get('y', true)
+            )
             ->with('normatives:id,name')
             ->with('regulation:id,title')
             ->with('structure:id,structure_name')
@@ -245,9 +268,11 @@ class OpenDataGrantsFrontController extends BaseFrontController
             ->orderBy('object_grants.concession_act_date', 'DESC')
             ->orderBy('object_grants.reference_date', 'DESC')
             ->orderBy('object_grants.created_at', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
+
+            return $result;
     }
 
     /**
@@ -260,16 +285,18 @@ class OpenDataGrantsFrontController extends BaseFrontController
     private function generateCsv($resultContests = null, $resultSection = null): void
     {
         $fileName = 'Sovvenzioni - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
 
         $headers = array(
             'Tipologia',
             'Oggetto',
+            'Beneficiario',
             'Struttura organizzativa responsabile',
             'Dirigente o funzionario responsabile',
             'Data di riferimento',
@@ -345,22 +372,24 @@ class OpenDataGrantsFrontController extends BaseFrontController
                 !empty($r['typology']) ? $r['typology'] : null,
                 // Oggetto
                 !empty($r['object']) ? $r['object'] : null,
+                // Beneficiario
+                !empty($r['privacy']) ? "OMISSIS" : (!empty($r['beneficiary_name']) ? $r['beneficiary_name'] : ""),
                 // Struttura organizzativa responsabile
                 !empty($structure['structure_name']) ? $structure['structure_name'] . '- [Url]: ' . siteUrl('page/40/details/' . $structure['id'] . '/' . urlTitle($structure['structure_name'])) : null,
                 // Dirigente o funzionario responsabile
                 !empty($personnelList) ? trim($personnelList): null,
                 // Data di riferimento
-                !empty($r['concession_act_date']) ? date('d-m-Y', strtotime($r['concession_act_date'])) : null,
+                !empty($r['concession_act_date']) ? date('d/m/Y', strtotime($r['concession_act_date'])) : null,
                 // Data inizio
-                !empty($r['start_date']) ? date('d-m-Y', strtotime($r['start_date'])) : null,
+                !empty($r['start_date']) ? date('d/m/Y', strtotime($r['start_date'])) : null,
                 // Data fine
-                !empty($r['end_date']) ? date('d-m-Y', strtotime($r['end_date'])) : null,
+                !empty($r['end_date']) ? date('d/m/Y', strtotime($r['end_date'])) : null,
                 // Importo
                 !empty($r['concession_amount']) ? '€ ' . S::currency($r['concession_amount'], 2, ',', '.') : null,
                 // Importo erogato(somme liquidate)
                 !empty($liquidationValueSum) ? '€ ' . S::currency($liquidationValueSum, 2, ',', '.') : null,
                 // Data importo erogato
-                !empty($liquidationDate) ? date('d-m-Y', strtotime($liquidationDate)) : null,
+                !empty($liquidationDate) ? date('d/m/Y', strtotime($liquidationDate)) : null,
                 // Norma o titolo alla base dell'attribuzione
                 !empty($normativesList) ? trim($normativesList): null,
                 // Regolamento alla base dell'attribuzione

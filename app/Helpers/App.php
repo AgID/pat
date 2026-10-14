@@ -7,22 +7,16 @@
 use System\Log;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
-/**
- * @package     Pat OS
- * @author      ISWEB S.p.A
- * @copyright   Copyright (c) 2021, ISWEB S.p.A
- * @since       Version 1.0
- * @filesource
- */
+
 
 if (!function_exists('checkSecurityPassword')) {
 
     /**
      * Funzione per il controllo sicurezza sulle password
      *
-     * @param string $password Password da controllare
-     * @param int $minLength Lunghezza minima che la password deve avere
-     * @param int $maxLength Lunghezza massima che la password deve avere
+     * @param string $password  Password da controllare
+     * @param int    $minLength Lunghezza minima che la password deve avere
+     * @param int    $maxLength Lunghezza massima che la password deve avere
      * @return bool
      */
     function checkSecurityPassword(string $password, int $minLength = 14, int $maxLength = 32): bool

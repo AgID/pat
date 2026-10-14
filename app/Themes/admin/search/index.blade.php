@@ -14,11 +14,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 @endphp
 <button class="btn btn-outline-primary text-bold d-lg-none d-sm-block mb-2" id="pulsante-filtri">+ Filtri</button>
 <div class="row pb-5">
-    <div class="col-md-3 d-lg-block d-md-none" id="lista-filtri">
-        <ul class="list-group" style="font-size: 1rem;" id="categories-list">
-            @if(!empty($permits))
+    @if(!empty($permits))
+        <div class="col-md-3 d-lg-block d-md-none" id="lista-filtri">
+            <ul class="list-group" style="font-size: 1rem;" id="categories-list">
                 @foreach($permits AS $permit)
                     @php
+                        $permit = $permit ?? null;
                             $queryString = http_build_query([
                                 'sid' => $permit['sections_bo_id'],
                                 'type' => urlTitle($permit['name'],'_',true),
@@ -39,21 +40,33 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </span>
                     </li>
                 @endforeach
-            @endif
-        </ul>
-    </div>
-    <div class="col-md-9">
-        <div class="row">
-            <div class="col-md-12 text-muted">
-                <h3>RISULTATI DI RICERCA PER <small style="color: #444444;" id="filter_section_bo"></small></h3>
-                <hr>
-            </div>
-            <div class="col-md-12" id="async_search_result_terms">
-                {{ $_tpl }}
+            </ul>
+        </div>
+    @endif
+    @if(empty($errorHtml))
+        <div class="col-md-9">
+            <div class="row">
+                <div class="col-md-12 text-muted">
+                    <h3>RISULTATI DI RICERCA PER <small style="color: #444444;" id="filter_section_bo"></small></h3>
+                    <hr>
+                </div>
+                <div class="col-md-12" id="async_search_result_terms">
+                    {{ $_tpl }}
+                </div>
             </div>
         </div>
-
-    </div>
+    @else
+        <div class="col-md-12">
+            <div class="row">
+                <div class="col-md-12">
+                <div class="callout callout-danger">
+                    <h5>Attenzione!</h5>
+                    <p>Ricerca non eseguita: si prega di inserire almeno 4 caratteri!</p>
+                </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -70,14 +83,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{ js('datatables-responsive/js/responsive.bootstrap4.min.js','common') }}
 <script type="text/javascript">
 
-    var keywordString = '{{ htmlEscape(\System\Input::get('s',true)) }}';
-    var i = 0;
-    var find = false;
+    const keywordString = '{{ htmlEscape(\System\Input::get('s',true)) }}';
+    let i = 0;
+    let find = false;
 
     function asyncPagination() {
         $('#async_pagination_search_result a').click('click', function (e) {
             e.preventDefault();
-            var href = $(this).attr('href');
+            const href = $(this).attr('href');
 
             if (href.slice(-2) !== '#!') {
                 asyncSearchResultTerms($(this).attr('href'));
@@ -90,8 +103,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
      */
     function loadNumbersSearchResult() {
 
-        var args = arguments;
-        var selector = '#current_info_' + args[0];
+        const args = arguments;
+        const selector = '#current_info_' + args[0];
         $('#filter_section_bo').empty().append(`"${keywordString}"`);
 
         $.ajax({
@@ -115,8 +128,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 if (parseInt(response.data.num) > 0) {
 
                     {{-- Appendo il titolo della richiesta  asincrona --}}
-                    var link = $(selector).prev().attr('href');
-                    var text = $(selector).prev().text();
+                    const link = $(selector).prev().attr('href');
+                    const text = $(selector).prev().text();
 
                     if (!find) {
 
@@ -134,7 +147,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                 }
 
-                var elTotal = parseInt($('.list-group-item').length);
+                const elTotal = parseInt($('.list-group-item').length);
 
                 i++;
 
@@ -159,7 +172,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
      */
     function asyncSearchResultTerms() {
 
-        var arg = arguments;
+        const arg = arguments;
 
         $.ajax({
             url: arg[0],

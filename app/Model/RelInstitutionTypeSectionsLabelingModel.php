@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+
 /**
  * Modello per la tabella rel_institution_type_sections_labeling. Rappresenta la relazione tra le tabelle institution_type e sections - Utilizzata per la gestione delle traduzioni dei ruoli.
  */
@@ -36,6 +37,5 @@ class RelInstitutionTypeSectionsLabelingModel extends Pivot
     protected static function boot(): void
     {
         parent::boot();
-//        static::addGlobalScope(new InstitutionScope);
     }
 }

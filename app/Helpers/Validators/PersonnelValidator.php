@@ -10,6 +10,8 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\PersonnelModel;
+use Model\RoleModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -34,44 +36,60 @@ class PersonnelValidator
      * Controlla la validità dell'ID nell'URI segment e se esiste un personale con quell'ID per l'ente
      *
      * @param null $checkOwner Indica se controllare o meno l'utente propietario del record
+     * @param int $uriSegment
+     * @param null $institutionId
+     * @param null $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
 
         $this->validator->label('ID personale')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il personale con l'id passato in input
-                $check = PersonnelModel::where('id', uri()->segment(4, 0))
-                    ->with(['referent_structures' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id',
-                            'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                $check = PersonnelModel::where('id', uri()->segment($uriSegment, 0));
+
+                $check->with([
+                    'referent_structures' => function ($query) {
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->with('assignments:id,object,name,assignment_start')
-                    ->with('measures:id,object,date,number,type')
-                    ->with(['public_in' => function ($query) {
+                    }
+                ]);
+                $check->with('assignments:id,object,name,assignment_start');
+                $check->with('measures:id,object,date,number,type');
+                $check->with([
+                    'public_in' => function ($query) {
                         $query->select(['section_fo_id', 'section_fo_config_publication_archive.id', 'section_fo.name'])
                             ->join('section_fo', 'section_fo.id', '=', 'section_fo_id');
-                    }])
-                    ->with('political_organ:id,political_organ_id,object_personnel_id')
-                    ->with('historical_datas')
-                    ->first();
+                    }
+                ]);
+                $check->with('political_organ');
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste il personale con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
 
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'personale ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
+
 
                 //Se esiste il personale lo salvo nel registro
                 Registry::set('personnel', $check);
@@ -80,12 +98,13 @@ class PersonnelValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
+
 
     /**
      * Metodo che esegue la validazione dei campi del form
@@ -94,12 +113,12 @@ class PersonnelValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
         if ($mode == 'archiving') {
             return $this->archivingValidate();
         } else {
-            return $this->validate($mode);
+            return $this->validate($mode, $institutionId);
         }
     }
 
@@ -141,7 +160,6 @@ class PersonnelValidator
                 if (Input::post('active_to') < Input::post('active_from')) {
 
                     return ['error' => __('invalid_archive_ending_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -156,7 +174,6 @@ class PersonnelValidator
                 if (Input::post('end_date') <= Input::post('active_to')) {
 
                     return ['error' => __('invalid_archive_date', null, 'patos')];
-
                 }
                 return null;
             })
@@ -172,12 +189,13 @@ class PersonnelValidator
      * Metodo per la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione
+     * @param int $institutionId
      * @return array
      * @throws Exception
-     * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
+
         $this->validator->label('Ruolo')
             ->value(Input::post('role_id'))
             ->required()
@@ -185,10 +203,11 @@ class PersonnelValidator
             ->isNaturalNoZero()
             ->end();
 
-        //        $this->validator->label('Pubblica in')
-        //            ->value(Input::post('public_in'))
-        //            ->required()
-        //            ->end();
+        $this->validator->label('Qualifica')
+            ->value(Input::post('qualification_id'))
+            ->isInt()
+            ->isNaturalNoZero()
+            ->end();
 
         if (Input::post('public_in')) {
             foreach (Input::post('public_in') as $in) {
@@ -202,7 +221,7 @@ class PersonnelValidator
 
         $this->validator->label('Titolo accademico o professionale')
             ->value(Input::post('title'))
-            ->in('arch.,avv.,dott.,dott.ssa,dr.,ing.,on.le,geom.,prof.,reg.,sig.,sig.ra,per.')
+            ->in('arch.,avv.,dott.,dott.ssa,dr.,ing.,on.le,geom.,prof.,prof.ssa,rag.,sig.,sig.ra,per.')
             ->end();
 
         $this->validator->label('Nome')
@@ -223,7 +242,7 @@ class PersonnelValidator
             ->end();
 
         if (Input::post('structures')) {
-            foreach (explode(',', (string)Input::post('structures')) as $structure) {
+            foreach (explode(',', (string) Input::post('structures')) as $structure) {
                 $this->validator->label('Struttura organizzativa ' . $structure)
                     ->value($structure)
                     ->isInt()
@@ -233,7 +252,7 @@ class PersonnelValidator
         }
 
         if (Input::post('assignments')) {
-            foreach (explode(',', (string)Input::post('assignments')) as $assignments) {
+            foreach (explode(',', (string) Input::post('assignments')) as $assignments) {
                 $this->validator->label('Incarico associato ' . $assignments)
                     ->value($assignments)
                     ->isInt()
@@ -243,7 +262,7 @@ class PersonnelValidator
         }
 
         if (Input::post('measures')) {
-            foreach (explode(',', (string)Input::post('measures')) as $measures) {
+            foreach (explode(',', (string) Input::post('measures')) as $measures) {
                 $this->validator->label('Provvedimento associato ' . $measures)
                     ->value($measures)
                     ->isInt()
@@ -281,7 +300,6 @@ class PersonnelValidator
                 if (Input::post('in_office_until') <= Input::post('in_office_since')) {
 
                     return ['error' => __('invalid_end_date_office', null, 'patos')];
-
                 }
                 return null;
             })
@@ -301,12 +319,12 @@ class PersonnelValidator
 
         $this->validator->label('Altre informazioni')
             ->value(Input::post('other_info'))
-            ->betweenString(5, 10000)
+            ->betweenString(5, 7500)
             ->end();
 
         $this->validator->label('Archivio informazioni')
             ->value(Input::post('information_archive'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 7500)
             ->end();
 
         //Per i ruoli P.O., Dirigente e Segretario Generale
@@ -325,33 +343,51 @@ class PersonnelValidator
             }
         }
 
-        if (Input::post('role_id') == 5) {
-            $this->validator->label('Incarico di stampo politico')
-                ->value(Input::post('political_role'))
-                ->required()
-                ->betweenString(5, 120)
-                ->end();
+        $getRole = array();
+        if (!empty(Input::post('role_id'))) {
+
+            $getRole = RoleModel::where('id', '=', Input::post('role_id'))
+                ->get()
+                ->toArray();
+
+            if ($getRole[0]['political'] == 1) {
+                $this->validator->label('Incarico di stampo politico')
+                    ->value(Input::post('political_role'))
+                    ->required()
+                    ->betweenString(2, 120)
+                    ->end();
+            }
         }
 
         $this->validator->label('Compensi connessi all\'assunzione della carica')
             ->value(Input::post('compensations'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 7500)
             ->end();
 
         $this->validator->label('Importi di viaggi di servizio e missioni')
             ->value(Input::post('trips_import'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 7500)
             ->end();
 
         $this->validator->label('Altri incarichi con oneri a carico della finanza pubblica e relativi compensi')
             ->value(Input::post('other_assignments'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 7500)
+            ->end();
+
+        $this->validator->label("Dati relativi all'assunzione di altre cariche, presso enti pubblici o privati ed i relativi compensi a qualsiasi titolo corrisposti (art. 14 c.1 lett. d), D.lgs. n. 33/2013)")
+            ->value(Input::post('other_assignments_institutions'))
+            ->betweenString(5, 7500)
             ->end();
 
         $this->validator->label('Documentazione Art. 14 e Art. 47, c. 1, Dlgs n. 33/2013; Art. 1,2,3,4 l. n. 441/1982')
             ->value(Input::post('notes'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 7500)
             ->end();
+
+
+
+
+
 
         // Se sto inserendo un nuovo personale
         if ($mode === 'insert') {
@@ -373,14 +409,7 @@ class PersonnelValidator
             $this->validator->label('Indirizzo email certificata')
                 ->value(Input::post('certified_email'))
                 ->isEmail()
-                ->betweenString(2, 30)
-                ->add(function () {
-                    $certifiedEmailExist = PersonnelModel::where('certified_email', Input::post('certified_email'))->first();
-                    if (!empty($certifiedEmailExist)) {
-                        return ['error' => __('certified_email_exist', null, 'patos')];
-                    }
-                    return null;
-                })
+                ->betweenString(4, 191)
                 ->end();
 
             if (Input::post('not_available_email') === '1') {
@@ -404,13 +433,20 @@ class PersonnelValidator
         //Se sto modificando un personale esistente
         if ($mode === 'update') {
 
+
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $personnel = PersonnelModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = PersonnelModel::where('id', $id);
+
+                    $personnel = $query->first();
+
                     if (empty($personnel)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Personale')];
                     }
@@ -422,10 +458,13 @@ class PersonnelValidator
                 ->maxLength(17, __('max_phone_length', null, 'patos'))
                 ->minLength(3, __('min_phone_length', null, 'patos'))
                 ->regex('/^([0-9().\-+ ]){3,17}$/', __('phone_error', null, 'patos'))
-                ->add(function () {
-                    $mobilePhoneExist = PersonnelModel::where('id', '!=', Input::post('id'))
-                        ->where('mobile_phone', Input::post('mobile_phone'))
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = PersonnelModel::where('id', '!=', $id);
+
+                    $mobilePhoneExist = $query->where('mobile_phone', Input::post('mobile_phone'))
                         ->first();
+
                     if (!empty($mobilePhoneExist)) {
                         return ['error' => __('already_exist_phone', null, 'patos')];
                     }

@@ -28,10 +28,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <ul class="dropdown-menu dropdown-menu-right">
 
                                 @if(getAclAdd())
+                                    @php
+                                        $class = checkAlternativeInstitutionId() == 0 ? 'select-institution' : null;
+                                    @endphp
                                     <li>
-                                        <a href="{{siteUrl('admin/news-notice/create')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/news-notice/create') : '#!' }}"
                                            title="Crea un nuovo avviso"
-                                           id="add-news-notice" class="dropdown-item" type="button">
+                                           id="add-news-notice" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Aggiungi una nuova Notizia o Avviso
                                         </a>
                                     </li>
@@ -49,7 +52,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             <i class="fas fa-trash mr-1"></i> Cancella elementi selezionati
                                         </a>
                                     </li>
+
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                 @endif
+
                             </ul>
                         </div>
                     </div>
@@ -65,12 +73,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </th>
                         <th>TITOLO</th>
                         <th>TIPOLOGIA</th>
-                        <th>DATA VISUALIZZATA</th>
-                        <th>SEZIONI DI PUBBLICAZIONE</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+                        <th>DATA NOTIZIA</th>
+                        <th>PUBBLICA IN</th>
+
+
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -79,6 +85,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 </div>
+
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -123,10 +130,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {
                     orderable: false
                 },
-                {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                    @endif
+
                 {
                     orderable: false,
                     width: "5%"
@@ -140,13 +144,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             }
         }).on('init.dt', function () {
+            //Funzione per la ricerca
+            searchDatatable(dtable);
         });
 
         $.fn.DataTable.ext.pager.numbers_length = 5;
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            getVersionsList('v-spinner');
+
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */
@@ -170,16 +183,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
              */
             {{-- Vedere nel footer --}}
             deleteRecord();
+
+
+            /**
+             * Metodo che apre il modale per i log
+             */
+            openLogModal();
+
+            /**
+             * workflow
+             */
+            askEdit();
         });
 
-        {{-- Seleziona deseleziona tutti i records nella tabella --}}
-        $('.checkbox_all').bind('click', function () {
-            $isChecked = $(this).is(':checked');
-            if (parseBool($isChecked) === true) {
-                $('.checkbox_item').prop('checked', true);
-            } else {
-                $('.checkbox_item').prop('checked', false);
-            }
+        //Seleziona deseleziona tutti i records nella tabella
+        document.querySelectorAll('.checkbox_all').forEach(checkbox => {
+            checkbox.addEventListener('click', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.checkbox_item').forEach(item => {item.checked = isChecked;});
+            });
         });
     });
 </script>

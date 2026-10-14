@@ -12,7 +12,6 @@ use System\Model;
 
 /**
  * Modello per la tabella role. Rappresenta i ruoli per il personale
- * @method static where(string $string, string $string1, int $int)
  */
 class RoleModel extends Model
 {
@@ -23,6 +22,7 @@ class RoleModel extends Model
         'name',
         'standard',
         'political',
+        'po_dir_fields',
         'institution_id',
         'created_at',
         'updated_at'

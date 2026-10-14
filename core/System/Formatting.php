@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -131,7 +131,7 @@ class Formatting
             'Õ' => 'O', 'Ö' => 'O', 'Ø' => 'O', 'Ù' => 'U', 'Ú' => 'U', 'Û' => 'U', 'Ü' => 'U', 'Ý' => 'Y', 'Þ' => 'B', 'ß' => 'Ss',
             'à' => 'a', 'á' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'å' => 'a', 'æ' => 'a', 'ç' => 'c', 'è' => 'e', 'é' => 'e',
             'ê' => 'e', 'ë' => 'e', 'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i', 'ð' => 'o', 'ñ' => 'n', 'ò' => 'o', 'ó' => 'o',
-            'ô' => 'o', 'õ' => 'o', 'ö' => 'o', 'ø' => 'o', 'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ý' => 'y', 'ý' => 'y', 'þ' => 'b',
+            'ô' => 'o', 'õ' => 'o', 'ö' => 'o', 'ø' => 'o', 'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ý' => 'y', 'þ' => 'b',
             'ÿ' => 'y', 'Ŕ' => 'R', 'ŕ' => 'r', '/' => '-', ' ' => in_array($separator, ['-', '_']) ? $separator : '-'
         ];
 
@@ -181,13 +181,17 @@ class Formatting
             return $string;
         }
 
-        $string = preg_replace("/([\340-\357])([\200-\277])([\200-\277])/e",
-            "'&#'.((ord('\\1')-224)*4096 + (ord('\\2')-128)*64 + (ord('\\3')-128)).';'",
+        $string = preg_replace_callback("/([\340-\357])([\200-\277])([\200-\277])/",
+            function($matches) {
+                return '&#' . ((ord($matches[1])-224)*4096 + (ord($matches[2])-128)*64 + (ord($matches[3])-128)) . ';';
+            },
             $string
         );
 
-        $string = preg_replace("/([\300-\337])([\200-\277])/e",
-            "'&#'.((ord('\\1')-192)*64+(ord('\\2')-128)).';'",
+        $string = preg_replace_callback("/([\300-\337])([\200-\277])/",
+            function($matches) {
+                return '&#' . ((ord($matches[1])-192)*64+(ord($matches[2])-128)) . ';';
+            },
             $string
         );
 
@@ -197,6 +201,15 @@ class Formatting
 
     public static function removeInvisibleCharacters($string, $urlEncoded = TRUE)
     {
+        // Se l'input è null o una stringa vuota, ritorna immediatamente
+        if ($string === null) {
+            return $string;
+        }
+
+        if ($string === '') {
+            return $string;
+        }
+
         $nonDisplayables = [];
 
         if ($urlEncoded) {
@@ -330,6 +343,8 @@ class Formatting
         static $arrayFrom, $arrayTo;
 
         if (!is_array($arrayFrom)) {
+            $foreignCharacters = [];
+
             if (file_exists(APP_PATH . 'config/foreign_chars.php')) {
                 include(APP_PATH . 'config/foreign_chars.php');
             }

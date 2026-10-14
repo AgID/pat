@@ -17,9 +17,10 @@ return [
      * @route /auth.html
      * @path admin/auth/auth.blade.php
      */
-    'username_or_email_not_valid' => 'Username o password errati',
+    'username_or_email_not_valid' => 'Username o password errati.',
     'token_not_not_valid' => 'Token non valido. riprovare l\'autenticazione',
     'user_disabled' => 'Utente disabilitato per mancato utilizzo.',
+    'user_disabled_date' => 'Utenza scaduta.',
     'head_auth_user' => 'Autenticazione utente',
     'placeholder_auth_username' => 'Email o Username',
     'placeholder_auth_password' => 'Password',
@@ -53,11 +54,11 @@ return [
      * @path Http/Web/Auth/AuthAdminController.php
      */
     'auth_blocked_title' => 'Accesso utente - bloccato',
-    'auth_blocked_description' => 'Accesso utente bloccato "%s" nel giorno %s alle ore %s per superamento tentativi di accesso.',
+    'auth_blocked_description' => 'Accesso utente bloccato nel giorno %s alle ore %s per superamento tentativi di accesso.',
     'auth_success_title' => 'Accesso utente - riuscito',
-    'auth_success_description' => 'Accesso utente "%s" riuscito nel giorno %s alle ore %s.',
+    'auth_success_description' => 'Accesso utente riuscito nel giorno %s alle ore %s.',
     'auth_failed_title' => 'Accesso utente - fallito',
-    'auth_failed_description' => 'Accesso utente "%s" fallito nel giorno %s alle ore %s.',
+    'auth_failed_description' => 'Accesso utente fallito nel giorno %s alle ore %s.',
     'auth_failed_block_15' => 'Hai effettuato troppi tentativi di accesso. Sei stato bloccato per 15 minuti',
 
     /**
@@ -65,7 +66,7 @@ return [
      * @path Http/Web/Auth/LogoutAdminController.php
      */
     'auth_logout_title' => 'Logout utente',
-    'auth_logout_description' => 'Logout "%s" nel giorno %s alle ore %s.',
+    'auth_logout_description' => 'Logout nel giorno %s alle ore %s.',
 
     /**
      * @route /lost-password.html

@@ -79,7 +79,7 @@ localisation:
   availableLanguages:
     - it
   localisationReady: false
-logo: 'https://raw.githubusercontent.com/AgID/pat/master/pat_logoyml.png'
+logo: 'https://raw.githubusercontent.com/AgID/pat/HEAD/pat_logoyml.png'
 maintenance:
   contacts:
     - email: a.bianchi@isweb.it
@@ -103,18 +103,18 @@ softwareType: standalone/backend
 url: 'https://github.com/AgID/pat'
 usedBy:
   - AgID - Agenzia per l'Italia Digitale
+  - Ministero della Giustizia
   - Ministero della Cultura
   - Ministero del Lavoro e delle Politiche Sociali
   - Ministero delle Infrastrutture e della Mobilità Sostenibili
+  - Ministero dell'Università e della Ricerca
   - ENAC - Ente Nazionale per l'Aviazione Civile
   - Agenzia Italiana per la Cooperazione allo Sviluppo
-  - Agenzia Nazionale per la Sicurezza delle Ferrovie e delle Infrastrutture Stradali e Autostradali
   - ACI
-  - ACI Informatica
+  - ACI Informatica S.p.A.
   - ACI Infomobility
   - PagoPA S.p.A.
   - Gallerie degli Uffizi
-  - ALES Arte Lavoro e Servizi SpA
   - ARPA Lazio
   - ARPA Puglia
   - Agenzia Regionale Piemontese per le Erogazioni in Agricoltura
@@ -164,23 +164,18 @@ usedBy:
   - ASMia Srl
   - ASMortara SpA
   - Carbosulcis S.p.A.
-  - CMV ENERGIA & IMPIANTI S.R.L.
-  - CMV Servizi S.r.l.
   - Ente Autonomo Volturno S.R.L.
   - Exe.Gesi S.p.A. a socio unico
   - GESEM Srl
   - Ghelas Multiservizi S.p.A.
   - Impianti S.R.R Ato 4 Caltanissetta Provincia Sud
-  - Inrete Distribuzione Energia SpA
   - Istituzione Scolastica Unité des Communes Valdôtaines Grand Combin Gignod
   - Multiservizi Monticelli Srl
-  - Port Security Piombino S.r.l.u.
   - PromoVarese Srl
   - Comune di Prato
   - Città di Civitavecchia
   - Comune di Carmignano
   - Comune di Cecina
-  - Comune di Ceprano
   - Comune di Collesalvetti
   - Comune di Gela
   - Comune di Grottaglie
@@ -190,89 +185,311 @@ usedBy:
   - Comune di Selargius
   - Comunità di Primiero
   - Azienda Speciale per i Servizi Sociali del Comune di Montesilvano
-  - ACI Global S.p.A.
-  - ACI GEST SRL
-  - Aciservice Modena S.r.l.
-  - Aciservice Reggio Srl
+  - Comune di Caserta
+  - Comune di Montemurlo
+  - Comune di Poggio a Caiano
+  - Comune di Parabiago
+  - Autorità di Sistema Portuale del Mare Adriatico Meridionale. Bari, Brindisi, Manfredonia, Barletta, Monopoli e Termoli
+  - Agenzia Mobilità, Ambiente e Territorio srl
+  - Commissario Straordinario per la realizzazione della Piattaforma Europa nel Porto di Livorno
+  - Università degli Studi di Pavia
+  - Città Metropolitana di Reggio Calabria
+  - Azienda ospedaliero-universitaria Senese
+  - Scuola Normale Superiore
+  - ARPA Friuli Venezia Giulia
+  - Autorità di Sistema Portuale del Mare Adriatico Orientale
+  - Comune di Carmagnola
+  - Comune di Corciano
+  - Comune di Peschiera Borromeo
+  - Veneto Lavoro
+  - Comune di Botrugno
+  - Comune di San Cassiano
+  - ViAmbiente S.p.A.
+  - Unione terre di mezzo
+  - Comune di Fano Adriano
+  - Agenzia Regionale Strategica Per lo Sviluppo Ecosostenibile Del Territorio - ASSET Puglia
+  - Istituto Culturale Ladino Majon di Fascegn
+  - Autorità di Sistema Portuale del Mare adriatico Settentrionale Porti di Venezia e Chioggia
+  - Agro Camera
+  - Azienda Ospedaliero-Universitaria di Cagliari
+  - Teatro Stabile del Veneto
+  - Enac Servizi Aeroporti
+  - Parco Regionale Gallipoli Cognato Piccole Dolomiti Lucane
+  - Comune di Vanzaghello
+  - A.R.T.E. Imperia
+  - Università del Salento
+  - Padova Attiva S.r.l. - Unipersonale
+  - EUR SpA
+  - Città di San Giorgio Ionico
+  - Risorse per Roma
+  - Gran Sasso Science Institute
+  - Comune di Sagron Mis
+  - Provincia di Teramo
+  - Parco Otranto Leuca
+  - ACI Global Servizi S.p.A.
+  - Sviluppo Lavoro Italia S.p.A.
+  - ASL Napoli 3 sud
+  - CCIAA del Molise
+  - Agenzia Regionale per la promozione turistica, la comunicazione e il marketing territoriale
+  - Centro di Ricerca, Sviluppo e Studi Superiori in Sardegna
+  - Fondazione e-35
+  - IPAB Aldisio
+  - Commissariato generale di sezione per la partecipazione italiana a Expo 2025 Osaka
+  - Comune di Rocca di Papa
+  - Lepida S.c.p.A.
+  - Jesiservizi S.r.l.
+  - Ispettorato Nazionale del Lavoro
+  - Innova Camera - Azienda Speciale Camera di Commercio di Roma
+  - Comune di Flero
+  - Amministrazione trasparente
+  - Azienda speciale multiservizi del Comune di ColleVal D'Elsa
+  - Comune di Caponago
+  - Consiglio Nazionale Ordine Assistenti Sociali
+  - Istituto Comprensivo - Maddalena - Bertani
+  - Agenzia Nazionale per la Sicurezza del Volo
+  - Società Risorse Spa
+  - Istituto Cimbro / Kulturinstitut Lusérn
+  - Comune di Rovereto
+  - AMAT Palermo S.p.A.
+  - Consiglio regionale del Trentino-Alto Adige/Südtirol
+  - Comune di Toscolano Maderno
+  - ACI Blueteam S.p.A.
+  - Ventura S.p.A.
+  - Trentino sviluppo S.p.A
+  - Zètema Progetto Cultura S.r.l.
+  - Azienda Speciale SERM
+  - Politecnico di Bari
+  - Ente Parco Nazionale Arcipelago Di La Maddalena
+  - Forma Camera - Azienda Speciale Camera di Commercio di Roma
+  - Sviluppo e Territorio - Azienda Speciale Camera di Commercio di Roma
+  - Comune di Carbonia
+  - Parco Naturale Adamello Brenta
+  - Trentino Digitale SpA
+  - Istituto di Servizi per Il Mercato Agricolo Alimentare
+  - Ener.bit S.r.l.
+  - Epap Ente di Previdenza e Assistenza Pluricategoriale
+  - ASST Santi Paolo e Carlo
+  - Azienda Servizi Funebri del Comune di Genova
+  - A Tutta Rete S.r.l.
+  - Exe.Gesi S.p.A.
+  - CLARA SPA
+  - Le Gallerie degli Uffizi
+  - Comune di Francavilla Fontana
+  - ACI Mobility SpA
+  - Giustizia Amministrativa
+  - Azienda Servizi Mortara S.p.A.
+  - Città metropolitana di Roma Capitale
+  - Agenzia Regionale per la Protezione dell'Ambiente della Puglia
   - ACI Automobile Club Reggio Emilia
-  - Automobile Club Alessandria
-  - Automobile Club Ancona
-  - Automobile Club Aosta
-  - Automobile Club ascoli Piceno Fermo
-  - Automobile Club Asti
-  - Automobile Club Avellino
-  - Automobile Club Bari
-  - Automobile Club Perugia
-  - Automobile Club Pesaro e Urbino
-  - Automobile Club Pescara
-  - Automobile Club Pisa
-  - Automobile Club Pistoia
-  - Automobile Club Ponente Ligure
-  - Automobile Club Pordenone
-  - Automobile Club Potenza
-  - Automobile Club Prato
-  - Automobile Club Rieti
-  - Automobile Club Rimini
-  - Automobile Club Roma
-  - Automobile Club Rovigo
-  - Automobile Club Salerno
-  - Automobile Club Sanremo
-  - Automobile Club Sassari
-  - Automobile Club Siena
-  - Automobile Club Siracusa
-  - Automobile Club Sondrio
-  - Automobile Club Taranto
-  - Automobile Club Teramo
-  - Automobile Club Terni
-  - Automobile Club Torino
-  - Automobile Club Trento
-  - Automobile Club Treviso
-  - Automobile Club Trieste
+  - Aciservice Reggio Srl
+  - Fondazione MUS.E - Firenze
+  - Automobile Club Modena
+  - Agenzia Nazionale per la Sicurezza delle Ferrovie e delle Infrastrutture Stradali e Autostradali
+  - Aciservice Modena S.r.l.
+  - Comune di Barletta
+  - ACI Automobile Club Udine
+  - Agenzia Spaziale Italiana
+  - Università degli Studi Roma Tre
+  - Capo d’Anzio S.p.A.
+  - Agenzia per il Diritto allo Studio Universitario della Regione Puglia
+  - Agrorinasce S.C.R.L.
+  - Conferenza dei Presidenti delle Assemblee legislative delle Regioni e delle Province Autonome
+  - OMCeO Roma - Ordine Provinciale di Roma dei Medici Chirurghi e degli Odontoiatri
+  - Autorità per le Garanzie nelle Comunicazioni
+  - Ordine dei medici provinciale
+  - Autoservis srl
+  - Acupark srl
+  - Acirent srl
+  - Museo Nazionale d’Abruzzo dell’Aquila
+  - Consiag Servizi Comuni srl
+  - Porto di Trieste Servizi s.r.l.
+  - Servizi e Parcheggi Lignano Srl
+  - Comune di Palmariggi
+  - Commissione Amministrativa Regionale Di Disciplina
+  - Agenzia Regionale per la Protezione dell’Ambiente Ligure
+  - Azienda Ospedaliera di Rilievo Nazionale Antonio Cardarelli
+  - Musei del Bargello
+  - Equitalia Giustizia SpA
+  - Comune di Nerviano
+  - Comune di Fragagnano
+  - Garante per la protezione dei dati personali
+  - Comune di Priverno
+  - Comune di Maiori
+  - Galleria dell'Accademia di Firenze e Musei del Bargello
+  - Comune di Palermo
+  - SRR Palermo Area Metropolitana S.C.p.A.
+  - AOU Luigi Vanvitelli
+  - Istituto Zooprofilattico Sperimentale dell'Umbria e delle Marche "Togo Rosati"
+  - Governo Italiano - Presidenza del Consiglio dei Ministri
+  - Camera di Commercio Roma
+  - SiSPI S.p.A.
+  - AMG Energia S.p.a.
+  - ATAC
+  - Automobile Club Genova
+  - Automobile Club Firenze
   - Automobile Club Varese
-  - Automobile Club Venezia
-  - Automobile Club Verbano Cusio Ossola
-  - Automobile Club Verona
-  - Automobile Club Vicenza
-  - Automobile Club Viterbo
-  - Automobile Club Belluno
-  - Automobile Club Benevento
-  - Automobile Club Bergamo
-  - Automobile Club Biella
-  - Automobile Club Bologna
-  - Automobile Club Brescia
-  - Automobile Club Cagliari
-  - Automobile Club Campobasso
-  - Automobile Club Caserta
+  - Automobile Club Torino
   - Automobile Club Catania
+  - Automobile Club Bari
+  - Automobile Club Lecce
+  - Automobile Club Foggia
+  - Automobile Club Teramo
+  - Automobile Club L'Aquila
   - Automobile Club Chieti
+  - Automobile Club Terni
+  - Automobile Club Pescara
+  - Automobile Club Perugia
+  - Automobile Club Roma
+  - Automobile Club Viterbo
+  - Automobile Club Rieti
+  - Automobile Club Lucca
+  - Automobile Club Pistoia
+  - Automobile Club Latina
+  - Automobile Club Frosinone
+  - Automobile Club Prato
+  - Automobile Club Massa Carrara
+  - Automobile Club Pisa
+  - Automobile Club Siena
+  - Automobile Club Grosseto
+  - Automobile Club Avellino
+  - Automobile Club Benevento
+  - Automobile Club Caserta
+  - Automobile Club Salerno
+  - Automobile Club Napoli
+  - Automobile Club Vicenza
+  - Automobile Club Pesaro e Urbino
+  - Automobile Club Ascoli Piceno Fermo
+  - Automobile Club Ancona
+  - Automobile Club Macerata
+  - Automobile Club Campobasso
+  - Automobile Club Rimini
+  - Automobile Club Novara
+  - Automobile Club Isernia
+  - Automobile Club Potenza
+  - Automobile Club Matera
+  - Automobile Club Mantova
+  - Automobile Club Rovigo
+  - Automobile Club Alessandria
+  - Automobile Club Asti
+  - Automobile Club Biella
+  - Automobile Club Ivrea
+  - Automobile Club Padova
+  - Automobile Club Lecco
+  - Automobile Club Verbano Cusio Ossola
+  - Automobile Club Valle d'Aosta
+  - Automobile Club Venezia
+  - Automobile Club Sassari
+  - Automobile Club Belluno
+  - Automobile Club Cagliari
+  - Automobile Club Oristano
   - Automobile Club Como
   - Automobile Club Cuneo
-  - Automobile Club Firenze
-  - Automobile Club Foggia
-  - Automobile Club Forlì Cesena
-  - Automobile Club Frosinone
-  - Automobile Club Genova
-  - Automobile Club Gorizia
-  - Automobile Club Grosseto
-  - Automobile Club Imperia
-  - Automobile Club Isernia
-  - Automobile Club Ivrea
-  - Automobile Club L'Aquila
-  - Automobile Club Latina
-  - Automobile Club Lecce
-  - Automobile Club Lecco
-  - Automobile Club Lucca
-  - Automobile Club Macerata
-  - Automobile Club Mantova
-  - Automobile Club Massa Carrara
-  - Automobile Club Matera
-  - Automobile Club Messina
-  - Automobile Club Milano
-  - Automobile Club Modena
-  - Automobile Club Molise
-  - Automobile Club Napoli
-  - Automobile Club Novara
-  - Automobile Club Nuoro
-  - Automobile Club Oristano
-  - Automobile Club Paova
+  - Automobile Club Sondrio
+  - Automobile Club Brescia
+  - Automobile Club Bergamo
   - Automobile Club Pavia
+  - AUTOMOBILE CLUB TRENTO
+  - Automobile Club Gorizia
+  - Automobile Club Trieste
+  - Automobile Club Pordenone
+  - Automobile Club Verona
+  - Automobile Club Milano
+  - Automobile Club Treviso
+  - Automobile Club Nuoro
+  - Automobile Club Bologna
+  - Automobile Club Messina
+  - Automobile Club Siracusa
+  - Automobile Club del Ponente Ligure
+  - Automobile Club Forlì Cesena
+  - Automobile Club Imperia
+  - Automobile Club Sanremo
+  - Automobile Club Savona
+  - Automobile Club Acireale
+  - Automobile Club Piacenza
+  - Automobile Club Trapani
+  - Automobile Club Caltanissetta
+  - Automobile Club Enna
+  - Automobile Club Palermo
+  - Automobile Club Agrigento
+  - Automobile Club Cosenza
+  - Automobile Club Catanzaro
+  - Automobile Club Reggio Calabria
+  - Automobile Club Crotone
+  - Automobile Club Vibo Valentia
+  - Automobile Club La Spezia
+  - Automobile Club Parma
+  - Automobile Club Cremona
+  - Automobile Club Brindisi
+  - Automobile Club Vercelli
+  - Automobile Club Taranto
+  - Automobile Club Bolzano
+  - Automobile Club Arezzo
+  - Automobile Club Ferrara
+  - Automobile Club Molise
+  - Automobile Club Livorno
+  - Aci Servizi Alessandria srl
+  - ACIDRIVE Srl Unipersonale
+  - Aci Service Valle d'Aosta srl
+  - ACI AREZZO PROMOSERVICE s.r.l
+  - MOBILITY SERVICE SRL
+  - ACI FUTURA SRL
+  - SERVIZI AUTOCLUBERGAMO SRL
+  - ACBO SERVICE srl
+  - ACI Service Tre Mari Srl
+  - ACI TECNO Servizi srl
+  - ACIService Srl - Catania
+  - Acicomo servizi srl
+  - ACI SERVIZI COSENZA S.R.L.
+  - Società Autoclub Cremona srl (S.A.CRE. SRL)
+  - A.C. Cuneo Servizi Srl
+  - A.C SERVICE ESTENSE Srl
+  - Servizi alla Mobilità Metropolitana S.A.M.M. SRL
+  - AciService Forlì srl unipersonale
+  - ACIGENOVA SERVICE Srl
+  - Aci Service srl - Grosseto
+  - Aci Latina Service Srl
+  - ACI LUCCA SERVICE S.r.l.
+  - S.A.S.A. SRL
+  - ACI SERVICE MASSA CARRARA S.u.r.l
+  - A.C.M.E. SERVICE SRL
+  - AUTOMOBILE CLUB NAPOLI GLOBAL SERVICE srl
+  - ACI SERVICE PARMA S.R.L.
+  - GUIDACI SERVICE SRL
+  - AUTO CLUB PESARO SERVICE SRL
+  - ACI SERVIZI PIACENZA srl
+  - ACI ACTION SRL a Socio Unico
+  - ACI PISTOIA SERVIZI srl
+  - A.C. Ponente Ligure Servizi s.r.l.
+  - ACI SERVICE PN S.R.L.
+  - ACIClubPrato S.r.l.
+  - A.C. Global Unipersonale SRL
+  - Aci Service Rimini s.r.l.
+  - Acinservice Srl
+  - Aci Salerno Servizi srl
+  - AUTOMOBILE CLUB SASSARI SERVIZI Srl
+  - ACI SIENA SERVIZI srl
+  - ACI Service srl - Siracusa
+  - Aciservizi Sondrio srl
+  - ACI SERVIZI S.r.l.
+  - Treviso ACI Servizi srl con socio unico
+  - ACI Gestioni srl
+  - ACI GEST S.R.L.
+  - A.C.I. Promoter s.r.l.
+  - ACI Brescia Service S.r.l.
+  - ACI LIVORNO SERVICE SURL
+  - Acipisa viaggi Srl
+  - ACI Belluno Service srl
+  - ACIPROMUOVE SRL
+  - A.C.N. SERVICE SRL
+  - ACM Services srl
+  - A.C.Vicenza Service srl
+  - A.C.S. Automobile Club Servizi srl
+  - Gestione Aci Palermo srl
+  - ACLecco Service srl
+  - ACI Editore Srl
+  - Servizi Sicurezza Stradale srl
+  - ACI Venezia Tourist srl
+  - Sirio service S.r.l.
+  - Automobile Club di Ravenna
+  - A.C.GO SERVICE S.R.L.
+  - AciTour Service S.r.l.

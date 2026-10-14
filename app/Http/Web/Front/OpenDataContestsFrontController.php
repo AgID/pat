@@ -12,6 +12,7 @@ use Helpers\Validators\OpenDataDate;
 use Model\ContestModel;
 use Model\SectionsFoModel;
 use System\Input;
+use System\Log;
 use System\Response;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -46,11 +47,59 @@ class OpenDataContestsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
+    }
+
+
+    /**
+     * Metodo download open data "Bandi di concorso",
+     * nella sezione dei Bandi di concorso
+     * Id sezione 5
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     */
+    public function index(): void
+    {
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso attivi
+        $queryContents =  ContestModel::where('activation_date', '<=', date("Y-m-d H:i:s", strtotime('now')))
+            ->filter(
+                Input::get('object', true),
+                (!empty(Input::get('str')) ? @json_decode(Input::get('str')) : null ),
+                Input::get('start_p_date', true),
+                Input::get('end_p_date', true),
+                Input::get('start_s_date', true),
+                Input::get('end_s_date', true),
+            );
+
+
+        $queryContents = $queryContents->with('assignments:id,name,object')
+            ->with('relative_measure:id,object')
+            ->with('office:id,structure_name')
+            ->with('related_contest:id,object')
+            ->with('attachs')
+            ->orderBy('activation_date', 'DESC')
+            ->groupBy('object_contest.id')
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
+            ->get();
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests,$resultSection);
+        }
     }
 
     /**
@@ -72,7 +121,7 @@ class OpenDataContestsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataWithPageId('concorso', 75);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -99,7 +148,34 @@ class OpenDataContestsFrontController extends BaseFrontController
         // Recupero i bandi di concorso scaduti
         $queryContents = $this->getDataWithPageId('concorso', 76);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
+
+            $resultSection = $querySection->toArray();
+            $resultContests = $queryContents->toArray();
+
+            $this->generateCsv($resultContests,$resultSection);
+        }
+    }
+
+    /**
+     * Metodo download open data "Concorsi scaduti",
+     * nella sezione dei Bandi di concorso
+     *
+     * @url download/open-data/page_id
+     * @return void
+     * @throws Exception
+     */
+    public function indexTerminated(): void
+    {
+        // Recupero le informazioni della pagina corrente
+        $querySection = SectionsFoModel::select(['id', 'name'])
+            ->where('id', uri()->segment(3, 0))
+            ->first();
+
+        // Recupero i bandi di concorso scaduti
+        $queryContents = $this->getDataWithPageId('concorso', 303);
+
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -125,7 +201,7 @@ class OpenDataContestsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi (avvisi)
         $queryContents = $this->getDataWithPageId('avviso');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -149,9 +225,9 @@ class OpenDataContestsFrontController extends BaseFrontController
             ->first();
 
         // Recupero i bandi di concorso attivi (esito)
-        $queryContents = $this->getDataWithPageId('concorso');
+        $queryContents = $this->getDataWithPageId('esito');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -173,24 +249,46 @@ class OpenDataContestsFrontController extends BaseFrontController
     {
         // Recupero i bandi di concorso da mostrare
         return ContestModel::where('typology', $type)
-            ->where('activation_date', '<', date("Y-m-d H:i:s", strtotime('tomorrow')))
             ->where(
                 function ($query) use ($pageId) {
                     if($pageId == 75){
-                        $query->where('expiration_date', '>=', date('Y-m-d H:i:s'))
-                            ->orWhereNull('expiration_date');
-                    }elseif ($pageId == 76){
-                        $query->where('expiration_date', '<', date('Y-m-d H:i:s'));
+                        $query->where(
+                            function ($query) {
+                                $query->where('expiration_date', '>=', date('Y-m-d H:i:s'))
+                                    ->orWhereNull('expiration_date');
+                            }
+                        )
+                            ->where(function ($query) {
+                                $query->where('expiration_contest_date', '>=', date('Y-m-d H:i:s'))
+                                    ->orWhereNull('expiration_contest_date');
+                            })
+                            ->where('activation_date', '<=', date("Y-m-d H:i:s", strtotime('now')));
+                    } elseif ($pageId == 76){
+                        $query->where(function ($query) {
+                            $query->where('expiration_contest_date', '>=', date('Y-m-d H:i:s'))
+                                ->orWhereNull('expiration_contest_date');
+                        })
+                            ->where('expiration_date', '<', date('Y-m-d H:i:s'));
+                    } elseif ($pageId == 303){
+                        $query->where('expiration_contest_date', '<', date('Y-m-d'));
                     }
                 })
+            ->filter(
+                (Input::get('object', true)),
+                (!empty(Input::get('str') ? @json_decode(Input::get('str')) : null)),
+                Input::get('start_p_date', true),
+                Input::get('end_p_date', true),
+                Input::get('start_s_date', true),
+                Input::get('end_s_date', true),
+            )
             ->with('assignments:id,name,object')
             ->with('relative_measure:id,object')
             ->with('office:id,structure_name')
             ->with('related_contest:id,object')
             ->with('attachs')
             ->orderBy('activation_date', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -202,14 +300,15 @@ class OpenDataContestsFrontController extends BaseFrontController
      * @return Void
      * @throws Exception
      */
-    private function generateCsv($resultContests = null, $resultSection = null): void
+    protected function generateCsv($resultContests = null, $resultSection = null): void
     {
 
         $fileName = 'Bandi di concorso - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -230,6 +329,7 @@ class OpenDataContestsFrontController extends BaseFrontController
             'Numero dipendenti assunti',
             'Eventuale spesa prevista',
             'Spese effettuate',
+            'Incarichi ad esterni',
             'Provvedimento',
             'Commissione giudicatrice',
             'Maggiori informazioni sul bando',
@@ -306,6 +406,8 @@ class OpenDataContestsFrontController extends BaseFrontController
                 !empty($r['expected_expenditure']) ? ('€ ' . S::currency($r['expected_expenditure'], 2, ',', '.')) : null,
                 // Spese effettuate
                 !empty($r['expenditures_made']) ? ('€ ' . S::currency($r['expenditures_made'], 2, ',', '.')) : null,
+                //Incarichi ad esterni
+                !empty($r['external_assignment']) ? S::chartsEntityDecode(S::stripTags($r['external_assignment'])) : null,
                 //Provvedimento
                 !empty($r['relative_measure']['object']) ? $r['relative_measure']['object'] : null,
                 //Commissione giudicatrice

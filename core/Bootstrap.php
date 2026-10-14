@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -18,6 +18,61 @@ if (version_compare(phpversion(), '8.0.0', '<=')) {
     echo $html;
     exit();
 }
+
+//utilizzato per stampare anche in out of memory //256kb
+$reservedMemory = str_repeat('x', 256 * 1024);
+register_shutdown_function(function () use (&$reservedMemory): void {
+
+    // Libera la memoria, prima di qualsiasi altra operazione.
+    $reservedMemory = null;
+
+    $error = error_get_last();
+
+    if ($error === null) {
+        return;
+    }
+
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR];
+
+    if (!in_array($error['type'] ?? 0, $fatalTypes, true)) {
+        return;
+    }
+
+    $message = sprintf(
+        "[%s]\nFatal error: %s\nFile: %s\nLine: %d\nURL: %s\nMethod: %s\n",
+        date('Y-m-d H:i:s'),
+        $error['message'] ?? 'Errore sconosciuto',
+        $error['file'] ?? 'File sconosciuto',
+        $error['line'] ?? 0,
+        $_SERVER['REQUEST_URI'] ?? 'CLI',
+        $_SERVER['REQUEST_METHOD'] ?? 'CLI'
+    );
+
+    $isCli = PHP_SAPI === 'cli' && defined('STDIN');
+
+    if ($isCli) {
+        fwrite(STDERR, PHP_EOL . $message . PHP_EOL);
+        return;
+    }
+
+    $logDirectory = APP_PATH . 'Logs';
+    $logFile = $logDirectory . DIRECTORY_SEPARATOR . '[FATAL-ERROR] ' . date('Y-m-d') . '.txt';
+
+    if (!is_dir($logDirectory)) {
+        @mkdir($logDirectory, 0775, true);
+    }
+
+    $written = @file_put_contents(
+        $logFile,
+        PHP_EOL . $message . PHP_EOL,
+        FILE_APPEND | LOCK_EX
+    );
+
+    // Fallback sul log standard di PHP.
+    if ($written === false) {
+        error_log($message);
+    }
+});
 
 /**
  * Includo il Pattern singleton Registry
@@ -84,50 +139,38 @@ if (PHP_SAPI !== 'cli' || !defined('STDIN')) {
     if (ENVIRONMENT == 'development') {
 
         $errorPage = new Whoops\Handler\PrettyPageHandler();
+        $reflection = new \ReflectionClass($errorPage);
+        $property = $reflection->getProperty('searchPaths');
+        $property->setAccessible(true);
+
+        $property->setValue($errorPage, [THEME_PATH . 'views' . DIRECTORY_SEPARATOR . 'errors']);
+
         $errorPage->setPageTitle("Pat OS");
         if (!empty($blacklist) && is_array($blacklist)) {
-
             foreach ($blacklist as $key => $item) {
-
                 if (!empty($item)) {
-
                     foreach ($item as $value) {
-
-                        // Setto le variabili da nascondere nella gestione degli errori
                         $errorPage->blacklist($key, $value);
                     }
                 }
             }
         }
 
-        $requestUri = explode('/', ltrim($_SERVER['REQUEST_URI'], '/'));
         if (
             (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])
                 && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-            || (!empty($requestUri[0]) && $requestUri[0] === API)
         ) {
             $whoops->pushHandler(new Whoops\Handler\JsonResponseHandler());
-            define('HAS_API', true);
         } else {
             $whoops->pushHandler($errorPage);
-            define('HAS_API', false);
         }
 
         $whoops->register();
-
-    } else {
-
-        if (
-            (!empty($_SERVER['HTTP_X_REQUESTED_WITH'])
-                && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
-            || (!empty($requestUri[0]) && $requestUri[0] === API)
-        ) {
-            define('HAS_API', true);
-        } else {
-            define('HAS_API', false);
-        }
-
     }
+}
+
+if(PHP_SAPI !== 'cli'){
+    $whoops->register();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -198,6 +241,13 @@ if (file_exists(APP_PATH . 'Common.php')) {
 }
 
 /**
+ * Se esiste carico le funzioni personalizzate della tipologia di applicativo
+ */
+if (file_exists(APP_PATH . 'Common' . APP_TYPE . '.php')) {
+    include_once APP_PATH . 'Common' . APP_TYPE . '.php';
+}
+
+/**
  * Caricamento le funzioni di sistema
  */
 if (!file_exists(CORE_PATH . DIRECTORY_SEPARATOR . 'Common.php')) {
@@ -208,16 +258,6 @@ include_once(CORE_PATH . DIRECTORY_SEPARATOR . 'Common.php');
 if (isPhp('5.6')) {
 
     @ini_set('php.internal_encoding', CHARSET);
-}
-
-
-if (
-    file_exists(APP_PATH . 'Addons/EmailErrorHandler.php')
-    && ( $config->get('mail_errors') || ENVIRONMENT != 'development')
-) {
-    require_once(APP_PATH . 'Addons/EmailErrorHandler.php');
-    $whoops->pushHandler(new \Addons\EmailErrorHandler());
-    $whoops->register();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -245,13 +285,18 @@ $container->singleton('timezone', function () use ($getTimezone) {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-
 /**
- * Verifico e genero il CSRF Token
+ * Verifico e genero il CSRF Token e setto l'ini "gc_maxlifetime"
  */
+$config->load(APP_PATH . 'Config/session.php');
+
+if (!in_array('ini_set', explode(',', ini_get('disable_functions')))) {
+    @ini_set('session.gc_maxlifetime', $config->get('max_lifetime'));
+}
+
 if ($config->get('csrf_enable') === true) {
 
-    \System\Token::generate((int)$config->get('csrf_expire'));
+    \System\Token::generate((int) $config->get('csrf_expire'));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -282,15 +327,6 @@ if (!is_cli()) {
     \System\Event::call('pre_system', []);
 
     /**
-     * Inizializzazione dei moduli installati nell'applicazione
-     */
-    if (MODULES) {
-        \System\Modules::init();
-    }
-
-    //----------------------------------------------------------------------------------------------------------------------
-
-    /**
      * Eventi lanciati in pre route
      */
     \System\Event::call('pre_route', []);
@@ -310,9 +346,6 @@ if (!is_cli()) {
 
     // Rotte WEB
     require_once(APP_PATH . 'Routes' . DIRECTORY_SEPARATOR . 'Web.php');
-
-    // Rotte per RESTFul API
-    require_once(APP_PATH . 'Routes' . DIRECTORY_SEPARATOR . 'Api.php');
 
     /**
      * Esecuzione delle rotte ed "Entry point" dell'applicazione.

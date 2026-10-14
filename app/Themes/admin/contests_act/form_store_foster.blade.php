@@ -14,7 +14,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         {{ form_open($formAction,$formSettings) }}
         <div class="card mb-4" id="card-filter">
             <h4 class="card-header">
-                <span>
+                <span id="form-card-header-title-foster">
                     <i class="fas fa-pencil-alt fa-sm mr-1"></i>
                     @if($_storageType === 'insert')
                         Aggiunta Esito/Affidamento
@@ -39,15 +39,68 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+                            {% include contests_act/bdncp_info %}
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="datetime-local" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ !empty($foster['activation_date']) ? date('Y-m-d H:i', strtotime($foster['activation_date'])) : null }}"
+                                               id="input_activation_date">
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+
+
+                                @if($_storageType == 'update')
+
+                                        {{-- Campo Link alla BDNCP --}}
+                                        <div class="form-group col-md-6" id="input_normative_link">
+                                            <label for="bdncp_link">Link alla Banca Dati Nazionale Contratti
+                                                Pubblici (BDNCP)</label>
+                                            <div class="input-group">
+                                                <div class="input-group-prepend">
+                                                    <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                                </div>
+                                                {{ form_input([
+                                                'name' => 'bdncp_link',
+                                                'value' => !empty($lot['bdncp_link']) ? $lot['bdncp_link'] : null,
+                                                'placeholder' => 'https://www.',
+                                                'id' => 'input_bdncp_link',
+                                                'class' => 'form-control input_bdncp_link',
+                                            ]) }}
+                                            </div>
+                                        </div>
+
+                                @endif
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
                                 <div class="form-group col-md-12">
@@ -117,6 +170,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Codice CIG --}}
                                 <div class="form-group col-md-6">
                                     <label for="cig" id="cig-label">Codice CIG
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     {{ form_input([
                                         'name' => 'cig',
@@ -133,6 +187,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-6" id="input_sector">
                                     <label for="sector">Settore
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue" id="input_sector">
                                         {{ form_dropdown(
@@ -165,6 +220,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            {{-- Inclusione di librerie esterne --}}
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+                            </div>
+
                             {{generateSeparator('Importi')}}
 
                             <div class="form-row d-flex align-items-end">
@@ -188,6 +249,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="asta_base_value">
                                         Valore Importo dell'appalto <small>(al netto dell'IVA)</small>
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -243,7 +305,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="object_structures_id">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_structure" id="f_structure_label">Ufficio</label>
+                                        <label for="ajax_structure" id="f_structure_label">Ufficio </label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -259,7 +321,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_participants" id="f_participants_label">Partecipanti alla
-                                            gara</label>
+                                            gara </label>
                                     </div>
                                     <div id="ajax_participants"></div>
                                     <input type="hidden" value="" name="participants" id="input_participants"
@@ -281,6 +343,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             {{generateSeparator('Amministrazione aggiudicatrice')}}
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             {{-- Campo Amministrazione aggiudicatrice --}}
                             <div class="form-group">
@@ -367,6 +434,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="istat_office">Sede di gara - Codice Istat <small>( 3 per Regione + 6 per
                                             Comune )</small>
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     {{ form_input([
                                         'name' => 'istat_office',
@@ -380,6 +448,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Sede di gara - Codice NUTS --}}
                                 <div class="form-group col-md-6">
                                     <label for="nuts_office">Sede di gara - Codice NUTS
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     {{ form_input([
                                         'name' => 'nuts_office',
@@ -409,20 +478,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
 
-                                {{-- Campo Data di pubblicazione sul sito --}}
-                                <div class="form-group col-md-6">
-                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="datetime-local" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ !empty($foster['activation_date']) ? date('Y-m-d H:i', strtotime($foster['activation_date'])) : null }}"
-                                               id="input_activation_date">
-                                    </div>
-                                </div>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
@@ -529,7 +584,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Tipologia esito --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-6" id ="typology_result">
                                     <label for="typology_result">Tipologia esito</label>
                                     <div class="select2-blue" id="input_typology_result">
                                         {{ form_dropdown(
@@ -550,6 +605,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="rup">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_rup" id="f_rup_label">RUP
+                                            {{-- Inclusione di librerie esterne --}}
                                         </label>
                                     </div>
                                     <div id="ajax_rup"></div>
@@ -562,13 +618,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Requisiti di qualificazione --}}
                                 <div class="form-group col-md-12" id="input_procedures">
                                     <label for="requirement">Requisiti di qualificazione
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue">
                                         {{ form_dropdown(
                                             'requirements[]',
                                             '',
                                             '',
-                                            'class="form-control select2-requirement" multiple="multiple" data-placeholder="Seleziona o cerca requisito..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="form-control select2-requirement" ' . ' multiple="multiple" ' . 'data-placeholder="Seleziona o cerca requisito..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -578,6 +635,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Codice CPV --}}
                                 <div class="form-group col-md-6" id="input_cpv_code">
                                     <label for="cpv_code_id">Codice CPV
+                                        {{-- Inclusione di librerie esterne --}}
                                     </label>
                                     <div class="select2-blue">
                                         {{ form_dropdown(
@@ -643,16 +701,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -723,6 +789,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',!empty($institution_id) ? $institution_id : PatOsInstituteId()) }}
         {{ form_close() }}
     </div>
@@ -743,23 +810,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
+
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Per il tooltip di info nel form
         let infoSpan = '<span class="far fa-question-circle fa-xs" data-toggle="tooltip" data-placement="right" ';
@@ -774,6 +840,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         $('#adjudicator-data-label').append(infoSpan);
         $('#work-start-date-label').append(infoSpan);
         $('#work-end-date-label').append(infoSpan);
+
 
         {{-- Begin campi select --}}
         let $dropdownAnacYear = $('.select2-anac_year');
@@ -862,7 +929,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             setInputDataValue: '#relative_procedure_id',
             dataParams: {
                 model: 30,
-                institution_id: institutionId
+                institution_id: institutionId,
+                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $foster['id'] ?>
             },
             columns: config.notice.columns,
             action: {
@@ -1083,6 +1151,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($foster['structure']) ? implode(",",array_column($foster['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -1234,7 +1304,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_details');
+        CKEDITOR.replace('input_details', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -1279,6 +1351,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     @else
                     setTimeout(function () {
                         window.parent.$('#formModal').modal('hide');
+
                     }, 800);
                     @endif
                 }
@@ -1295,6 +1368,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }

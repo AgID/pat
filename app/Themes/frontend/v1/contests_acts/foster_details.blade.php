@@ -21,17 +21,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-2">
-                        <h1 class="page-title">{{ !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '')}}</h1>
-                        @if(!empty($instance['type']))
-                            <h5 class="text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
+
+                    <div class="div-title">
+                        <div>
+                            <h1 class="page-title">{{ !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '')}}</h1>
+                            @if(!empty($instance['type']))
+                            <h2 class="h5 text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
                                 {{e: $instance['type'] }}
-                            </h5>
+                            </h2>
                         @endif
+                        </div>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
+
+                    @if(!empty($instance['sector']))
+                        @php
+                            $sectors = [
+                                "O-sotto" => 'Ordinario - Sottosoglia',
+                                "O-sopra" => 'Ordinario - Soprasoglia',
+                                "S" => 'Speciale',
+                                "sponsor" => 'Sponsorizzazioni',
+                            ];
+                        @endphp
+                        <div class="attributi">
+                            <div class="attributo">
+                                <span class="titolo">Settore:</span>
+                                <span class="mr-2 text-muted">
+                                    {{e: $sectors[$instance['sector']] ?? '' }}
+                                </span>
+                            </div>
+                        </div>
+                    @endif
 
                     <div class="attributi">
                         @if(!empty($instance['cig']))
@@ -44,18 +70,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @endif
 
 
-                        @if(!empty($instance['bdncp_link']))
-                            <div class="attributi">
-                                <div class="attributo">
-                                    <span class="titolo"><!--<i class="fas fa-link"></i>--> Link BDNCP:</span>
-                                    <span class="mr-2">
+                            @if(!empty($instance['bdncp_link']))
+                                <div class="attributi">
+                                    <div class="attributo">
+                                        <span class="titolo"><!--<i class="fas fa-link"></i>--> Link BDNCP:</span>
+                                        <span class="mr-2">
                                         <a class="mt-2 text-muted" href="{{$instance['bdncp_link']}}">
                                             {{$instance['bdncp_link']}}
                                         </a>
                                     </span>
+                                    </div>
                                 </div>
-                            </div>
-                        @endif
+                            @endif
+
 
                         @if(!empty($instance['adjudicator_name']))
                             <div class="attributo">
@@ -119,7 +146,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo">
                                     <span class="titolo">Data di effettivo inizio dei lavori o forniture:</span>
                                     <span class="mr-2 text-muted">
-                                    {{ date('d-m-Y', strtotime($instance['work_start_date'])) }}
+                                    {{ date('d/m/Y', strtotime($instance['work_start_date'])) }}
                                 </span>
                                 </div>
                             </div>
@@ -129,7 +156,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo">
                                     <span class="titolo">Data di ultimazione dei lavori o forniture:</span>
                                     <span class="mr-2 text-muted">
-                                    {{ date('d-m-Y', strtotime($instance['work_end_date'])) }}
+                                    {{ date('d/m/Y', strtotime($instance['work_end_date'])) }}
                                 </span>
                                 </div>
                             </div>
@@ -199,7 +226,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">RUP:</span>
                                 <a class="mr-2 text-muted"
-                                   href="{{ siteUrl('page/58/details/'.(int) $instance['rup']['id'].'/'.urlTitle($instance['rup']['full_name'])) }}">
+                                   href="{{ siteUrl('page/4/details/'.(int) $instance['rup']['id'].'/'.urlTitle($instance['rup']['full_name'])) }}">
                                     {{e: $instance['rup']['full_name'] }}
                                 </a>
                             </div>
@@ -218,21 +245,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @if(!empty($instance['act_date']))
                             <div class="attributo">
                                 <span class="titolo">Data dell'atto:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['act_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['act_date'])) }} </span>
                             </div>
                         @endif
 
                         @if(!empty($instance['activation_date']))
                             <div class="attributo">
                                 <span class="titolo">Data di pubblicazione:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['activation_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['activation_date'])) }} </span>
                             </div>
                         @endif
 
                         @if(!empty($instance['expiration_date']))
                             <div class="attributo">
                                 <span class="titolo">Data di scadenza:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['expiration_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['expiration_date'])) }} </span>
                             </div>
                         @endif
 
@@ -240,7 +267,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data di pubblicazione sulla
                                 G.U.U.E.:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['guue_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['guue_date'])) }} </span>
                             </div>
                         @endif
 
@@ -248,7 +275,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data di pubblicazione sulla
                                 G.U.R.I.:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['guri_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['guri_date'])) }} </span>
                             </div>
                         @endif
 
@@ -256,7 +283,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data pubblicazione sul sito della Stazione
                                 Appaltante:</span>
-                                <span> {{ date('d-m-Y', strtotime($instance['contracting_stations_publication_date'])) }} </span>
+                                <span> {{ date('d/m/Y', strtotime($instance['contracting_stations_publication_date'])) }} </span>
                             </div>
                         @endif
 
@@ -317,7 +344,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <p><a class="text-muted" href="{{ currentUrl().'?st=1' }}">Tabella delle informazioni
                             d'indicizzazione</a></p>
 
-                    {{-- Provvedimenti in cui l'affidamento è scelto come procedura relativa --}}
                     @if(!empty($instance['measures']))
                         @php
                             $anchorsNumber++;
@@ -335,7 +361,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </ul>
                     @endif
 
-                    {{-- Atti in cui l'affidamento è scelto come procedura relativa --}}
                     @if(!empty($instance['notice_acts']))
                         @php
                             $anchorsNumber++;
@@ -368,6 +393,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
+
+                    {{-- Inclusione di librerie esterne --}}
 
 
                     {{-- Tabella delle liquidazioni per gli esiti --}}
@@ -405,23 +432,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                 </div>
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
-
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
+{{-- Bottom Menu --}}
     {% include v1/layout/partials/bottom_menu %}
-@endif
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

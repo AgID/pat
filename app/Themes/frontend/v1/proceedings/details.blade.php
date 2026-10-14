@@ -21,13 +21,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
-                        <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['name'] }}</h1>
-                    </div>
 
+                    <div class="div-title">
+                        <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['name'] }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
                     <div class="attributi">
                         @if(!empty($instance['responsibles']))
                             @php
@@ -39,7 +42,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Responsabile di procedimento:</span>
                                 @foreach($instance['responsibles'] as $responsible)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$responsible['id'].'/'.urlTitle($responsible['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$responsible['id'].'/'.urlTitle($responsible['full_name'])) }}">
                                         {{ ($responsible['archived'] ? '<b>[Elemento archiviato]</b>' : '') }} {{e: $responsible['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -57,7 +60,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Responsabile di provvedimento:</span>
                                 @foreach($instance['measure_responsibles'] as $measure_responsible)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$measure_responsible['id'].'/'.urlTitle($measure_responsible['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$measure_responsible['id'].'/'.urlTitle($measure_responsible['full_name'])) }}">
                                         {{ ($measure_responsible['archived'] ? '<b>[Elemento archiviato]</b>' : '') }}  {{e: $measure_responsible['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -75,7 +78,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Responsabile sostitutivo:</span>
                                 @foreach($instance['substitute_responsibles'] as $substitute_responsible)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$substitute_responsible['id'].'/'.urlTitle($substitute_responsible['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$substitute_responsible['id'].'/'.urlTitle($substitute_responsible['full_name'])) }}">
                                         {{ ($substitute_responsible['archived'] ? '<b>[Elemento archiviato]</b>' : '') }} {{e: $substitute_responsible['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -101,12 +104,37 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </ul>
                     @endif
 
+                    @if(!empty($instance['final_measure_office']))
+                        @php
+                            $anchorsNumber++;
+                        @endphp
+                        <h3 id="final-measure-office" class="anchor testo-blu page-subtitle mt-3">Ufficio competente all'adozione del provvedimento finale</h3>
+                        <ul>
+                            @foreach($instance['final_measure_office'] as $office)
+                                <li>
+                                    <a class="text-muted"
+                                       href="{{ siteUrl('page/40/details/'.$office['id'].'/'.urlTitle($office['structure_name'])) }}">
+                                        {{ ($office['archived'] ? '<b>[Elemento archiviato]</b>' : '')  }} {{e: $office['structure_name'] }}
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+
                     @if(!empty($instance['description']))
                         @php
                             $anchorsNumber++;
                         @endphp
                         <h3 id="description" class="anchor testo-blu page-subtitle">Descrizione</h3>
                         {{xss: $instance['description'] }}
+                    @endif
+
+                    @if(!empty($instance['instance_documents']))
+                        @php
+                            $anchorsNumber++;
+                        @endphp
+                        <h3 id="instance-documents" class="anchor testo-blu page-subtitle">Documenti da allegare all'istanza e modulistica necessaria</h3>
+                        {{xss: $instance['instance_documents'] }}
                     @endif
 
                     @if(!empty($instance['offices_responsibles']) || !empty($instance['to_contacts']))
@@ -168,7 +196,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     @endphp
                                     @foreach($instance['to_contacts'] as $personnel)
                                         <a class="text-muted"
-                                           href="{{ siteUrl('page/58/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}">
+                                           href="{{ siteUrl('page/4/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}">
                                             {{ ($personnel['archived'] ? '<b>[Elemento archiviato]</b>' : '') }} {{e: $personnel['full_name'] }}
                                         </a>
                                         {{ $i++ < $len ? ', ' : '' }}
@@ -217,7 +245,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="attributo">
-                                   {{e: $instance['deadline'] }}
+                                {{e: $instance['deadline'] }}
                             </div>
                         </div>
                     @endif
@@ -234,12 +262,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="modules" class="anchor testo-blu page-subtitle mt-3">Modulistica per il procedimento</h3>
+                        <h3 id="modules" class="anchor testo-blu page-subtitle mt-3">Modulistica per il
+                            procedimento</h3>
                         <div class="griglia griglia-2 mb-5">
                             @foreach( $instance['modules'] as $module)
                                 <div class="card-richiamo">
                                     <span class="fas fa-file-contract text-black"></span>
-                                    <a class="text-muted" href="{{ siteUrl('page/101/details/'.$module['id'].'/'.urlTitle($module['title'])) }}"
+                                    <a class="text-muted"
+                                       href="{{ siteUrl('page/101/details/'.$module['id'].'/'.urlTitle($module['title'])) }}"
                                        data-toggle="tooltip"
                                        data-placement="top"
                                        title="{{ characterLimiter(strip_tags($module['title']), 60) }}"
@@ -255,12 +285,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="regulations" class="anchor testo-blu page-subtitle mt-3">Regolamenti per il procedimento</h3>
+                        <h3 id="regulations" class="anchor testo-blu page-subtitle mt-3">Regolamenti per il
+                            procedimento</h3>
                         <div class="griglia griglia-2 mb-5">
                             @foreach( $instance['regulations'] as $regulation)
                                 <div class="card-richiamo">
                                     <span class="fas fa-file-contract text-black"></span>
-                                    <a class="text-muted" href="{{ siteUrl('page/'.$regulation['public_in_id'].'/details/'.$regulation['id'].'/'.urlTitle($regulation['title'])) }}"
+                                    <a class="text-muted"
+                                       href="{{ siteUrl('page/'.$regulation['public_in_id'].'/details/'.$regulation['id'].'/'.urlTitle($regulation['title'])) }}"
                                        data-toggle="tooltip"
                                        data-placement="top"
                                        title="{{ characterLimiter(strip_tags($regulation['title']), 60) }}"
@@ -272,25 +304,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                     @endif
 
-                    @if(!empty($instance['normatives']))
+                    @if(!empty($instance['normatives']) || !empty($instance['regulation']))
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="normative-references" class="anchor testo-blu page-subtitle mt-3">Riferimenti normativi</h3>
-                        <div class="griglia griglia-2 mb-5">
-                            @foreach( $instance['normatives'] as $normative)
-                                <div class="card-richiamo">
-                                    <span class="fas fa-file-contract text-black"></span>
-                                    <a class="text-muted" href="{{ siteUrl('page/24/details/'.$normative['id'].'/'.urlTitle($normative['name'])) }}"
-                                       data-toggle="tooltip"
-                                       data-placement="top"
-                                       title="{{ characterLimiter(strip_tags($normative['name']), 60) }}"
-                                    >
-                                        {{e: characterLimiter($normative['name'], 60) }}
-                                    </a>
-                                </div>
-                            @endforeach
-                        </div>
+                        <h3 id="normative-references" class="anchor testo-blu page-subtitle mt-3">Riferimenti
+                            normativi</h3>
+                        @if(!empty($instance['normatives']))
+                            <div class="griglia griglia-2 mb-5">
+                                @foreach( $instance['normatives'] as $normative)
+                                    <div class="card-richiamo">
+                                        <span class="fas fa-file-contract text-black"></span>
+                                        <a class="text-muted"
+                                           href="{{ siteUrl('page/24/details/'.$normative['id'].'/'.urlTitle($normative['name'])) }}"
+                                           data-toggle="tooltip"
+                                           data-placement="top"
+                                           title="{{ characterLimiter(strip_tags($normative['name']), 60) }}"
+                                        >
+                                            {{e: characterLimiter($normative['name'], 60) }}
+                                        </a>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                        @if(!empty($instance['regulation']))
+                            {{xss: $instance['regulation'] }}
+                        @endif
                     @endif
 
                     @if(!empty($instance['monitoring_datas']))
@@ -342,11 +381,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @endif
                     @endif
 
+                    @if(!empty($instance['obtaining_info']))
+                        @php
+                            $anchorsNumber++;
+                        @endphp
+                        <h3 id="info-proceeding" class="anchor testo-blu page-subtitle mt-3">Modalità con le quali gli interessati possono ottenere le informazioni relative al procedimento</h3>
+                        @if(!empty($instance['obtaining_info']))
+                            {{xss: $instance['obtaining_info'] }}
+                        @endif
+                    @endif
+
+                    @if(!empty($instance['notes']))
+                        @php
+                            $anchorsNumber++;
+                        @endphp
+                        <h3 id="notes" class="anchor testo-blu page-subtitle mt-3">Note</h3>
+                        {{xss: $instance['notes'] }}
+                    @endif
+
                     @if(!empty($instance['charges']))
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="information-charges" class="anchor testo-blu mt-4 page-subtitle mt-3">Oneri informativi</h3>
+                        <h3 id="information-charges" class="anchor testo-blu mt-4 page-subtitle mt-3">Oneri
+                            informativi</h3>
                         <ul>
                             @foreach($instance['charges'] as $charge)
                                 <li>
@@ -364,7 +422,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="instruments-protection" class="anchor testo-blu mt-4 page-subtitle mt-3">Strumenti di tutela</h3>
+                        <h3 id="instruments-protection" class="anchor testo-blu mt-4 page-subtitle mt-3">Strumenti di
+                            tutela</h3>
                         <div class="mb-4">
                             {{e: $instance['protection_instruments'] }}
                         </div>
@@ -376,27 +435,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
+
+                    {{-- Inclusione di librerie esterne --}}
+
+
                 </div>
-
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
-
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -421,6 +474,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         if ([3, 4].includes(order)) {
             elements[order].remove();
+
+            if(order === 3) {
+                @if(empty($instance['offices_responsibles']))
+                    $('#to-contact').remove();
+                @endif
+            } else if(order === 4) {
+                @if(empty($instance['to_contacts']))
+                $('#to-contact').remove();
+                @endif
+            }
+
         }
     }
     {{-- Fine gestione della visualizzazione del chi contattare --}}

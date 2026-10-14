@@ -11,11 +11,13 @@ use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\StructureValidator;
+use Model\PersonnelModel;
 use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Registry;
 use System\Session;
 use System\Token;
@@ -105,14 +107,15 @@ class StructureAdminController extends BaseAuthController
                 6 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[7] = 'full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'structure_name');
+
+
+
+            $checkVl = false;
+            $manageableStatesVl = [];
+            $usInfo = null;
 
             //Query per i dati da mostrare nel datatable
             $totalRecords = StructuresModel::select('count(id) as allcount')
@@ -134,17 +137,34 @@ class StructureAdminController extends BaseAuthController
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'structure_name');
 
             $records = StructuresModel::search($dataTable['searchValue']);
-            $records->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.updated_at', 'object_structures.archived',
-                'object_structures.publishing_status', 'object_structures.institution_id', 'object_structures.owner_id',
-                'object_structures.structure_of_belonging_id', 'object_structures.articulation', 'i.full_name_institution',
-                'users.name', 'os.structure_name as structureName'])
+            $records->select([
+                'object_structures.id',
+                'object_structures.structure_name',
+                'object_structures.updated_at',
+                'object_structures.archived',
+                'object_structures.institution_id',
+                'object_structures.owner_id',
+                'object_structures.structure_of_belonging_id',
+                'object_structures.management_structure_id',
+                'object_structures.non_management_structure_id',
+                'object_structures.articulation',
+                'i.full_name_institution',
+                'users.name',
+                'os.structure_name as structureName'
+            ])
+                ->structureFilterDataTable()
                 ->with('structure_of_belonging:id,structure_of_belonging_id,structure_name,archived')
+                ->with('management_structure:id,structure_name,archived')
+                ->with('non_management_structure:id,structure_name,archived')
                 ->with('responsibles:id,full_name,archived')
-                ->with(['created_by' => function ($query) {
-                    $query->withoutGlobalScopes([DeletedScope::class]);
-                    $query->select(['id', 'name', 'deleted']);
-                }])
+                ->with([
+                    'created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }
+                ])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->leftJoin('object_structures as os', function ($join) {
                     $join->on('os.id', '=', 'object_structures.structure_of_belonging_id');
                 })
@@ -168,6 +188,10 @@ class StructureAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['responsibles']) && is_array($record['responsibles'])) {
@@ -178,8 +202,10 @@ class StructureAdminController extends BaseAuthController
                         $responsibles = str_replace(',', ',  ', implode(
                             ',',
                             array_map(
-                                function ($resp) {
-                                    return ('<small class="badge-primary mb-1">' . $resp . '</small>'
+                                function ($resp, $archived) {
+                                    return ('<small class="badge-primary mb-1">' . ($archived
+                                        ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                        : '') . checkDecrypt($resp) . '</small>'
                                     );
                                 },
                                 $tmpResponsibles,
@@ -196,18 +222,45 @@ class StructureAdminController extends BaseAuthController
                         . date('d-m-Y H:i:s', strtotime($record['updated_at'])) .
                         '</small>' : '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+
+                    $wfPermits = false;
+
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
+
+                    $vlPermits = false;
+                    $vlOwnerPermits = false;
+                    $vlFinalState = true;
+
+                    $editPerm = match (true){
+                        $checkWf => (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits),
+                        $checkVl => (($this->acl->getUpdate() && $vlPermits) || $vlOwnerPermits),
+                        default => $this->acl->getUpdate() || $permits
+                    };
+
+                    $deletePerm = match (true){
+                        $checkWf => (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits),
+                        $checkVl => (($this->acl->getDelete() && $vlPermits) || $vlOwnerPermits || $usInfo['cdvl']),
+                        default => $this->acl->getDelete() || $updatePermits || $permits
+                    };
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $editPerm,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale' && $vlFinalState,
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale' && $vlFinalState,
+                        'delete' => $deletePerm,
                     ])
-                        ->addEdit('admin/structure/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/structure/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/structure/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/structure/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/structure/archive'), $record['id'], 'structure', escapeXss($record['structure_name']), 'archiving')
+                        ->addCustomButton('s_r_l', siteUrl('admin/structure/show-record-log/' . $record['id']), $record['id'], '2', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/structure/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -216,32 +269,38 @@ class StructureAdminController extends BaseAuthController
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
 
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id']))
-                        ? ButtonAction::checkList($record['structure_name'], $record['id'])
-                        : '';
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList($record['structure_name'], $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
 
                     $link = true;
 
                     $setTempData[] = !empty($record['structure_name'])
                         ? $icon . (($link) ? '<a href="' . siteUrl('/page/40/details/' . $record['id'] . '/'
-                                . urlTitle($record['structure_name'])) . '"target="_blank">' . escapeXss($record['structure_name']) . '</a>' : escapeXss($record['structure_name']))
+                            . urlTitle($record['structure_name'])) . '"target="_blank">' . escapeXss($record['structure_name']) . '</a>' : escapeXss($record['structure_name']))
                         : 'N.D.';
 
-                    $setTempData[] = !empty($record['structure_of_belonging']['structure_name'])
-                        ? escapeXss($record['structure_of_belonging']['structure_name'])
+                    if(!empty($record['non_management_structure'])){
+                        $strBelonging = $record['non_management_structure'];
+                    }elseif (!empty($record['management_structure'])){
+                        $strBelonging = $record['management_structure'];
+                    }else{
+                        $strBelonging = $record['structure_of_belonging'];
+                    }
+
+                    $setTempData[] = !empty($strBelonging['structure_name'])
+                        ? ($strBelonging['archived']
+                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                            : '') . escapeXss($strBelonging['structure_name'])
                         : '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
 
                     $setTempData[] = $responsibles;
                     $setTempData[] = (empty($record['articulation'])) ? 'No' : 'Si';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -250,8 +309,7 @@ class StructureAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -271,7 +329,7 @@ class StructureAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/structure/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/structure/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -303,8 +361,8 @@ class StructureAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
-        $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+        // ID dell'ente corrente.
+        $data['institution_id'] = PatOsInstituteId();
 
         render('structure/form_store', $data, 'admin');
     }
@@ -320,7 +378,7 @@ class StructureAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -351,7 +409,9 @@ class StructureAdminController extends BaseAuthController
                     'owner_id' => $getIdentity['id'],
                     'institution_id' => checkAlternativeInstitutionId(),
                     'structure_name' => strip_tags(Input::post('structure_name', true)),
-                    'structure_of_belonging_id' => setDefaultData((int)strip_tags(Input::post('structure_of_belonging_id', true)), null, ['', null]),
+                    'structure_of_belonging_id' => setDefaultData( strip_tags(Input::post('structure_of_belonging_id', true)), null, ['', null]),
+                    'management_structure_id' => setDefaultData((int) strip_tags(Input::post('management_structure_id', true)), null, ['', null]),
+                    'non_management_structure_id' => setDefaultData((int) strip_tags(Input::post('non_management_structure_id', true)), null, ['', null]),
                     'responsible_not_available' => setDefaultData(strip_tags(Input::post('responsible_not_available', true)), 0, ['', null]),
                     'referent_not_available_txt' => empty(Input::post('responsible_not_available')) ? setDefaultData(strip_tags(Input::post('referent_not_available_txt', true)), null, ['', null]) : null,
                     'ad_interim' => setDefaultData(strip_tags(Input::post('ad_interim', true)), null, ['', null]),
@@ -361,6 +421,8 @@ class StructureAdminController extends BaseAuthController
                     'certified_email' => setDefaultData(strip_tags(Input::post('certified_email', true)), null, ['', null]),
                     'phone' => setDefaultData(strip_tags(Input::post('phone', true)), null, ['', null]),
                     'fax' => setDefaultData(strip_tags(Input::post('fax', true)), null, ['', null]),
+                    'other_contacts_check' => setDefaultData(strip_tags(Input::post('other_contacts_check', true)??''), 0, ['', null]),
+                    'other_contacts' => setDefaultData(Input::post('other_contacts', true), null, ['', null]),
                     'description' => setDefaultData(Input::post('description', true), null, ['', null]),
                     'timetables' => setDefaultData(strip_tags(Input::post('timetables', true)), null, ['', null]),
                     'articulation' => setDefaultData(strip_tags(Input::post('articulation', true)), null, ['', null]),
@@ -378,8 +440,8 @@ class StructureAdminController extends BaseAuthController
                 // Storage nelle tabelle di relazione
                 $this->clear(
                     $insert,
-                    !empty(Input::post('responsibles')) ? explode(',', strip_tags((string)Input::post('responsibles', true))) : null,
-                    !empty(Input::post('toContacts')) ? explode(',', strip_tags((string)Input::post('toContacts', true))) : null,
+                    !empty(Input::post('responsibles')) ? explode(',', strip_tags((string) Input::post('responsibles', true))) : null,
+                    !empty(Input::post('toContacts')) ? explode(',', strip_tags((string) Input::post('toContacts', true))) : null,
                     Input::post('normatives', true)
                 );
 
@@ -388,10 +450,6 @@ class StructureAdminController extends BaseAuthController
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken()) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
             }
         } else {
 
@@ -488,11 +546,7 @@ class StructureAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        $data['responsibleIds'] = Arr::pluck($structure['responsibles'], 'id');
-        $data['toContactIds'] = Arr::pluck($structure['to_contact'], 'id');
-        $data['normativeIds'] = Arr::pluck($structure['normatives'], 'id');
-
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $structure['institution_id'];
 
         $data['restore'] = $restore;
@@ -521,7 +575,7 @@ class StructureAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $structureId = (int)strip_tags(Input::post('id', true));
+            $structureId = (int) strip_tags(Input::post('id', true));
 
             // Recupero la struttura organizzativa attuale prima di modificarla e la salvo nel versioning
             $structure = StructuresModel::where('id', $structureId)
@@ -531,10 +585,11 @@ class StructureAdminController extends BaseAuthController
                 ->with('structure_of_belonging:id,structure_name,structure_of_belonging_id')
                 ->with('all_attachs');
 
+
             $structure = $structure->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($structure['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($structure['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -553,6 +608,8 @@ class StructureAdminController extends BaseAuthController
                 $data = [];
                 $data['structure_name'] = strip_tags(Input::post('structure_name'), true);
                 $data['structure_of_belonging_id'] = setDefaultData(strip_tags(Input::post('structure_of_belonging_id', true)), null, ['', null]);
+                $data['management_structure_id'] = setDefaultData(strip_tags(Input::post('management_structure_id', true)), null, ['', null]);
+                $data['non_management_structure_id'] = setDefaultData(strip_tags(Input::post('non_management_structure_id', true)), null, ['', null]);
                 $data['responsible_not_available'] = setDefaultData(strip_tags(Input::post('responsible_not_available', true)), 0, ['', null]);
                 $data['referent_not_available_txt'] = empty(Input::post('responsible_not_available')) ? strip_tags(escapeXss(Input::post('referent_not_available_txt', true))) : null;
                 $data['ad_interim'] = setDefaultData(strip_tags(Input::post('ad_interim', true)), null, ['', null]);
@@ -562,6 +619,8 @@ class StructureAdminController extends BaseAuthController
                 $data['certified_email'] = setDefaultData(strip_tags(Input::post('certified_email', true)), null, ['', null]);
                 $data['phone'] = setDefaultData(strip_tags(Input::post('phone', true)), null, ['', null]);
                 $data['fax'] = setDefaultData(strip_tags(Input::post('fax', true)), null, ['', null]);
+                $data['other_contacts_check'] = setDefaultData(strip_tags(Input::post('other_contacts_check', true)), 0, ['', null]);
+                $data['other_contacts'] = setDefaultData(Input::post('other_contacts', true), null, ['', null]);
                 $data['description'] = Input::post('description', true);
                 $data['timetables'] = strip_tags(Input::post('timetables', true));
                 $data['articulation'] = setDefaultData(strip_tags(Input::post('articulation', true)), null, ['', null]);
@@ -574,6 +633,7 @@ class StructureAdminController extends BaseAuthController
 
                 // Update Struttura
                 StructuresModel::where('id', $structureId)->updateWithLogs($structure, $data);
+
 
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
@@ -592,12 +652,8 @@ class StructureAdminController extends BaseAuthController
                     $structure['structure_name']
                 );
 
-                $json->set('message', __('success_update_operation', null, 'patos'));
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'edit-box.html')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+                $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
 
@@ -680,8 +736,6 @@ class StructureAdminController extends BaseAuthController
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/structure');
     }
 
@@ -696,7 +750,7 @@ class StructureAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new StructureValidator();
         $validate = $validator->multipleSelection();
@@ -713,8 +767,6 @@ class StructureAdminController extends BaseAuthController
                 $structure->deleteWithLogs($structure);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');

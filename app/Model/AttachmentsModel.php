@@ -1,27 +1,27 @@
 <?php
 /**
- * @package     Pat OS
- * @author      ISWEB S.p.A
- * @copyright   Copyright (c) 2021, ISWEB S.p.A
- * @since       Version 1.0
- * @filesource
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Scope\DeletedScope;
-use Scope\InstitutionScope;
+
 use System\Model;
 
 class AttachmentsModel extends Model
 {
     protected $table = 'attachments';
     protected $primaryKey = 'id';
+
     protected $fillable = [
         'id',
         'institution_id',
+        'source_id',
         'cat_id',
         'owner_id',
         'o_id',
@@ -60,7 +60,24 @@ class AttachmentsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
         static::addGlobalScope(new DeletedScope);
+
+        static::updating(function ($model) {
+            $model->timestamps = false;
+        });
     }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+
+
 }

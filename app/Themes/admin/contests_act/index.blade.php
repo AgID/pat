@@ -19,6 +19,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             "<a href="{{siteUrl('admin/bdncp-procedure')}}"><strong>Bandi Gare e Contratti (dal 1/1/2024)</strong></a>"
         </div>
 
+
         <div class="card">
             <div class="card-header">
                 <div class="row">
@@ -36,60 +37,90 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <ul class="dropdown-menu dropdown-menu-right">
 
                                 @if(getAclAdd())
+                                    @php
+                                        $class = checkAlternativeInstitutionId() == 0 ? 'select-institution' : null;
+                                    @endphp
                                     <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-deliberation')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-deliberation') : '#!' }}"
                                            title="Crea nuova delibera a contrarre o atto equivalente"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuova Determina a contrarre o atto
                                             equivalente
                                         </a>
                                     </li>
 
                                     <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-notice')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-notice') : '#!' }}"
                                            title="Crea Nuovo Bando di gara"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuovo Bando di gara
                                         </a>
                                     </li>
 
                                     <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-lot')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-lot') : '#!' }}"
                                            title="Crea Nuovo Lotto"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuovo Lotto
                                         </a>
                                     </li>
 
-                                    <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-result')}}"
+                                    <li id="add-esito_gara-button">
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-result') : '#!' }}"
                                            title="Crea Nuovo Esito di Gara"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuovo Esito di Gara
                                         </a>
                                     </li>
 
                                     <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-alert')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-alert') : '#!' }}"
                                            title="Crea Nuovo Avviso"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-profiles" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuovo Avviso
                                         </a>
                                     </li>
 
                                     <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-foster')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-foster') : '#!' }}"
                                            title="Crea Nuovo Esito/Affidamento"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-foster-button" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuovo Esito/Affidamento
                                         </a>
                                     </li>
 
-                                    <li>
-                                        <a href="{{siteUrl('admin/contests-act/create-liquidation')}}"
+
+                                    <li id="add-liquidazione-button">
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-liquidation') : '#!' }}"
                                            title="Crea Nuova Liquidazione"
-                                           id="add-profiles" class="dropdown-item" type="button">
+                                           id="add-liquidazione" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Nuova Liquidazione
+                                        </a>
+                                    </li>
+
+                                    <li>
+                                        <a href="{{ empty($class) ? siteUrl('admin/contests-act/create-variation') : '#!' }}"
+                                           title="Crea nuova variante in corso d'opera"
+                                           id="add-variante" class="dropdown-item {{ $class }}" type="button">
+                                            <i class="fas fa-plus-circle mr-1"></i> Nuova Variante in corso d'opera
+                                        </a>
+                                    </li>
+
+
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                @endif
+
+                                @if(getAclProfileInfo('scp'))
+                                @endif
+
+                                @if(getAclDelete())
+                                    <li>
+                                        <a href="#!" id="delete-items" title="Cancella selezionati"
+                                           class="dropdown-item" type="button"
+                                           data-url="{{ siteUrl('admin/contests-act/deletes') }}">
+                                            <i class="fas fa-trash mr-1"></i> Cancella selezionati
                                         </a>
                                     </li>
 
@@ -98,14 +129,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </li>
                                 @endif
 
-                                @if(getAclDelete())
-                                    <li>
-                                        <a href="#!" id="delete-items" title="Cancella profili selezionati"
-                                           class="dropdown-item" type="button" data-url="{{ siteUrl('admin/contests-act/deletes') }}">
-                                            <i class="fas fa-trash mr-1"></i> Cancella selezionati
-                                        </a>
-                                    </li>
-                                @endif
                             </ul>
                         </div>
                     </div>
@@ -114,12 +137,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             <div class="card-body">
 
+
                 <table id="contests_act_list" class="table table-bordered table-striped table-hover">
                     <thead class="bg-table-accessibility">
                     <tr>
                         <th>
                             {{ form_checkbox('item[]', null, false, 'class="checkbox_all"') }}
                         </th>
+
+                        {{-- Inclusione di librerie esterne --}}
 
                         <th>OGGETTO</th>
                         <th>TIPO</th>
@@ -130,10 +156,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>AGGIUDICATARI</th>
                         <th>CREATO DA</th>
                         <th>MODIFICATO</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
+                        <th>ALLEGATI</th>
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -167,7 +192,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         $('#maggioriInfoAnac').hide();
 
-        {{-- Begin Paginazione records datatable --}}
+
+
         let dtable = $("#contests_act_list").DataTable({
             sPaginationType: "full_numbers",
             lengthMenu: [25, 50, 75, 100, 150],
@@ -181,7 +207,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             bDeferRender: true,
             ajax: {
                 url: "{{siteUrl('admin/contests-act/list')}}",
-                type: "GET"
+                type: "GET",
             },
             order: [
                 [9, 'desc']
@@ -191,43 +217,62 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     orderable: false,
                     width: "3%"
                 },
-                null,
-                null,
-                null,
-                {
-                    orderable: false
-                },
-                null,
-                {
-                    orderable: false
-                },
-                {
-                    orderable: false
-                },
-                null,
-                null,
-                {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
                     null,
-                    @endif
+                null,
+                null,
+                {
+                    orderable: false
+                },
+                {
+                    orderable: false
+                },
+                {
+                    orderable: false
+                },
+                {
+                    orderable: false
+                },
+                null,
+                null,
+
                 {
                     orderable: false,
                     width: "5%"
 
                 },
+                {
+                    orderable: false,
+                    width: "3%"
+
+                }
             ],
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'
             },
-            fnDrawCallback: function (oSettings) {}
         }).on('init.dt', function () {
+            //Funzione per la ricerca
+            searchDatatable(dtable);
         });
 
         $.fn.DataTable.ext.pager.numbers_length = 5;
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            getVersionsList('v-spinner');
+
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            openScpModal('scp-spinner');
+
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */
@@ -251,16 +296,29 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
              */
             {{-- Vedere nel footer --}}
             deleteRecord();
+
+
+            /**
+             * Metodo che si occupa di ripubblicare gli elementi
+             */
+            republish();
+
+            /**
+             * workflow
+             */
+            askEdit();
+
+            /**
+             * Plugins aggiuntivi
+             */
         });
 
-        {{-- Seleziona deseleziona tutti i records nella tabella --}}
-        $('.checkbox_all').bind('click', function () {
-            $isChecked = $(this).is(':checked');
-            if (parseBool($isChecked) === true) {
-                $('.checkbox_item').prop('checked', true);
-            } else {
-                $('.checkbox_item').prop('checked', false);
-            }
+        //Seleziona deseleziona tutti i records nella tabella
+        document.querySelectorAll('.checkbox_all').forEach(checkbox => {
+            checkbox.addEventListener('click', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.checkbox_item').forEach(item => {item.checked = isChecked;});
+            });
         });
 
     });

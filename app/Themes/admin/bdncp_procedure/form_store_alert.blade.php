@@ -39,15 +39,29 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
@@ -62,6 +76,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     ]) }}
                                 </div>
                             </div>
+
 
                             {{-- Campo Bando di gara relativo --}}
                             <div class="form-row d-flex align-items-end">
@@ -93,7 +108,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                id="input_alert_date">
                                     </div>
                                 </div>
+
+
                             </div>
+
 
                             <div class="form-group">
                                 {{-- Campo Note --}}
@@ -114,11 +132,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+                        <div class="col-md-12 mb-3">
+                            <div class="custom-separator">
+                                <h5>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16" fill="currentColor">
+                                        <path d="M496 384H64V80c0-8.8-7.2-16-16-16H16C7.2 64 0 71.2 0 80v336c0 26.5 21.5 48 48 48h448c8.8 0 16-7.2 16-16v-32c0-8.8-7.2-16-16-16zM464 96H345.9c-21.4 0-32.1 25.9-17 41l32.4 32.4L288 242.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0l-68.7 68.7c-6.2 6.2-6.2 16.4 0 22.6l22.6 22.6c6.2 6.2 16.4 6.2 22.6 0L192 237.3l73.4 73.4c12.5 12.5 32.8 12.5 45.3 0l96-96 32.4 32.4c15.1 15.1 41 4.4 41-17V112c0-8.8-7.2-16-16-16z"/>
+                                    </svg>
+                                    Dati SEO
+                                </h5>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
-            </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -158,6 +189,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',PatOsInstituteId()) }}
         {{ form_close() }}
     </div>
@@ -178,22 +210,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
+
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Tabella per la selezione della Procedura relativa(scelta del contraente)
         let relativeBdncpProcedure = $('#ajax_bdncp_procedure').patOsAjaxPagination({
@@ -230,13 +262,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             $('#input_alert_date').attr('value', "<?php echo date('Y-m-d') ?>");
         }
 
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
@@ -244,7 +269,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -281,6 +308,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -289,14 +317,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
             },
             error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
+                let response = {};
+                try {
+                    response = parseJson(jqXHR.responseText) || {};
+                } catch (error) {
+                    // Una risposta non JSON non deve impedire di riprovare il salvataggio.
+                }
 
                 //Messaggi di errore del validatore campi e degli allegati
-                let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
+                let msg = [
+                    response.data && response.data.error_partial_attach,
+                    response.errors && response.errors.error
+                ].filter(Boolean).join(", ");
+                if (!msg) {
+                    msg = 'Impossibile completare il salvataggio. Riprova.';
+                }
 
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }
@@ -306,11 +346,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

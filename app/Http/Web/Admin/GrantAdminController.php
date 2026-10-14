@@ -15,13 +15,14 @@ use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\GrantLiquidationValidator;
 use Helpers\Validators\GrantValidator;
 use Model\GrantsModel;
+use Model\PersonnelModel;
+use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -104,11 +105,6 @@ class GrantAdminController extends BaseAuthController
                 7 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[8] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'object');
@@ -121,11 +117,14 @@ class GrantAdminController extends BaseAuthController
 
             // Query count-sovvenzioni e vantaggi
             $queryCount = GrantsModel::search($searchValue);
-            $queryCount->select(['count(id) as allcount']);
-            $queryCount->join('users', 'users.id', '=', 'object_grants.owner_id', 'left outer');
-            $queryCount->leftJoin('object_structures as structure', function ($join) {
-                $join->on('structure.id', '=', 'object_grants.object_structures_id');
-            });
+            $queryCount->select(['count(id) as allcount'])
+                ->join('users', 'users.id', '=', 'object_grants.owner_id', 'left outer')
+                ->leftJoin('object_structures as structure', function ($join) {
+                    $join->on('structure.id', '=', 'object_grants.object_structures_id');
+                });
+
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $queryCount->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object');
@@ -134,7 +133,7 @@ class GrantAdminController extends BaseAuthController
             $queryRecords = GrantsModel::search($searchValue);
             $queryRecords->select(['object_grants.id', 'object_grants.owner_id', 'object_grants.institution_id', 'object_grants.object_structures_id',
                 'object_grants.grant_id', 'object_grants.beneficiary_name', 'object_grants.object', 'object_grants.typology',
-                'object_grants.type', 'object_grants.publishing_status', 'object_grants.updated_at', 'users.name', 'grant.object as relativeObject']);
+                'object_grants.type', 'object_grants.updated_at', 'users.name', 'grant.object as relativeObject']);
             $queryRecords->leftJoin('object_grants as grant', function ($join) {
                 $join->on('grant.id', '=', 'object_grants.grant_id');
             });
@@ -153,7 +152,9 @@ class GrantAdminController extends BaseAuthController
                 $query->select(['id', 'object', 'beneficiary_name', 'concession_act_date', 'object_structures_id']);
                 $query->with('structure:id,structure_name,archived');
             }]);
+            $queryRecords->with('all_attachs:id,archive_id');
             $queryRecords->join('institutions as i', 'object_grants.institution_id', '=', 'i.id');
+
             $queryRecords->orderBy($order, $dataTable['columnSortOrder']);
             $queryRecords->offset($dataTable['start']);
             $queryRecords->limit($dataTable['rowPerPage']);
@@ -167,6 +168,10 @@ class GrantAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['personnel']) && is_array($record['personnel'])) {
@@ -176,9 +181,11 @@ class GrantAdminController extends BaseAuthController
                         $responsibles = str_replace(',', ',' . nbs(), implode(
                             ',',
                             array_map(
-                                function ($responsible) {
+                                function ($responsible, $archived) {
                                     return ('<small class="badge badge-primary mb-1">'
-                                        . escapeXss($responsible) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($responsible) . '</small>');
                                 },
                                 $tmpResponsibles,
                                 $tmpArchResponsibles
@@ -197,19 +204,25 @@ class GrantAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/grant/edit-' . $record['type'] . '/' . $record['id'], $record['id'])
+                        ->addEdit('admin/grant/edit-' . $record['type'] . '/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/grant/duplicate-' . $record['type'] . '/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/grant/versioning'), $record['id'], $record['type'], $record['type'], 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/grant/show-record-log/'.$record['id']), $record['id'], '24', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/grant/delete-' . $record['type'] . '/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -224,21 +237,28 @@ class GrantAdminController extends BaseAuthController
                         ? $record['object']
                         : (!empty($record['relative_grant']['object'])
                             ? escapeXss($record['relative_grant']['object'])
-                            : 'N.D.'
+                            : ''
                         );
 
                     $structureName = !empty($record['structure']['structure_name'])
-                        ? escapeXss($record['structure']['structure_name'])
+                        ? ($record['structure']['archived']
+                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                            : '') . escapeXss($record['structure']['structure_name'])
                         : (!empty($record['relative_grant']['structure']['structure_name'])
-                            ? escapeXss($record['relative_grant']['structure']['structure_name'])
-                            : 'N.D.'
+                            ? ($record['relative_grant']['structure']['archived']
+                                ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                : '') . escapeXss($record['relative_grant']['structure']['structure_name'])
+                            : ''
                         );
 
                     $icon = null;
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $checkBox = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $beneficiaryName;
                     $setTempData[] = $object;
                     $setTempData[] = !empty($record['typology']) ? escapeXss($record['typology']) : 'N.D.';
@@ -246,23 +266,17 @@ class GrantAdminController extends BaseAuthController
                     $setTempData[] = $responsibles;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
-
-                    $setTempData[] = $buttonAction;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
+$setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
                 }
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -282,7 +296,7 @@ class GrantAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/grant/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/grant/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -306,7 +320,7 @@ class GrantAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('grant/form_store_grant', $data, 'admin');
@@ -353,7 +367,7 @@ class GrantAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('grant/form_store_liquidation', $data, 'admin');
@@ -370,7 +384,7 @@ class GrantAdminController extends BaseAuthController
     public function storeGrant(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -414,6 +428,7 @@ class GrantAdminController extends BaseAuthController
                     'end_date' => !empty(Input::post('end_date')) ? convertDateToDatabase(strip_tags((string)Input::post('end_date', true))) : null,
                     'detection_mode' => Input::post('detection_mode', true),
                     'notes' => Input::post('notes', true),
+                    'project_link' => strip_tags(Input::post('project_link', true)),
                     'privacy' => setDefaultData(strip_tags(Input::post('privacy', true)), 0, [''])
                 ];
 
@@ -429,11 +444,6 @@ class GrantAdminController extends BaseAuthController
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'grants', $insert->id, $insert['object']);
-
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -458,7 +468,7 @@ class GrantAdminController extends BaseAuthController
     public function storeLiquidation(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -503,8 +513,6 @@ class GrantAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'grants', $insert->id, $insert->relative_grant['object']);
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
         } else {
@@ -593,7 +601,7 @@ class GrantAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $grant['institution_id'];
 
         $data['concession_act_date'] = $concessionActDate['date'];
@@ -687,7 +695,7 @@ class GrantAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $liquidation['institution_id'];
 
         $data['reference_date'] = $referenceDate['date'];
@@ -730,7 +738,7 @@ class GrantAdminController extends BaseAuthController
             $liquidation = $liquidation->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($liquidation['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($liquidation['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -765,8 +773,9 @@ class GrantAdminController extends BaseAuthController
                     $liquidation->relative_grant['object']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -812,7 +821,7 @@ class GrantAdminController extends BaseAuthController
             $grant = $grant->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute('update', (!checkRecordOwner($grant['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($grant['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -841,10 +850,12 @@ class GrantAdminController extends BaseAuthController
                 $data['end_date'] = !empty(Input::post('end_date')) ? convertDateToDatabase(strip_tags((string)Input::post('end_date', true))) : null;
                 $data['detection_mode'] = Input::post('detection_mode', true);
                 $data['notes'] = Input::post('notes', true);
+                $data['project_link'] = strip_tags(Input::post('project_link', true));
                 $data['privacy'] = setDefaultData(strip_tags((int)Input::post('privacy', true)), 0, ['']);
 
                 // Update Sovvenzione
                 GrantsModel::where('id', $grantId)->updateWithLogs($grant, $data);
+
 
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
@@ -862,8 +873,6 @@ class GrantAdminController extends BaseAuthController
                     $grant['object']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -940,7 +949,7 @@ class GrantAdminController extends BaseAuthController
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/grant');
     }
 
@@ -975,7 +984,7 @@ class GrantAdminController extends BaseAuthController
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         redirect('admin/grant');
     }
 
@@ -990,7 +999,7 @@ class GrantAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new GrantValidator();
         $validate = $validator->multipleSelection();
@@ -1010,8 +1019,9 @@ class GrantAdminController extends BaseAuthController
                 $grant->deleteWithLogs($grant);
             }
 
+
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -1019,4 +1029,5 @@ class GrantAdminController extends BaseAuthController
 
         redirect('/admin/grant');
     }
+
 }

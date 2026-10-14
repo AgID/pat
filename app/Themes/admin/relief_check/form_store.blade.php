@@ -37,15 +37,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
                                 <div class="form-group col-md-6" id="input_object">
@@ -61,7 +76,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 {{-- Campo Data --}}
                                 <div class="form-group col-md-6">
-                                    <label for="date">Data *</label>
+                                    <label for="date">Data del documento *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
@@ -78,28 +93,34 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             {{-- Campo Procedura relativa --}}
                             <div class="form-group">
                                 <label for="public_in">Pubblica in *</label>
-                                <div class="select2-blue" id="public_in">
+                                <div id="public_in">
                                     {{ form_dropdown(
                                         'public_in[]',
                                         @$publicIn,
                                         @$publicInIDs,
-                                        'class="form-control select2-public_in" multiple="multiple" data-placeholder="Seleziona" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                        'class="ts-public_in" multiple="multiple" style="width: 100%;"'
                                     ) }}
                                 </div>
                             </div>
 
-                            {{-- Campo Ufficio --}}
-                            <div class="form-row d-flex align-items-end">
-                                <div class="form-group col-md-12" id="president">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_structure" id="rc_structure_label">Ufficio</label>
+                            <div class="fields_608" style="display: none;">
+
+                                <div class="form-row align-items-end">
+                                    <div class="form-group col-md-4">
+                                        <label for="act_object">Oggetto del rilievo *</label>
+                                        <div id="act_object">
+                                            {{ form_dropdown(
+                                                'act_object[]',
+                                                [ 1 => 'Organizzazione', 2 => 'Attività'],
+                                                !empty($relief_check['act_object']) ? explode(",", $relief_check['act_object']) : null,
+                                                'class="ts-act_object" multiple="multiple" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
-                                    <div id="ajax_structure"></div>
-                                    <input type="hidden" value="" name="object_structures_id"
-                                           id="input_object_structures_id"
-                                           class="object_structures_id">
+                                    <!-- Campo relief_taken - Rimosso a seguito della delibera 481 -->
                                 </div>
                             </div>
+
 
                             <div class="form-group">
                                 {{-- Campo descrizione --}}
@@ -112,16 +133,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -173,68 +203,37 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13) {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
-        // Tabella per la selezione della struttura di appartenenza
-        let office = $('#ajax_structure').patOsAjaxPagination({
-            url: config.structure.url,
-            textLoad: config.structure.textLoad,
-            selectedLabel: 'Ufficio selezionato',
-            footerTable: config.structure.footerTable,
-            classTable: config.structure.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
-            hideTable: config.structure.hideTable,
-            showTable: config.structure.showTable,
-            search_placeholder: config.structure.search_placeholder,
-            setInputDataValue: '#input_object_structures_id',
-            dataParams: {
-                model: 1,
-                institution_id: institutionId
-            },
-            columns: config.structure.columns,
-            action: {
-                type: 'radio',
-            },
-            dataSource: config.structure.dataSource,
-            addRecord: config.structure.addRecord,
-            archived: config.structure.archived,
-            label: '#rc_structure_label'
+
+        new TomSelect('.ts-act_object', TS_MULTI_NO_SEARCH);
+
+        const publicIn = new TomSelect('.ts-public_in', {
+            ...TS_MULTI_NO_SEARCH,
+            onChange(values) {
+                if (values) {
+                    document.querySelectorAll('.fields_608').forEach(element => {
+                        element.style.display = values.includes('608') ? '' : 'none';
+                    });
+                }
+            }
         });
-
-        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($relief_check['object_structures_id']))
-        office.patOsAjaxPagination.setValue('{{ $relief_check['object_structures_id'] }}', '{{ htmlEscape($relief_check['office']['structure_name']).' - '.(!empty($relief_check['object_structures_id'])?htmlEscape($relief_check['office']['parent_name']):'').(!empty($relief_check['office']['reference_email'])?' - '.$relief_check['office']['reference_email']:'N.D') }}', true);
-        @endif
-
-        {{-- Select2 per campo "Pubblica In" --}}
-        let $dropdownPublicIn = $('.select2-public_in');
-        $dropdownPublicIn.select2()
-        $dropdownPublicIn.on('change', function () {
-            $('#public_in').val($(this).val());
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        publicIn.trigger('change');
 
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -243,7 +242,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description',{
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -269,7 +270,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = false;
 
                 // Funzione che genera il toast con il messaggio di successo
-                {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Controlli e rilievi');
 
                 setTimeout(function () {
@@ -287,7 +287,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
 
                 // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
@@ -298,24 +297,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -327,7 +324,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che controlla se sono arrivato in questa pagina dal versioning
          */
-        {{-- Vedere nel footer --}}
         checkIfRestore();
 
     });

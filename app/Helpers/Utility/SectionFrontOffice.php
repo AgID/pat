@@ -8,6 +8,7 @@ namespace Helpers\Utility;
 
 use Exception;
 use System\Database;
+use System\Log;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -23,6 +24,7 @@ class SectionFrontOffice
     protected $updated_at;
     protected $deleted_at;
     protected $deleted;
+    protected $source_id;
     protected $parent_id_default;
     protected $padding_count;
     protected $padding_string;
@@ -30,6 +32,9 @@ class SectionFrontOffice
     protected $institution_id;
     protected $is_system;
     protected $hide;
+    protected $table;
+    protected $name;
+    protected $sort;
 
     /**
      * @throws Exception
@@ -40,9 +45,7 @@ class SectionFrontOffice
         $config = config('front_office', null, 'hierarchy');
 
         foreach ($config as $key => $val) {
-
             $this->$key = $val;
-
         }
 
         $this->parent_id_default = $config['parent_id_default'];
@@ -52,11 +55,11 @@ class SectionFrontOffice
     /**
      * Inserisce un nuovo record. Se non è incluso parent_id, presuppone un elemento di primo livello
      *
-     * @param array $data       Dati da inserire
-     * @param bool  $includeSys Indica se includere le sezioni di sistema
+     * @param array $data Dati da inserire
+     * @param bool $includeSys Indica se includere le sezioni di sistema
      * @return int
      */
-    public function insert(array $data, bool $includeSys = true): int
+    public function insert(array $data, bool $includeSys = true, bool $migr = false): int
     {
         if (!empty($data[$this->parent_id])) {
 
@@ -72,13 +75,13 @@ class SectionFrontOffice
 
         }
 
-        if (isSuperAdmin(true) && !empty($data['institution_id'])) {
+        if ((is_cli() || $migr) && !empty($data['institution_id'])) {
 
             $data[$this->institution_id] = $data['institution_id'];
 
         } else {
 
-            $data[$this->institution_id] = checkAlternativeInstitutionId();
+            $data[$this->institution_id] = PatOsInstituteId();
 
         }
 
@@ -97,8 +100,8 @@ class SectionFrontOffice
     /**
      * Updates record
      *
-     * @param int      $id            Id del record da aggiornare
-     * @param array    $data          Dati per fare l'update
+     * @param int $id Id del record da aggiornare
+     * @param array $data Dati per fare l'update
      * @param int|null $institutionId Id dell'Ente
      * @return int
      */
@@ -115,9 +118,9 @@ class SectionFrontOffice
 
     /**
      * @description Recupera un singolo record in base alla chiave primaria.
-     * @param int|null  $id            Id del record da recuperare
-     * @param bool|null $includeSys    Indica se prendere anche le sezioni di sistema
-     * @param int|null  $institutionId Id dell'ente
+     * @param int|null $id Id del record da recuperare
+     * @param bool|null $includeSys Indica se prendere anche le sezioni di sistema
+     * @param int|null $institutionId Id dell'ente
      * @return array
      */
     public function getOne(?int $id = null, ?bool $includeSys = true, ?int $institutionId = null): array
@@ -193,12 +196,13 @@ class SectionFrontOffice
 
     /**
      * @description Recupera tutti i record in base alla chiave primaria, ordinati in base alla loro discendenza e ordine.
-     * @param int        $topId             Id padre di partenza
-     * @param int|null   $institutionId     Id dell'Ente
-     * @param int|null   $institutionTypeId Id del tipo Ente
+     * @param int $topId Id padre di partenza
+     * @param int|null $institutionId Id dell'Ente
+     * @param int|null $institutionTypeId Id del tipo Ente
+     * @param array|null $excludedSections Eventuali sezioni da escludere
      * @return array
      */
-    public function get(int $topId = 0, ?int $institutionId = null, ?int $institutionTypeId = null): array
+    public function get(int $topId = 0, ?int $institutionId = null, ?int $institutionTypeId = null, ?array $excludedSections = []): array
     {
         $eId = !empty($institutionId) ? $institutionId : checkAlternativeInstitutionId();
 
@@ -219,7 +223,9 @@ class SectionFrontOffice
             $query->where($this->is_system, 1)->orWhere($this->table . '.' . $this->institution_id, $eId);
         });
 
-        $query->whereNotIn($this->table . '.' . $this->primary_key);
+        $query = $query ?? null;
+
+        $query->whereNotIn($this->table . '.' . $this->primary_key, $excludedSections);
 
         // Aggiunto per le traduzioni dei nomi delle sezioni in base al tipo dell'Ente
         if (!empty($institutionTypeId)) {
@@ -235,16 +241,17 @@ class SectionFrontOffice
                     });
             });
 
-            $query->select($this->table . '.*');
+            $query->select($this->table . '.*', 'rel_institution_type_sections_labeling.label');
+        }
+
+        if ($this->has_sort) {
+
+            $query->orderBy('is_system', 'DESC')->orderBy($this->sort, 'ASC')->orderBy('name', 'ASC');
+
         }
 
         $query->orderBy($this->lineage);
 
-        if ($this->has_sort) {
-
-            $query->orderBy($this->sort, 'ASC');
-
-        }
 
         return $query->get()->toArray();
     }
@@ -252,15 +259,17 @@ class SectionFrontOffice
     /**
      * @description Recupera tutti i record discendenti in base all'ID padre, ordinati in base alla loro discendenza
      * e raggruppali come un array multidimensionale.
-     * @param int        $topId             Id del record di partenza
-     * @param string     $parentId          Id del padre
-     * @param int|null   $institutionId     Id dell'Ente
-     * @param int|null   $institutionTypeId Id del tipo Ente
+     * @param int $topId Id del record di partenza
+     * @param string $parentId Id del padre
+     * @param int|null $institutionId Id dell'Ente
+     * @param int|null $institutionTypeId Id del tipo Ente
+     * @param array|null $excludedSections Eventuali sezioni da escludere
      * @return array
      */
-    public function getGroupedChildren(int $topId = 0, string $parentId = '#', ?int $institutionId = null, ?int $institutionTypeId = null): array
+    public function getGroupedChildren(int $topId = 0, string $parentId = '#', ?int $institutionId = null, ?int $institutionTypeId = null, ?array $excludedSections = []): array
     {
-        $result = $this->get($topId, $institutionId, $institutionTypeId);
+        $result = $this->get($topId, $institutionId, $institutionTypeId, $excludedSections);
+
         return $this->findChildren($result, $parentId);
     }
 
@@ -310,7 +319,7 @@ class SectionFrontOffice
 
     /**
      * @description Conta tutti i record figlio diretti in base all'ID padre
-     * @param int      $id       Id del record di cui prendere i figli
+     * @param int $id Id del record di cui prendere i figli
      * @param bool|int $parentId Id del record padre
      * @return int
      */
@@ -326,7 +335,7 @@ class SectionFrontOffice
 
     /**
      * @description Recupera tutti i record discendenti in base all'ID padre, ordinati in base alla loro discendenza.
-     * @param int      $parentId      Id del record padre
+     * @param int $parentId Id del record padre
      * @param int|null $institutionId Id dell'Ente
      * @return array
      */
@@ -359,13 +368,14 @@ class SectionFrontOffice
     /**
      * @description Recupera tutti i record degli antenati in base all'id, ordinati in base alla colonna
      * "lineage" (dall'alto verso il basso).
-     * @param int      $id                Id del record di cui recuperare gli antenati
-     * @param bool     $removeThis        Indica se rimuovere l'elemento corrente dall'alberatura restituita
-     * @param bool     $includeSys        Indica se includere le sezioni di sistema
-     * @param int|null $institutionId     Id dell'Ente
+     * @param int $id Id del record di cui recuperare gli antenati
+     * @param bool $removeThis Indica se rimuovere l'elemento corrente dall'alberatura restituita
+     * @param bool $includeSys Indica se includere le sezioni di sistema
+     * @param int|null $institutionId Id dell'Ente
+     * @param int|null $institutionTypeId Id del tipo Ente
      * @return array
      */
-    public function getAncestors(int $id = 0, bool $removeThis = false, bool $includeSys = true, ?int $institutionId = null): array
+    public function getAncestors(int $id = 0, bool $removeThis = false, bool $includeSys = true, ?int $institutionId = null, ?int $institutionTypeId = null): array
     {
         $eId = !empty($institutionId) ? $institutionId : checkAlternativeInstitutionId();
 
@@ -378,7 +388,6 @@ class SectionFrontOffice
         }
 
         $lineageIds = explode('-', $current[$this->lineage]);
-//        trace($lineageIds, true);
 
         if ($removeThis) {
 
@@ -414,13 +423,12 @@ class SectionFrontOffice
             });
 
             $query->orWhere('rel_institution_type_sections_labeling.institution_type_id', '=', $institutionTypeId);
-            $query->select($this->table . '.*');
+            $query->select($this->table . '.*', 'rel_institution_type_sections_labeling.label', 'rel_institution_type_sections_labeling.institution_id as l_i_id');
             $query->orderBy($this->lineage);
             $query->orderBy('l_i_id', 'DESC');
 
         } else {
             $query->orderBy($this->lineage);
-
         }
 
         if ($this->has_sort) {
@@ -464,7 +472,7 @@ class SectionFrontOffice
 
     /**
      * @description Cancella tutti i records
-     * @param int  $id           del record da eliminare
+     * @param int $id del record da eliminare
      * @param bool $withChildren Indica se eliminare anche i figli
      * @return void
      */

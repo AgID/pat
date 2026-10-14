@@ -33,65 +33,101 @@ class JWT extends \Firebase\JWT\JWT
         $timestamp = \is_null(static::$timestamp) ? \time() : static::$timestamp;
 
         if (empty($keyOrKeyArray)) {
-            throw new InvalidArgumentException('Key may not be empty');
+            // throw new InvalidArgumentException('Key may not be empty');
+            self::printErrorJson('Key may not be empty');
         }
         $tks = \explode('.', $jwt);
 
         if (\count($tks) !== 3) {
-            throw new UnexpectedValueException('Wrong number of segments');
+            // throw new UnexpectedValueException('Wrong number of segments');
+            self::printErrorJson('Wrong number of segments');
         }
         list($headb64, $bodyb64, $cryptob64) = $tks;
         $headerRaw = static::urlsafeB64Decode($headb64);
         if (null === ($header = static::jsonDecode($headerRaw))) {
-            throw new UnexpectedValueException('Invalid header encoding');
+            // throw new UnexpectedValueException('Invalid header encoding');
+            self::printErrorJson('Invalid header encoding');
         }
         if ($headers !== null) {
             $headers = $header;
         }
         $payloadRaw = static::urlsafeB64Decode($bodyb64);
         if (null === ($payload = static::jsonDecode($payloadRaw))) {
-            throw new UnexpectedValueException('Invalid claims encoding');
+            // throw new UnexpectedValueException('Invalid claims encoding');
+            self::printErrorJson('Invalid claims encoding');
         }
         if (\is_array($payload)) {
             $payload = (object) $payload;
         }
         if (!$payload instanceof stdClass) {
-            throw new UnexpectedValueException('Payload must be a JSON object');
+            // throw new UnexpectedValueException('Payload must be a JSON object');
+            self::printErrorJson('Payload must be a JSON object');
         }
         $sig = static::urlsafeB64Decode($cryptob64);
         if (empty($header->alg)) {
-            throw new UnexpectedValueException('Empty algorithm');
+            // throw new UnexpectedValueException('Empty algorithm');
+            self::printErrorJson('Empty algorithm');
         }
         if (empty(static::$supported_algs[$header->alg])) {
-            throw new UnexpectedValueException('Algorithm not supported');
+            // throw new UnexpectedValueException('Algorithm not supported');
+            self::printErrorJson('Algorithm not supported');
         }
 
         $key = self::getKey($keyOrKeyArray, property_exists($header, 'kid') ? $header->kid : null);
 
         if (!self::constantTimeEquals($key->getAlgorithm(), $header->alg)) {
-            throw new UnexpectedValueException('Incorrect key for this algorithm');
+            // throw new UnexpectedValueException('Incorrect key for this algorithm');
+            self::printErrorJson('Incorrect key for this algorithm');
         }
         if (\in_array($header->alg, ['ES256', 'ES256K', 'ES384'], true)) {
             $sig = self::signatureToDER($sig);
         }
         if (!self::verify("{$headb64}.{$bodyb64}", $sig, $key->getKeyMaterial(), $header->alg)) {
-            throw new SignatureInvalidException('Signature verification failed');
+            // throw new SignatureInvalidException('Signature verification failed');
+            self::printErrorJson('Signature verification failed');
         }
 
         if (isset($payload->nbf) && floor($payload->nbf) > ($timestamp + static::$leeway)) {
-            throw new BeforeValidException(
-                'Cannot handle token with nbf prior to ' . \date(DateTime::ISO8601, (int) $payload->nbf)
-            );
+            // throw new BeforeValidException(
+            //     'Cannot handle token with nbf prior to ' . \date(DateTime::ISO8601, (int) $payload->nbf)
+            // );
+            self::printErrorJson('Cannot handle token with nbf prior to ' . \date(DateTime::ISO8601, (int) $payload->nbf));
         }
 
         if (!isset($payload->nbf) && isset($payload->iat) && floor($payload->iat) > ($timestamp + static::$leeway)) {
-            throw new BeforeValidException(
-                'Cannot handle token with iat prior to ' . \date(DateTime::ISO8601, (int) $payload->iat)
-            );
+            // throw new BeforeValidException(
+            //     'Cannot handle token with iat prior to ' . \date(DateTime::ISO8601, (int) $payload->iat)
+            // );
+            self::printErrorJson('Cannot handle token with iat prior to ' . \date(DateTime::ISO8601, (int) $payload->iat));
         }
 
+        // Validazione del campo exp (expiration)
+        if (isset($payload->exp)) {
+            $expValue = floor($payload->exp);
+            $currentTime = $timestamp;
+            $leewayValue = static::$leeway;
+            $comparison = $timestamp - static::$leeway;
+            
+            if ($expValue < $comparison) {
+                self::printErrorJson('Expired token');
+            }
+        }
 
         return $payload;
+    }
+
+    public static function printErrorJson($msg)
+    {
+        // Controlla se gli header sono già stati inviati
+        if (!headers_sent()) {
+            http_response_code(400);
+            header('Content-Type: application/json');
+        }
+        
+        echo json_encode([
+            'error' => $msg
+        ]);
+        die();
     }
 
 
@@ -102,7 +138,8 @@ class JWT extends \Firebase\JWT\JWT
         string $alg
     ): bool {
         if (empty(static::$supported_algs[$alg])) {
-            throw new DomainException('Algorithm not supported');
+            // throw new DomainException('Algorithm not supported');
+            self::printErrorJson('Algorithm not supported');
         }
 
         list($function, $algorithm) = static::$supported_algs[$alg];
@@ -116,34 +153,41 @@ class JWT extends \Firebase\JWT\JWT
                     return false;
                 }
 
-                throw new DomainException(
-                    'OpenSSL error: ' . \openssl_error_string()
-                );
+                // throw new DomainException(
+                //     'OpenSSL error: ' . \openssl_error_string()
+                // );
+                self::printErrorJson('OpenSSL error: ' . \openssl_error_string());
             case 'sodium_crypto':
                 if (!\function_exists('sodium_crypto_sign_verify_detached')) {
-                    throw new DomainException('libsodium is not available');
+                    // throw new DomainException('libsodium is not available');
+                    self::printErrorJson('libsodium is not available');
                 }
                 if (!\is_string($keyMaterial)) {
-                    throw new InvalidArgumentException('key must be a string when using EdDSA');
+                    // throw new InvalidArgumentException('key must be a string when using EdDSA');
+                    self::printErrorJson('key must be a string when using EdDSA');
                 }
                 try {
 
                     $lines = array_filter(explode("\n", $keyMaterial));
                     $key = base64_decode((string) end($lines));
                     if (\strlen($key) === 0) {
-                        throw new DomainException('Key cannot be empty string');
+                        // throw new DomainException('Key cannot be empty string');
+                        self::printErrorJson('Key cannot be empty string');
                     }
                     if (\strlen($signature) === 0) {
-                        throw new DomainException('Signature cannot be empty string');
+                        // throw new DomainException('Signature cannot be empty string');
+                        self::printErrorJson('Signature cannot be empty string');
                     }
                     return sodium_crypto_sign_verify_detached($signature, $msg, $key);
                 } catch (Exception $e) {
-                    throw new DomainException($e->getMessage(), 0, $e);
+                    // throw new DomainException($e->getMessage(), 0, $e);
+                    self::printErrorJson($e->getMessage());
                 }
             case 'hash_hmac':
             default:
                 if (!\is_string($keyMaterial)) {
-                    throw new InvalidArgumentException('key must be a string when using hmac');
+                    // throw new InvalidArgumentException('key must be a string when using hmac');
+                    self::printErrorJson('key must be a string when using hmac');
                 }
                 $hash = \hash_hmac($algorithm, $msg, $keyMaterial, true);
                 return self::constantTimeEquals($hash, $signature);
@@ -159,7 +203,8 @@ class JWT extends \Firebase\JWT\JWT
         }
 
         if (empty($kid) && $kid !== '0') {
-            throw new UnexpectedValueException('"kid" empty, unable to lookup correct key');
+            // throw new UnexpectedValueException('"kid" empty, unable to lookup correct key');
+            self::printErrorJson('"kid" empty, unable to lookup correct key');
         }
 
         if ($keyOrKeyArray instanceof CachedKeySet) {
@@ -168,7 +213,8 @@ class JWT extends \Firebase\JWT\JWT
         }
 
         if (!isset($keyOrKeyArray[$kid])) {
-            throw new UnexpectedValueException('"kid" invalid, unable to lookup correct key');
+            // throw new UnexpectedValueException('"kid" invalid, unable to lookup correct key');
+            self::printErrorJson('"kid" invalid, unable to lookup correct key');
         }
 
         return $keyOrKeyArray[$kid];
@@ -183,11 +229,12 @@ class JWT extends \Firebase\JWT\JWT
             JSON_ERROR_SYNTAX => 'Syntax error, malformed JSON',
             JSON_ERROR_UTF8 => 'Malformed UTF-8 characters' //PHP >= 5.3.3
         ];
-        throw new DomainException(
-            isset($messages[$errno])
-                ? $messages[$errno]
-                : 'Unknown JSON error: ' . $errno
-        );
+        // throw new DomainException(
+        //     isset($messages[$errno])
+        //         ? $messages[$errno]
+        //         : 'Unknown JSON error: ' . $errno
+        // );
+        self::printErrorJson(isset($messages[$errno]) ? $messages[$errno] : 'Unknown JSON error: ' . $errno);
     }
 
     private static function safeStrlen(string $str): int

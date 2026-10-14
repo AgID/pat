@@ -12,7 +12,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{--  ************************************************ CONTENT ************************************************ --}}
 {% block content %}
-
 <main>
     <section class="my-2">
         <div class="container">
@@ -20,10 +19,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <div class="col-12">
                     <h1>{{e: !empty($h1) ? $h1 : $pageName }}</h1>
 
-                    @if( empty($formFilter) and !empty($linkDownloadOpenData) && !empty($instances['data']))
-                        <button type="button" class="btn btn-xs btn-primary open-data-download-btn" id="btn-open-model-data">
-                            <span class="fas fa-save"></span> Scarica Open data
-                        </button>
+                    {{-- Inclusione di librerie esterne --}}
+
+                    {{-- Contenuto della pagina --}}
+                    {% include v1/layout/partials/page_content %}
+
+                    @if(empty($formFilter) and !empty($linkDownloadOpenData) && !empty($instances['data']) && $instances['data'] != '_hide')
+                        {% include v1/layout/partials/open_data %}
                     @endif
                 </div>
             </div>
@@ -33,7 +35,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="lightgrey-bg-c2 py-5">
 
         <div class="container">
-            @if(!empty($instances['data']))
+            @if(!empty($instances['data']) && $instances['data'] != '_hide')
                 <div class="griglia griglia-3 mb-4">
 
                     {{-- Per ogni perosnale creo una card con le relative info --}}
@@ -43,16 +45,41 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <h3>
                                     <span class="icona fas fa-user"></span>
                                     <a href="{{ siteUrl('page/'.$currentPageId.'/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}">
-                                        {{e: $personnel['full_name'] }}
+                                        {{e: (!empty($personnel['title']) ? $personnel['title'].'  ' : '') . $personnel['full_name'] }}
                                     </a>
                                 </h3>
                                 <div class="contenuto">
+                                    {{-- Organo politico, mostrato solo nella sezione consiglio comunale --}}
+                                    @if(!empty($personnel['role']))
+                                        <div class="box-icona mb-1">
+                                            Ruolo:&nbsp;
+                                                <span class="grigio">
+                                                    {{e: $personnel['role']['name'] }}
+                                                </span>
+                                        </div>
+                                    @endif
+
+                                    {{-- Organo politico, mostrato solo nella sezione consiglio comunale --}}
+                                    @if(!empty($cityCouncil) && !empty($personnel['political_organ']))
+                                        @php
+                                            $i = 0;
+                                        @endphp
+                                        <div class="box-icona mb-1">
+                                            Organo:&nbsp;
+                                            @foreach($personnel['political_organ'] as $organ)
+                                                <span class="grigio">
+                                                    {{e: $organ['denomination'] }}
+                                                    {{ ($i++ < count($personnel['political_organ'])-1) ? ',' : '' }}
+                                                </span>
+                                                &nbsp;
+                                            @endforeach
+                                        </div>
+                                    @endif
                                     {{-- Incarico politico, mostrato nelle sezioni Consiglio comunale e Giunta e assessori --}}
                                     @if(!empty($personnel['political_role']))
                                         <div class="box-icona">
-                                            <p>Incarico di stampo politico:
-                                                <span class="grigio">{{e: $personnel['political_role'] }}</span>
-                                            </p>
+                                            Incarico di stampo politico:
+                                            <span class="grigio">{{e: $personnel['political_role'] }}</span>
                                         </div>
                                     @endif
                                     <hr>
@@ -65,7 +92,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                 </a>
                                             </div>
                                         @endif
+                                        @if(!empty($personnel['phone']))
+                                            <div>
+                                                Telefono:
+                                                <span class="grigio">
+                                                    {{e: $personnel['phone'] }}
+                                                </span>
+                                            </div>
+                                        @endif
                                     </div>
+
                                     @if(!empty($personnel['responsible_structures']) && !$councilAndCouncillors)
                                         <div class="contatti">
                                             <span>Referente per:</span>
@@ -91,15 +127,33 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {{ paginateBootstrap($instances) }}
 
                 @if(!empty($_institution_info['show_update_date']) && !empty($latsUpdatedElement))
+                    @php
+                        $hideCreatedAt = false;
+                    @endphp
                     <p class="data-creazione mt-5" style="font-size: 14px;">
                         <span class="icona far fa-clock"></span>
-                        <strong>{{ !empty($latsUpdatedElement['created_at']) ? 'Contenuto creato il ' . date('d-m-Y', strtotime((string)$latsUpdatedElement['created_at'])) : null }}
-                            {{ !empty($latsUpdatedElement['updated_at']) ? ' - Aggiornato il ' . date('d-m-Y', strtotime((string)$latsUpdatedElement['updated_at'])) : date('d-m-Y', strtotime((string)$latsUpdatedElement['created_at'])) }}</strong>
+                        <strong>
+                            @if(!empty($hideCreatedAt))
+                                {{ !empty($latsUpdatedElement['updated_at']) ? 'Contenuto aggiornato il ' . date('d/m/Y', strtotime((string)$latsUpdatedElement['updated_at'])) : date('d/m/Y', strtotime((string)$latsUpdatedElement['created_at'])) }}
+                                 @else
+                            {{ !empty($latsUpdatedElement['created_at']) ? 'Contenuto creato il ' . date('d/m/Y', strtotime((string)$latsUpdatedElement['created_at'])) : null }}
+                            {{ !empty($latsUpdatedElement['updated_at']) ? ' - Aggiornato il ' . date('d/m/Y', strtotime((string)$latsUpdatedElement['updated_at'])) : date('d/m/Y', strtotime((string)$latsUpdatedElement['created_at'])) }}
+                            @endif
+                        </strong>
                     </p>
                 @endif
 
             @else
-                <h5 class="font-weight-bold">Nessun elemento presente</h5>
+                @if($instances['data'] != '_hide')
+                    <div class="box-card-shadow my-4">
+                <h5 class="title">
+                    <svg class="icon">
+                        <use href="/assets/frontend/v1/css/sprites.svg#it-note"></use>
+                    </svg>
+                    Nessun elemento presente
+                </h5>
+            </div>
+                @endif
             @endif
 
         </div>
@@ -109,6 +163,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{-- Bottom Menu --}}
 {% include v1/layout/partials/bottom_menu %}
+
+{{-- Cards Link --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

@@ -46,8 +46,7 @@ class OpenDataStructuresFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
     }
@@ -70,7 +69,7 @@ class OpenDataStructuresFrontController extends BaseFrontController
         // Recupero le strutture
         $queryContents = $this->getData();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -97,7 +96,7 @@ class OpenDataStructuresFrontController extends BaseFrontController
         // Recupero le strutture
         $queryContents = $this->getData(true);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -117,9 +116,11 @@ class OpenDataStructuresFrontController extends BaseFrontController
         // Recupero le strutture
         $query = StructuresModel::where('articulation', 1)
             ->where(function ($query) {
-                $query->where('archived', '!=', 1)
-                    ->orWhereNull('archived');
-            });
+            })
+            ->filter(
+                (int)Input::get('str', true),
+                (int)Input::get('resp', true)
+            );
 
         // Se sono nella sezione Posta elettronica certificata controllo il campo relativo
         if ($certified) {
@@ -127,12 +128,14 @@ class OpenDataStructuresFrontController extends BaseFrontController
         }
 
         $query->with('structure_of_belonging:id,structure_name')
+            ->with('management_structure:id,structure_name')
+            ->with('non_management_structure:id,structure_name')
             ->with('responsibles:id,full_name')
             ->with('to_contact:id,full_name')
             ->with('attachs')
             ->orderBy('structure_name', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'));
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000));
 
         return $query->get();
     }
@@ -149,15 +152,13 @@ class OpenDataStructuresFrontController extends BaseFrontController
     {
 
         $fileName = 'Strutture organizzative - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
             'Nome struttura',
-            'Struttura di appartenenza',
+            'Denominazione ufficio di livello dirigenziale',
+            'Denominazione ufficio di livello non dirigenziale',
             'Responsabili',
             'Personale da contattare',
             'Posta elettronica',
@@ -213,8 +214,10 @@ class OpenDataStructuresFrontController extends BaseFrontController
             $data = [
                 //Tipo
                 !empty($r['structure_name']) ? $r['structure_name'] : null,
-                //Struttura di appartenenza
-                !empty($r['structure_of_belonging']) ? $r['structure_of_belonging']['structure_name'] : null,
+                //Ufficio dirigenziale
+                !empty($r['management_structure']) ? $r['management_structure']['structure_name'] : null,
+                //Ufficio non dirigenziale
+                !empty($r['non_management_structure']) ? $r['non_management_structure']['structure_name'] : null,
                 //Responsabili della struttura
                 trim($responsiblesLists),
                 //Personale da contattare

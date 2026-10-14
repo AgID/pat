@@ -7,7 +7,6 @@ Il modello `ModulesRegulationsModel` rappresenta la tabella `object_modules_regu
 * `$table`: Il nome della tabella nel database (default: `'object_modules_regulations'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaModulesRegulationsModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'modules_regulations'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Modulistica'`).
 * `$objectId`: L'ID dell'oggetto (default: `13`).
@@ -55,9 +54,3 @@ scopeFilter(Builder $query, string$text = null): void
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati dei moduli in base al titolo. Viene utilizzato nel filtro di ricerca.
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaModulesRegulationsModel` rappresentante i metadati associati al modulo.

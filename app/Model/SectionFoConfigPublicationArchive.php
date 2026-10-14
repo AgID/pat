@@ -6,6 +6,7 @@
 
 namespace Model;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Scope\DeletedScope;
 use System\Model;
@@ -23,8 +24,11 @@ class SectionFoConfigPublicationArchive extends Model
         'id',
         'section_fo_id',
         'archive_name',
+        'deleted',
+        'tag',
         'created_at',
-        'updated_at'
+        'updated_at',
+        'deleted_at'
     ];
 
     /**
@@ -44,6 +48,32 @@ class SectionFoConfigPublicationArchive extends Model
      */
     public function section(): BelongsTo
     {
+        return $this->belongsTo(SectionsFoModel::class, 'section_fo_id')
+            ->where('section_fo.hide', '!=', 1);
+    }
+
+    /**
+     * Relazione con le sezioni di front-office
+     * @return BelongsTo
+     */
+    public function all_section(): BelongsTo
+    {
         return $this->belongsTo(SectionsFoModel::class, 'section_fo_id');
+    }
+
+    /**
+     * Scope locale per eventuali traduzioni delle sezioni in base al tipo ente
+     * @param Builder  $query             Query
+     * @param int|null $institutionTypeId Id tipo ente
+     * @return void
+     */
+    public function scopeLabelFilter(Builder $query, int $institutionTypeId = null): void
+    {
+        if (!empty($institutionTypeId)) {
+            $query->leftJoin("rel_institution_type_sections_labeling", function ($join) use ($institutionTypeId) {
+                $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo_config_publication_archive.section_fo_id")
+                    ->where("rel_institution_type_sections_labeling.institution_type_id", "=", $institutionTypeId);
+            });
+        }
     }
 }

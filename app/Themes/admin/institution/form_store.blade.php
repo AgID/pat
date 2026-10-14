@@ -39,7 +39,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     </small>
                 </p>
                 <ul class="list-group list-group-unbordered mb-3" style="font-size: .85rem">
-                    <span><b>Gestione informazioni Ente</b></span>
+                    <span class="text-pat-primary"><b>Gestione informazioni Ente</b></span>
                     <li class="list-group-item">
                         <a href="#!" class="item_layer" data-id="1" title="Dati generali">
                             <div class="_flex">
@@ -57,16 +57,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </a>
                     </li>
                     <li class="list-group-item">
-                        <a href="#!" class="item_layer" data-id="6" title="Configurazione server SMTP">
+                        <a href="#!" class="item_layer" data-id="4" title="Social Network">
+                            <div class="_flex">
+                                <div class="mr-2"><i class="fas fa-share-alt _black"></i></div>
+                                <div>Social Network</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="list-group-item">
+                        <a href="#!" class="item_layer" data-id="6" title="Configurazione Email">
                             <div class="_flex">
                                 <div class="mr-2"><i class="fas fa-envelope-open"></i></div>
-                                <div>Configurazione server SMTP</div>
+                                <div>Configurazione Email</div>
                             </div>
                         </a>
                     </li>
                 </ul>
+
                 @php
                     $show = true;
+                    $show = $show ?? null;
                 @endphp
 
                 @if($show)
@@ -88,8 +98,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </a>
                         </li>
+
+
+
                     </ul>
                 @endif
+
+
+
+
+
+
+
+
+
 
             </div>
             <!-- /.card-body -->
@@ -139,6 +161,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                         {{-- END: Recapiti dell'ente --}}
 
+                        {{-- BEGIN: Social Network --}}
+                        <div class="type_layer" id="layer_4">
+                            {{-- Inclusione del blocco Social Network --}}
+                            {% include institution/include_social_info %}
+                        </div>
+                        {{-- END: Social Network --}}
+
                         {{-- BEGIN: Altre informazioni --}}
                         <div class="type_layer" id="layer_5">
                             {{-- Inclusione del blocco Altre Informazioni --}}
@@ -146,12 +175,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                         {{-- END: Altre informazioni --}}
 
-                        {{-- BEGIN: Configurazione server SMTP --}}
+                        {{-- BEGIN: Configurazione Email --}}
                         <div class="type_layer" id="layer_6">
-                            {{-- Inclusione del blocco Configurazione server SMTP --}}
+                            {{-- Inclusione del blocco Configurazione Email --}}
                             {% include institution/include_smtp_configuration %}
                         </div>
-                        {{-- END: Configurazione server SMTP --}}
+                        {{-- END: Configurazione Email --}}
+
+
+
+
+
+
+
+
+
+
+
                     </div>
                 </div>
             </div>
@@ -187,6 +227,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 'class' => '_institution_type_id',
             ]) }}
         @endif
+
+        {{ form_input([
+            'type' => 'hidden',
+            'name' => '_roles',
+            'value' => null,
+            'id' => '_roles',
+            'class' => '_roles',
+        ]) }}
+
+        {{ form_input([
+            'type' => 'hidden',
+            'name' => '_qualifications',
+            'value' => null,
+            'id' => '_qualifications',
+            'class' => '_qualifications',
+        ]) }}
 
         {{ form_close() }}
     </div>
@@ -227,106 +283,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
     {{-- Begin Modale PerlaPa --}}
-
-
-    <div class="modal fade" id="modal-editor-css" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title">Editor CSS</h4>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">×</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <textarea id="edit_code_css" cols="10" rows="30" class="edit_code_css" name="edit_code_css"
-                              style="width: 100%"></textarea>
-                </div>
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Chiudi</button>
-                    <button type="button" id="btn-save-css" class="btn btn-primary">Registra CSS</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Modale CSS custom CKEditor--}}
-    <div class="modal fade" id="modal-CKEditor-css" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title">Fogli di stile personalizzati in CKEditor</h4>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">×</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Titolo Style</label>
-                                {{ form_input([
-                                   'name' => 'ckeditor_custom_style_title',
-                                   'value' => null,
-                                   'placeholder' => 'Titolo della classe E.S.: Titolo principale',
-                                   'id' => 'ckeditor_custom_style_title',
-                                   'class' => 'form-control form-control-sm ckeditor_custom_style_title',
-                               ]) }}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label>Nome classe</label>
-                                {{ form_input([
-                                   'name' => 'ckeditor_custom_style_classname',
-                                   'value' => null,
-                                   'placeholder' => 'Nome della classe E.S.: class_name',
-                                   'id' => 'ckeditor_custom_style_classname',
-                                   'class' => 'form-control form-control-sm ckeditor_custom_style_classname',
-                               ]) }}
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label>Selettore TAG</label>
-                            {{ form_dropdown(
-                               'ckeditor_custom_style_tag_name',
-                               [
-                                    'h1' => 'h1',
-                                    'h2' => 'h2',
-                                    'h3' => 'h3',
-                                    'h4' => 'h4',
-                                    'h5' => 'h5',
-                                    'h6' => 'h6',
-                                    'div' => 'div',
-                                    'address' => 'address',
-                                    'a' => 'a',
-                                    'p' => 'p',
-                                    'pre' => 'pre',
-                                    'span' => 'span',
-                               ],
-                               !empty($selectorTag) ? $selectorTag : null,
-                               'id="ckeditor_custom_style_tag_name" class="form-control form-control-sm ckeditor_custom_style_tag_name"'
-                           ) }}
-                        </div>
-                    </div>
-
-                    <textarea id="CKEditor_code_css" cols="10" rows="30" class="CKEditor_code_css"
-                              name="CKEditor_code_css"
-                              style="width: 100%"></textarea>
-                </div>
-                <div class="modal-footer justify-content-between">
-                    <input type="hidden" id="ckeditor_css_id" class="ckeditor_css_id" value="">
-                    <button type="button" class="btn btn-default" data-dismiss="modal">Chiudi</button>
-                    <button type="button" id="btn-save-css-ckeditor" class="btn btn-primary">Registra CSS</button>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
+
+
+
+{% include institution/personnel_qualifications_modal %}
+
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
 <style type="text/css">
     .select2-container--default .select2-selection--single {
         height: 38px !important;
@@ -371,12 +336,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{ js('edit_area/edit_area_full.js', 'common') }}
 
 <script type="text/javascript">
+
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -395,12 +359,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             let dataId = $(this).attr('data-id');
             $('.type_layer').hide();
             $('#layer_' + dataId).show();
-            let iconSet = $(this).children().children().children();
-            let icon = iconSet.hasClass('fas') || iconSet.hasClass('far')
-                ? '<i class="' + iconSet.attr('class') + '"></i>'
-                : '<img src="' + iconSet.attr('src') + '" width="' + iconSet.attr('width') + '" height="' + iconSet.attr('height') + '" alt="' + $(this).attr('title') + '">';
+            let iconSetted = $(this).children().children().children();
 
-            $('#title_layer').empty().append(icon + ' {{ nbs(1) }} ' + $(this).attr('title'));
+            let iconInfo = iconSetted[0].dataset;
+            let iconToSet = "<i class='" + iconInfo['prefix'] + " fa-" + iconInfo['icon']+"'></i>";
+
+
+            //let icon = iconSet.hasClass('fas') || iconSet.hasClass('far')
+            //    ? '<i class="' + iconSet.attr('class') + '"></i>'
+            //    : '<img src="' + iconSet.attr('src') + '" width="' + iconSet.attr('width') + '" height="' + iconSet.attr('height') + '" alt="' + $(this).attr('title') + '">';
+
+            $('#title_layer').empty().append(iconToSet + ' {{ nbs(1) }} ' + $(this).attr('title'));
         });
 
         $('#simple_logo_file').bind('change', function (e) {
@@ -435,39 +404,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             $('#preview-url-favicon').hide();
         });
 
-        $('#custom_css').bind('change', function (e) {
-            let fileName = e.target.files[0].name;
-            var reader,
-                files = document.getElementById("custom_css").files;
-            reader = new FileReader();
-            reader.onload = function (e) {
-                $('#file_name_value').text(fileName);
-            };
-            reader.readAsDataURL(files[0]);
-            $('#preview-file-name').fadeIn(200);
-        });
-
-        $('#clear-file').bind('click', function (e) {
-            document.getElementById("custom_css").value = null;
-            $('#view_file').hide();
-        });
-
-        $('#clear-file_new_file').bind('click', function (e) {
-            document.getElementById("custom_css").value = null;
-            $('#preview-file-name').hide();
-        });
-
         {{-- Campi CKEDITOR --}}
-        CKEDITOR.replace('input_welcome_text');
-        CKEDITOR.replace('input_footer_text');
-        CKEDITOR.replace('input_accessibility_text');
+        CKEDITOR.replace('input_welcome_text', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_footer_text', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_accessibility_text', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End CKEDITOR --}}
 
-        let $dropdownTabularDisplayOrgIndPol = $('.select2-tabular_display_org_ind_pol');
-        $dropdownTabularDisplayOrgIndPol.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
 
         let $dropdownIndexable = $('.select2-show_indexable');
         $dropdownIndexable.select2({
@@ -514,7 +462,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @if($_storageType === 'update')
         {{-- Begin Select2 campo "Responsabile trasparenza" --}}
         let $dropdownUsers = $('.select2-users');
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
         $dropdownUsers.select2({
             allowClear: true,
             placeholder: "Seleziona o cerca un utente...",
@@ -566,7 +514,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             let item = data.data.selected;
             for (const el of item) {
                 // Creo l'opzione e l'appendo alla select
-                var option = new Option(String(el.text), el.id, true, true);
+                let option = new Option(String(el.text), el.id, true, true);
                 $dropdownUsers.append(option).trigger('change');
             }
         });
@@ -624,69 +572,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         }).then(function (data) {
             let item = data.data.selected;
             // Creo l'opzione e l'appendo alla select
-            var option = new Option(String(item[0].text), item[0].id, true, true);
+            let option = new Option(String(item[0].text), item[0].id, true, true);
             $dropdownInstitutionType.append(option).trigger('change');
         });
         @endif
-
-        {{-- Inizio metodi per campi Select --}}
-        {{-- Begin Select2 campo "Riferimenti normativi" --}}
-        let $dropdownSections = $('.select2-excluded_sections');
-        $dropdownSections.select2({
-            allowClear: true,
-            // Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 43,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        // Recupero gli elementi gia selezionati e li setto nella select
-        @if(in_array($_storageType,['update', 'duplicate']))
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_sectionIds').val(),
-                model: 43
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
-            }
-        }).then(function (data) {
-            let item = data.data.selected;
-            for (const el of item) {
-                // Creo l'opzione e l'appendo alla select
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownSections.append(option).trigger('change');
-            }
-        });
-        @endif
-        {{-- End Select2 campo "Riferimenti normativi" --}}
 
         {{-- Begin salvataggio --}}
         let btnSend = $('#btn_save');
@@ -711,15 +600,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Ente');
 
-                @if(!empty($is_super_admin) && $is_super_admin)
-                setTimeout(function () {
-                    window.location.href = '{{ siteUrl('admin/institutions') }}';
-                }, 800);
-                @else
                 setTimeout(function () {
                     window.location.href = '{{ siteUrl('admin/institution') }}';
                 }, 400);
-                @endif
 
             },
             complete: function (xhr) {
@@ -745,292 +628,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 .replace(/ +/g, '_');
         }
 
-        {{-- Apro la finestra modale per creare o editare lo stile da associare a CKEditor--}}
-        $('#btn-CKEditor-file-css').bind('click', function (e) {
-            e.preventDefault();
-
-            $('#modal-CKEditor-css').modal('show');
-            editAreaLoader.init({
-                id: "CKEditor_code_css",
-                syntax: "CSS",
-                language: "it",
-                start_highlight: true,
-                allow_toggle: false,
-            });
-
-            /* RESET */
-            $('#ckeditor_css_id').val('');
-            $('#ckeditor_custom_style_title').val('');
-            $('#ckeditor_custom_style_classname').val('');
-            $('#ckeditor_custom_style_tag_name').val('');
-            editAreaLoader.setValue('CKEditor_code_css', '');
-
-            $('#ckeditor_custom_style_classname').bind('focusout', function (e) {
-                if ($(this).val() !== '' && editAreaLoader.getValue('CKEditor_code_css') === '') {
-                    $(this).val(convertAlphaNumDash($(this).val()));
-                    let buildCss = '.' + convertAlphaNumDash($(this).val()) + ' {' + "\n\t" + ' /* Codice CSS custom in CKEditor */' + "\n" + '}';
-                    editAreaLoader.setValue("CKEditor_code_css", buildCss);
-                }
-            });
-        });
-
-        {{-- Salvo il css customizzato in CKEditor --}}
-        $('#btn-save-css-ckeditor').bind('click', function () {
-            let btnCssCkEditor = $(this);
-
-            jQuery.ajax({
-                url: '{{ siteUrl('admin/institution/css/custom/ckeditor/save') }}',
-                data: {
-                    'id': $('#ckeditor_css_id').val(),
-                    'title': $('#ckeditor_custom_style_title').val(),
-                    'classname': $('#ckeditor_custom_style_classname').val(),
-                    'tag': $('#ckeditor_custom_style_tag_name').val(),
-                    'css': editAreaLoader.getValue('CKEditor_code_css'),
-                    'institution_id': $('input[name="institution_id"]').val(),
-                },
-                method: 'POST',
-                dataType: 'json',
-                cache: false,
-
-                beforeSend: function () {
-                    btnCssCkEditor.empty()
-                        .append('<i class="fas fa-spinner fa-spin"></i>&nbsp; Attendere ...')
-                        .attr("disabled", true);
-                },
-
-                success: function (dataResp) {
-
-                    var response = null;
-
-                    try {
-                        response = jQuery.parseJSON(dataResp);
-                    } catch (e) {
-                        response = dataResp;
-                    }
-
-                    $('#modal-CKEditor-css').modal('hide');
-
-                    $('#ckeditor_css_id').val();
-                    $('#ckeditor_custom_style_title').val();
-                    $('#ckeditor_custom_style_classname').val();
-                    $('#ckeditor_custom_style_tag_name').val();
-                    editAreaLoader.setValue('CKEditor_code_css', '');
-                    formModified = false;
-
-                    window.location.href = '{{ currentUrl() }}';
-                },
-
-                complete: function (data) {
-                    btnCssCkEditor.empty()
-                        .append('<i class="fas fa-edit"></i> &nbsp; Registra CSS')
-                        .attr("disabled", false);
-                },
-                error: function (error) {
-
-                }
-            });
-        })
-
-        {{-- Apro la finestra modale per editare il file CSS personalizzato e associato all'ente --}}
-        $('#edit-file-css').bind('click', function () {
-
-            var btnEditFileCss = $(this);
-
-            jQuery.ajax({
-                url: '{{ siteUrl('admin/institutions/css/edit') }}',
-                data: {
-                    'id': $('#institution_id').val()
-                },
-                method: 'GET',
-                dataType: 'json',
-                cache: false,
-
-                beforeSend: function () {
-                    btnEditFileCss.empty()
-                        .append('<i class="fas fa-spinner fa-spin"></i>&nbsp; Attendere ...')
-                        .attr("disabled", true);
-                },
-
-                success: function (dataResp) {
-
-                    var response = null;
-
-                    try {
-                        response = jQuery.parseJSON(dataResp);
-                    } catch (e) {
-                        response = dataResp;
-                    }
-
-                    /* Apertura modale */
-                    $('#edit_code_css').val('');
-                    $('#edit_code_css').val(response['data']['content_css']);
-                    $('#modal-editor-css').modal('show');
-
-                    editAreaLoader.init({
-                        id: "edit_code_css",
-                        syntax: "CSS",
-                        language: "it",
-                        start_highlight: true,
-                        allow_toggle: false,
-                        /*toolbar: "search, go_to_line, fullscreen, |, undo, redo, |, select_font,|, change_smooth_selection, highlight, reset_highlight, word_wrap, syntax_selection"*/
-                    });
-                },
-
-                complete: function (data) {
-                    btnEditFileCss.empty()
-                        .append('<i class="fas fa-edit"></i> &nbsp; Edita file')
-                        .attr("disabled", false);
-                },
-                error: function (error) {
-
-                }
-            });
-
-        });
-
-        {{-- Salvataggio CSS --}}
-        $('#btn-save-css').bind('click', function (e) {
-            e.preventDefault();
-
-            var btnSaveFileCss = $(this);
-
-            jQuery.ajax({
-                url: '{{ siteUrl('admin/institutions/css/save') }}',
-                data: {
-                    'id': $('#institution_id').val(),
-                    'css': editAreaLoader.getValue("edit_code_css")
-                },
-                method: 'POST',
-                dataType: 'json',
-                cache: false,
-
-                beforeSend: function () {
-                    btnSaveFileCss.empty()
-                        .append('<i class="fas fa-spinner fa-spin"></i>&nbsp; Attendere ...')
-                        .attr("disabled", true);
-                },
-
-                success: function (dataResp) {
-                    var response;
-
-                    try {
-                        response = jQuery.parseJSON(dataResp);
-                    } catch (e) {
-                        response = dataResp;
-                    }
-
-                    $('#modal-editor-css').modal('hide');
-
-                    $(document).Toasts('create', {
-                        class: 'bg-success',
-                        title: 'ATTENZIONE',
-                        subtitle: 'scrittura CSS',
-                        autohide: true,
-                        delay: 3000,
-                        body: response.data.message
-                    });
-                },
-
-                complete: function (data) {
-                    btnSaveFileCss.empty()
-                        .append('<i class="fas fa-edit"></i> &nbsp; Registra CSS')
-                        .attr("disabled", false);
-                },
-                error: function (jqXHR) {
-                    let response = parseJson(jqXHR.responseText);
-
-                    $('#modal-editor-css').modal('hide');
-
-                    $(document).Toasts('create', {
-                        class: 'bg-danger',
-                        title: 'ATTENZIONE',
-                        subtitle: 'Scrittura CSS',
-                        autohide: true,
-                        delay: 3000,
-                        body: response.errors.error
-                    });
-
-                }
-            });
-        });
-
-        {{-- Edit --}}
-        $('.edit_cutom_css_ckeditor').bind('click', function (e) {
-
-            e.preventDefault();
-            let url = $(this).attr('href');
-            let anchor = $(this);
-
-            jQuery.ajax({
-                url: url,
-                data: {
-                    'id': parseInt(anchor.attr('data-id'))
-                },
-                method: 'GET',
-                dataType: 'json',
-                cache: false,
-
-                beforeSend: function () {
-                    anchor.empty()
-                        .html('<i class="fas fa-spinner fa-spin"></i>');
-                },
-
-                success: function (dataResp) {
-
-                    // var response;
-                    let response
-                    try {
-                        response = jQuery.parseJSON(dataResp);
-                    } catch (e) {
-                        response = dataResp;
-                    }
-
-                    let data = response.data.record;
-                    $('#modal-CKEditor-css').modal('show');
-                    editAreaLoader.init({
-                        id: "CKEditor_code_css",
-                        syntax: "CSS",
-                        language: "it",
-                        start_highlight: true,
-                        allow_toggle: false,
-                    });
-
-                    $('#ckeditor_css_id').val(data.id);
-                    $('#ckeditor_custom_style_title').val(data.title);
-                    $('#ckeditor_custom_style_classname').val(data.class_name);
-                    $('#ckeditor_custom_style_tag_name').val(data.element);
-                    editAreaLoader.setValue('CKEditor_code_css', data.css)
-                },
-
-                complete: function (data) {
-                    anchor.empty()
-                        .html('<i class="fas fa-edit"></i>');
-                },
-                error: function (jqXHR) {
-                    let response = parseJson(jqXHR.responseText);
-
-                    $('#modal-editor-css').modal('hide');
-
-                    $(document).Toasts('create', {
-                        class: 'bg-danger',
-                        title: 'ATTENZIONE',
-                        subtitle: 'Scrittura CSS',
-                        autohide: true,
-                        delay: 3000,
-                        body: response.errors.error
-                    });
-
-                }
-            });
-        });
-
-        {{-- Delete --}}
-        $('.delete_cutom_css_ckeditor').bind('click', function (e) {
-            e.preventDefault();
-            formModified = false;
-            window.location.href = $(this).attr('href');
-        });
-
         {{-- Controllo per l'uscita dal form se i campi di input sono stati toccati --}}
         $(document).on('focus', '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input, textarea', function (e) {
             formModified = true;
@@ -1044,5 +641,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
     });
+
+    function rimuoviAtMap() {
+        Swal.fire({
+            ...SWAL_CONFIRM,
+            title: 'Conferma rimozione',
+            text: 'Sei sicuro di voler rimuovere la mappa personalizzata?'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('delete_custom_at_map').value = '1';
+                document.getElementById('btn-remove-map').textContent = 'La mappa caricata verrà rimossa';
+            }
+        });
+    }
+
 </script>
 {% endblock %}

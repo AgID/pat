@@ -40,14 +40,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             <div class="card-body card-primary">
 
+                {{-- Inclusione di librerie esterne --}}
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
+
+
+                        <div class="form-row d-flex align-items-end">
+                        </div>
+                        <hr class="patos-hr">
+
+
+                        <div class="form-row d-flex align-items-end">
+                            {{-- Inclusione di librerie esterne --}}
+
+                        </div>
 
                         <div class="form-row d-flex align-items-end">
                             {{-- Campo Ragione sociale --}}
@@ -72,7 +86,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     'societa partecipata'=>'Società partecipata',
                                     'ente di diritto privato controllato'=>'Ente di diritto privato controllato'],
                                     @$company['typology'],
-                                    'class="form-control select2-typology"')
+                                    'class="ts-typology"')
                                 }}
                             </div>
                         </div>
@@ -215,6 +229,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label for="notes">Note</label>
+                            {{form_editor([
+                                'name' => 'notes',
+                                'value' => !empty($company['notes']) ? $company['notes'] : null,
+                                'id' => 'input_notes',
+                                'class' => 'form-control input_notes'
+                            ]) }}
+                        </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -222,12 +249,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
 
             {{-- Card Footer --}}
             <div class="card-footer" id="__save_">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
 
         </div>
@@ -281,16 +311,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -299,11 +327,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che controlla se sono arrivato in questa pagina dal versioning
          */
-        {{-- Vedere nel footer --}}
         checkIfRestore();
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- Begin metodi per CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -312,10 +339,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_year_charges');
-        CKEDITOR.replace('input_description');
-        CKEDITOR.replace('input_treatment_assignments');
-        CKEDITOR.replace('input_balance');
+        CKEDITOR.replace('input_year_charges', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_treatment_assignments', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_balance', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End metodi per CKEDITOR --}}
 
         // Tabella per la selezione dei "Rappresentanti negli organi di governo"
@@ -347,31 +385,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         // Setto il bando relativo se sono in modifica o duplicazione
         @if(in_array($_storageType,['update', 'duplicate']) && !empty($company['representatives']))
-        @foreach($company['representatives'] as $representatives)
-        representatives.patOsAjaxPagination.setValue('{{ $representatives['id'] }}', '{{ (!empty($representatives['title'])?htmlEscape($representatives['title']).' - ':'').htmlEscape($representatives['full_name']).' - '.htmlEscape($representatives['name']).' - '.(!empty($representatives['email'])?$representatives['email']:'N.D') }}', true);
-        @endforeach
+            @foreach($company['representatives'] as $representatives)
+                representatives.patOsAjaxPagination.setValue('{{ $representatives['id'] }}', '{{ (!empty($representatives['title'])?htmlEscape($representatives['title']).' - ':'').htmlEscape($representatives['full_name']).' - '.htmlEscape($representatives['name']).' - '.(!empty($representatives['email'])?$representatives['email']:'N.D') }}', true);
+            @endforeach
         @endif
 
-        {{-- Begin metodi per campi Select --}}
-        {{-- Select2 campo "Tipo" --}}
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        {{-- End metodi per campi Select --}}
+        new TomSelect('.ts-typology', TS_SINGLE);
 
         /**
          * Metodo per il salvataggio
          */
-                {{-- Begin salvataggio --}}
         let btnSend = $('#btn_save');
         $('#{{ $formSettings['id'] }}').ajaxForm({
             method: 'POST',
@@ -392,7 +415,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = false;
 
                 // Funzione che genera il toast con il messaggio di successo
-                {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Società');
 
                 setTimeout(function () {
@@ -402,6 +424,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             complete: function (xhr) {
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
+
             },
             error: function (jqXHR, status) {
                 let response = parseJson(jqXHR.responseText);
@@ -410,10 +433,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
 
                 // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
+
             }
         });
         {{-- End salvataggio --}}
@@ -421,26 +444,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
-        {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
             if (formModified) {
                 event.returnValue = 'Vuoi uscire dalla pagina?';

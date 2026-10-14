@@ -8,7 +8,6 @@ namespace Model;
 
 use Exception;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -59,7 +58,7 @@ class ReportPublicationModel extends Model
     protected $searchableWhereHas = [];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
@@ -67,12 +66,6 @@ class ReportPublicationModel extends Model
     {
         parent::__construct($attributes);
 
-        if (isSuperAdmin(true)) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -83,7 +76,6 @@ class ReportPublicationModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
     }
 
     /**
@@ -105,7 +97,6 @@ class ReportPublicationModel extends Model
      */
     public function institution(): BelongsTo
     {
-
         return $this->belongsTo(InstitutionsModel::class, 'institution_id');
     }
 }

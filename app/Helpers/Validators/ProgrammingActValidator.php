@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ProgrammingActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -47,7 +48,14 @@ class ProgrammingActValidator
 
                 //Recupero l'atto con l'id passato in input
                 $check = ProgrammingActsModel::where('id', uri()->segment(4, 0))
-                    ->first();
+                    ->with('structure:id,structure_name')
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -98,10 +106,11 @@ class ProgrammingActValidator
         $this->validator->verifyToken()
             ->end();
 
+
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
-            ->betweenString(4, 120)
+            ->betweenString(4, 250)
             ->end();
 
         $this->validator->label('Data')
@@ -123,8 +132,12 @@ class ProgrammingActValidator
 
         $this->validator->label('Descrizione')
             ->value(Input::post('description'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 15000)
             ->end();
+
+
+
+
 
         if ($mode === 'update') {
 
@@ -140,6 +153,7 @@ class ProgrammingActValidator
                     }
                 })
                 ->end();
+
         }
 
 

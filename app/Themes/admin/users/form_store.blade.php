@@ -41,13 +41,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         I campo contrassegnati dal simbolo asterisco (*) sono obbligatori.
                     </div>
 
-                    @if(!empty($user['profile_image']))
-                        <div class="col-md-12 text-center mb-3">
-                            <div class="widget-user-image">
-                                <img class="img-circle elevation-2" style="width: 60px; height: auto;"
-                                     src="{{xss: baseUrl('media/'. instituteDir() . '/assets/images/' .  $user['profile_image']) }}"
-                                     alt="{{xss: checkEncrypt($user['username']) }}">
-                            </div>
+                    @if($_storageType !== 'insert')
+                            @if(!empty($user['profile_image'])  )
+                                <div class="widget-user-image">
+                                    <img class="img-circle elevation-2" style="width: 60px; height: auto;"
+                                        src="{{xss: baseUrl('media/'. instituteDir() . '/assets/images/' .  $user['profile_image']) }}"
+                                        alt="Image profile">
+                                </div>
+                            @endif
                             @if(!empty($user['id']))
                                 <div class="mt-1">
                                     <small class="text-muted">
@@ -63,6 +64,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
+                        {{generateSeparator('INFORMAZIONI UTENTE')}}
+
                         <div class="row">
 
                             {{-- Campo Nome utente --}}
@@ -77,48 +80,44 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
 
-                            {{-- Campo Username --}}
+                        <div class="row">
                             <div class="form-group col-md-6">
-                                <label for="username">Username *</label>
-                                {{ form_input([
-                                    'name' => 'username',
-                                    'value' => !empty($user['username']) ? checkDecrypt($user['username']) : null,
-                                    'placeholder' => 'Username',
-                                    'id' => 'input_username',
-                                    'class' => 'form-control input_username ' . (($_storageType == 'update') ? 'readonly' : ''),
-                                    (($_storageType == 'update') ? 'readonly' : '') => (($_storageType == 'update') ? 'readonly' : ''),
-                                ]) }}
+                                {{-- Allegato Immagine del Profilo --}}
+                                <label for="profile_image_file">Immagine profilo</label>
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="profile_image_file"
+                                           name="profile_image" accept="image/png, image/gif, image/jpeg"
+                                           aria-describedby="profile_image_help">
+                                    <label class="custom-file-label" for="profile_image_file"
+                                           id="label_attach_logo">
+                                        Allega immagine profilo
+                                    </label>
+                                </div>
+                                <small id="profile_image_help" class="form-text text-muted">
+                                    Formati ammessi: PNG, GIF, JPG/JPEG. Dimensione massima:
+                                    {{ \Helpers\Utility\FileUpload::maxSizeLabel(5042 * 1024) }};
+                                    risoluzione da 50 × 50 a 1024 × 1024 pixel.
+                                </small>
                             </div>
 
-                            {{-- Campo Password --}}
-                            <div class="form-group col-md-6">
-                                <label for="password">Password *</label>
-                                <div class="input-group">
-                                    {{ form_password([
-                                        'name' => 'password',
-                                        'value' => '',
-                                        'placeholder' => 'Password',
-                                        'id' => 'input_password',
-                                        'class' => 'form-control input_password',
-
-                                    ]) }}
+                            {{-- Preview Immagine Profilo --}}
+                            <div id="preview-url-image" class="form-group col-md-6">
+                                <div class="mt-2">
+                                    <img src="" alt="Immagine Profilo" id="src-profile_image"
+                                         class="img-thumbnail attach-image">
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-xs btn-outline-danger"
+                                                id="clear-preview-image">
+                                            <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina immagine
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {{-- Campo Conferma Password --}}
-                            <div class="form-group col-md-6">
-                                <label for="re_password">Conferma password *</label>
-                                {{ form_password([
-                                    'name' => 're_password',
-                                    'value' => '',
-                                    'placeholder' => 'Conferma password',
-                                    'id' => 'input_re_password',
-                                    'class' => 'form-control input_re_password',
-
-                                ]) }}
-                            </div>
-
+                        <div class="row">
                             {{-- Campo Indirizzo email --}}
                             <div class="form-group col-md-6">
                                 <label for="email">Email *</label>
@@ -144,6 +143,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
+
+                        <div class="row">
 
                             {{-- Campo Recapito cellulare --}}
                             <div class="form-group col-md-6">
@@ -158,18 +160,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
+
+                        {{generateSeparator('CREDENZIALI ACCESSO')}}
+
+                        <div class="row">
 
                             <div class="form-group col-md-6">
-                                {{-- Allegato Immagine del Profilo --}}
-                                <label for="profile_image">Immagine profilo</label>
-                                <div class="custom-file">
-                                    <input type="file" class="custom-file-input" id="profile_image_file"
-                                           name="profile_image" accept="image/png, image/gif, image/jpeg">
-                                    <label class="custom-file-label" for="profile_image_file"
-                                           id="label_attach_logo">
-                                        Allega immagine profilo
-                                    </label>
-                                </div>
+                                <label for="username">Username *</label>
+                                {{ form_input([
+                                    'name' => 'username',
+                                    'value' => !empty($user['username']) ? checkDecrypt($user['username']) : null,
+                                    'placeholder' => 'Username',
+                                    'id' => 'input_username',
+                                    'class' => 'form-control input_username ' . (($_storageType == 'update') ? 'readonly' : ''),
+                                    (($_storageType == 'update') ? 'readonly' : '') => (($_storageType == 'update') ? 'readonly' : ''),
+                                ]) }}
                             </div>
 
                             @if($_storageType === 'insert')
@@ -189,23 +195,51 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             @endif
+                        </div>
 
-                            {{-- Preview Immagine Profilo --}}
-                            <div id="preview-url-image" class="col-md-6">
-                                <div class="mt-2">
-                                    <img src="" alt="Immagine Profilo" id="src-profile_image"
-                                         class="img-thumbnail attach-image">
-                                    <div class="mt-2">
-                                        <button type="button" class="btn btn-xs btn-outline-danger"
-                                                id="clear-preview-image">
-                                            <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina immagine
+                        <div class="row">
+                            {{-- Campo Password --}}
+                            <div class="form-group col-md-6">
+                                <label for="password">Password *</label>
+                                <div class="input-group">
+                                    {{ form_password([
+                                        'name' => 'password',
+                                        'value' => '',
+                                        'placeholder' => 'Password',
+                                        'id' => 'input_password',
+                                        'class' => 'form-control input_password',
+
+                                    ]) }}
+                                    <span class="input-group-append">
+                                        <button id="change-view-password" type="button"
+                                                class="btn btn-outline-secondary">
+                                            <i class="far fa-eye"></i>
                                         </button>
-                                    </div>
+                                        <button id="generate-password-random" type="button"
+                                                class="btn btn-outline-secondary">Genera password</button>
+                                    </span>
                                 </div>
                             </div>
 
+                            {{-- Campo Conferma Password --}}
+                            <div class="form-group col-md-6">
+                                <label for="re_password">Conferma password *</label>
+                                {{ form_password([
+                                    'name' => 're_password',
+                                    'value' => '',
+                                    'placeholder' => 'Conferma password',
+                                    'id' => 'input_re_password',
+                                    'class' => 'form-control input_re_password',
+
+                                ]) }}
+                            </div>
+                        </div>
+
+                        {{generateSeparator('PERMESSI E CONFIGURAZIONI')}}
+
+                        <div class="row">
                             {{-- Campo Profili ACL --}}
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <div class="form-group" id="input_profili_acl">
                                     <label for="profiles">Profili ACL</label>
                                     <div class="select2-blue">
@@ -218,6 +252,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             </div>
+
+
+
+                        </div>
+
+
+                        <div class="row">
 
                             {{-- Campo Validità Password --}}
                             <div class="form-group col-md-6">
@@ -296,6 +337,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
+
                             {{-- Campo Note --}}
                             <div class="form-group col-md-12">
                                 <label for="note">Note</label>
@@ -309,7 +352,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     'rows' => '3',
                                 ]) }}
                             </div>
+
+                            <div class="form-group col-md-12">
+                                <div class="form-row d-flex align-items-end">
+                                    <div class="form-group col-md-9">
+                                        <label for="editor_wishing">
+                                            Modalità di visualizzazione dell'editor redazionale dei contenuti
+                                        </label>
+                                        {{ form_dropdown(
+                                            'editor_wishing',
+                                            [
+                                                'inheritance' => 'Eredita la modalità dal profilo associato (consigliato)',
+                                                'base' => 'Forza la modalità Base',
+                                                'adv' => 'Forza la modalità Avanzata',
+                                                'expert' => 'Forza la modalità Esperto'
+                                            ],
+                                             !empty($user['editor_wishing']) ? $user['editor_wishing'] : 'inheritance',
+                                            'class="form-control select2-editor_wishing" style="width: 100%;"'
+                                        ) }}
+                                    </div>
+
+                                    <div class="form-group col-md-3">
+                                        <button class="btn btn-primary" data-toggle="modal"
+                                                data-target="#comparativaModal" id="view_cke_diff" style="width: 100%;">Visualizza
+                                            differenze tra le varie modalità
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+
+                            {{-- Additional form field user --}}
+
+                            {{-- User meta --}}
+
+                            {{-- User meta --}}
                         </div>
+
                         {{-- END: Form --}}
                     </div>
                 </div>
@@ -337,16 +416,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
-        @if(!empty($profilesIds))
-            {{ form_input([
-                'type' => 'hidden',
-                'name' => '_profilesIds',
-                'value' => implode(',',$profilesIds),
-                'id' => '_profilesIds',
-                'class' => '_profilesIds',
-            ]) }}
-        @endif
-
         @if(!empty($institution_id))
             {{ form_input([
                 'type' => 'hidden',
@@ -362,60 +431,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 </div>
 
-<div class="modal" tabindex="-1" role="dialog" id="modale-dialog-password-ws">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Password web services</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group col-md-12">
-                    <div class="callout callout-warning">
-                        <h5>Credenziali di accesso web services</h5>
-                        <p>
-                            <strong>Attenzione:</strong>
-                            La password sarà visibile in chiaro solamente alla prima generazione della stessa.
-                        </p>
 
-                    </div>
-                    <p>
-                        Username: <strong id="ws_username"></strong>
-                        <button class="btn btn-sm btn-link"
-                                id="copy_username"
-                                data-toggle="tooltip" data-placement="top"
-                                data-original-title="Copia username" aria-label="Copia username">
-                            <i class="fas fa-clone"></i>
-                        </button>
-                        <br/>
-                        Token: <strong id="ws_password"></strong>
-                        <button class="btn btn-sm btn-link"
-                                id="copy_token"
-                                data-toggle="tooltip" data-placement="top"
-                                data-original-title="Copia token" aria-label="Copia token">
-                            <i class="fas fa-clone"></i>
-                        </button>
-                    </p>
-                    {{ form_input([
-                        'type' => 'hidden',
-                        'value' => '',
-                        'id' => 'h_username',
-                    ]) }}
-                    {{ form_input([
-                        'type' => 'hidden',
-                        'value' => '',
-                        'id' => 'h_token',
-                    ]) }}
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Chiudi finestra</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% include users/ckeditor_tool_compare %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -431,29 +448,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
-    function openModalShowPassword() {
-        let args = arguments;
-
-        $('#ws_username').empty().text(args[0]);
-        $('#ws_password').empty().text(args[1]);
-
-        $('#h_username').val(args[0]);
-        $('#h_token').val(args[1]);
-        $('#modale-dialog-password-ws').modal('show');
-    }
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         $('#preview-url-image').hide();
 
@@ -465,68 +470,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         });
 
-        $('#copy_username').bind('click', function (e) {
+        $('#view_cke_diff').on('click', function(e) {
             e.preventDefault();
-            var copyUsername = document.getElementById("h_username");
-            copyUsername.select();
-            //copyUsername.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(copyUsername.value);
-            $(document).Toasts('create', {
-                class: 'bg-success z99999999',
-                autohide: true,
-                delay: 3500,
-                title: 'ATTENZIONE',
-                body: 'Username copiata con successo!'
-            });
         });
-
-        $('#copy_token').bind('click', function (e) {
-            e.preventDefault();
-            var copyToken = document.getElementById("h_token");
-            copyToken.select();
-            //copyUsername.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(copyToken.value);
-            $(document).Toasts('create', {
-                class: 'bg-success z99999999',
-                autohide: true,
-                delay: 3500,
-                title: 'ATTENZIONE',
-                body: 'password WS copiata con successo!'
-            });
-        });
-
-        @if(!empty($user['id'] ))
-        $('#generate_new_token_ws').bind('click', function (e) {
-            e.preventDefault();
-
-            $.ajax({
-                type: 'POST',
-                url: '{{ siteUrl('admin/user/ws/generate/password') }}',
-                dataType: "JSON",
-                data: {
-                    id: {{ $user['id'] }}
-                },
-                beforeSend: function () {
-                    showFullModalSpinner()
-                },
-                success: function (data) {
-                    let response = parseJson(data);
-                    // createValidatorFormSuccessToast(response.data.message, 'Utente');
-                    openModalShowPassword(response.data.username, response.data.password);
-
-                },
-                complete: function (xhr) {
-                    hideFullModalSpinner();
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-
-                    // Funzione che genera il toast con gli errori
-                    createValidatorFormErrorToast(response.errors.error, 7000);
-                }
-            });
-        })
-        @endif
 
         $('#change-view-password').click((e) => {
 
@@ -534,7 +480,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             let typeInputRePassword = $('#input_re_password');
             let btnEye = $('#change-view-password');
 
-            if (typeInputPassword.attr('type') == 'password') {
+            if (typeInputPassword.attr('type') === 'password') {
 
                 typeInputPassword.attr('type', 'text');
                 typeInputRePassword.attr('type', 'text');
@@ -577,6 +523,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
         {{-- End Select2 campo "Profili ACL" --}}
 
+
         {{-- Campo select Validità della password --}}
         let $dropdownPasswordExpirationDays = $('.select2-password_expiration_days');
         $dropdownPasswordExpirationDays.select2({
@@ -605,7 +552,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             minimumResultsForSearch: -1
         });
 
-        {{-- Campo select Visualizza i soli elementi dell'utente --}}
         let $dropdownfiltraRecordProprietario = $('.select2-filter_owner_record');
         $dropdownfiltraRecordProprietario.select2({
             placeholder: 'Seleziona',
@@ -619,36 +565,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             minimumResultsForSearch: -1
         });
         {{-- End metodi per campi Select --}}
-
-        {{-- Campo select per l'abilitazione ai Web Services --}}
-        let $dropdownWebServices = $('.select2-account_is_web_services');
-        $dropdownWebServices.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        {{-- END campo select per l'abilitazione ai Web Services --}}
-
-        {{-- Campo select per rigenerare nuovo token --}}
-        let $dropdownRegenerateToken = $('.select2-account_regenerate_token');
-        $dropdownRegenerateToken.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        $dropdownRegenerateToken.on("select2:select", function (e) {
-            let value = parseInt($(this).val());
-
-            if (value === 1) {
-                $(document).Toasts('create', {
-                    class: 'bg-success',
-                    autohide: true,
-                    delay: 5500,
-                    title: 'ATTENZIONE',
-                    body: 'Clicca sul pulsante salva per generare un nuovo token!'
-                });
-            }
-
-        });
-        {{-- END cCampo select per rigenerare nuovo token --}}
 
         {{-- Editor wishing --}}
         let $dropdownEditorWishing = $('.select2-editor_wishing');
@@ -677,12 +593,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Utente');
 
-                if (!response.data.hasOwnProperty('is_modal')) {
+                let redirectAfterSave = true;
+
+                if (redirectAfterSave) {
                     setTimeout(function () {
                         window.location.href = '{{ siteUrl('admin/user') }}';
                     }, 800);
-                } else {
-                    openModalShowPassword(response.data.username, response.data.password);
                 }
             },
             complete: function (xhr) {
@@ -700,49 +616,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
         {{-- End Salvataggio Utente --}}
 
-        {{-- Pulsante per Generare un nuovo token --}}
-        $('#generate-token-random').click(function (e) {
-            e.preventDefault();
-
-            let btnSend = $('#generate-token-random');
-            $.ajax({
-                type: 'GET',
-                url: '{{siteUrl("/admin/user/regenerate/token")}}',
-                dataType: "JSON",
-                data: {
-                    token: 1
-                },
-                beforeSend: function () {
-                    btnSend.empty().append('{{ __('brn_save_spinner',null,'patos') }}').attr("disabled", true);
-                    $('.error-toast').remove();
-                },
-                success: function (data) {
-                    let response = parseJson(data);
-                    formModified = false;
-
-                    // Funzione che genera il toast con il messaggio di successo
-                    {{-- (vedere nel footer) --}}
-                    createValidatorFormSuccessToast(response.data.message, 'Utente');
-
-                    setTimeout(function () {
-                        window.location.href = '{{ siteUrl('admin/user') }}';
-                    }, 800);
-
-                },
-                complete: function (xhr) {
-                    btnSend.empty().append('Genera token');
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-
-                    // Funzione che genera il toast con gli errori
-                    {{-- (vedere nel footer) --}}
-                    createValidatorFormErrorToast(response.errors.error, 7000);
-                    btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
-                }
-            });
-        });
-        {{-- End pulsante per Generare un nuovo token --}}
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */

@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -46,8 +50,7 @@ class OpenDataBalanceFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -73,7 +76,7 @@ class OpenDataBalanceFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('piano indicatori e risultati', '!=');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -103,7 +106,7 @@ class OpenDataBalanceFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('piano indicatori e risultati', '=');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -124,9 +127,14 @@ class OpenDataBalanceFrontController extends BaseFrontController
     {
         // Recupero i bilanci da mostrare
         return BalanceSheetsModel::where('typology', $operator, $type)
+            ->filter(
+                Input::get('n', true),
+                (int)Input::get('y', true),
+                Input::get('t', true),
+            )
             ->with('attachs')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -141,10 +149,11 @@ class OpenDataBalanceFrontController extends BaseFrontController
     {
 
         $fileName = 'Bilanci - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(

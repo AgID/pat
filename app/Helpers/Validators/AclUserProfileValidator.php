@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
@@ -44,7 +43,7 @@ class AclUserProfileValidator
                 $check = AclProfilesModel::select(['id', 'institution_id'])
                     ->where('id', uri()->segment(4, 0));
 
-                if (!empty($mode) && !isSuperAdmin(true)) {
+                if (!empty($mode)) {
                     $check = $check->where('is_system', 0);
                 }
 
@@ -92,9 +91,7 @@ class AclUserProfileValidator
 
                     $profile = AclProfilesModel::select(['id']);
 
-                    if (isSuperAdmin(true)) {
-                        $profile->where('is_system', '=', 0);
-                    }
+
 
                     $profile->find(Input::post('id'));
 
@@ -125,9 +122,16 @@ class AclUserProfileValidator
             ->betweenString(3, 500)
             ->end();
 
-        $this->validator->label('Permesso delle operazioni di blocco/sblocco utenti')
-            ->value(Input::post('lock_user'))
-            ->in('0,1')
+        $this->validator->label('Modalità di visualizzazione dell\'editor redazionale dei contenuti')
+            ->value(Input::post('editor_wishing'))
+            ->in('base,adv,expert')
+            ->end();
+
+        $this->validator->label('Gestione immagini ed allegati')
+            ->value(Input::post('file_archive'))
+            ->required()
+            ->isInt()
+            ->in('1,2,3')
             ->end();
 
         // Validazione Sezioni Back Office
@@ -221,11 +225,10 @@ class AclUserProfileValidator
     /**
      * Validatore per le operazioni multiple(Delete)
      *
-     * @param bool $lockUnlock Indica se l'operazione è di blocco/sblocco utenti
      * @return array
      * @throws Exception
      */
-    public function multipleSelection(bool $lockUnlock = true): array
+    public function multipleSelection(): array
     {
         $this->validator->label('Identificativi elementi');
         $this->validator->value(Input::get('ids'));
@@ -265,14 +268,6 @@ class AclUserProfileValidator
         });
 
         $this->validator->end();
-
-        if ($lockUnlock) {
-            $this->validator->label('azione');
-            $this->validator->value(Input::get('action'));
-            $this->validator->required();
-            $this->validator->in('lock,unlock');
-            $this->validator->end();
-        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

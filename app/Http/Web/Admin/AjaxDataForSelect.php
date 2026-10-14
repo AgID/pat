@@ -30,7 +30,7 @@ class AjaxDataForSelect extends BaseAuthController
      *
      * @url /admin/asyncSelectedData.html
      */
-    public function asyncGetSelectedData()
+    public function asyncGetSelectedData(): void
     {
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('read');
@@ -70,7 +70,7 @@ class AjaxDataForSelect extends BaseAuthController
 
             if (!$hasError) {
 
-                // Setto il campo da mostrare nella selecet
+                // Setto il campo da mostrare nella select
                 $field = !empty(Input::get('field')) ? [Input::get('field')] : config($model, null, 'modelConfigs')['field'];
                 //$filed = sanitizeArray($field);
 
@@ -88,10 +88,10 @@ class AjaxDataForSelect extends BaseAuthController
                     $query = $class::whereIn("id", explode(',', (string)Input::get('id')));
 
                     // Set eventuali scope per filtri specifici
-                    if (!empty($modelConfig['scope'])) {
-                        $scope = $modelConfig['scope'];
-                        $query->$scope();
-                    }
+//                    if (!empty($config['scope'])) {
+//                        $scope = $config['scope'];
+//                        $query->$scope();
+//                    }
 
                     //Per gli utenti
                     if ($model == 39) {
@@ -102,11 +102,9 @@ class AjaxDataForSelect extends BaseAuthController
 
                     $query->addSelect($fields);
 
-                    // Se sono super admin setto l'id dell'ente, perchè lo scope non viene preso in considerazione
+                    // Applico esplicitamente il filtro per ente alla query.
                     // Altrimenti nelle select vedo gli oggetti di tutti gli enti
-                    if (isSuperAdmin(true) && !in_array($model, [28, 27, 29]) && !empty(Input::get('institution_id'))) {
-                        $query->where('institution_id', Input::get('institution_id'));
-                    }
+
 
                     $items = $query->get();
                     $items = !empty($items) ? $items->toArray() : [];
@@ -152,10 +150,11 @@ class AjaxDataForSelect extends BaseAuthController
 
     /**
      * Funzione che restituisce i dati selezionati con paginazione
+     * Le select tabellari chiamano sempre questa funzione
      *
      * @url async/get/data.html
      */
-    public function asyncGetPaginationSelectedData()
+    public function asyncGetPaginationSelectedData(): void
     {
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('read');
@@ -170,7 +169,7 @@ class AjaxDataForSelect extends BaseAuthController
         $data = [];
 
         //Controllo se è una richiesta Ajax e se la validazione è andata a buon fine
-        if (Input::isAjax() === true && $validator['is_success'] === true) {
+        if (Input::isAjax() && $validator['is_success']) {
 
             $perPage = Input::get('per_page') != null ? (int)Input::get('per_page') : 5;
 
@@ -183,7 +182,7 @@ class AjaxDataForSelect extends BaseAuthController
 
                 $hasError = true;
                 $code = $json->bad();
-                $json->error('error', 'Errore nell caricamenro del config. Contattare il servizio assistenza');
+                $json->error('error', 'Errore nell caricamento del config. Contattare il servizio assistenza');
             }
 
             //Setto il modello su cui effettuare la query
@@ -193,34 +192,44 @@ class AjaxDataForSelect extends BaseAuthController
 
                 $hasError = true;
                 $code = $json->bad();
-                $json->error('error', 'Errore nell caricamenro del modello. Contattare il servizio assistenza');
+                $json->error('error', 'Errore nell caricamento del modello. Contattare il servizio assistenza');
             }
 
             //Setto il modello su cui effettuare la query
             $class = config($model, null, 'modelConfigs')['model'];
 
             if (!$hasError) {
-                //Setto il campo da mostrare nella selecet
-                $field = !empty(Input::get('field')) ? Input::get('field') : config($model, null, 'modelConfigs')['field'];
+                //Setto il campo da mostrare nella select
+//                $field = !empty(Input::get('field')) ? Input::get('field') : config($model, null, 'modelConfigs')['field'];
 
                 $searchTerm = !empty(Input::get('searchTerm')) ? Input::get('searchTerm') : null;
 
                 // Setto i campi su cui effettuare la ricerca
                 $searchField = !empty(Input::get('field')) ? [Input::get('field')] : $modelConfig['search_field'];
 
-                //Query per prelevare i dati dal db
-                $query = $class::search($searchTerm, $searchField, null, null, null);
+                $fieldWhereHas = $modelConfig['fieldWhereHas'] ?? null;
 
-                // Se sono super admin setto l'id dell'ente, perchè lo scope non viene preso in considerazione
+                $exactSearch = !empty(Input::get('exact_search')) && (bool)Input::get('exact_search');
+
+                //Query per prelevare i dati dal db
+                $query = $class::search($searchTerm, $searchField, $fieldWhereHas, null, null, [], $exactSearch);
+
+                // Applico esplicitamente il filtro per ente alla query.
                 // Altrimenti nelle select vedo gli oggetti di tutti gli enti
-                if (isSuperAdmin(true) && $model != 28 && !empty(Input::get('institution_id'))) {
-                    $query->where($modelConfig['table'] . '.institution_id', Input::get('institution_id'));
-                }
+
+
+
+
 
                 //Impedisco di selezionare nella select l'elemento stesso che si sta modificando
                 //ES: nella struttura di appartenenza impedisco che si possa selezionare la struttura stessa
                 if (!empty(Input::get('item_id'))) {
                     $query->where($modelConfig['table'] . '.id', '!=', Input::get('item_id'));
+                }
+
+
+                if(!empty($modelConfig['whereHas'])){
+                    $query->whereHas($modelConfig['whereHas']);
                 }
 
                 // Set Join
@@ -267,10 +276,15 @@ class AjaxDataForSelect extends BaseAuthController
 //                        "CASE WHEN " . $modelConfig['table'] . ".id IN (421,427) THEN 0 ELSE 1 END"
 //                    );
 //                } else {
-                $query->orderBy($modelConfig['table'] . '.updated_at', 'DESC');
+//                $query->orderBy($modelConfig['table'] . '.updated_at', 'DESC');
 //                }
 
-                $items = $query->paginate($perPage, $selecFields, 'p', (int)Input::get('p'))
+                $field = !empty(Input::get('order_field')) ? Input::get('order_field') : 'updated_at';
+                $ord = !empty(Input::get('order_type')) ? Input::get('order_type') : 'DESC';
+
+                $query->orderBy($modelConfig['table'] . '.'.$field, $ord);
+
+                $items = $query->paginate($perPage, $selecFields, 'p', boundedQueryInt('p', 10000))
                     ->onEachSide(2)
                     ->setPath(currentUrl())
                     ->appends(Input::get(['model', 'institution_id', 'searchTerm', 'per_page']));
@@ -291,7 +305,7 @@ class AjaxDataForSelect extends BaseAuthController
 
         $json->response();
 
-        echo json_encode($data);
+        jsonOut($data);
     }
 
 
@@ -300,7 +314,7 @@ class AjaxDataForSelect extends BaseAuthController
      *
      * @url /admin/asyncData.html
      */
-    public function asyncGetData()
+    public function asyncGetData(): void
     {
         //Setto il metodo della rotta per i permessi
         $this->acl->setRoute('read');
@@ -334,11 +348,11 @@ class AjaxDataForSelect extends BaseAuthController
             if (!class_exists($class)) {
                 $hasError = true;
                 $code = $json->bad();
-                $json->error('error', 'Errore nell caricamenro del modello. Contattare il servizio assistenza');
+                $json->error('error', 'Errore nell caricamento del modello. Contattare il servizio assistenza');
             }
 
             if (!$hasError) {
-                // Setto il campo da mostrare nella selecet
+                // Setto il campo da mostrare nella select
                 $field = !empty(Input::get('field')) ? [Input::get('field')] : $modelConfig['field'];
                 //$filed = sanitizeArray($field);
 
@@ -362,6 +376,13 @@ class AjaxDataForSelect extends BaseAuthController
                         $query->$scope();
                     }
 
+                    //sto cercando in section_fo
+                    if($model == 43 and !empty($searchTerm) and is_numeric($searchTerm)){
+                        //il search generico parte solo con stringe >= 4
+                        $query->where('section_fo.id', trim($searchTerm));
+                    }
+
+
                     //Se è un modello archiviabile, nella select includo il campo "archived" per verificare quali record sono stati archiviati
                     $archived = !empty($modelConfig['archived_field']) ? implode(',', $modelConfig['archived_field']) : null;
                     $fields = !empty($archived) ? ['id', 'archived'] : ['id'];
@@ -376,11 +397,15 @@ class AjaxDataForSelect extends BaseAuthController
 
                     $query->addSelect($fields);
 
-                    // Se sono super admin setto l'id dell'ente, perchè lo scope non viene preso in considerazione
+                    if($model == 48) {
+                        $query->whereHas('profiles', function($q){
+                            $q->whereIn('acl_profiles.id', [1,74]);
+                        });
+                    }
+
+                    // Applico esplicitamente il filtro per ente alla query.
                     // Altrimenti nelle select vedo gli oggetti di tutti gli enti
-                    if (isSuperAdmin(true) && !in_array($model, [28, 27, 29]) && !empty(Input::get('institution_id'))) {
-                        $query->where('institution_id', Input::get('institution_id'));
-                    } /*elseif ($model == 27 && !empty(Input::get('institution_id'))) {
+                     /*elseif ($model == 27 && !empty(Input::get('institution_id'))) {
                         //Profili ACL - prendo quelli dell'ente e quelli di sistema
                         $query->where(function ($query) {
                             $query->where('institution_id', Input::get('institution_id'))
@@ -414,7 +439,11 @@ class AjaxDataForSelect extends BaseAuthController
                         }
                     }
 
-                    $query->limit(20);
+                    if(empty($modelConfig['limit'])) {
+                        $query->limit(20);
+                    } else {
+                        $query->limit($modelConfig['limit']);
+                    }
 
                     $items = $query->get();
                     $items = !empty($items) ? $items->toArray() : [];
@@ -437,11 +466,18 @@ class AjaxDataForSelect extends BaseAuthController
                                 $item['text'] = $name . ' - ' . $userName;
                             }
 
-                            $data[] = [
-                                'id' => (int)$item['id'],
-                                'text' => $archived . urldecode(escapeXss(urlencode(checkDecrypt($item['text'])), true, false))
-                            ];
+                            if(!empty($item['text'])){
+                                $data[] = [
+                                    'id' => (int)$item['id'],
+                                    'text' => $archived . urldecode(escapeXss(urlencode(checkDecrypt($item['text'])), true, false))
+                                ];
+                            }
+
                         }
+                        if ($model == 28) {
+                            $data = $data ?? null;
+                        }
+
                     }
                 }
             }

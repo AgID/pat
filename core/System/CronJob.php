@@ -1,13 +1,14 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Exception;
 use Maer\Config\Config;
 
 class CronJob
@@ -59,7 +60,7 @@ class CronJob
     {
         if (!empty($this->listJobs) && is_array($this->listJobs)) {
             foreach ($this->listJobs as $job) {
-                call_user_func_array([$job, '__construct'], []);
+                call_user_func_array([$job, 'init'], []);
             }
 
         }
@@ -68,11 +69,13 @@ class CronJob
 
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni Domenica ad una determinata ora. Default 00:00
      */
-    public function sundays($hourMinute = '00:00', $package = false)
+    public function sundays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('sundays "%s" is not valid', (string)$hourMinute);
@@ -94,11 +97,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni lunedì ad una determinata ora. Default 00:00
      */
-    public function mondays($hourMinute = '00:00', $package = false)
+    public function mondays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('mondays "%s" is not valid', (string)$hourMinute);
@@ -120,11 +125,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni martedì ad una determinata ora. Default 00:00
      */
-    public function tuesdays($hourMinute = '00:00', $package = false)
+    public function tuesdays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('tuesdays "%s" is not valid', (string)$hourMinute);
@@ -146,11 +153,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni mercoledì ad una determinata ora. Default 00:00
      */
-    public function wednesdays($hourMinute = '00:00', $package = false)
+    public function wednesdays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('wednesdays "%s" is not valid', (string)$hourMinute);
@@ -172,11 +181,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni giovedì ad una determinata ora. Default 00:00
      */
-    public function thursdays($hourMinute = '00:00', $package = false)
+    public function thursdays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('thursdays "%s" is not valid', (string)$hourMinute);
@@ -199,11 +210,13 @@ class CronJob
 
 
     /**
-     * @param $hourMinute
-     * @return void
+     * @param string $hourMinute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script ogni venerdì ad una determinata ora. Default 00:00
      */
-    public function fridays($hourMinute = '00:00', $package = false)
+    public function fridays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('fridays "%s" is not valid', (string)$hourMinute);
@@ -225,12 +238,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @param $package
+     * @param string $hourMinute
+     * @param bool $package
      * @return $this
      * @Description Esegue lo script ogni Sabato ad una determinata ora. Default 00:00
+     * @throws Exception
      */
-    public function saturdays($hourMinute = '00:00', $package = false)
+    public function saturdays(string $hourMinute = '00:00', bool $package = false): static
     {
         if (empty($hourMinute) && strlen($hourMinute) != 7 && $this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('saturdays "%s" is not valid', (string)$hourMinute);
@@ -252,12 +266,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @param $package
+     * @param string $hourMinute
+     * @param bool $package
      * @return $this
      * @Description Esegue lo script tutti i giorni ad una determinata ora. Default 00:00
+     * @throws Exception
      */
-    public function daily($hourMinute = '00:00', $package = false)
+    public function daily(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('daily "%s" is not valid', (string)$hourMinute);
@@ -279,10 +294,13 @@ class CronJob
     }
 
     /**
-     * @return void
+     * @param string $minute
+     * @param bool $package
+     * @return CronJob
+     * @throws Exception
      * @Description Esegue lo script all'inizio di ogni ora e al minuto specificato.
      */
-    public function hourly($minute = '00', $package = false)
+    public function hourly(string $minute = '00', bool $package = false): static
     {
         if (!$this->validate($minute, $this->regex['minute'])) {
             $error = sprintf('hourly "%s" is not valid', (string)$minute);
@@ -304,12 +322,13 @@ class CronJob
     }
 
     /**
-     * @param $hourMinute
-     * @param $package
+     * @param string $hourMinute
+     * @param bool $package
      * @return $this
      * @Description Lo script viene eseguito il primo giorno del mese ad un orario prestabilito. Default 00:00
+     * @throws Exception
      */
-    public function monthly($hourMinute = '00:00', $package = false)
+    public function monthly(string $hourMinute = '00:00', bool $package = false): static
     {
         if (!$this->validate($hourMinute, $this->regex['hour'])) {
             $error = sprintf('monthly "%s" is not valid', (string)$hourMinute);
@@ -331,14 +350,15 @@ class CronJob
     }
 
     /**
-     * @param $days
-     * @param $package
+     * @param null $months
+     * @param bool $package
      * @return $this
+     * @throws Exception
      * @Description Lo script viene eseguito tutti i mesi e con dei giorni prestabiliti
      */
-    public function months($months = null, $package = false)
+    public function months($days = null, bool $package = false): static
     {
-        if (!$this->validateDayNumbers($months, $this->regex['days'])) {
+        if (!$this->validateDayNumbers($days, $this->regex['days'])) {
             $error = sprintf('months "%s" is not valid', (string)implode(',', $days));
             $this->writeLog('Cron Job - ' . $error);
             throw new \InvalidArgumentException($error);
@@ -358,12 +378,13 @@ class CronJob
     }
 
     /**
-     * @param $days
-     * @param $package
+     * @param array $days
+     * @param bool $package
      * @return $this
      * @Description Lo script viene eseguito tutti i giorni con degli orari prestabiliti
+     * @throws Exception
      */
-    public function days($days = [], $package = false)
+    public function days(array $days = [], bool $package = false): static
     {
         if (!$this->validateDayNumbers($days, $this->regex['days'])) {
             $error = sprintf('days "%s" is not valid', (string)implode(',', $days));
@@ -385,12 +406,13 @@ class CronJob
     }
 
     /**
-     * @param $minutes
-     * @param $package
+     * @param array $minutes
+     * @param bool $package
      * @return $this
      * @Description Lo script viene eseguito ai minuti settati nellarco di un ora.
+     * @throws Exception
      */
-    public function minutes($minutes = [], $package = false)
+    public function minutes(array $minutes = [], bool $package = false): static
     {
         if (!$this->validateMinutes($minutes, $this->regex['minute_reg'])) {
             $error = sprintf('minutes "%s" is not valid', (string)implode(',', $minutes));
@@ -412,10 +434,12 @@ class CronJob
     }
 
     /**
-     * @return void
+     * @param null $package
+     * @return CronJob
+     * @throws Exception
      * @Description Setta ogni minuto la chiamata al package
      */
-    public function everyMinute($package = null)
+    public function everyMinute($package = null): static
     {
         if (!$this->validatePackage($package)) {
             $error = sprintf('class "%s" is not valid', (string)$package);
@@ -438,10 +462,31 @@ class CronJob
     }
 
     /**
+     * @param $package
+     * @return $this
+     * @throws Exception
+     *
+     * @Description Lo script viene eseguito ogni volta.
+     */
+    public function always($package = null): static
+    {
+
+        if (!$this->validatePackage($package)) {
+            $error = sprintf('class "%s" is not valid', (string)$package);
+            $this->writeLog('Cron Job - ' . $error);
+            throw new \InvalidArgumentException($error);
+        }
+
+        $this->listJobs[] = $package;
+
+        return $this;
+    }
+
+    /**
      * @return array
      * @Description Ritorna vari tipi di date
      */
-    public static function getFullDate()
+    public static function getFullDate(): array
     {
         return [
             date('Y-m-d H:i:s', CRONTAB_NOW),
@@ -459,7 +504,7 @@ class CronJob
      * @return bool
      * @Description Validatore tramire Regex
      */
-    private function validate($hourMinute, $regex)
+    private function validate($hourMinute, $regex): bool
     {
         return (bool)preg_match($regex, strtolower($hourMinute));
     }
@@ -470,7 +515,7 @@ class CronJob
      * @return bool
      * @Description Validatore tramire Regex
      */
-    public function validateDayNumbers($days, $regex)
+    public function validateDayNumbers($days, $regex): bool
     {
         if (!empty($days) && is_array($days)) {
 
@@ -497,7 +542,7 @@ class CronJob
      * @return bool
      * @Description Validatore tramire Regex delle ore
      */
-    public function validateHours($hours, $regex)
+    public function validateHours($hours, $regex): bool
     {
         if (is_array($hours)) {
             foreach ($hours as $hour) {
@@ -506,7 +551,7 @@ class CronJob
                 }
             }
         } else {
-            if (!empty($hour) && (bool)preg_match($regex, (string)$hour)) {
+            if (!empty($hours) && (bool)preg_match($regex, (string)$hours)) {
                 return false;
             }
         }
@@ -520,17 +565,16 @@ class CronJob
      * @return bool
      * @Description Validatore tramire Regex delle ore
      */
-    public function validateMinutes($minutes, $regex)
+    public function validateMinutes($minutes, $regex): bool
     {
         if (is_array($minutes)) {
             foreach ($minutes as $minute) {
                 if (empty($minute) && ((bool)preg_match($regex, $minute) !== true) && ((int)$minute > 59)) {
-                    echo "Ok";
                     return false;
                 }
             }
         } else {
-            if (empty($minute) && ((bool)preg_match($regex, $minute) !== true) && ((int)$minute > 59)) {
+            if (empty($minutes) && ((bool)preg_match($regex, $minutes) !== true) && ((int)$minutes > 59)) {
                 return false;
             }
         }
@@ -543,7 +587,7 @@ class CronJob
      * @return bool
      * @Description Verifica se il parametro di ingresso è un oggetto
      */
-    private function validatePackage($package = null)
+    private function validatePackage($package = null): bool
     {
         return (bool)is_object($package);
     }
@@ -552,7 +596,7 @@ class CronJob
      * @return string
      * @Description Ritorna la string del giorno corrente in inglese
      */
-    public function getCurrentDay()
+    public function getCurrentDay(): string
     {
         return ucfirst(date('l', CRONTAB_NOW));
     }
@@ -561,7 +605,7 @@ class CronJob
      * @return string
      * @Description Ritorna l'ora ed il minuto corrente
      */
-    public function getCurrentHourAndMinute()
+    public function getCurrentHourAndMinute(): string
     {
         return date('H:i', CRONTAB_NOW);
     }
@@ -570,7 +614,7 @@ class CronJob
      * @return string
      * @Description Ritorna il minuto corrente
      */
-    public function getCurrentMinute()
+    public function getCurrentMinute(): string
     {
         return date('i', CRONTAB_NOW);
     }
@@ -579,7 +623,7 @@ class CronJob
      * @return string
      * @Description Ritorna il minuto corrente
      */
-    public function getCurrentMinuteAndSeconds()
+    public function getCurrentMinuteAndSeconds(): string
     {
         return date('i:s', CRONTAB_NOW);
     }
@@ -588,26 +632,26 @@ class CronJob
      * @return string
      * @Description Ritorna il mese corrente
      */
-    public function getCurretMonth()
+    public function getCurretMonth(): string
     {
         return date('m', CRONTAB_NOW);
     }
 
     /**
-     * @return void
+     * @return string
      */
-    public function getCurrentNumberDay()
+    public function getCurrentNumberDay(): string
     {
         return date('d', CRONTAB_NOW);
     }
 
     /**
-     * @param $notify
+     * @param string $notify
      * @param $log
      * @return void
-     * @throws \Exception
+     * @throws Exception
      */
-    protected function writeLog($notify, $log)
+    protected function writeLog(string $notify = '', $log = null): void
     {
         $config = new Config();
         $config->load(APP_PATH . 'Config/app.php');
@@ -618,7 +662,7 @@ class CronJob
 
         $data = date('Y-m-d');
         $hours = date('H:i:s');
-        $pathFile = APP_PATH . $config->get('path_log') . DIRECTORY_SEPARATOR . '[' . $notify . '] - ' . $data . '.php';
+        $pathFile = APP_PATH . $config->get('path_log') . DIRECTORY_SEPARATOR . '[' . $notify . '] - ' . $data . '.log';
         $log = '[CRON JOB  - ' . $data . ' ' . $hours . ']' . ': ' . $log;
         file_put_contents($pathFile, $log . PHP_EOL, FILE_APPEND);
     }

@@ -116,10 +116,6 @@ class CommissionAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -138,13 +134,16 @@ class CommissionAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_commissions.id', '=', $dataTable['searchValue']);
             }
+
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
             $records = CommissionsModel::search($dataTable['searchValue'])
                 ->select(['object_commissions.id', 'object_commissions.updated_at', 'object_commissions.owner_id', 'object_commissions.institution_id',
-                    'object_commissions.name', 'typology', 'president_id', 'object_commissions.archived', 'object_commissions.publishing_status', 'users.name as userName',
+                    'object_commissions.name', 'typology', 'president_id', 'object_commissions.archived', 'users.name as userName',
                     'i.full_name_institution', 'president.full_name'])
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
@@ -152,6 +151,7 @@ class CommissionAdminController extends BaseAuthController
                 }])
                 ->with('president:id,full_name,archived')
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_commissions.institution_id', '=', 'i.id', 'left outer')
                 ->leftJoin('object_personnel as president', function ($join) {
                     $join->on('president.id', '=', 'object_commissions.president_id');
@@ -161,6 +161,9 @@ class CommissionAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_commissions.id', '=', $dataTable['searchValue']);
             }
+
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
 
             $records = $records->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
@@ -176,6 +179,10 @@ class CommissionAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     // Id della pagina di dettaglio del record in front-office
@@ -190,42 +197,57 @@ class CommissionAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale',
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/commission/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/commission/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/commission/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/commission/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/commission/archive'), $record['id'], 'commission', escapeXss($record['name']), 'archiving')
+                        ->addCustomButton('s_r_l',siteUrl('admin/commission/show-record-log/'.$record['id']), $record['id'], '5', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/commission/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', escapeXss($record['id'])) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = !empty($record['name'])
                         ? $icon . '<a href="' . siteUrl('/page/' . $sectionId . '/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss($record['name']) . '</a>'
                         : 'N.D.';
                     $setTempData[] = !empty($record['typology']) ? escapeXss($record['typology']) : 'N.D.';
                     $setTempData[] = !empty($record['president']['full_name'])
-                        ? escapeXss($record['president']['full_name'])
+                        ? ($record['president']['archived']
+                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                            : '') . escapeXss($record['president']['full_name'])
                         : 'N.D.';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -234,8 +256,7 @@ class CommissionAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -255,7 +276,7 @@ class CommissionAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/commission/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/commission/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -281,8 +302,9 @@ class CommissionAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('commission/form_store', $data, 'admin');
     }
@@ -298,7 +320,7 @@ class CommissionAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -343,6 +365,7 @@ class CommissionAdminController extends BaseAuthController
                         'typology' => setDefaultData(strip_tags(Input::post('typology', true)), null, ['']),
                         'president_id' => setDefaultData(strip_tags((int)Input::post('president_id', true)), null, ['']),
                         'description' => Input::post('description', true),
+                        'skills' => Input::post('skills', true),
                         'email' => strip_tags((string)Input::post('email', true)),
                         'phone' => strip_tags((string)Input::post('phone', true)),
                         'fax' => strip_tags((string)Input::post('fax', true)),
@@ -353,8 +376,11 @@ class CommissionAdminController extends BaseAuthController
                         'order' => setDefaultData(strip_tags((int)Input::post('order', true)), null, ['']),
                     ];
 
+
                     // Storage nuova Commissione
                     $insert = CommissionsModel::createWithLogs($arrayValues);
+
+
 
                     // Storage nelle tabelle di relazione
                     $this->clear(
@@ -362,11 +388,14 @@ class CommissionAdminController extends BaseAuthController
                         !empty(Input::post('vice_presidents')) ? explode(',', strip_tags((string)Input::post('vice_presidents', true))) : null,
                         !empty(Input::post('secretaries')) ? explode(',', strip_tags((string)Input::post('secretaries', true))) : null,
                         !empty(Input::post('substitutes')) ? explode(',', strip_tags((string)Input::post('substitutes', true))) : null,
-                        !empty(Input::post('members')) ? explode(',', strip_tags((string)Input::post('members', true))) : null
+                        !empty(Input::post('members')) ? explode(',', strip_tags((string)Input::post('members', true))) : null,
+                        !empty(Input::post('management_structure')) ? explode(',', strip_tags((string)Input::post('management_structure', true))) : null,
+                        !empty(Input::post('non_management_structure')) ? explode(',', strip_tags((string)Input::post('non_management_structure', true))) : null
                     );
 
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'commissions', $insert->id, $arrayValues['name']);
+
 
                     // Generazione nuovo token
                     if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -488,11 +517,12 @@ class CommissionAdminController extends BaseAuthController
         $data['substituteIds'] = Arr::pluck($commission['substitutes'], 'id');
         $data['memberIds'] = Arr::pluck($commission['members'], 'id');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $commission['institution_id'];
 
         $data['restore'] = $restore;
         $data['seo'] = $commission['p_s_d_r'] ?? null;
+
 
         render('commission/form_store', $data, 'admin');
     }
@@ -530,12 +560,22 @@ class CommissionAdminController extends BaseAuthController
                 ->with('secretaries:id,full_name')
                 ->with('substitutes:id,full_name')
                 ->with('members:id,full_name')
+                ->with('management_structure:id,structure_name')
+                ->with('non_management_structure:id,structure_name')
                 ->with('all_attachs');
+
 
             $commission = $commission->first();
 
+            $image = $commission->image;
+
+            if (!empty(Input::post('remove_photo')) && empty(Input::post('img'))) {
+                $image = null;
+                removePhoto($commission->image);
+            }
+
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($commission->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($commission->owner_id) ? ['update', 'create'] : 'update', true);
 
             //Controllo sul file da aggiornare
             if (filesUploaded('img') === true) {
@@ -575,17 +615,21 @@ class CommissionAdminController extends BaseAuthController
                     $data['typology'] = setDefaultData(strip_tags(Input::post('typology', true)), null, ['']);
                     $data['president_id'] = setDefaultData(strip_tags((int)Input::post('president_id', true)), null, ['']);
                     $data['description'] = Input::post('description', true);
+                    $data['skills'] = Input::post('skills', true);
                     $data['email'] = strip_tags((string)Input::post('email', true));
                     $data['phone'] = strip_tags((string)Input::post('phone', true));
                     $data['fax'] = strip_tags((string)Input::post('fax', true));
                     $data['address'] = strip_tags((string)Input::post('address', true));
                     $data['activation_date'] = !empty(Input::post('activation_date')) ? convertDateToDatabase(strip_tags((string)Input::post('activation_date', true))) : null;
                     $data['expiration_date'] = !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags((string)Input::post('expiration_date', true))) : null;
-                    $data['image'] = !empty($doUpload['data']['file_name']) ? $doUpload['data']['file_name'] : $commission->image;
+                    $data['image'] = !empty($doUpload['data']['file_name']) ? $doUpload['data']['file_name'] : $image;
                     $data['order'] = setDefaultData(strip_tags((string)Input::post('order', true)), null, ['']);
+
 
                     // Update Commissione
                     CommissionsModel::where('id', '=', $commissionId)->updateWithLogs($commission, $data);
+
+
 
                     // Svuoto le tabelle di relazione e le aggiorno
                     $this->clear(
@@ -593,7 +637,9 @@ class CommissionAdminController extends BaseAuthController
                         !empty(Input::post('vice_presidents')) ? explode(',', strip_tags((string)Input::post('vice_presidents', true))) : null,
                         !empty(Input::post('secretaries')) ? explode(',', strip_tags((string)Input::post('secretaries', true))) : null,
                         !empty(Input::post('substitutes')) ? explode(',', strip_tags((string)Input::post('substitutes', true))) : null,
-                        !empty(Input::post('members')) ? explode(',', strip_tags((string)Input::post('members', true))) : null
+                        !empty(Input::post('members')) ? explode(',', strip_tags((string)Input::post('members', true))) : null,
+                        !empty(Input::post('management_structure')) ? explode(',', strip_tags((string)Input::post('management_structure', true))) : null,
+                        !empty(Input::post('non_management_structure')) ? explode(',', strip_tags((string)Input::post('non_management_structure', true))) : null
                     );
 
                     // Upload allegati associati al personale.
@@ -604,6 +650,7 @@ class CommissionAdminController extends BaseAuthController
                         $commission->institution_id,
                         $commission->name
                     );
+
 
                     // Generazione nuovo token
                     if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -635,9 +682,11 @@ class CommissionAdminController extends BaseAuthController
      * @param array|int|null        $secretaries    Membri con il ruolo di segretari
      * @param array|int|null        $substitutes    Membri con il ruolo di membri supplenti
      * @param array|int|null        $members        Membri della commissione
+     * @param array|int|null        $management     Strutture di livello dirigenziale
+     * @param array|int|null        $nonManagement  Strutture di livello non dirigenziale
      * @return void
      */
-    protected function clear(CommissionsModel $commission = null, array|int $vicePresidents = null, array|int $secretaries = null, array|int $substitutes = null, array|int $members = null): void
+    protected function clear(CommissionsModel $commission = null, array|int $vicePresidents = null, array|int $secretaries = null, array|int $substitutes = null, array|int $members = null, array|int $management = null, array|int $nonManagement = null): void
     {
         $dataVicePresidents = [];
         if ($vicePresidents !== null) {
@@ -670,6 +719,22 @@ class CommissionAdminController extends BaseAuthController
             }
         }
         $commission->members()->syncWithPivotValues($dataMembers, ['typology' => 'member']);
+
+        $managementStructures = [];
+        if ($management) {
+            foreach ($management as $man) {
+                $managementStructures[] = is_array($man) ? $man['id'] : $man;
+            }
+        }
+        $commission->management_structure()->syncWithPivotValues($managementStructures, ['typology' => 'management_structure']);
+
+        $nonManagementStructures = [];
+        if ($nonManagement) {
+            foreach ($nonManagement as $nonMan) {
+                $nonManagementStructures[] = is_array($nonMan) ? $nonMan['id'] : $nonMan;
+            }
+        }
+        $commission->non_management_structure()->syncWithPivotValues($nonManagementStructures, ['typology' => 'non_management_structure']);
     }
 
     /**
@@ -724,7 +789,7 @@ class CommissionAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new CommissionValidator();
         $validate = $validator->multipleSelection();
@@ -790,4 +855,5 @@ class CommissionAdminController extends BaseAuthController
 
         return $data;
     }
+
 }

@@ -9,11 +9,14 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\ActivityLog;
+use Helpers\S;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\MeasureValidator;
 use Model\MeasuresModel;
+use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
@@ -100,16 +103,11 @@ class MeasureAdminController extends BaseAuthController
             $orderable = [
                 1 => 'object',
                 2 => 'number',
-                3 => 'type.value',
+                3 => 'object_measures.type',
                 5 => 'date',
                 6 => 'users.name',
                 7 => 'updated_at'
             ];
-
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[8] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -126,23 +124,36 @@ class MeasureAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_measures.id', '=', $dataTable['searchValue']);
             }
+
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object');
 
             $records = MeasuresModel::search($dataTable['searchValue'])
-                ->select(['object_measures.id', 'object_measures.owner_id', 'object_measures.institution_id', 'object',
-                    'object_measures.updated_at', 'publishing_status', 'date', 'object_measures.type', 'number', 'users.name as userName',
-                    'i.full_name_institution'])
+                ->select([
+                    'object_measures.id',
+                    'object_measures.owner_id',
+                    'object_measures.institution_id',
+                    'object',
+                    'object_measures.updated_at',
+                    'date',
+                    'object_measures.type',
+                    'number',
+                    'users.name as userName',
+                    'i.full_name_institution'
+                ])
                 ->join('users', 'users.id', '=', 'object_measures.owner_id', 'left outer')
-                ->with('structures:id,structure_name')
+                ->with('structures:id,structure_name,archived')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
-                }]);
+                }])
+                ->with('all_attachs:id,archive_id');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_measures.id', '=', $dataTable['searchValue']);
@@ -155,30 +166,39 @@ class MeasureAdminController extends BaseAuthController
                 ->get()
                 ->toArray();
 
-            $response ['draw'] = intval($dataTable['draw']);
-            $response ['iTotalRecords'] = ($totalRecords);
-            $response ['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
-            $response ['aaData'] = [];
+            $response['draw'] = intval($dataTable['draw']);
+            $response['iTotalRecords'] = ($totalRecords);
+            $response['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
+            $response['aaData'] = [];
 
             if (!empty($records)) {
 
-                $measureTypologies = config('measureTypologies', null, 'app');
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['structures']) && is_array($record['structures'])) {
 
                         $tmpStructures = Arr::pluck($record['structures'], 'structure_name');
-                        $structures = str_replace(',', ',' . nbs(2), implode(',',
+                        $tmpArchStructures = Arr::pluck($record['structures'], 'archived');
+                        $structures = str_replace(',', ',' . nbs(2), implode(
+                            ',',
                             array_map(
-                                function ($structure) {
+                                function ($structure, $archived) {
                                     return ('<small class="badge-primary mb-1">'
-                                        . escapeXss($structure) . '</small>');
-                                }, $tmpStructures)));
-
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($structure) . '</small>');
+                                },
+                                $tmpStructures,
+                                $tmpArchStructures
+                            )
+                        ));
                     } else {
 
                         $structures = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definite">N.D.</small>';
-
                     }
 
                     $measureDate = !empty($record['date'])
@@ -196,20 +216,38 @@ class MeasureAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
+
+                    $editUrl = 'edit';
+                    $duplicateUrl = 'duplicate';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
-                        'scp' => getAclProfileInfo('scp'),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
+                        'scp' => getAclProfileInfo('scp') && $workflowState == 'finale',
                     ])
-                        ->addEdit('admin/measure/edit/' . $record['id'], $record['id'])
-                        ->addDuplicate('admin/measure/duplicate/' . $record['id'], $record['id'])
+                        ->addEdit('admin/measure/' . $editUrl . '/' . $record['id'], $record['id'],'',true)
+                        ->addDuplicate('admin/measure/' . $duplicateUrl . '/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/measure/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_scp', siteUrl('admin/measure/scp'), $record['id'], 'measure', '', 'scp')
+                        ->addCustomButton('s_r_l', siteUrl('admin/measure/show-record-log/' . $record['id']), $record['id'], '26', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
+                        ->addCustomButton(
+                            's_no_app_io',
+                            '#!',
+                            $record['id'],
+                            'measure',
+                            'Invia notifica App IO',
+                            'view'
+                        )
                         ->addDelete('admin/measure/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -217,36 +255,33 @@ class MeasureAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
+
                     $setTempData[] = $icon . (!empty($record['object'])
-                            ? '<a href="' . siteUrl('/page/9/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
-                            : 'N.D.');
+                        ? '<a href="' . siteUrl('/page/9/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss(html_entity_decode($record['object'])) . '</a>'
+                        : 'N.D.');
                     $setTempData[] = !empty($record['number']) ? escapeXss($record['number']) : 'N.D.';
-                    $setTempData[] = !empty($record['type']) && array_key_exists($record['type'], $measureTypologies) ? $measureTypologies[$record['type']] : 'N.D.';
+                    $setTempData[] = escapeXss(config('measureTypologies', [], 'app')[$record['type']] ?? 'N.D.');
                     $setTempData[] = $structures;
                     $setTempData[] = $measureDate;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
                 }
 
-                $response ['aaData'] = $data;
-
+                $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
-
     }
 
     /**
@@ -265,7 +300,7 @@ class MeasureAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/measure/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/measure/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -279,7 +314,6 @@ class MeasureAdminController extends BaseAuthController
             $data['titleSection'] = 'Provvedimenti Amministrativi';
             $data['subTitleSection'] = 'GESTIONE DEI PROVVEDIMENTI POLITICI E DIRIGENZIALI';
             $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
-
         }
 
         $data['formAction'] = '/admin/measure/store';
@@ -290,12 +324,13 @@ class MeasureAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
-        $data['typologies'] = [null => ''] + config('measureTypologies', null, 'app');
+
+        $data['typologies'] = [null => ''] + config('measureTypologies', [], 'app');
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('measure/form_store', $data, 'admin');
@@ -357,25 +392,19 @@ class MeasureAdminController extends BaseAuthController
                 $this->clear(
                     $insert,
                     !empty(Input::post('structures')) ? explode(',', strip_tags((string)Input::post('structures', true))) : null,
-                    !empty(Input::post('personnel')) ? explode(',', strip_tags((string)Input::post('personnel', true))) : null
+                    !empty(Input::post('personnel')) ? explode(',', strip_tags((string)Input::post('personnel', true))) : null,
+                    !empty(Input::post('object_bdncp_procedure_id')) ? explode(',', strip_tags((string)Input::post('object_bdncp_procedure_id', true))) : null
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'measures', $insert->id, $insert['object']);
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
-
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
@@ -435,7 +464,6 @@ class MeasureAdminController extends BaseAuthController
             $data['titleSection'] = 'Provvedimenti Amministrativi';
             $data['subTitleSection'] = 'GESTIONE DEI PROVVEDIMENTI POLITICI E DIRIGENZIALI';
             $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
-
         }
 
         // Vedo in sessione se sono arrivato qui da un operazione di ripristino dal versioning
@@ -465,18 +493,24 @@ class MeasureAdminController extends BaseAuthController
         // Lista degli allegati
         $data['listAttach'] = $attach->getAllByObject(
             'measures',
-            $measure['id']);
+            $measure['id']
+        );
 
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $measure['institution_id'];
 
         $data['structureIds'] = Arr::pluck($measure['structures'], 'id');
         $data['personnelIds'] = Arr::pluck($measure['personnel'], 'id');
+        $data['bdncpProceduresIds'] = Arr::pluck($measure['bdncp_procedures'], 'id');
 
-        $data['typologies'] = [null => ''] + config('measureTypologies', null, 'app');
+        $data['typologies'] = [null => ''] + config('measureTypologies', [], 'app');
+
+
+        $data['scp'] = $measure['scp'] ?? null;
+        $data['seo'] = $measure['p_s_d_r'] ?? null;
 
         render('measure/form_store', $data, 'admin');
     }
@@ -510,12 +544,20 @@ class MeasureAdminController extends BaseAuthController
                 ->with(['relative_procedure_contraent' => function ($query) {
                     $query->select(['id', 'object']);
                 }])
+//                ->with(['relative_bdncp_procedure' => function ($query) {
+//                    $query->select(['id', 'object']);
+//                }])
+                ->with(['bdncp_procedures' => function ($query) {
+                    // Specifica la tabella di destinazione per evitare ambiguità con l'id
+                    $query->select(['object_bdncp_procedure.id', 'object']);
+                }])
                 ->with('all_attachs');
+
 
             $measure = $measure->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($measure['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($measure['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -547,7 +589,8 @@ class MeasureAdminController extends BaseAuthController
                 $this->clear(
                     $measure,
                     !empty(Input::post('structures')) ? explode(',', strip_tags((string)Input::post('structures', true))) : null,
-                    !empty(Input::post('personnel')) ? explode(',', strip_tags((string)Input::post('personnel', true))) : null
+                    !empty(Input::post('personnel')) ? explode(',', strip_tags((string)Input::post('personnel', true))) : null,
+                    !empty(Input::post('object_bdncp_procedure_id')) ? explode(',', strip_tags((string)Input::post('object_bdncp_procedure_id', true))) : null
                 );
 
                 // Upload allegati associati al personale.
@@ -560,18 +603,12 @@ class MeasureAdminController extends BaseAuthController
                     $measure['object']
                 );
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
@@ -585,15 +622,15 @@ class MeasureAdminController extends BaseAuthController
      * @param MeasuresModel|null $measure    Provvedimento
      * @param array|int|null     $structures Strutture associate al Provvedimento
      * @param array|int|null     $personnel  Personale associato al Provvedimento
+     * @param array|int|null     $bdncpProcedures  Bandi di gara associati
      * @return void
      */
-    protected function clear(MeasuresModel $measure = null, array|int $structures = null, array|int $personnel = null): void
+    protected function clear(MeasuresModel $measure = null, array|int $structures = null, array|int $personnel = null, array|int $bdncpProcedures = null): void
     {
         $dataStructures = [];
         if ($structures !== null) {
             foreach ($structures as $structure) {
                 $dataStructures[] = is_array($structure) ? $structure['id'] : $structure;
-
             }
         }
         //Insert/Update nella tabella di relazione
@@ -607,6 +644,15 @@ class MeasureAdminController extends BaseAuthController
         }
         //Insert/Update nella tabella di relazione
         $measure->personnel()->sync($dataPersonnel);
+
+        $dataProcedures = [];
+        if ($bdncpProcedures !== null) {
+            foreach ($bdncpProcedures as $procedure) {
+                $dataProcedures[] = is_array($procedure) ? $procedure['id'] : $procedure;
+            }
+        }
+        //Insert/Update nella tabella di relazione
+        $measure->bdncp_procedures()->sync($dataProcedures);
     }
 
 
@@ -632,7 +678,6 @@ class MeasureAdminController extends BaseAuthController
 
             redirect('admin/measure', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Se la validazione va a buon fine recupero l'elemento da eliminare dal registro
@@ -641,8 +686,6 @@ class MeasureAdminController extends BaseAuthController
         //Elimino il provvedimento settando deleted = 1
         $measure->deleteWithLogs($measure);
 
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/measure');
@@ -659,7 +702,7 @@ class MeasureAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new MeasureValidator();
         $validate = $validator->multipleSelection();
@@ -679,12 +722,9 @@ class MeasureAdminController extends BaseAuthController
                 $measure->deleteWithLogs($measure);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
-
         }
 
         redirect('/admin/measure');

@@ -5,7 +5,7 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+ defined("_FRAMEWORK_") or exit("No direct script access allowed"); ?>
 {% extends layout/master %}
 {{--  ************************************************ CONTENT ************************************************ --}}
 {% block content %}
@@ -39,15 +39,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="datetime-local" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ !empty($result['activation_date']) ? date('Y-m-d H:i', strtotime($result['activation_date'])) : null }}"
+                                               id="input_activation_date">
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
@@ -123,6 +151,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     ]) }}
                                     </div>
                                 </div>
+
+                                {{-- Inclusione di librerie esterne --}}
                             </div>
 
 
@@ -142,20 +172,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
 
-                                {{-- Campo Data di pubblicazione sul sito --}}
-                                <div class="form-group col-md-6">
-                                    <label for="activation_date">Data di pubblicazione sul sito *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="datetime-local" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ !empty($result['activation_date']) ? date('Y-m-d H:i', strtotime($result['activation_date'])) : null }}"
-                                               id="input_activation_date">
-                                    </div>
-                                </div>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
@@ -251,7 +267,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Tipologia esito --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-6" id ="typology_result">
                                     <label for="typology_result">Tipologia esito</label>
                                     <div class="select2-blue" id="input_typology_result">
                                         {{ form_dropdown(
@@ -310,6 +326,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
                             <div class="form-group">
                                 {{-- Campo Note --}}
                                 <label for="details">Note</label>
@@ -321,16 +338,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -362,6 +387,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',PatOsInstituteId()) }}
         {{ form_close() }}
     </div>
@@ -382,23 +408,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
+
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
+
 
         // Per il tooltip di info nel form
         let infoSpan = '<span class="far fa-question-circle fa-xs" data-toggle="tooltip" data-placement="right" ';
@@ -418,7 +444,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             selectedLabel: 'Bando di gara selezionato',
             footerTable: config.notice.footerTable,
             classTable: config.notice.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideShowTable: Boolean(<?php echo $_storageType == "insert"
+                ? "true"
+                : "false"; ?>),
             hideTable: config.notice.hideTable,
             showTable: config.notice.showTable,
             search_placeholder: config.notice.search_placeholder,
@@ -453,7 +481,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             selectedLabel: 'Altre procedure selezionate',
             footerTable: config.notice.footerTable,
             classTable: config.notice.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideShowTable: Boolean(<?php echo $_storageType == "insert"
+                ? "true"
+                : "false"; ?>),
             hideTable: config.notice.hideTable,
             showTable: config.notice.showTable,
             search_placeholder: config.notice.search_placeholder,
@@ -461,7 +491,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             dataParams: {
                 model: 30,
                 institution_id: institutionId,
-                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $result['id'] ?>
+                exclude_id: <?php echo $_storageType == "insert"
+                    ? 0
+                    : $result["id"]; ?>
             },
             columns: config.notice.columns,
             action: {
@@ -490,7 +522,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             selectedLabel: 'Partecipanti selezionati',
             footerTable: config.supplier.footerTable,
             classTable: config.supplier.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideShowTable: Boolean(<?php echo $_storageType == "insert"
+                ? "true"
+                : "false"; ?>),
             hideTable: config.supplier.hideTable,
             showTable: config.supplier.showTable,
             search_placeholder: config.supplier.search_placeholder,
@@ -522,7 +556,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             selectedLabel: 'Partecipanti selezionati',
             footerTable: config.supplier.footerTable,
             classTable: config.supplier.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideShowTable: Boolean(<?php echo $_storageType == "insert"
+                ? "true"
+                : "false"; ?>),
             hideTable: config.supplier.hideTable,
             showTable: config.supplier.showTable,
             search_placeholder: config.supplier.search_placeholder,
@@ -554,7 +590,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             selectedLabel: 'Provvedimento selezionato',
             footerTable: config.measure.footerTable,
             classTable: config.measure.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideShowTable: Boolean(<?php echo $_storageType == "insert"
+                ? "true"
+                : "false"; ?>),
             hideTable: config.measure.hideTable,
             showTable: config.measure.showTable,
             search_placeholder: config.measure.search_placeholder,
@@ -607,7 +645,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
         if ($('#_storage_type').val() == 'insert') {
             @if(empty($notice['activation_date']))
-                $('#input_activation_date').attr('value', "<?= date('d-m-Y H:i') ?>");
+                $('#input_activation_date').attr('value', "<?= date(
+                    "d-m-Y H:i"
+                ) ?>");
             @endif
         }
 
@@ -618,7 +658,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_details');
+        CKEDITOR.replace('input_details', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -654,6 +696,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -670,6 +713,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }

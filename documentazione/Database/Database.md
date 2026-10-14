@@ -1,8 +1,8 @@
-# Database Pat
+# Database Pat-Os
 
-**Riferimento path file dump:**  *tools/sql/dump pat.sql*
+**Riferimento path file dump:**  *tools/sql/dump pat-os.sql*
 
-In questo documento viene descritto il database del software Pat.
+In questo documento viene descritto il database del software Pat-Os.
 
 Vengono descritte nel dettaglio tutte le tabelle con i loro campi, le relazioni e le classi che ne descrivono il Modello.
 
@@ -76,7 +76,6 @@ Relazioni:
 | id             | int      | Id del record                                                |
 | institution_id | int      | Id dell'ente associato all'attività                          |
 | user_id        | int      | Id dell'utente che ha eseguito l'attività                    |
-| is_superadmin  | int      | Indica se l'attività è stata eseguita da un utente super admin (valore a 1) |
 | client_info    | text     | Informazioni sul client da cui è stata eseguita l'attività   |
 | ip_address     | varchar  | Indirizzo IP da cui è stata eseguita l'attività              |
 | action         | varchar  | Nome dell'attività eseguita                                  |
@@ -187,7 +186,7 @@ Classe controller: **--**
 
 6.  **configs**
 
-Tabella utilizzata per la gestione delle configurazioni del Pat
+Tabella utilizzata per la gestione delle configurazioni del Pat-OS.(???)
 
 Classe per il modello: **ConfigsModel**
 
@@ -230,6 +229,7 @@ Relazioni:
 | institution_id | int      | ID dell'ente a cui è associato il paragrafo della pagina di front-office |
 | section_fo_id  | int      | ID della pagina di front-office in cui inserire il paragrafo |
 | user_id        | int      | ID dell'utente che ha creato il paragrafo                    |
+| owner_id       | int      | ID dell'utente proprietario del paragrafo                    |
 | name           | varchar  | Nome del paragrafo                                           |
 | sort           | int      | Valore utilizzato per gestire l'ordine di visualizzazione del paragrafo all'interno della pagina |
 | content        | text     | Contenuto del paragrafo da mostrare nella pagina di front-office |
@@ -270,7 +270,6 @@ Classe per il modello: **InstitutionsModel**
 Classe controller: 
 
 - **InstitutionAdminController** (per utenti normali)
-- **InstitutionAdminController** (per utente super admin)
 
 
 
@@ -310,7 +309,6 @@ Classe controller:
 | opendata_channel             | ??            | ??                                                           |
 | show_update_date             | tinyint(bool) | Indica se mostrare la data di ultimo aggiornamento dei contenuti |
 | statistic_snippet_code ??    | varchar       | Snippet di codice per il monitoraggio delle statistiche dell'ente |
-| google_maps_api_key ??       | varchar       | Chiave per l'API di Google maps per l'ente                   |
 | indexable                    | tinyint(bool) | Indica se il portale dell'ente è indicizzabile o meno dai motori di ricerca |
 | support                      | tinyint(bool) | Supporto ente su vecchio PAT ??                              |
 | show_regulation_in_structure | tinyint(bool) | Indica se mostrare o meno la norma associata alla struttura organizzativa dell'ente |
@@ -335,7 +333,6 @@ Classe controller:
 | email_pec_notifications      | varchar       | Email mittente per le notifiche PEC                          |
 | publication_responsible      | varchar       | Responsabile del procedimento di pubblicazione dell'ente     |
 | privacy_url                  | varchar       | URL della privacy dell'ente                                  |
-| private_token                | ??            | ??                                                           |
 | last_visit_time_limit        | varchar       | Tempo di disattivazione dell'ente dall'ultimo accesso        |
 | personnel_roles              | text          | Ruoli aggiuntivi per il personale dell'ente                  |
 | active                       | tinyint(bool) | Indica se l'ente è attivo(valore a 1) o meno(valore a 0)     |
@@ -518,140 +515,6 @@ Classe controller: **--**
 
 ------
 
-16.  **meta_acl_profiles**
-
-Tabella astratta per contenere eventuali valori aggiuntivi non previsti nella tabella standard.
-
-Classe per il modello: **MetaAclProfilesModel**
-
-Classe controller: **--**
-
-
-
-| Colonna         | Tipo     | Descrizione                             |
-| --------------- | -------- | --------------------------------------- |
-| id              | int      | Id del record                           |
-| acl_profiles_id | int      | ID del profilo ACL associato            |
-| meta_key        | varchar  | Chiave identificativa del meta dato     |
-| meta_label      | varchar  | Label del meta dato                     |
-| meta_value      | varchar  | Valore del meta dato                    |
-| meta_group      | varchar  | Gruppo del meta dato                    |
-| meta_icon       | varchar  | Eventuale icona per il meta dato        |
-| created_at      | datetime | La data in cui è stata creato il record |
-| updated_at      | datetime | La data di ultima modifica del record   |
-| deleted_at      | datetime | La data di eliminazione del record      |
-
-
-
-------
-
-17.  **meta_institutions**
-
-Tabella astratta per contenere eventuali valori aggiuntivi non previsti nella tabella standard.
-
-Classe per il modello: **MetaInstitutionsModel**
-
-Classe controller: **--**
-
-
-
-| Colonna        | Tipo     | Descrizione                             |
-| -------------- | -------- | --------------------------------------- |
-| id             | int      | Id del record                           |
-| institution_id | int      | ID dell'ente associato                  |
-| meta_key       | varchar  | Chiave identificativa del meta dato     |
-| meta_label     | varchar  | Label del meta dato                     |
-| meta_value     | varchar  | Valore del meta dato                    |
-| meta_group     | varchar  | Gruppo del meta dato                    |
-| meta_icon      | varchar  | Eventuale icona per il meta dato        |
-| created_at     | datetime | La data in cui è stata creato il record |
-| updated_at     | datetime | La data di ultima modifica del record   |
-| deleted_at     | datetime | La data di eliminazione del record      |
-
-
-
-------
-
-18.  **meta_object_notices_acts**
-
-Tabella astratta per contenere eventuali valori aggiuntivi non previsti nella tabella standard.
-
-Classe per il modello: **MetaObjectNoticesActsModel**
-
-Classe controller: **--**
-
-
-
-| Colonna                | Tipo     | Descrizione                             |
-| ---------------------- | -------- | --------------------------------------- |
-| id                     | int      | Id del record                           |
-| object_notices_acts_id | int      | ID dell'atto amministrativo associato   |
-| meta_key               | varchar  | Chiave identificativa del meta dato     |
-| meta_label             | varchar  | Label del meta dato                     |
-| meta_value             | varchar  | Valore del meta dato                    |
-| meta_group             | varchar  | Gruppo del meta dato                    |
-| meta_icon              | varchar  | Eventuale icona per il meta dato        |
-| created_at             | datetime | La data in cui è stata creato il record |
-| updated_at             | datetime | La data di ultima modifica del record   |
-| deleted_at             | datetime | La data di eliminazione del record      |
-
-
-
-------
-
-19.  **meta_sections**
-
-Tabella astratta per contenere eventuali valori aggiuntivi non previsti nella tabella standard.
-
-Classe per il modello: **MetaSectionsModel**
-
-Classe controller: **--**
-
-
-
-| Colonna     | Tipo     | Descrizione                             |
-| ----------- | -------- | --------------------------------------- |
-| id          | int      | Id del record                           |
-| sections_id | int      | ID della sezione associata              |
-| meta_key    | varchar  | Chiave identificativa del meta dato     |
-| meta_label  | varchar  | Label del meta dato                     |
-| meta_value  | varchar  | Valore del meta dato                    |
-| meta_group  | varchar  | Gruppo del meta dato                    |
-| meta_icon   | varchar  | Eventuale icona per il meta dato        |
-| created_at  | datetime | La data in cui è stata creato il record |
-| updated_at  | datetime | La data di ultima modifica del record   |
-| deleted_at  | datetime | La data di eliminazione del record      |
-
-
-
-------
-
-20. **meta_users**
-
-Tabella astratta per contenere eventuali valori aggiuntivi non previsti nella tabella standard.
-
-Classe per il modello: **MetaUsersModel**
-
-Classe controller: **--**
-
-
-
-| Colonna    | Tipo     | Descrizione                             |
-| ---------- | -------- | --------------------------------------- |
-| id         | int      | Id del record                           |
-| users_id   | int      | ID dell'utente associato                |
-| meta_key   | varchar  | Chiave identificativa del meta dato     |
-| meta_label | varchar  | Label del meta dato                     |
-| meta_value | varchar  | Valore del meta dato                    |
-| meta_group | varchar  | Gruppo del meta dato                    |
-| meta_icon  | varchar  | Eventuale icona per il meta dato        |
-| created_at | datetime | La data in cui è stata creato il record |
-| updated_at | datetime | La data di ultima modifica del record   |
-| deleted_at | datetime | La data di eliminazione del record      |
-
-
-
-------
 
 21.  **object_absence_rates**
 
@@ -1211,6 +1074,7 @@ Classe controller: **CommissionAdminController**
 | name            | varchar       | Nome della commissione                                       |
 | typology        | varchar       | Indica se è una commissione o un gruppo consiliare           |
 | description     | varchar       | Descrizione della commissione o del gruppo                   |
+| skills          | text          | Competenze della commissione o del gruppo                    |
 | image           | varchar       | Immagine da assegnare alla commissione o gruppo              |
 | phone           | varchar       | Recapito telefonico fisso della commissione o gruppo         |
 | fax             | varchar       | Fax della commissione o gruppo                               |
@@ -1258,6 +1122,7 @@ Classe controller: **CompanyAdminController**
 | balance                  | text          | Risultati di bilancio (ultimi 3 mesi) della società          |
 | inconferability_dec_link | varchar       | Dichiarazione sulla insussistenza di una delle cause di inconferibilità dell'incarico (link) |
 | incompatibility_dec_link | varchar       | Dichiarazione sulla insussistenza di una delle cause di incompatibilità al conferimento dell'incarico (link) |
+| notes                    | text          | Note relative alla società                                   |
 | deleted                  | tinyint(bool) | Indica se la società è stata eliminata(valore 1) o meno (valore 0) |
 | created_at               | datetime      | La data in cui è stata creata la società                     |
 | updated_at               | datetime      | La data di ultima modifica della società                     |
@@ -1297,7 +1162,8 @@ Classe controller: **ContestAdminController**
 | expiration_time      | varchar       | Orario di scadenza del bando di concorso                     |
 | expected_expenditure | varchar       | Eventuale spesa prevista dal bando di concorso               |
 | expenditures_made    | varchar       | Spese effettuate per il bando di concorso                    |
-| heired_employees     | int           | Numero di dipendenti assunti dal bando di concorso           |
+| hired_employees      | int           | Numero di dipendenti assunti dal bando di concorso           |
+| external_assignment  | text          | Incarichi esterni relativi al bando di concorso              |
 | description          | varchar       | Descrizione del bando di concorso                            |
 | test_calendar        | varchar       | Calendario delle prove del bando di concorso                 |
 | evaluation_criteria  | varchar       | Criteri di valutazione del bando di concorso                 |
@@ -1535,6 +1401,7 @@ Classe controller: **GrantAdminController**
 | compensation_paid        | varchar       | Importo del vantaggio economico corrisposto (per le liquidazioni) |
 | compensation_paid_date   | int           | Anno di liquidazione(per liquidazioni)                       |
 | notes                    | text          | Note sulla sovvenzione                                       |
+| project_link             | varchar       | Link al progetto relativo alla sovvenzione                   |
 | deleted                  | tinyint(bool) | Indica se la sovvenzione è stata eliminata(valore 1) o meno (valore 0) |
 | created_at               | datetime      | La data in cui è stata creata la sovvenzione                 |
 | updated_at               | datetime      | La data di ultima modifica della sovvenzione                 |
@@ -1786,6 +1653,7 @@ Classe controller: **NewsNoticeAdminController**
 | state            | tinyint(bool) | ??                                                           |
 | workflow_state   | varchar       | ??                                                           |
 | news_date        | datetime      | Data avviso/news                                             |
+| expiration_date  | datetime      | Data di scadenza dell'avviso/news                            |
 | start_date       | datetime      | Data di inizio pubblicazione dell'avviso/news                |
 | end_date         | datetime      | Data di fine pubblicazione dell'avviso/news                  |
 | title            | varchar       | Titolo dell'avviso/news                                      |
@@ -2037,16 +1905,19 @@ Classe controller: **ProceedingAdminController**
 | name                         | varchar       | Nome del procedimento                                        |
 | contact                      | varchar       | Visualizzazione del Chi Contattare                           |
 | description                  | varchar       | Descrizione del procedimento                                 |
+| instance_documents           | text          | Documenti da allegare all'istanza e modulistica necessaria   |
 | costs                        | varchar       | Costi e modalità di pagamento                                |
 | silence_consent              | tinyint(bool) | Conclusione tramite silenzio assenso(valore 1) o meno (valore 0) |
 | declaration                  | tinyint(bool) | Conclusione tramite dichiarazione dell'interessato (valore 1) o meno(valore 0) |
 | regulation                   | varchar       | Riferimenti normativi (altro) del procedimento               |
+| obtaining_info               | text          | Modalità per ottenere informazioni relative al procedimento  |
 | url_service                  | varchar       | Url per il servizio online relativo al procedimento          |
 | deadline                     | varchar       | Termine di conclusione del procedimento                      |
 | protection_instruments       | varchar       | Strumenti di tutela del procedimento                         |
 | service_avaiable             | tinyint(bool) | Disponibilità del servizio online                            |
 | publication_state            | varchar       | Stato di pubblicazione del procedimento                      |
 | service_time                 | varchar       | Tempi previsti per attivazione del servizio online           |
+| notes                        | text          | Note relative al procedimento                                |
 | public_monitoring_proceeding | tinyint(bool) | ????????????                                                 |
 | deleted                      | tinyint(bool) | Indica se il procedimento è stato eliminato(valore a 1) o meno(valore a 0) |
 | created_at                   | datetime      | La data in cui è stata creato il procedimento                |
@@ -2179,6 +2050,7 @@ Classe controller: **ReliefCheckAdminController**
 | object               | varchar       | Oggetto del controllo/rilievo                                |
 | date                 | datetime      | Data del controllo/rilievo                                   |
 | description          | text          | Descrizione del controllo/rilievo                            |
+| act_object           | text          | Ambito del rilievo: organizzazione, attività o entrambi      |
 | deleted              | tinyint(bool) | Indica se il controllo/rilievo è stato eliminato(valore a 1) o meno(valore a 0) |
 | created_at           | datetime      | La data in cui è stata creato il controllo/rilievo           |
 | updated_at           | datetime      | La data di ultima modifica il controllo/rilievo              |
@@ -2658,6 +2530,28 @@ Classe per il modello: **RelCommissionsPersonnelModel**
 
 ------
 
+81-bis. **rel_commissions_structures**
+
+Tabella di **relazione tra object_commissions e object_structures**, utilizzata per associare alle commissioni le strutture dirigenziali e non dirigenziali, specificandole nel campo typology.
+
+Classe per il modello: **RelCommissionsStructures**
+
+
+
+| Colonna                | Tipo     | Descrizione                                                  |
+| ---------------------- | -------- | ------------------------------------------------------------ |
+| id                     | int      | Id del record                                                |
+| object_commissions_id  | int      | ID della commissione                                         |
+| object_structures_id   | int      | ID della struttura                                           |
+| typology               | varchar  | Indica se la struttura è dirigenziale o non dirigenziale     |
+| created_at             | datetime | La data in cui è stato creato il record                      |
+| updated_at             | datetime | La data di ultima modifica del record                        |
+| deleted_at             | datetime | La data di eliminazione del record                           |
+
+
+
+------
+
 82.  **rel_contests_acts_contests_acts**
 
 Tabella di **relazione tra object_contests_acts con se stessa**,  utilizzata per gestire le varie tipologie di altre procedure associate ai vari tipi di bando.
@@ -2739,6 +2633,7 @@ Classe per il modello: **RelContestAssignmentsModel**
 | id                    | int           | Id del record                                                |
 | object_contest_id     | int           | ID del bando di concorso                                     |
 | object_assignments_id | int           | ID dell'incarico                                             |
+| typology              | varchar       | Tipologia dell'associazione tra il concorso e l'incarico     |
 | deleted               | tinyint(bool) | Indica se il record di relazione è stato eliminato(valore a 1) o meno (valore a 0) |
 | created_at            | datetime      | La data in cui è stata creato il record                      |
 | updated_at            | datetime      | La data di ultima modifica del record                        |

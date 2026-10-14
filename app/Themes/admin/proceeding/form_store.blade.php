@@ -39,15 +39,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+                {{-- Inclusione di librerie esterne --}}
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             {{-- Campo Nome del procedimento --}}
                             <div class="form-group" id="input_name">
@@ -69,6 +84,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     'value' => !empty($proceeding['description']) ? $proceeding['description'] : null,
                                     'id' => 'input_description',
                                     'class' => 'form-control input_description'
+                                ]) }}
+                            </div>
+
+                            {{-- Campo Documenti da allegare all'istanza e modulistica necessaria --}}
+                            <div class="form-group">
+                                <label for="instance_documents">Documenti da allegare all'istanza e modulistica
+                                    necessaria</label>
+                                {{form_editor([
+                                    'name' => 'instance_documents',
+                                    'value' => !empty($proceeding['instance_documents']) ? $proceeding['instance_documents'] : null,
+                                    'id' => 'input_instance_documents',
+                                    'class' => 'form-control input_instance_documents'
                                 ]) }}
                             </div>
 
@@ -106,7 +133,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_substitute_responsibles" id="p_substitute_responsibles_label">Responsabile/i
-                                            sostitutivi</label>
+                                            sostitutivi </label>
                                     </div>
                                     <div id="ajax_substitute_responsibles"></div>
                                     <input type="hidden" value="" name="substitute_responsibles"
@@ -129,16 +156,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Visualizzazione del Chi Contattare --}}
-                                <div class="form-group col-md-9">
+                                <div class="form-group col-md-4">
                                     <label for="contact">Visualizzazione del Chi Contattare</label>
-                                    <div class="select2-blue" id="input_contact">
+                                    <div id="input_contact">
                                         {{ form_dropdown(
                                             'contact',
                                             ['' => '',1=>'Prima l\'ufficio responsabile poi il personale',2=>'Prima il personale poi l\'ufficio responsabile',
                                                 3=>'Visualizza solo l\'ufficio responsabile',4=>'Visualizza solo il personale di riferimento'],
                                             @$proceeding['contact'],
-                                            'class="form-control select2-contact" style="width: 100%;"'
+                                            'class="ts-contact" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -157,6 +183,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <input type="hidden" value="" name="offices_responsibles"
                                            id="input_offices_responsible"
                                            class="offices_responsibles">
+                                </div>
+                            </div>
+
+                            {{-- Campo Ufficio competente all'adozione del provvedimento finale --}}
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12" id="final_measure_office_container">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_final_measure_office" id="p_final_measure_office_label">Ufficio
+                                            competente all'adozione del provvedimento finale</label>
+                                    </div>
+                                    <div id="ajax_final_measure_office"></div>
+                                    <input type="hidden" value="" name="final_measure_office"
+                                           id="input_final_measure_office"
+                                           class="final_measure_office">
                                 </div>
                             </div>
 
@@ -191,12 +231,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Conclusione tramite silenzio assenso --}}
                                 <div class="form-group col-md-6">
                                     <label for="silence_consent">Conclusione tramite silenzio assenso</label>
-                                    <div class="select2-blue" id="input_silence_consent">
+                                    <div id="input_silence_consent">
                                         {{ form_dropdown(
                                             'silence_consent',
                                             [''=>'',0=>'No',1=>'Si'],
                                             @$proceeding['silence_consent'],
-                                            'class="form-control select2-silence_consent" style="width: 100%;"'
+                                            'class="ts-silence_consent" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -204,12 +244,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Conclusione tramite dichiarazione dell'interessato --}}
                                 <div class="form-group col-md-6">
                                     <label for="declaration">Conclusione tramite dichiarazione dell'interessato</label>
-                                    <div class="select2-blue" id="input_declaration">
+                                    <div id="input_declaration">
                                         {{ form_dropdown(
                                             'declaration',
                                             [''=>'',0=>'No',1=>'Si'],
                                             @$proceeding['declaration'],
-                                            'class="form-control select2-declaration" style="width: 100%;"'
+                                            'class=" ts-declaration" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -219,12 +259,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="normative"> Riferimenti normativi </label>
-                                    <div class="select2-blue" id="input_normative">
+                                    <div id="input_normative">
                                         {{ form_dropdown(
                                             'normatives[]',
                                             '',
                                             '',
-                                            'class="form-control select2-normative" multiple="multiple" data-placeholder="Seleziona o cerca normativa..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-normative" multiple="multiple" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -283,19 +323,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Disponibilità del servizio online --}}
                                 <div class="form-group col-md-6">
                                     <label for="service_available">Disponibilità del servizio online</label>
-                                    <div class="select2-blue" id="input_service_available">
+                                    <div  id="input_service_available">
                                         {{ form_dropdown(
                                             'service_available',
                                             [0=>'No', 1=>'Si'],
                                             @$proceeding['service_available'],
-                                            'class="form-control select2-service_available" style="width: 100%;"'
+                                            'class="ts-service_available" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
+                                <?php
 
+                                $isServiceRequired = true;
+
+                                $serviceAsterisk = $isServiceRequired !== false ? ' *' : '';
+                                ?>
                                 {{-- Campo Url per il servizio online relativo --}}
                                 <div class="form-group col-md-6" id="input_url_service">
-                                    <label for="url_service">Url per il servizio online relativo *</label>
+                                    <label for="url_service">Url per il servizio online
+                                        relativo{{ $serviceAsterisk }}</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-link"></i></span>
@@ -312,8 +358,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 {{-- Campo Tempi previsti per attivazione del servizio online --}}
                                 <div class="form-group col-md-6" id="input_service_time">
-                                    <label for="service_time">Tempi previsti per attivazione del servizio online
-                                        *</label>
+                                    <label for="service_time">Tempi previsti per attivazione del servizio
+                                        online{{ $serviceAsterisk }}</label>
                                     {{ form_input([
                                         'name' => 'service_time',
                                         'value' => !empty($proceeding['service_time']) ? $proceeding['service_time'] : null,
@@ -324,78 +370,112 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            <div class="form-group">
+                                <label for="obtaining_info">Modalità con le quali gli interessati possono ottenere le
+                                    informazioni relative al procedimento</label>
+                                {{form_editor([
+                                    'name' => 'obtaining_info',
+                                    'value' => !empty($proceeding['obtaining_info']) ? $proceeding['obtaining_info'] : null,
+                                    'id' => 'obtaining_info',
+                                    'class' => 'form-control obtaining_info'
+                                ]) }}
+                            </div>
+
+                            {{-- Campo Note --}}
+                            <div class="form-group">
+                                <label for="notes">Note</label>
+                                {{form_editor([
+                                    'name' => 'notes',
+                                    'value' => !empty($proceeding['notes']) ? $proceeding['notes'] : null,
+                                    'id' => 'input_notes',
+                                    'class' => 'form-control input_notes'
+                                ]) }}
+                            </div>
+
 
                             <!-- mostro i tempi procedimentali solo per chi li ha già  -->
                             @if($_storageType === 'update' && !empty($proceeding['monitoring_datas']))
 
-                            {{-- Campo Monitoraggio tempi procedimentali --}}
-                            <div class="form-group">
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <label for="monitoring">Monitoraggio tempi procedimentali</label>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h5>Dati sul monitoraggio</h5>
-                                    </div>
-                                    <div class="col-md-6 text-right">
-                                        <button type="button" class="btn btn-default btn-sm" data-toggle="modal"
-                                                data-target="#monitoring-modal" data-storage-type="new" id="new-data">
-                                            Crea nuovo record
-                                            <i class="fas fa-plus"></i>
-                                        </button>
-                                    </div>
-                                    <div class="col-md-12 mt-3 table-responsive">
-                                        <table class="table table-hover table-bordered table-striped table-sm"
-                                               id="tabele-monitoring">
-                                            <thead class="thead-dark">
-                                            <tr>
-                                                <th style="width:8%;" class="text-center">Anno</th>
-                                                <th style="width:10%;" class="text-center">Procedimenti conclusi</th>
-                                                <th style="width:10%;" class="text-center">Giorni medi conclusione</th>
-                                                <th style="width:8%;" class="text-center">Percentuale</th>
-                                                <th style="width:5%;" class="text-center">Azioni</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody id="monitoring-table">
-                                            </tbody>
-                                        </table>
+                                {{-- Campo Monitoraggio tempi procedimentali --}}
+                                <div class="form-group">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <label for="monitoring">Monitoraggio tempi procedimentali</label>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h5>Dati sul monitoraggio</h5>
+                                        </div>
+                                        <div class="col-md-6 text-right">
+                                            <button type="button" class="btn btn-default btn-sm" data-toggle="modal"
+                                                    data-target="#monitoring-modal" data-storage-type="new"
+                                                    id="new-data">
+                                                Crea nuovo record
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                        <div class="col-md-12 mt-3 table-responsive">
+                                            <table class="table table-hover table-bordered table-striped table-sm"
+                                                   id="tabele-monitoring">
+                                                <thead class="thead-dark">
+                                                <tr>
+                                                    <th style="width:8%;" class="text-center">Anno</th>
+                                                    <th style="width:10%;" class="text-center">Procedimenti conclusi
+                                                    </th>
+                                                    <th style="width:10%;" class="text-center">Giorni medi conclusione
+                                                    </th>
+                                                    <th style="width:8%;" class="text-center">Percentuale</th>
+                                                    <th style="width:5%;" class="text-center">Azioni</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody id="monitoring-table">
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div class="form-row d-flex align-items-end">
-                                {{-- Campo Pubblica automaticamente i dati sul monitoraggio --}}
-                                <div class="form-group col-md-6">
-                                    <label for="public_monitoring_proceeding">Pubblica automaticamente i dati sul
-                                        monitoraggio</label>
-                                    <div class="select2-blue" id="input_public_monitoring_proceeding">
-                                        {{ form_dropdown(
-                                            'public_monitoring_proceeding',
-                                            [
-                                                '0' => 'No',
-                                                '1' => 'Si',
-                                            ],
-                                            @$public_monitoring_proceeding,
-                                            'class="form-control select2-public_monitoring_proceeding" style="width: 100%;"'
-                                        ) }}
+                                <div class="form-row d-flex align-items-end">
+                                    {{-- Campo Pubblica automaticamente i dati sul monitoraggio --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="public_monitoring_proceeding">Pubblica automaticamente i dati sul
+                                            monitoraggio</label>
+                                        <div id="input_public_monitoring_proceeding">
+                                            {{ form_dropdown(
+                                                'public_monitoring_proceeding',
+                                                [
+                                                    '0' => 'No',
+                                                    '1' => 'Si',
+                                                ],
+                                                @$public_monitoring_proceeding,
+                                                'class="ts-public_monitoring_proceeding" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
                             @endif
+
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
 
                 </div>
             </div>
 
             {{-- Card Footer --}}
             <div class="card-footer" id="__save_">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
+
             </div>
 
         </div>
@@ -446,6 +526,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -455,7 +536,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 <!-- mostro i tempi procedimentali solo per chi li ha già  -->
 @if($_storageType === 'update' && !empty($proceeding['monitoring_datas']))
-{% include proceeding/monitoring_modal %}
+    {% include proceeding/monitoring_modal %}
 @endif
 
 {% endblock %}
@@ -471,23 +552,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         //Controllo se sono arrivato in questa pagina dal versioning
         {{-- Vedere nel footer --}}
@@ -656,9 +735,42 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($proceeding['offices_responsibles']))
+        @if(!empty($proceeding['offices_responsibles']))
         @foreach($proceeding['offices_responsibles'] as $responsible)
         officesResponsibles.patOsAjaxPagination.setValue('{{ $responsible['id'] }}', '{{ htmlEscape($responsible['structure_name']).(!empty($responsible['parent_name'])?' - '.htmlEscape($responsible['parent_name']):'').(!empty($responsible['reference_email'])?' - '.$responsible['reference_email']:'') }}', true);
+        @endforeach
+        @endif
+
+        // Tabella per la selezione dell'ufficio competente all'adozione del provvedimento finale
+        let finalMeasureOffice = $('#ajax_final_measure_office').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Ufficio competente selezionato',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_final_measure_office',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#p_final_measure_office_label'
+        });
+
+        // Se sono in modifica o in duplicazione setto i valori dell'ufficio competente gia selezionato
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($proceeding['final_measure_office']))
+        @foreach($proceeding['final_measure_office'] as $structure)
+        finalMeasureOffice.patOsAjaxPagination.setValue('{{ $structure['id'] }}', '{{ htmlEscape($structure['structure_name']).(!empty($structure['parent_name'])?' - '.htmlEscape($structure['parent_name']):'').(!empty($structure['reference_email'])?' - '.$structure['reference_email']:'') }}', true);
         @endforeach
         @endif
 
@@ -695,135 +807,71 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endforeach
         @endif
 
-        {{-- Inizio metodi per campi Select --}}
-        {{-- Begin Select2 campo "Riferimenti normativi" --}}
-        let $dropdownNormative = $('.select2-normative');
-        $dropdownNormative.select2({
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 12,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_normativeIds').val(),
-                model: 12,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
+        const normativeTomSelect = createAjaxTomSelect({
+            selector: '.ts-normative',
 
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
-            }
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                let option = new Option(String(el.text), el.id, true, true);
-                $dropdownNormative.append(option).trigger('change');
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_normativeIds',
+
+            model: 12,
+            institutionId,
+            placeholder: 'Seleziona o cerca...',
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+
+            onError(error) {
+                console.error('Errore durante il caricamento dei riferimenti normativi:', error);
+                createValidatorFormErrorToast('Ops c\'è un problema. Si prega di contattare l\'assistenza clienti.', 5000, 'Validatore select');
             }
         });
+
+        @if($_storageType === 'update' && !empty($proceeding['monitoring_datas']))
+            new TomSelect('.ts-public_monitoring_proceeding', TS_SINGLE);
         @endif
-        {{-- End Select2 campo "Riferimenti normativi" --}}
 
-        {{-- Select2 campo "Disponibilità del servizio online" --}}
-        let $dropdownServiceAvailable = $('.select2-service_available');
-        $dropdownServiceAvailable.select2({
-            minimumResultsForSearch: -1
+        function toggleServiceFields(value) {
+            const isAvailable = value !== '0';
+            document.getElementById('input_service_time').style.display = isAvailable ? 'none' : 'block';
+            document.getElementById('input_url_service').style.display = isAvailable ? 'block' : 'none';
+        }
+        const serviceAvailable = new TomSelect('.ts-service_available', {
+            ...TS_SINGLE,
+            onChange(value) {
+                toggleServiceFields(value);
+            }
         });
+        toggleServiceFields(serviceAvailable.getValue());
 
-        {{-- Select2 campo "Visualizzazione del Chi Contattare" --}}
-        let $dropdownContact = $('.select2-contact');
-        $dropdownContact.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
+        new TomSelect('.ts-contact', TS_SINGLE_CLEAR);
+        new TomSelect('.ts-silence_consent', TS_SINGLE_CLEAR);
+        new TomSelect('.ts-declaration', TS_SINGLE_CLEAR);
 
-        {{-- Select2 campo "Visualizzazione del Chi Contattare" --}}
-        let $dropdownMonitoringProceeding = $('.select2-public_monitoring_proceeding');
-        $dropdownMonitoringProceeding.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Conclusione tramite silenzio assenso" --}}
-        let $dropdownSilenceConsent = $('.select2-silence_consent');
-        $dropdownSilenceConsent.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Conclusione tramite dichiarazione dell'interessato" --}}
-        let $dropdownDeclaration = $('.select2-declaration');
-        $dropdownDeclaration.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-        {{-- Fine metodi per campi Select --}}
-
-        {{-- Inizio metodi per campi CKEditor --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
             e.editor.on('change', function (event) {
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
-        CKEDITOR.replace('input_costs');
-        CKEDITOR.replace('input_regulation');
+        CKEDITOR.replace('input_description', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_instance_documents', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_costs', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_regulation', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('obtaining_info', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- Fine metodi per campi CKEditor --}}
 
-        {{-- Begin dinamicizzazione campi form --}}
-        {{-- Per Disponibilità del servizio online --}}
-        $('#input_service_available').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'No') {
-                document.getElementById("input_service_time").style.display = "block";
-                document.getElementById("input_url_service").style.display = "none";
-            } else {
-                document.getElementById("input_service_time").style.display = "none";
-                document.getElementById("input_url_service").style.display = "block";
-            }
-        });
 
         {{-- In fase di modifica nascondo i tempi previsti per l'attivazione del servizio online, in caso non sia disponibile e viceversa --}}
         @if(!empty($proceeding['service_available']) && $proceeding['service_available'] === 1)
@@ -837,7 +885,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Metodo per il salvataggio
          */
-                {{-- Begin salvataggio --}}
         let btnSend = $('#btn_save');
         $('#{{ $formSettings['id'] }}').ajaxForm({
             method: 'POST',
@@ -858,10 +905,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = false;
 
                 // Funzione che genera il toast con il messaggio di successo
-                {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Procedimento');
 
-                {{-- Controllo se non sono all'interno di un modale --}}
                 @if(empty($is_box))
                 setTimeout(function () {
                     window.location.href = '{{ siteUrl('admin/proceeding') }}';
@@ -869,6 +914,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -878,12 +924,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             error: function (jqXHR, status) {
                 let response = parseJson(jqXHR.responseText);
-console.log(response)
+
                 //Messaggi di errore del validatore campi e degli allegati
                 let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
 
                 // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000, '', false);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
@@ -895,24 +940,22 @@ console.log(response)
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         @if(!$is_box)
         {{-- Messaggio di uscita senza salvare dal form --}}

@@ -9,10 +9,11 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +28,7 @@ class ReliefChecksModel extends Model
     protected $table = 'object_relief_checks';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaReliefChecksModel';
     protected string $archiveName = 'relief_checks';
 
     protected string $objectName = 'Controlli e rilievi';
@@ -39,15 +41,21 @@ class ReliefChecksModel extends Model
         'object_structures_id',
         'state',
         'workflow_state',
+        'validation_state',
         'object',
         'date',
         'description',
+        'act_object',
+        'relief_taken',
         'publishing_status',
         'o_id',
         'source_id',
         'number_readings',
         'attachments_id',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -71,6 +79,14 @@ class ReliefChecksModel extends Model
     ];
 
     /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
+    ];
+
+    /**
      * Campi di relazione su cui effettuare la ricerca
      * @var array[]
      */
@@ -85,19 +101,13 @@ class ReliefChecksModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -108,7 +118,7 @@ class ReliefChecksModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -132,6 +142,15 @@ class ReliefChecksModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con le strutture organizzative
      * Rappresenta l'ufficio associato al controllo/rilievo
      * @return BelongsTo
@@ -147,8 +166,10 @@ class ReliefChecksModel extends Model
      */
     public function public_in(): BelongsToMany
     {
-        return $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_relief_check_public_in', 'relief_check_id', 'public_in_id', null, 'section_fo_id')
+        $publicIn = $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_relief_check_public_in', 'relief_check_id', 'public_in_id', null, 'section_fo_id')
             ->withTimestamps();
+
+        return $publicIn;
     }
 
     /**
@@ -188,5 +209,44 @@ class ReliefChecksModel extends Model
     public function public_in_filter(): HasMany
     {
         return $this->hasMany(RelReliefCheckPublicIn::class, 'relief_check_id', 'id');
+    }
+
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query     Query
+     * @param int|null    $structure Id struttura
+     * @param string|null $object    Oggetto controllo
+     * @param int|null    $year      Anno
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        int     $structure = null,
+        string  $object = null,
+        int     $year = null): void
+    {
+        if (!empty($year)) {
+            $query->whereYear('date', '=', $year);
+        }
+
+        if (!empty($object)) {
+            $query->where('object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($structure)) {
+            $query->join('object_structures as structure', 'structure.id', 'object_relief_checks.object_structures_id');
+            $query->where('structure.id', '=', $structure);
+        }
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -44,10 +48,7 @@ class OpenDataChargesFrontController extends BaseFrontController
             die();
 
         } else {
-
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
-
+            setFileDownloadCookie();
         }
 
     }
@@ -72,7 +73,7 @@ class OpenDataChargesFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('obbligo');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -104,7 +105,7 @@ class OpenDataChargesFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('onere');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -145,10 +146,11 @@ class OpenDataChargesFrontController extends BaseFrontController
     {
 
         $fileName = 'Oneri Informativi - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -224,7 +226,7 @@ class OpenDataChargesFrontController extends BaseFrontController
                 // Denominazione
                 !empty($r['title']) ? $r['title'] : null,
                 // Data di scadenza
-                !empty($r['expiration_date']) ? date('d-m-Y', strtotime($r['expiration_date'])) : null,
+                !empty($r['expiration_date']) ? date('d/m/Y', strtotime($r['expiration_date'])) : null,
                 // Descrizione
                 !empty($r['description']) ? S::chartsEntityDecode(S::stripTags($r['description'])) : null,
                 // Procedimenti

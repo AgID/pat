@@ -92,7 +92,7 @@ class AbsenceRatesAdminController extends BaseAuthController
         $response = [];
 
         //Controllo se è una richiesta Ajax e se il datatable è stato validato correttamente
-        if (Input::isAjax() === true && $validator['is_success'] === true) {
+        if (Input::isAjax() && $validator['is_success']) {
 
             $data = [];
 
@@ -104,14 +104,11 @@ class AbsenceRatesAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'structure_name');
+
 
             //Query per i dati da mostrare nel datatable
             $totalRecords = AbsenceRatesModel::select('count(id) as allcount')
@@ -125,26 +122,30 @@ class AbsenceRatesAdminController extends BaseAuthController
                 $totalRecordsWithFilter->orWhere('object_absence_rates.id', '=', $dataTable['searchValue']);
             }
 
+            // Inclusione di librerie esterne
+
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'structure_name');
 
             $records = AbsenceRatesModel::search($dataTable['searchValue'])
                 ->select(['object_absence_rates.id', 'object_absence_rates.updated_at', 'object_absence_rates.owner_id', 'object_absence_rates.institution_id', 'object_structures_id',
-                    'publishing_status', 'year', 'month', 'publishing_status', 'structure_name', 'users.name', 'i.full_name_institution'])
+                    'year', 'month', 'structure_name', 'users.name', 'i.full_name_institution'])
                 ->with('structure:id,structure_name,archived')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_absence_rates.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_absence_rates.owner_id', 'left outer');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_absence_rates.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
             $records = $records->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
                 ->limit($dataTable['rowPerPage'])
@@ -159,6 +160,10 @@ class AbsenceRatesAdminController extends BaseAuthController
             $periods = config('absenceRatesPeriod', null, 'app');
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -189,42 +194,55 @@ class AbsenceRatesAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning(),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/absence-rates/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/absence-rates/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/absence-rates/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/absence-rates/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/absence-rates/show-record-log/'.$record['id']), $record['id'], '4', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/absence-rates/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $tmpStructureName = !empty($record['structure'])
-                        ? ('<a href="' . siteUrl('/page/66/details/' . $record['id'] . '/tassi-di-assenza') . '" target="_blank">' . escapeXss($record['structure']['structure_name']) . '</a>')
+                        ? (($record['structure']['archived']
+                                ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                : ' ') . '<a href="' . siteUrl('/page/66/details/' . $record['id'] . '/tassi-di-assenza') . '" target="_blank">' . escapeXss($record['structure']['structure_name']) . '</a>')
                         : (!empty($record['structure_name']) ? '<a href="' . siteUrl('/page/66/details/' . $record['id'] . '/tassi-di-assenza') . '" target="_blank">' . escapeXss($record['structure_name']) . '</a>' : null);
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $checkBox = (($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '') . $icon;
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $tmpStructureName;
                     $setTempData[] = !empty($record['year']) ? escapeXss($record['year']) : 'N.D.';
                     $setTempData[] = $period;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -233,8 +251,7 @@ class AbsenceRatesAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -273,8 +290,9 @@ class AbsenceRatesAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('absence_rates/form_store', $data, 'admin');
     }
@@ -290,7 +308,7 @@ class AbsenceRatesAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -332,11 +350,15 @@ class AbsenceRatesAdminController extends BaseAuthController
                     'total_absence' => setDefaultData(toFloat(strip_tags((string)Input::post('total_absence', true))), null, ['']),
                 ];
 
+
+
                 // Storage nuovo Tasso di assenza
                 $insert = AbsenceRatesModel::createWithLogs($arrayValues);
 
+
                 // Storage allegati associati al tasso di assenza
                 $attach->storage('attach_files', 'absence_rates', $insert->id);
+
 
                 // Generazione nuovo token
                 Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
@@ -443,9 +465,10 @@ class AbsenceRatesAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $absenceRates['institution_id'];
         $data['seo'] = $absenceRates['p_s_d_r'] ?? null;
+
 
         render('absence_rates/form_store', $data, 'admin');
     }
@@ -478,7 +501,7 @@ class AbsenceRatesAdminController extends BaseAuthController
             $absenceRate = $absenceRate->first();
 
             // Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($absenceRate['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($absenceRate['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -496,17 +519,24 @@ class AbsenceRatesAdminController extends BaseAuthController
             if ($doAction) {
                 $data = [];
                 $structure = StructuresModel::find(strip_tags((int)Input::post('object_structures_id', true)));
-
+                $structureName = !empty($structure->structure_name) ? escapeXss($structure->structure_name) : null;
+                if(empty($structure) && !empty($absenceRate['o_id'])){
+                    $structureName = !empty(Input::post('structure_name')) ? Input::post('structure_name', true) : null;
+                }
                 $data['object_structures_id'] = strip_tags((int)Input::post('object_structures_id', true));
-                $data['structure_name'] = !empty($structure->structure_name) ? escapeXss($structure->structure_name) : null;
+                $data['structure_name'] = $structureName;
                 $data['month'] = strip_tags(implode(",", setDefaultData(Input::post('months', true), null, [''])));
                 $data['year'] = setDefaultData(strip_tags((string)Input::post('year', true)), null, ['']);
                 $data['presence_percentage'] = setDefaultData(toFloat(strip_tags((string)Input::post('presence_percentage', true))), null, ['']);
                 $data['total_absence'] = setDefaultData(toFloat(strip_tags((string)Input::post('total_absence', true))), null, ['']);
+
+
+
                 $absenceRateId = (int)strip_tags(Input::post('id'));
 
                 // Update Tasso di assenza
                 AbsenceRatesModel::where('id', $absenceRateId)->updateWithLogs($absenceRate, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -515,6 +545,7 @@ class AbsenceRatesAdminController extends BaseAuthController
                     strip_tags((int)Input::post('id', true)),
                     $absenceRate['institution_id']
                 );
+
 
                 // Generazione nuovo token
                 Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
@@ -561,6 +592,7 @@ class AbsenceRatesAdminController extends BaseAuthController
         // Delete Tasso di assenza
         $absenceRates->deleteWithLogs($absenceRates);
 
+
         // Generazione nuovo token
         Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
@@ -580,7 +612,7 @@ class AbsenceRatesAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         // Validatore sugli elementi da eliminare
         $validator = new AbsenceRatesValidator();
@@ -607,4 +639,5 @@ class AbsenceRatesAdminController extends BaseAuthController
 
         redirect('/admin/absence-rates');
     }
+
 }

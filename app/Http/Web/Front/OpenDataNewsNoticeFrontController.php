@@ -46,8 +46,7 @@ class OpenDataNewsNoticeFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -74,14 +73,19 @@ class OpenDataNewsNoticeFrontController extends BaseFrontController
 
         $queryContents = NewsNoticesModel::where('start_date', '<=', $tomorrow)
             ->where('end_date', '>', date('Y-m-d H:i:s'))
+            ->filter(
+                Input::get('title', true),
+                Input::get('start_news_date', true),
+                Input::get('end_news_date', true),
+            )
             ->with('attachs')
             ->orderBy('news_date', 'DESC')
             ->orderBy('title', 'DESC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -102,10 +106,11 @@ class OpenDataNewsNoticeFrontController extends BaseFrontController
     {
 
         $fileName = 'News ed avvisi - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(

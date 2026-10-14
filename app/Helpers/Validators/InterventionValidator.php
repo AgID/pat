@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\InterventionsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,20 +37,29 @@ class InterventionValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $institutionId = null): array
     {
+        $nId = 4;
+
         $this->validator->label('ID intervento')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($nId, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $institutionId, $nId) {
 
                 //Recupero l'intervento con l'id passato in input
-                $check = InterventionsModel::where('id', uri()->segment(4, 0))
-                    ->with('measures:id,object,number,date')
-                    ->with('regulations:id,title')
-                    ->first();
+                $check = InterventionsModel::where('id', uri()->segment($nId, 0));
+
+                $check->with('measures:id,object,number,date');
+                $check->with('regulations:id,title');
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
+
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -81,9 +91,9 @@ class InterventionValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -94,11 +104,12 @@ class InterventionValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Nome')
             ->value(Input::post('name'))
@@ -108,7 +119,7 @@ class InterventionValidator
 
         $this->validator->label('Descrizione')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 15000)
             ->end();
 
         if (Input::post('measures')) {
@@ -151,20 +162,31 @@ class InterventionValidator
             ->isNumeric()
             ->end();
 
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $liquidation = InterventionsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = InterventionsModel::where('id', $id);
+
+                    $liquidation = $query->first();
+
                     if (empty($liquidation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Intervento')];
                     }
+
                 })
                 ->end();
+
         }
 
         return [

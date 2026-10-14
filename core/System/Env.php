@@ -1,10 +1,12 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
+
+use Exception;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -15,7 +17,7 @@ class Env
 
     /**
      * @param $path
-     * @throws \Exception
+     * @throws Exception
      */
     public function __construct($path)
     {
@@ -23,11 +25,11 @@ class Env
         $this->path = $path;
 
         if (!file_exists($this->path)) {
-            throw new \Exception(sprintf('file "%s" not found!', $this->path));
+            throw new Exception(sprintf('file "%s" not found!', $this->path));
         }
 
         if (!is_readable($this->path)) {
-            throw new \Exception(sprintf('%s file is not readable', $this->path));
+            throw new Exception(sprintf('%s file is not readable', $this->path));
         }
 
         $this->loadFileEnv();
@@ -36,12 +38,12 @@ class Env
     /**
      * @description includo il file .ENV
      * @param $path
-     * @return static
-     * @throws \Exception
+     * @return self
+     * @throws Exception
      */
-    public static function load($path = null)
+    public static function load($path = null): self
     {
-        return new static($path);
+        return new self($path);
     }
 
 
@@ -49,7 +51,7 @@ class Env
      * @description Carico e parso il file .env
      * @return void
      */
-    private function loadFileEnv()
+    private function loadFileEnv(): void
     {
         $getLines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 

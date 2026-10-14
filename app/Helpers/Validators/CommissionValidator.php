@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\CommissionsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -37,45 +38,51 @@ class CommissionValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID commissione')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la commissione con l'id passato in input
-                $check = CommissionsModel::select()
-                    ->where('id', uri()->segment(4, 0))
-                    ->with(['president' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'email', 'role_id', 'title', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'object_personnel.role_id', 'left outer');
-                    }])
-                    ->with(['vicepresidents' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'title', 'email', 'role_id', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'role_id', 'left outer');
-                    }])
-                    ->with(['secretaries' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'role_id', 'left outer');
-                    }])
-                    ->with(['substitutes' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'role_id', 'left outer');
-                    }])
-                    ->with(['members' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'role_id', 'left outer');
-                    }])
-                    ->first();
+                $check = CommissionsModel::select();
+                $check->where('id', (int)uri()->segment($uriSegment, 0));
+                $check->with('management_structure:id,structure_name');
+                $check->with('non_management_structure:id,structure_name');
+                $check->with(['president' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'email', 'role_id', 'title', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'object_personnel.role_id', 'left outer');
+                }]);
+                $check->with(['vicepresidents' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'title', 'email', 'role_id', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'role_id', 'left outer');
+                }]);
+                $check->with(['secretaries' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'role_id', 'left outer');
+                }]);
+                $check->with(['substitutes' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'role_id', 'left outer');
+                }]);
+                $check->with(['members' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'role_id', 'left outer');
+                }]);
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'commissione ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -100,12 +107,12 @@ class CommissionValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
         if ($mode == 'archiving') {
             return $this->archivingValidate();
         } else {
-            return $this->validate($mode);
+            return $this->validate($mode, $institutionId);
         }
     }
 
@@ -154,6 +161,12 @@ class CommissionValidator
             ->end();
 
 
+        $this->validator->label('Data di inizio pubblicazione')
+            ->value(Input::post('start_date'))
+            ->required()
+            ->isDate('Y-m-d')
+            ->end();
+
         $this->validator->label('Data di fine pubblicazione in archivio')
             ->value(Input::post('end_date'))
             ->required()
@@ -164,6 +177,14 @@ class CommissionValidator
                     return ['error' => __('invalid_archive_date', null, 'patos')];
 
                 }
+
+                $startYear = (int)explode('-', Input::post('start_date'))[0];
+                $endYear = !empty(Input::post('end_date')) ? (int)explode('-', Input::post('end_date'))[0] : null;
+
+                if (!empty($endYear) && !empty($startYear) && ($endYear - $startYear) <= 5) {
+                    return ['error' => __('invalid_publishing_diff', null, 'patos')];
+                }
+
                 return null;
             })
             ->end();
@@ -183,13 +204,13 @@ class CommissionValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->label('Nome')
             ->value(Input::post('name'))
             ->required()
-            ->betweenString(4, 60)
+            ->betweenString(4, 200)
             ->end();
 
         $this->validator->label('Tipo')
@@ -197,6 +218,33 @@ class CommissionValidator
             ->required()
             ->in('commissione,gruppo consiliare')
             ->end();
+
+        $this->validator->label('Competenze')
+            ->value(trim((string)Input::post('skills', true)))
+            ->required()
+            ->betweenString(10, 7500)
+            ->end();
+
+
+        if (!empty(Input::post('management_structure'))) {
+            foreach (explode(',', (string)Input::post('management_structure')) as $structure) {
+                $this->validator->label('Struttura ' . $structure)
+                    ->value($structure)
+                    ->isInt()
+                    ->isNaturalNoZero()
+                    ->end();
+            }
+        }
+
+        if (!empty(Input::post('non_management_structure'))) {
+            foreach (explode(',', (string)Input::post('non_management_structure')) as $structure) {
+                $this->validator->label('Struttura ' . $structure)
+                    ->value($structure)
+                    ->isInt()
+                    ->isNaturalNoZero()
+                    ->end();
+            }
+        }
 
         $this->validator->label('Presidente o capogruppo')
             ->value(Input::post('president_id'))
@@ -206,13 +254,13 @@ class CommissionValidator
 
         $this->validator->label('Testo di descrizione')
             ->value(Input::post('description'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 25000)
             ->end();
 
         $this->validator->label('Recapito email')
             ->value(Input::post('email'))
             ->isEmail()
-            ->betweenString(2, 40)
+            ->betweenString(2, 50)
             ->end();
 
         $this->validator->label('Recapito telefonico fisso')
@@ -231,6 +279,10 @@ class CommissionValidator
             ->value(Input::post('address'))
             ->betweenString(5, 80)
             ->end();
+
+
+
+
 
         $this->validator->label('Attiva dal')
             ->value(Input::post('activation_date'))
@@ -308,20 +360,28 @@ class CommissionValidator
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $commission = CommissionsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = CommissionsModel::where('id', $id);
+
+                    $commission = $query->first();
+
                     if (empty($commission)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Commissione/Gruppo consiliare')];
                     }
+
+                    return null;
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

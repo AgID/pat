@@ -9,10 +9,11 @@ namespace Helpers\Validators;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
-use Model\ContestsActsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
+use Model\ContestsActsModel;
 
 /**
  * Validator per l'oggetto Esito/Affidamento (object_contests_acts)
@@ -32,46 +33,58 @@ class FosterValidator
     /**
      * Controlla la validità dell'ID nell'URI segment e se esiste un esito/affidamento con quell'ID per l'ente
      *
-     * @param null $checkOwner Indica se controllare il proprietario del record
+     * @param null $checkOwner    Indica se controllare il proprietario del record
+     * @param int  $uriSegment
+     * @param null $institutionId
+     * @param null $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID esito/affidamento')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero l'esito con l'id passato in input
-                $check = ContestsActsModel::where('typology', 'foster')
-                    ->where('id', uri()->segment(4, 0))
-                    ->with('relative_procedure:id,object,type,cig,activation_date,expiration_date')
-                    ->with('relative_measure:id,object,number,date')
-                    ->with('participants:id,name,vat,type')
-                    ->with('awardees:id,name,vat,type')
-                    ->with('requirements')
-                    ->with(['structure' => function ($query) {
+                $check = ContestsActsModel::where('typology', 'foster');
+                $check->where('id', uri()->segment($uriSegment, 0));
+                $check->with('relative_procedure:id,object,type,cig,activation_date,expiration_date');
+                $check->with('relative_measure:id,object,number,date');
+                $check->with('participants:id,name,vat,type');
+                $check->with('awardees:id,name,vat,type');
+                $check->with('requirements');
+                $check->with([
+                    'structure' => function ($query) {
                         $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.reference_email', 'object_structures.structure_of_belonging_id', 'parent.structure_name as parent_name'])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->with(['rup' => function ($query) {
+                    }
+                ]);
+                $check->with([
+                    'rup' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'object_personnel.role_id');
-                    }])
-                    ->with(['public_in' => function ($query) {
+                    }
+                ]);
+                $check->with([
+                    'public_in' => function ($query) {
                         $query->select(['public_in_id', 'contest_act_id', 'section_fo.name'])
                             ->join('section_fo', 'section_fo.id', '=', 'public_in_id');
-                    }])
-                    ->first();
+                    }
+                ]);
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'esito/affidamento ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -92,28 +105,31 @@ class FosterValidator
     /**
      * Metodo che esegue la validazione dei campi del form
      *
-     * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param string   $mode          Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId indica l'id dell'istituto
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
      * Metodo per la validazione dei campi del form
      *
-     * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param string $mode          Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int    $institutionId
      * @return array
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      * @noinspection DuplicatedCode
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('ANAC - Anno di riferimento')
             ->value(Input::post('anac_year'))
@@ -124,6 +140,11 @@ class FosterValidator
         $this->validator->label('Oggetto')
             ->value(Input::post('object'))
             ->required()
+            ->betweenString(1, 1000)
+            ->end();
+
+        $this->validator->label('Link alla Banca Dati Nazionale Contratti Pubblici (BDNCP)')
+            ->value(Input::post('bdncp_link'))
             ->betweenString(1, 250)
             ->end();
 
@@ -136,8 +157,10 @@ class FosterValidator
         $this->validator->label('Codice CIG')
             ->value(Input::post('cig'))
             ->exactLength(10)
-            ->isAlphaNum()
-            ->end();
+            ->isAlphaNum();
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+        $this->validator->end();
 
         $this->validator->label('Errore CIG')
             ->value(Input::post('__ignore_cig'))
@@ -161,8 +184,10 @@ class FosterValidator
 
         $this->validator->label('Valore Importo dell\'appalto')
             ->value(Input::post('award_amount_value'))
-            ->isNumeric()
-            ->end();
+            ->isNumeric();
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+        $this->validator->end();
 
         if (Input::post('public_in')) {
             foreach (Input::post('public_in') as $in) {
@@ -176,11 +201,14 @@ class FosterValidator
 
         $this->validator->label('Valore Importo di aggiudicazione')
             ->value(Input::post('asta_base_value'))
-            ->isNumeric()
-            ->end();
+            ->isNumeric();
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+        $this->validator->end();
+
 
         if (Input::post('participants')) {
-            foreach (explode(',', (string)Input::post('participants')) as $participant) {
+            foreach (explode(',', (string) Input::post('participants')) as $participant) {
                 $this->validator->label('Partecipante alla gara ' . $participant)
                     ->value($participant)
                     ->isInt()
@@ -189,8 +217,11 @@ class FosterValidator
             }
         }
 
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+
         if (Input::post('awardees')) {
-            foreach (explode(',', (string)Input::post('awardees')) as $awardee) {
+            foreach (explode(',', (string) Input::post('awardees')) as $awardee) {
                 $this->validator->label('Aggiudicatario della gara ' . $awardee)
                     ->value($awardee)
                     ->isInt()
@@ -209,7 +240,7 @@ class FosterValidator
         $this->validator->label('Amministrazione aggiudicatrice')
             ->value(Input::post('adjudicator_name'))
             ->required()
-            ->betweenString(4, 120)
+            ->betweenString(2, 120)
             ->end();
 
         $this->validator->label('Codice Fiscale Amministrazione aggiudicatrice')
@@ -276,7 +307,7 @@ class FosterValidator
             ->value($activationData)
             ->required()
             ->isDate('Y-m-d H:i')
-            ->add(function () use ($activationData){
+            ->add(function () use ($activationData) {
                 if ($activationData < Input::post('act_date')) {
 
                     return ['error' => __('invalid_end_date_publication_2', null, 'patos')];
@@ -293,8 +324,10 @@ class FosterValidator
 
         $this->validator->label('Data di effettivo inizio dei lavori, servizi o forniture')
             ->value(Input::post('work_start_date'))
-            ->isDate('Y-m-d')
-            ->end();
+            ->isDate('Y-m-d');
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+        $this->validator->end();
 
         $this->validator->label('Data di ultimazione dei lavori, servizi o forniture')
             ->value(Input::post('work_end_date'))
@@ -306,8 +339,10 @@ class FosterValidator
 
                 }
                 return null;
-            })
-            ->end();
+            });
+        $this->validator = $this->validator ?? null;
+        $this->validator = $this->validator ?? null;
+        $this->validator->end();
 
         $this->validator->label('Aggiudicazione appalto - Data di pubblicazione sulla G.U.U.E.')
             ->value(Input::post('guue_date'))
@@ -383,7 +418,7 @@ class FosterValidator
 
         $this->validator->label('Note')
             ->value(Input::post('details'))
-            ->betweenString(2, 1000)
+            ->betweenString(2, 8000)
             ->end();
 
         $this->validator->label('Provvedimento')
@@ -392,22 +427,30 @@ class FosterValidator
             ->isNaturalNoZero()
             ->end();
 
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id', true, true, true, ['int']);
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $foster = ContestsActsModel::where('id', Input::post('id'))->first();
-                    if (empty($foster)) {
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = ContestsActsModel::where('id', $id);
+
+                    $result = $query->first();
+
+                    if (empty($result)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Esito/Affidamento')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

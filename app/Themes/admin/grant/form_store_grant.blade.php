@@ -39,15 +39,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             {{-- Campo Oggetto --}}
                             <div class="form-group" id="input_object">
@@ -79,12 +94,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Dati fiscali non disponibili --}}
                                 <div class="form-group col-md-6">
                                     <label for="fiscal_data_not_available">Dati fiscali non disponibili</label>
-                                    <div class="select2-blue" id="input_fiscal_data_not_available">
+                                    <div id="input_fiscal_data_not_available">
                                         {{ form_dropdown(
                                             'fiscal_data_not_available',
                                             [0=>'No',1=>'Si'],
                                             @$grant['fiscal_data_not_available'],
-                                            'class="form-control select2-fiscal_data_not_available" style="width: 100%;"'
+                                            'class="ts-fiscal_data_not_available" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -108,12 +123,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-7">
                                     <label for="privacy">Omissis (Privacy)</label>
-                                    <div class="select2-blue" id="input_privacy">
+                                    <div id="input_privacy">
                                         {{ form_dropdown(
                                             'privacy',
                                             [0=>'No',1=>'Si'],
                                             @$grant['privacy'],
-                                            'class="form-control select2-privacy" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-privacy" style="width: 100%;"'
                                         ) }}
                                         <small class="form-text text-muted">
                                             (
@@ -223,12 +238,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="normatives">Normativa alla base dell'attribuzione</label>
-                                    <div class="select2-blue" id="input_normatives">
+                                    <div id="input_normatives">
                                         {{ form_dropdown(
                                             'normatives[]',
                                             '',
                                             '',
-                                            'class="form-control select2-normatives" multiple="multiple" data-placeholder="Seleziona o cerca normativa..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-normatives" multiple="multiple" data-placeholder="Seleziona o cerca normativa..." style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -248,12 +263,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Regolamento alla base dell'attribuzione --}}
                                 <div class="form-group col-md-9">
                                     <label for="object_regulations_id">Regolamento alla base dell'attribuzione</label>
-                                    <div class="select2-blue" id="input_regulation">
+                                    <div id="input_regulation">
                                         {{ form_dropdown(
                                             'object_regulations_id',
                                             ['' => ''],
                                             @$grant['object_regulations_id'],
-                                            'class="select2-object_regulations_id" data-dropdown-css-class="select2-blue" style="width: 100%; height: unset;"'
+                                            'class="ts-object_regulations_id" style="width: 100%; height: unset;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -292,7 +307,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
 
+                            {{-- Campo Inserisci link a Normattiva --}}
+                            <div class="form-group" id="input_project_link">
+                                <label for="project_link">Link al progetto</label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                    </div>
+                                    {{ form_input([
+                                    'name' => 'project_link',
+                                    'value' => !empty($grant['project_link']) ? $grant['project_link'] : null,
+                                    'placeholder' => 'https://www.',
+                                    'id' => 'input_project_link',
+                                    'class' => 'form-control input_project_link',
+                                ]) }}
+                                </div>
+                            </div>
+
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -300,11 +335,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -356,6 +394,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -376,23 +415,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- In fase di modifica nascondo i dati fiscali, in caso non siano disponibili e viceversa --}}
         @if(empty($grant['fiscal_data_not_available']) || $grant['fiscal_data_not_available'] === 0)
@@ -401,35 +439,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         document.getElementById("fiscal_data").style.display = "none";
         @endif
 
-        {{-- Per dati fiscali non disponibile --}}
-        $('#input_fiscal_data_not_available').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'Si') {
-                document.getElementById("fiscal_data").style.display = "none";
-            } else if (data.text === 'No') {
-                document.getElementById("fiscal_data").style.display = "block";
+        {{-- Begin creazione campi TomSelect --}}
+        {{-- Campo TomSelect Dati fiscali non disponibili --}}
+        new TomSelect('.ts-fiscal_data_not_available', {
+            ...TS_SINGLE_PRESELECT,
+            onChange(value) {
+                if (value === '1') {
+                    document.getElementById("fiscal_data").style.display = "none";
+                } else if (value === '0') {
+                    document.getElementById("fiscal_data").style.display = "block";
+                }
             }
         });
 
-        {{-- Begin creazione campi select --}}
-        {{-- Campo select Dati fiscali non disponibili --}}
-        let $dropdownFiscalData = $('.select2-fiscal_data_not_available');
-        $dropdownFiscalData.select2({
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Campo select Omissis --}}
-        let $dropdownOmissis = $('.select2-privacy');
-        $dropdownOmissis.select2({
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        {{-- Campo TomSelect Omissis --}}
+        new TomSelect('.ts-privacy', TS_SINGLE_PRESELECT);
 
         // Tabella per la selezione della struttura organizzativa responsabile
         let structure = $('#ajax_structure').patOsAjaxPagination({
@@ -441,6 +465,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($grant['structure']) ? implode(",",array_column($grant['structure'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -458,8 +484,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($grant['structure']))
-        structure.patOsAjaxPagination.setValue('{{ $grant['object_structures_id'] }}', '{{ htmlEscape($grant['structure']['structure_name']).(!empty($grant['structure']['parent_name'])?' - '.htmlEscape($grant['structure']['parent_name']):'').(!empty($grant['structure']['reference_email'])?' - '.$grant['structure']['reference_email']:'') }}', true);
+        @if(!empty($grant['structure']))
+        structure.patOsAjaxPagination.setValue('{{ $grant['structure']['id'] }}', '{{ htmlEscape($grant['structure']['structure_name']).(!empty($grant['structure']['parent_name'])?' - '.htmlEscape($grant['structure']['parent_name']):'').(!empty($grant['structure']['reference_email'])?' - '.$grant['structure']['reference_email']:'') }}', true);
         @endif
 
         // Tabella per la selezione dei vice-presidenti della commissione(da archivio del personale)
@@ -496,145 +522,52 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endforeach
         @endif
 
-        {{-- Begin Select2 campo "Normativa alla base dell'attribuzione" --}}
-        let $dropdownNormative = $('.select2-normatives');
-        $dropdownNormative.select2({
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 12,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_normativeIds').val(),
-                model: 12,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
+        createAjaxTomSelect({
+            selector: '.ts-normatives',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_normativeIds',
+            model: 12,
+            institutionId,
+            placeholder: 'Seleziona o cerca normativa...',
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+            onError: function () {
                 createValidatorFormErrorToast(
                     'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
                     5000,
                     'Validatore select'
                 );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownNormative.append(option).trigger('change');
             }
         });
-        @endif
-        {{-- End Select2 campo "Normativa alla base dell'attribuzione" --}}
 
-        {{-- Begin Select2 campo "Regolamento alla base dell'attribuzione" --}}
-        let $dropdownRegulation = $('.select2-object_regulations_id');
-        $dropdownRegulation.select2({
-            placeholder: 'Seleziona o cerca regolamento....',
-            allowClear: true,
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 10,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
+        const regulationTomSelect = createAjaxTomSelect({
+            selector: ".ts-object_regulations_id",
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: "#_object_regulations_id",
+            model: 10,
+            institutionId,
+            maxItems: 1,
+            placeholder: "Seleziona o cerca regolamento...",
+            loadSelected: <?php echo (in_array($_storageType, ['update', 'duplicate']) && !empty($grant['object_regulations_id'])) ? 'true' : 'false' ?>,
+            onChange(value) {
+                const button = document.getElementById("btn_addRegulation");
+
+                if (!button) {
+                    return;
+                }
+                if (value) {
+                    button.dataset.url = '{{ baseUrl('admin/regulation/edit-box/') }}' + value;
+                    button.innerHTML = 'Modifica &nbsp; <i class="far fa-edit"></i>';
+                } else {
+                    button.dataset.url = '{{ siteUrl('admin/regulation/create-box') }}';
+                    button.innerHTML = 'Aggiungi nuovo &nbsp; <i class="fas fa-plus-circle"></i>';
+                }
+            },
+            onError() {
+                createValidatorFormErrorToast("Ops c'è un problema. Si prega di contattare l'assistenza clienti.", 5000, "Validatore select");
             }
         });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_object_regulations_id').val(),
-                model: 10,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownRegulation.append(option).trigger('change');
-            }
-        });
-        @endif
-
-        /**
-         * Metodo che viene chiamato quando si pulisce la select2.
-         * Cambia il testo e l'azione del pulsante, settandoli per l'aggiunta di un nuovo elemento
-         */
-        $dropdownRegulation.on('select2:clearing', function (e) {
-            $('#btn_addRegulation').attr('data-url', '{{ siteUrl('admin/regulation/create-box') }}')
-            $('#btn_addRegulation').empty().append('Aggiungi nuovo &nbsp; <i class="fas fa-plus-circle"></i>');
-        });
-
-        /**
-         * Metodo che viene chiamato quando si seleziona una voce nella select2.
-         * Cambia il testo e l'azione del pulsante, settandoli per la modifica dell'elemento selezionato
-         */
-        $dropdownRegulation.on('select2:selecting', function (e) {
-            $('#btn_addRegulation').attr('data-url', '{{ baseUrl('admin/regulation/edit-box/') }}' + e.params.args.data.id);
-            $('#btn_addRegulation').empty().append('Modifica &nbsp; <i class="far fa-edit"></i>');
-        });
-        {{-- End Select2 campo "Regolamento alla base dell'attribuzione" --}}
-
-        {{-- END CREAZIONE CAMPI SELECT --}}
 
         {{-- Begin creazione campi CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -643,8 +576,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_detection_mode');
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_detection_mode', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -681,6 +618,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -698,6 +636,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 createValidatorFormErrorToast(msg, 6000, '', false);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
+
             }
         });
         {{-- End salvataggio --}}
@@ -718,11 +657,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

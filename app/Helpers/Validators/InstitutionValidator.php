@@ -9,9 +9,11 @@ namespace Helpers\Validators;
 use Exception;
 use Model\InstitutionLinksModel;
 use Model\InstitutionsModel;
+use System\Database;
 use System\Input;
 use System\Registry;
 use System\Validator;
+use function Symfony\Component\Translation\t;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -97,22 +99,10 @@ class InstitutionValidator
             ->betweenString(2, 191)
             ->end();
 
-        if (isSuperAdmin(true) && (uri()->segment('4') || uri()->segment('3') == 'create' || uri()->segment('3') == 'store')) {
-            $this->validator->label('Nome breve ente')
-                ->value(Input::post('short_institution_name'))
-                ->required()
-                ->betweenString(2, 50)
-                ->end();
-        }
+
 
         $this->validator->label('Tipo Ente')
             ->value(Input::post('institution_type_id'))
-            ->isInt()
-            ->isNaturalNoZero()
-            ->end();
-
-        $this->validator->label('Limite richieste per minuto chiamate API')
-            ->value(Input::post('limits_call_api'))
             ->isInt()
             ->isNaturalNoZero()
             ->end();
@@ -128,37 +118,47 @@ class InstitutionValidator
             })
             ->end();
 
+
+        $this->validator->label('Codice fiscale')
+            ->value(Input::post('fiscal_code'));
+
+
+        $this->validator->add(function () {
+            $fcCheck = new VatRule(Input::post('fiscal_code'));
+            //NON utilizzare FiscalCodeRule::class perchè funziona solo per i codici fiscali di persone fisiche
+            if (!$fcCheck->isValidate()) {
+                return ['error' => __('fiscal_code_error_generic', null, 'patos')];
+            }
+
+            $checkExist = InstitutionsModel::query()->where('fiscal_code', Input::post('fiscal_code'));
+
+            //controllo se esiste un altro ente con lo stesso codice fiscale
+            if (Input::post('_storage_type') == 'update') {
+                $checkExist = $checkExist->where('id', '!=', (int) Input::post('id'));
+            }
+
+            $checkExist = $checkExist->first();
+
+            if (!empty($checkExist)) {
+                return ['error' => __('fiscal_code_exist', null, 'patos')];
+            }
+        })->end();
+
         $this->validator->label('Indirizzo email normale')
             ->value(Input::post('email_address'))
             ->required()
             ->isEmail()
-            ->add(function () {
-                $emailExist = InstitutionsModel::where('id', '!=', Input::post('id'))
-                    ->where('email_address', Input::post('email_address'))->first();
-                if (!empty($emailExist)) {
-                    return ['error' => __('email_exist', null, 'patos')];
-                }
-                return null;
-            })
             ->end();
 
         $this->validator->label('Indirizzo email certificata')
             ->value(Input::post('certified_email_address'))
             ->required()
-            ->isEmail()
-            ->add(function () {
-                $pecExist = InstitutionsModel::where('id', '!=', Input::post('id'))
-                    ->where('certified_email_address', Input::post('certified_email_address'))->first();
-                if (!empty($pecExist)) {
-                    return ['error' => __('certified_email_exist', null, 'patos')];
-                }
-                return null;
-            })
+            ->isEmailRelaxed()
             ->end();
 
         $this->validator->label('Ente di appartenenza')
             ->value(Input::post('certified_email_address'))
-            ->betweenString(5, 60)
+            ->betweenString(5, 500)
             ->end();
 
         $this->validator->label('URL ente di appartenenza')
@@ -199,9 +199,9 @@ class InstitutionValidator
             ->betweenString(4, 191)
             ->end();
 
-        $this->validator->label('Albo Online - ID Ente')
-            ->value(Input::post('online_register_id'))
-            ->isInt()
+        $this->validator->label('Etichetta Url Albo Pretorio')
+            ->value(trim((string)Input::post('bulletin_board_url_name')))
+            ->betweenString(4, 25)
             ->end();
 
         $this->validator->label('Supporto cliente')
@@ -219,29 +219,26 @@ class InstitutionValidator
             ->isInt()
             ->end();
 
-        $this->validator->label('Visualizzazione tabellare degli Organi di ind. politico')
-            ->value(Input::post('tabular_display_org_ind_pol'))
-            ->in('0,1')
-            ->end();
-
         $this->validator->label('Mostra la data di ultimo aggiornamento dei contenuti')
             ->value(Input::post('show_update_date'))
             ->in('0,1')
             ->end();
+
+        if (!empty(Input::post('qualifications'))) {
+            foreach (Input::post('qualifications') as $qualification) {
+                $this->validator->label('Qualifica')
+                    ->value($qualification)
+                    ->betweenString(1, 90)
+                    ->end();
+            }
+        }
 
         $this->validator->label('Mostra Norma associata alla Struttura organizzativa')
             ->value(Input::post('show_regulation_in_structure'))
             ->in('0,1')
             ->end();
 
-        if(isSuperAdmin()) {
-            $this->validator->label('Url portale PAT')
-                ->value(Input::post('trasparenza_urls'))
-                ->required()
-                ->isUrl(null, true)
-                ->betweenString(5, 200)
-                ->end();
-        }
+
 
         $this->validator->label('Comune')
             ->value(Input::post('address_city'))
@@ -294,51 +291,200 @@ class InstitutionValidator
             ->maxLength(10000)
             ->end();
 
-        $this->validator->label('Testo nel footer')
-            ->value(Input::post('footer_text'))
+        $this->validator->label('Testo iniziale homepage')
+            ->value(Input::post('welcome_text'))
             ->minLength(12)
-            ->maxLength(1000)
+            ->maxLength(10000)
+            ->end();
+
+        $this->validator->label('Codice di monitoraggio statistiche')
+            ->value(Input::post('statistics_tracking_code'))
+            ->regex("/<script\b[^>]*>(.*?)<\/script>/is", 'Codice statistiche non valido! Il codice javascript deve essere inserito comprensivo del tag "script"')
             ->end();
 
         $this->validator->label('Testo accessibilità')
             ->value(htmlEscape(Input::post('accessibility_text')))
             ->minLength(12)
-            ->maxLength(1000)
+            ->maxLength(10000)
             ->end();
 
-        $this->validator->label('SMTP - Username')
-            ->value(Input::post('smtp_username'))
+        $senderType = (int) Input::post('sender_type_mailer');
+
+        if ($senderType === 0) {
+            $this->validator->label('SMTP - Username')
+                ->value(Input::post('smtp_username'))
+                ->betweenString(2, 40)
+                ->end();
+
+            $this->validator->label('SMTP - From')
+                ->value(Input::post('smtp_from'))
+                ->isEmail()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('SMTP - Password')
+                ->value(Input::post('smtp_password'))
+                ->end();
+
+            $this->validator->label('SMTP - Indirizzo server')
+                ->value(Input::post('smtp_host'))
+                ->isUri()
+                ->betweenString(4, 191)
+                ->end();
+
+            $this->validator->label('SMTP - Porta')
+                ->value(Input::post('smtp_port'))
+                ->isInt()
+                ->isNaturalNoZero()
+                ->end();
+
+            $this->validator->label('SMTP - SSL')
+                ->value(Input::post('smtp_security'))
+                ->in('no,ssl,tls')
+                ->end();
+
+            $this->validator->label('SMTP - Usa autenticazione')
+                ->value(Input::post('show_smtp_auth'))
+                ->in('1,2')
+                ->end();
+        } elseif ($senderType === 1) {
+            // SMTP Microsoft 365
+            $this->validator->label('Microsoft SMTP - Username')
+                ->value(Input::post('ms_smtp_username'))
+                ->required()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('Microsoft SMTP - Password')
+                ->value(Input::post('ms_smtp_password'))
+                ->end();
+
+            $this->validator->label('Microsoft SMTP - Tenant ID')
+                ->value(Input::post('ms_smtp_tenant_id'))
+                ->required()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('Microsoft SMTP - Client ID')
+                ->value(Input::post('ms_smtp_client_id'))
+                ->required()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('Microsoft SMTP - Client Secret')
+                ->value(Input::post('ms_smtp_client_secret'))
+                ->end();
+
+        } elseif ($senderType === 2) {
+            // Microsoft Azure Communication Services (ACS)
+            $this->validator->label('ACS - Sender Email')
+                ->value(Input::post('ms_acs_sender_email'))
+                ->required()
+                ->isEmail()
+                ->end();
+
+            $this->validator->label('ACS - Endpoint')
+                ->value(Input::post('ms_acs_endpoint'))
+                ->required()
+                ->isUrl(null, true)
+                ->end();
+
+            $this->validator->label('ACS - Access Key')
+                ->value(Input::post('ms_acs_access_key'))
+                ->end();
+
+        } elseif ($senderType === 3) {
+            // Microsoft Graph
+            $this->validator->label('Graph - Email')
+                ->value(Input::post('ms_graph_email'))
+                ->required()
+                ->isEmail()
+                ->end();
+
+            $this->validator->label('Graph - Tenant ID')
+                ->value(Input::post('ms_graph_tenant_id'))
+                ->required()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('Graph - Client ID')
+                ->value(Input::post('ms_graph_client_id'))
+                ->required()
+                ->betweenString(2, 191)
+                ->end();
+
+            $this->validator->label('Graph - Client Secret')
+                ->value(Input::post('ms_graph_client_secret'))
+                ->end();
+        }
+
+        $this->validator = $this->validator ?? null;
+
+        // Validazione configurazione PEC (Sempre SMTP Classico)
+        $this->validator->label('PEC SMTP - Username')
+            ->value(Input::post('pec_smtp_username'))
             ->betweenString(2, 40)
             ->end();
 
-        $this->validator->label('SMTP - Password')
-            ->value(Input::post('smtp_password'))
-            ->add(function () {
-                return checkPassword(Input::post('smtp_password'));
-            })
+        $this->validator->label('PEC SMTP - From')
+            ->value(Input::post('pec_smtp_from'))
+            ->isEmail()
+            ->betweenString(2, 191)
             ->end();
 
-        $this->validator->label('SMTP - Indirizzo server')
-            ->value(Input::post('smtp_host'))
+        $this->validator->label('PEC SMTP - Password')
+            ->value(Input::post('pec_smtp_password'))
+            ->end();
+
+        $this->validator->label('PEC SMTP - Indirizzo server')
+            ->value(Input::post('pec_smtp_host'))
             ->isUri()
             ->betweenString(4, 191)
             ->end();
 
-        $this->validator->label('SMTP - Porta')
-            ->value(Input::post('smtp_port'))
+        $this->validator->label('PEC SMTP - Porta')
+            ->value(Input::post('pec_smtp_port'))
             ->isInt()
             ->isNaturalNoZero()
             ->end();
 
-        $this->validator->label('SMTP - SSL')
-            ->value(Input::post('smtp_security'))
-            ->in('no,SSL,TLS')
+        $this->validator->label('PEC SMTP - SSL')
+            ->value(Input::post('pec_smtp_security'))
+            ->in('no,ssl,tls')
             ->end();
 
-        $this->validator->label('SMTP - Usa autenticazione')
-            ->value(Input::post('show_smtp_auth'))
+        $this->validator->label('PEC SMTP - Usa autenticazione')
+            ->value(Input::post('pec_show_smtp_auth'))
             ->in('1,2')
             ->end();
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        $this->validator = $this->validator ?? null;
+
+        foreach (config('field_global_social', null, 'app') as $key => $item) {
+
+            $this->validator->label($item['label'])
+                ->value(Input::post($key))
+                ->isUrl(null, true)
+                ->end();
+        }
+
+        $this->validator = $this->validator ?? null;
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -354,18 +500,50 @@ class InstitutionValidator
      */
     public function validateSMTP(): array
     {
-        $this->validator->verifyToken()
-            ->end();
+        //        $this->validator->verifyToken()
+        //            ->end();
 
         $this->validator->label('SMTP - Username')
-            ->value(Input::post('smtp_user'))
-            ->required()
+            ->value(Input::post('smtp_username'))
+            //            ->required()
             ->betweenString(2, 50)
             ->end();
 
+        /*
+         * Il mittente serve a prescindere dall'autenticazione, che riguarda l'accesso al
+         * server e non l'intestazione del messaggio: senza uno username in forma di
+         * indirizzo email il campo "From" diventa l'unica fonte possibile. La richiesta
+         * vale solo per chi sta effettivamente configurando questa sezione, cioe' quando
+         * almeno un parametro e' compilato.
+         */
+        $smtpSezioneCompilata = normalizeSmtpValue((string)Input::post('smtp_username')) !== ''
+            || normalizeSmtpValue((string)Input::post('smtp_password')) !== ''
+            || normalizeSmtpHost((string)Input::post('smtp_host')) !== ''
+            || normalizeSmtpValue((string)Input::post('smtp_port')) !== '';
+        $smtpFromRichiesto = mailFromRichiesto(
+            Input::post('smtp_username'),
+            Input::post('smtp_from'),
+            $smtpSezioneCompilata
+        );
+        $smtpFromValidator = $this->validator->label('SMTP - From')
+            ->value(Input::post('smtp_from'));
+
+        if ($smtpFromRichiesto) {
+            $smtpFromValidator->required(
+                'Il campo "SMTP - From" e\' obbligatorio quando lo username non e\' un indirizzo '
+                . 'email utilizzabile come mittente: senza di esso le notifiche non potrebbero '
+                . 'essere inviate.'
+            );
+        }
+
+        $smtpFromValidator
+            ->isEmail()
+            ->betweenString(2, 191)
+            ->end();
+
         $this->validator->label('SMTP - Password')
-            ->value(Input::post('smtp_pass'))
-            ->required()
+            ->value(Input::post('smtp_password'))
+            //            ->required()
             ->betweenString(2, 32)
             ->end();
 
@@ -383,17 +561,102 @@ class InstitutionValidator
 
         $this->validator->label('SMTP - SSL')
             ->value(Input::post('smtp_security'))
-            ->required()
-            ->in('no,SSL,TLS')
+            //            ->required()
+            ->in('no,ssl,tls')
             ->end();
 
         $this->validator->label('SMTP - Usa autenticazione')
             ->value(Input::post('smtp_auth'))
-            ->required()
+            //            ->required()
             ->isInt()
             ->in('1,2')
             ->end();
 
+
+        $this->validator->label('Email di test')
+            ->value(Input::post('email'))
+            ->required()
+            ->isEmail()
+            ->end();
+
+        return [
+            'is_success' => $this->validator->isSuccess(),
+            'errors' => $this->validator->getErrorsHtml()
+        ];
+    }
+
+    /**
+     * Metodo per la validazione dei campi del form PEC
+     *
+     * @return array
+     * @throws Exception
+     */
+    public function validatePecSMTP(): array
+    {
+        $this->validator->label('PEC SMTP - Username')
+            ->value(Input::post('pec_smtp_username'))
+            ->betweenString(2, 50)
+            ->end();
+
+        /*
+         * Il mittente serve a prescindere dall'autenticazione, che riguarda l'accesso al
+         * server e non l'intestazione del messaggio: senza uno username in forma di
+         * indirizzo email il campo "From" diventa l'unica fonte possibile. La richiesta
+         * vale solo per chi sta effettivamente configurando questa sezione, cioe' quando
+         * almeno un parametro e' compilato.
+         */
+        $pecSezioneCompilata = normalizeSmtpValue((string)Input::post('pec_smtp_username')) !== ''
+            || normalizeSmtpValue((string)Input::post('pec_smtp_password')) !== ''
+            || normalizeSmtpHost((string)Input::post('pec_smtp_host')) !== ''
+            || normalizeSmtpValue((string)Input::post('pec_smtp_port')) !== '';
+        $pecFromRichiesto = mailFromRichiesto(
+            Input::post('pec_smtp_username'),
+            Input::post('pec_smtp_from'),
+            $pecSezioneCompilata
+        );
+        $pecFromValidator = $this->validator->label('PEC SMTP - From')
+            ->value(Input::post('pec_smtp_from'));
+
+        if ($pecFromRichiesto) {
+            $pecFromValidator->required(
+                'Il campo "PEC SMTP - From" e\' obbligatorio quando lo username non e\' un indirizzo '
+                . 'email utilizzabile come mittente: senza di esso le comunicazioni non '
+                . 'potrebbero essere inviate.'
+            );
+        }
+
+        $pecFromValidator
+            ->isEmail()
+            ->betweenString(2, 191)
+            ->end();
+
+        $this->validator->label('PEC SMTP - Password')
+            ->value(Input::post('pec_smtp_password'))
+            ->betweenString(2, 32)
+            ->end();
+
+        $this->validator->label('PEC SMTP - Indirizzo server')
+            ->value(Input::post('pec_smtp_host'))
+            ->required()
+            ->betweenString(2, 40)
+            ->end();
+
+        $this->validator->label('PEC SMTP - Porta')
+            ->value(Input::post('pec_smtp_port'))
+            ->required()
+            ->isInt()
+            ->end();
+
+        $this->validator->label('PEC SMTP - SSL')
+            ->value(Input::post('pec_smtp_security'))
+            ->in('no,SSL,TLS')
+            ->end();
+
+        $this->validator->label('PEC SMTP - Usa autenticazione')
+            ->value(Input::post('pec_smtp_auth'))
+            ->isInt()
+            ->in('1,2')
+            ->end();
 
         $this->validator->label('Email di test')
             ->value(Input::post('email'))
@@ -421,59 +684,53 @@ class InstitutionValidator
             ? Input::post('institution_id')
             : checkAlternativeInstitutionId();
 
-        if (isSuperAdmin(true) && checkAlternativeInstitutionId() == 0 && empty($instiutionId)) {
+        $this->validator->label('titolo del collegamento ipertestuale')
+            ->value(Input::post('name'))
+            ->required()
+            ->betweenString(2, 80)
+            ->end();
 
-            return ['error' => 'Seleziona un ente prima di compiere qualsiasi operazione'];
-        } else {
+        $this->validator->label('url del collegamento ipertestuale')
+            ->value(Input::post('url'))
+            ->required()
+            ->isUrl(null, true)
+            ->end();
 
-            $this->validator->label('titolo del collegamento ipertestuale')
-                ->value(Input::post('name'))
+        $this->validator->label('azione del collegamento ipertestuale')
+            ->value(Input::post('action'))
+            ->required()
+            ->in('insert,update,delete,sort')
+            ->end();
+
+        $this->validator->label('tipologia del collegamento ipertestuale')
+            ->value(Input::post('type'))
+            ->required()
+            ->in('header,footer')
+            ->end();
+
+        if (in_array(Input::post('action'), ['update', 'sort']) || $validateId === true) {
+
+            $this->validator->label('ID del collegamento ipertestuale')
+                ->value(Input::post('id'))
                 ->required()
-                ->betweenString(2, 80)
+                ->isNaturalNoZero()
+                ->add(function () use ($instiutionId) {
+
+                    $query = InstitutionLinksModel::where('id', '=', Input::post('id'))
+                        ->where('institution_id', $instiutionId)
+                        ->first();
+
+                    if (empty($query)) {
+
+                        return ['error' => 'Non hai i permessi oppure il record non esiste'];
+                    } else {
+
+                        Registry::set('___institution_link_', $query->toArray());
+                    }
+
+                    return null;
+                })
                 ->end();
-
-            $this->validator->label('url del collegamento ipertestuale')
-                ->value(Input::post('url'))
-                ->required()
-                ->isUrl(null, true)
-                ->end();
-
-            $this->validator->label('azione del collegamento ipertestuale')
-                ->value(Input::post('action'))
-                ->required()
-                ->in('insert,update,delete,sort')
-                ->end();
-
-            $this->validator->label('tipologia del collegamento ipertestuale')
-                ->value(Input::post('type'))
-                ->required()
-                ->in('header,footer')
-                ->end();
-
-            if (in_array(Input::post('action'), ['update', 'sort']) || $validateId === true) {
-
-                $this->validator->label('ID del collegamento ipertestuale')
-                    ->value(Input::post('id'))
-                    ->required()
-                    ->isNaturalNoZero()
-                    ->add(function () use ($instiutionId) {
-
-                        $query = InstitutionLinksModel::where('id', '=', Input::post('id'))
-                            ->where('institution_id', $instiutionId)
-                            ->first();
-
-                        if (empty($query)) {
-
-                            return ['error' => 'Non hai i permessi oppure il record non esiste'];
-                        } else {
-
-                            Registry::set('___institution_link_', $query->toArray());
-                        }
-
-                        return null;
-                    })
-                    ->end();
-            }
         }
 
         return [
@@ -533,33 +790,27 @@ class InstitutionValidator
             ? Input::get('institution_id')
             : checkAlternativeInstitutionId();
 
-        if (isSuperAdmin(true) && checkAlternativeInstitutionId() == 0 && empty($instiutionId)) {
+        $this->validator->label('id del collegamento ipertestuale')
+            ->value(Input::get('id'))
+            ->required()
+            ->isNaturalNoZero()
+            ->add(function () use ($instiutionId) {
 
-            return ['error' => 'Seleziona un ente prima di compiere qualsiasi operazione'];
-        } else {
+                $query = InstitutionLinksModel::where('id', '=', Input::get('id'))
+                    ->where('institution_id', $instiutionId)
+                    ->first();
 
-            $this->validator->label('id del collegamento ipertestuale')
-                ->value(Input::get('id'))
-                ->required()
-                ->isNaturalNoZero()
-                ->add(function () use ($instiutionId) {
+                if (empty($query)) {
 
-                    $query = InstitutionLinksModel::where('id', '=', Input::get('id'))
-                        ->where('institution_id', $instiutionId)
-                        ->first();
+                    return ['error' => 'Non hai i permessi oppure il record non esiste'];
+                } else {
 
-                    if (empty($query)) {
+                    Registry::set('___institution_link_', $query->toArray());
+                }
 
-                        return ['error' => 'Non hai i permessi oppure il record non esiste'];
-                    } else {
-
-                        Registry::set('___institution_link_', $query->toArray());
-                    }
-
-                    return null;
-                })
-                ->end();
-        }
+                return null;
+            })
+            ->end();
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -579,53 +830,47 @@ class InstitutionValidator
             ? Input::get('institution_id')
             : checkAlternativeInstitutionId();
 
-        if (isSuperAdmin(true) && checkAlternativeInstitutionId() == 0 && empty($instiutionId)) {
+        $this->validator->label('Tipologia spostamento')
+            ->value(Input::get('direction'))
+            ->required()
+            ->in('up,down')
+            ->end();
 
-            return ['error' => 'Seleziona un ente prima di compiere qualsiasi operazione'];
-        } else {
+        $this->validator->label('numero posizione link')
+            ->value(Input::get('sort_id'))
+            ->required()
+            ->isNaturalNoZero()
+            ->end();
 
-            $this->validator->label('Tipologia spostamento')
-                ->value(Input::get('direction'))
-                ->required()
-                ->in('up,down')
-                ->end();
+        $this->validator->label('blocco link')
+            ->value(Input::get('position'))
+            ->required()
+            ->in('header,footer')
+            ->end();
 
-            $this->validator->label('numero posizione link')
-                ->value(Input::get('sort_id'))
-                ->required()
-                ->isNaturalNoZero()
-                ->end();
+        $this->validator->label('identificativo link')
+            ->value(Input::get('id'))
+            ->required()
+            ->isNaturalNoZero()
+            ->add(function () use ($instiutionId) {
 
-            $this->validator->label('blocco link')
-                ->value(Input::get('position'))
-                ->required()
-                ->in('header,footer')
-                ->end();
+                $query = InstitutionLinksModel::where('id', '=', Input::get('id'))
+                    ->where('sort', Input::get('sort_id'))
+                    ->where('position', Input::get('position'))
+                    ->where('institution_id', $instiutionId)
+                    ->first();
 
-            $this->validator->label('identificativo link')
-                ->value(Input::get('id'))
-                ->required()
-                ->isNaturalNoZero()
-                ->add(function () use ($instiutionId) {
+                if (empty($query)) {
 
-                    $query = InstitutionLinksModel::where('id', '=', Input::get('id'))
-                        ->where('sort', Input::get('sort_id'))
-                        ->where('position', Input::get('position'))
-                        ->where('institution_id', $instiutionId)
-                        ->first();
+                    return ['error' => 'Non hai i permessi oppure il record non esiste'];
+                } else {
 
-                    if (empty($query)) {
+                    Registry::set('___institution_link_', $query->toArray());
+                }
 
-                        return ['error' => 'Non hai i permessi oppure il record non esiste'];
-                    } else {
-
-                        Registry::set('___institution_link_', $query->toArray());
-                    }
-
-                    return null;
-                })
-                ->end();
-        }
+                return null;
+            })
+            ->end();
 
         return [
             'is_success' => $this->validator->isSuccess(),

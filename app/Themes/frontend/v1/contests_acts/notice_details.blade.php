@@ -21,19 +21,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
-                        <h1 class="page-title">{{!empty($h1) ? $h1 : ( !empty($instance['object']) ? $instance['object'] : '') }}</h1>
-                        @if(!empty($instance['type']))
-                            <h5 class="text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
-                                {{e: $instance['type'] }}
-                            </h5>
-                        @endif
+
+                    <div class="div-title">
+                        <div>
+                            <h1 class="page-title">{{!empty($h1) ? $h1 : ( !empty($instance['object']) ? $instance['object'] : '') }}</h1>
+                            @if(!empty($instance['type']))
+                                <h2 class="h5 text-secondary page-subtitle"><i class="fas fa-caret-right mr-1"></i>
+                                    {{e: $instance['type'] }}
+                                </h2>
+                            @endif
+                        </div>
+                        <div class="button-normative">
+                        </div>
                     </div>
 
-                    <p>
+                    @if(!empty($instance['sector']))
+                        @php
+                            $sectors = [
+                                "O-sotto" => 'Ordinario - Sottosoglia',
+                                "O-sopra" => 'Ordinario - Soprasoglia',
+                                "S" => 'Speciale',
+                                "sponsor" => 'Sponsorizzazioni',
+                            ];
+                        @endphp
+                        <div class="attributi">
+                            <div class="attributo">
+                                <span class="titolo">Settore:</span>
+                                <span class="mr-2 text-muted">
+                                    {{e: $sectors[$instance['sector']] ?? '' }}
+                                </span>
+                            </div>
+                        </div>
+                    @endif
+
                     @if(!empty($instance['relative_lots']))
                         <ul>
                             @foreach($instance['relative_lots'] as $lot)
@@ -55,18 +79,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
-                        @if(!empty($instance['bdncp_link']))
-                            <div class="attributi">
-                                <div class="attributo">
-                                    <span class="titolo"><!--<i class="fas fa-link"></i>--> Link BDNCP:</span>
-                                    <span class="mr-2">
+
+                            @if(!empty($instance['bdncp_link']))
+                                <div class="attributi">
+                                    <div class="attributo">
+                                        <span class="titolo"><!--<i class="fas fa-link"></i>--> Link BDNCP:</span>
+                                        <span class="mr-2">
                                         <a class="mt-2 text-muted" href="{{$instance['bdncp_link']}}">
                                             {{$instance['bdncp_link']}}
                                         </a>
                                     </span>
+                                    </div>
                                 </div>
-                            </div>>
-                        @endif
+                            @endif
+
                     @endif
 
                     <div class="attributi">
@@ -120,7 +146,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">RUP:</span>
                                 <a class="text-muted"
-                                   href="{{ siteUrl('page/58/details/'. (int)$instance['rup']['id'].'/'.urlTitle($instance['rup']['full_name'])) }}">
+                                   href="{{ siteUrl('page/4/details/'. (int)$instance['rup']['id'].'/'.urlTitle($instance['rup']['full_name'])) }}">
                                     {{e: $instance['rup']['full_name'] }}
                                 </a>
                             </div>
@@ -278,6 +304,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
 
                     @if(!empty($instance['relative_alerts']))
                         @php
@@ -310,23 +338,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     @endif
                 </div>
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
-
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utili --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

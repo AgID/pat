@@ -34,6 +34,7 @@ class AvcpFrontController extends BaseFrontController
      */
     public function index(): void
     {
+
         $pivot = new PivotController();
         $pivot->index(false);
     }
@@ -45,6 +46,7 @@ class AvcpFrontController extends BaseFrontController
      */
     public function details(): void
     {
+
         $pivot = new PivotController();
         $pivot->index(false);
     }

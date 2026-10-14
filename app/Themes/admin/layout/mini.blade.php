@@ -39,40 +39,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?><!DOCTYPE h
     {{-- End favicon --}}
 
     <title>{{ !empty($title) ? $title : 'Admin Pat OS' }}</title>
-    <link rel="stylesheet"
-          href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
-    <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-          integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
-          crossorigin=""/>
-    {{ css('fontawesome-free/css/all.min.css','common') }}
-    {{ css('icheck-bootstrap/icheck-bootstrap.min.css','common') }}
+    {{ css('css/source_sans_pro_web.css?display=fallback&v='. VERSION_STYLE_CSS,'admin') }}
+    {{ css('ionicons-v2.0.1-master/css/ionicons.min.css','common') }}
+    {{ css('fontawesome-free-5.15.4-web/css/all.css','common') }}
     {{ css('css/adminlte.min.css','admin') }}
     {{ css('css/custom.css','admin') }}
-    {{ css('confirm/jquery-confirm.min.css','common') }}
-    {{ css('select2/css/select2.min.css','common') }}
-    {{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
-    <style type="text/css">
-        .select2-container--default .select2-selection--single {
-            height: 38px !important;
-        }
-
-        .select2-container--default .select2-selection--single .select2-selection__arrow {
-            top: 6px !important;
-        }
-    </style>
     {{-- CSS aggiuntivo --}}
     @yield(css)
     {{-- Init JS --}}
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
-            integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
-            crossorigin=""></script>
-    {{ js('jquery/jquery.min.js','common') }}
+    {{ js('jquery/jquery-3.7.1.min.js','common') }}
     {{ js('bootstrap/js/bootstrap.bundle.min.js','common') }}
     {{ js('js/adminlte.min.js','admin') }}
-    {{ js('confirm/jquery-confirm.min.js','common') }}
-    {{ js('ajax/jquery.form.min.js','common') }}
-    {{ js('select2/js/select2.full.min.js','common') }}
     {{-- Javascript aggiuntivo --}}
     <script type="text/javascript">
         /**
@@ -81,6 +58,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?><!DOCTYPE h
          */
         let meta = document.getElementsByTagName('meta');
         const CSRFMetaToken = meta.{{ csrf_token() }}.content;
+
+        /**
+         * Global BASE URL
+         * @type {string}
+         */
+        const APP_BASE_URL = '{{ rtrim(preg_replace('/\.html$/', '', siteUrl()), '/') . '/' }}';
     </script>
 </head>
 
@@ -89,11 +72,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?><!DOCTYPE h
     <div class="content text-sm">
         <div class="container-fluid">
             {{-- Funzione che verifica il permesso di accesso alla pagina corrente --}}
-            @if(guard())
-                @yield(content)
-            @else
-                {% include access_denied/index %}
-            @endif
+
+                @if(\System\Registry::get('enable_module')===false)
+                @else
+                    @if(guard())
+                        @yield(content)
+                    @else
+                        {% include access_denied/index %}
+                    @endif
+                @endif
+
         </div>
     </div>
 </div>

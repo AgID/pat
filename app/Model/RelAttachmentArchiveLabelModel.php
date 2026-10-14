@@ -19,6 +19,7 @@ class RelAttachmentArchiveLabelModel extends Model
         'id',
         'label_id',
         'archive_id', // ID Section FO
+        'institution_id',
         'created_at',
         'updated_at'
     ];

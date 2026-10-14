@@ -39,15 +39,34 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+
+
+
+
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
 
                                 {{-- Campo Oggetto del provvedimento --}}
@@ -67,7 +86,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Numero del provvedimento --}}
                                 <div class="form-group col-md-6">
-                                    <label for="number">Numero del provvedimento</label>
+
+                                        <label for="number">Numero del provvedimento</label>
+
                                     {{ form_input([
                                         'name' => 'number',
                                         'value' => !empty($measure['number']) ? $measure['number'] : null,
@@ -97,15 +118,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Tipologia --}}
                                 <div class="form-group col-md-6">
                                     <label for="type">Tipologia *</label>
-                                    <div class="select2-blue" id="input_type">
+                                    <div id="input_type">
                                         {{ form_dropdown(
                                             'type',
                                             @$typologies,
                                             @$measure['type'],
-                                            'class="form-control select2-type" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-type" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
+
+                                {{-- Inclusione di librerie esterne --}}
+
+                                @php $measure = $measure ?? null; @endphp
 
                             </div>
 
@@ -116,7 +141,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="structures">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_structures" id="m_ajax_structures_label">Strutture
-                                            organizzative responsabili</label>
+                                            organizzative responsabili </label>
                                     </div>
                                     <div id="ajax_structures"></div>
                                     <input type="hidden" value="" name="structures"
@@ -143,8 +168,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="procedure">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_procedure" id="m_ajax_procedure_label">Procedura relativa (scelta del contraente)
-                                    </label>
+                                        <label for="ajax_procedure" id="m_ajax_procedure_label">Procedura relativa (fino
+                                            al 31/12/2023)
+                                            {{-- Inclusione di librerie esterne --}}
+                                        </label>
                                     </div>
                                     <div id="ajax_procedure"></div>
                                     <input type="hidden" value="" name="object_contests_acts_id"
@@ -157,7 +184,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="bdncp_procedure">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_bdncp_procedure" id="m_ajax_bdncp_procedure_label">Procedura relativa (dal 01/01/2024)
+                                        <label for="ajax_bdncp_procedure" id="m_ajax_bdncp_procedure_label">Procedura
+                                            relativa (dal 01/01/2024)
                                         </label>
                                     </div>
                                     <div id="ajax_bdncp_procedure"></div>
@@ -191,6 +219,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -198,11 +229,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -234,6 +268,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -254,30 +289,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value ?? '';
 
-        {{-- BEGIN CAMPI SELECT --}}
-        {{-- Campo select Tipologia --}}
-        let $dropdownType = $('.select2-type');
-        $dropdownType.select2({
-            placeholder: 'Seleziona il tipo....',
-            minimumResultsForSearch: -1,
-            allowClear: true
+        new TomSelect('.ts-type', {
+            ...TS_SINGLE_CLEAR,
+            placeholder: 'Seleziona il tipo....'
         });
 
         // Tabella per la selezione della struttura di appartenenza
@@ -291,6 +320,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
             search_placeholder: config.structure.search_placeholder,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($measure['structures']) ? implode(",",array_column($measure['structures'], 'id')) : ''; ?>',
             setInputDataValue: '#input_structure',
             dataParams: {
                 model: 1,
@@ -307,7 +338,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($measure['structures']))
+        @if(!empty($measure['structures']))
         @foreach($measure['structures'] as $structure)
         structures.patOsAjaxPagination.setValue('{{ $structure['id'] }}', '{{ htmlEscape($structure['structure_name']).(!empty($structure['parent_name'])?' - '.htmlEscape($structure['parent_name']):'').(!empty($structure['reference_email'])?' - '.$structure['reference_email']:'') }}', true);
         @endforeach
@@ -358,6 +389,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideTable: config.bdncp_notice.hideTable,
             showTable: config.bdncp_notice.showTable,
             search_placeholder: config.bdncp_notice.search_placeholder,
+            selectedIDs: '<?php echo !empty($measure['bdncp_procedures']) ? implode(",", array_column($measure['bdncp_procedures'], 'id')) : ''; ?>',
             'setInputDataValue': '#object_bdncp_procedure_id',
             'dataParams': {
                 model: 47,
@@ -365,7 +397,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             },
             columns: config.bdncp_notice.columns,
             action: {
-                type: 'radio',
+                type: 'checkbox',
             },
             dataSource: config.bdncp_notice.dataSource,
             dateFormat: config.bdncp_notice.dateFormat,
@@ -373,8 +405,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Setto la procedura relativa se è presente e sono in modifica o duplicazione
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($measure['relative_bdncp_procedure']))
-        relativeBdncpProcedure.patOsAjaxPagination.setValue('{{ $measure['relative_bdncp_procedure']['id'] }}', '{{ htmlEscape($measure['relative_bdncp_procedure']['object']).' - '.$measure['relative_bdncp_procedure']['cig'] }}', true);
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($measure['bdncp_procedures']))
+            @foreach($measure['bdncp_procedures'] as $procedure)
+                relativeBdncpProcedure.patOsAjaxPagination.setValue('{{ $procedure['id'] }}', '{{ htmlEscape($procedure['object']) . ' - ' . $procedure['cig'] }}', true);
+            @endforeach
         @endif
 
         // Tabella per la selezione dei responsabili del provvedimento
@@ -411,13 +445,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endforeach
         @endif
 
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
@@ -425,8 +452,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_choice_of_contractor');
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_choice_of_contractor', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         /**
          * Metodo per il salvataggio
@@ -464,6 +495,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {{-- Controllo se sono all'interno di un modale lo chiudo dopo il salvataggio --}}
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -472,10 +504,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}');
             },
             error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
+                let response = {};
+                try {
+                    response = parseJson(jqXHR.responseText) || {};
+                } catch (error) {
+                    // Una risposta non JSON non deve impedire di riprovare il salvataggio.
+                }
 
                 //Messaggi di errore del validatore campi e degli allegati
-                let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
+                let msg = [
+                    response.data && response.data.error_partial_attach,
+                    response.errors && response.errors.error
+                ].filter(Boolean).join(", ");
+                if (!msg) {
+                    msg = 'Impossibile completare il salvataggio. Riprova.';
+                }
 
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
@@ -502,11 +545,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         @if(!$is_box)
         {{-- Messaggio di uscita senza salvare dal form --}}

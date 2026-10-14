@@ -4,10 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ use Illuminate\Support\ServiceProvider;
 use System\Registry;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
-
 
 return [
 
@@ -190,6 +190,69 @@ return [
     //------------------------------------------------------------------------------------------------------------------
 
     /**
+     * Campo meta globale per i social media dell'istituto
+     */
+    'field_global_social' => [
+        'facebook' => [
+            'icon' => '<span class="fab fa-facebook"></span>',
+            'label' => 'Facebook'
+        ],
+        'twitter' => [
+            'icon' => '<i class="fa-brands fa-x-twitter"></i>',
+            'label' => 'Twitter'
+        ],
+        'youtube' => [
+            'icon' => '<span class="fab fa-youtube"></span>',
+            'label' => 'Youtube'
+        ],
+        'instagram' => [
+            'icon' => '<span class="fab fa-instagram"></span>',
+            'label' => 'Instagram'
+        ],
+        'linkedin' => [
+            'icon' => '<span class="fab fa-linkedin"></span>',
+            'label' => 'Linkedin'
+        ],
+        'medium' => [
+            'icon' => '<span class="fa-brands fa-medium"></span>',
+            'label' => 'Medium'
+        ],
+        'whatsapp' => [
+            'icon' => '<span class="fab fa-whatsapp"></span>',
+            'label' => 'Whatsapp',
+        ],
+        'tiktok' => [
+            'icon' => '<span class="fab fa-tiktok"></span>',
+            'label' => 'Tik Tok'
+        ],
+        'wechat' => [
+            'icon' => '<span class="fab fa-weixin"></span>',
+            'label' => 'Wechat',
+        ],
+        'pinterest' => [
+            'icon' => '<span class="fab fa-pinterest"></span>',
+            'label' => 'Pinterest'
+        ],
+        'twitch' => [
+            'icon' => '<span class="fab fa-twitch"></span>',
+            'label' => 'Twitch'
+        ],
+        'reddit' => [
+            'icon' => '<span class="fab fa-reddit"></span>',
+            'label' => 'Reddit'
+        ],
+        'tumblr' => [
+            'icon' => '<span class="fab fa-tumblr"></span>',
+            'label' => 'Tumblr',
+        ],
+        'snapchat' => [
+            'icon' => '<span class="fab fa-snapchat"></span>',
+            'label' => 'Snapchat',
+        ],
+    ],
+    //------------------------------------------------------------------------------------------------------------------
+
+    /**
      * Per i periodi dei tassi di assenza
      */
     'absenceRatesPeriod' => [
@@ -205,10 +268,10 @@ return [
         '10' => 'Ottobre',
         '11' => 'Novembre',
         '12' => 'Dicembre',
-        'It' => 'ITrimestre',
-        'IIt' => 'IITrimestre',
-        'IIIt' => 'IIITrimestre',
-        'IVt' => 'IVTrimestre'
+        '13' => 'I Trimestre',
+        '14' => 'II Trimestre',
+        '15' => 'III Trimestre',
+        '16' => 'IV Trimestre'
     ],
     //------------------------------------------------------------------------------------------------------------------
 
@@ -255,42 +318,35 @@ return [
         'Provveditorato regionale alle opere pubbliche' => 'Provveditorato regionale alle opere pubbliche',
         'Organismi di diritto pubblico' => 'Organismi di diritto pubblico',
         'Altri soggetti pubblici e privati' => 'Altri soggetti pubblici e privati',
-        'Ente pubblico non economico' => 'Ente pubblico non economico'
+        'Ente pubblico non economico' => 'Ente pubblico non economico',
+        'Ente pubblico economico' => 'Ente pubblico economico'
     ],
     //------------------------------------------------------------------------------------------------------------------
 
+
     /**
-     * Organi di indirizzo politico per il Personale
+     * Abilità il log delle azione sul archivio degli allegati.
      */
-    'politicalAdministrative' => [
-        1 => 'Comitato di Indirizzo',
-        2 => 'Collegio dei revisori dei conti',
-        3 => 'Direzione Generale'
-    ],
-
-    //------------------------------------------------------------------------------------------------------------------
+    'write_file_manager_filesystem' => false,
 
     /**
-     * Organi di indirizzo politico per il Personale
+     * Tipologie degli incarichi. Le chiavi mantengono gli identificativi salvati negli archivi.
      */
     'assignmentTypologies' => [
         1 => 'Incarichi retribuiti e non retribuiti dei propri dipendenti',
-        2 => 'Incarichi retribuiti e non retribuiti affidati a soggetti esterni'
+        2 => 'Incarichi retribuiti e non retribuiti affidati a soggetti esterni',
     ],
 
-    //------------------------------------------------------------------------------------------------------------------
     /**
-     * Tipologie di provvedimenti
+     * Tipologie dei provvedimenti, con gli identificativi previsti dall'archivio.
      */
     'measureTypologies' => [
         13 => 'Provvedimento dirigenziale',
-        14 => 'Provvedimento organo indirizzo-politico'
+        14 => 'Provvedimento organo indirizzo-politico',
     ],
 
-    //------------------------------------------------------------------------------------------------------------------
-
     /**
-     * Tipologie per le normative
+     * Tipologie degli atti normativi, con gli identificativi previsti dall'archivio.
      */
     'normativeTypologies' => [
         1 => 'Decreto dirigenziale',
@@ -308,17 +364,38 @@ return [
     //------------------------------------------------------------------------------------------------------------------
 
     /**
-     * Abilità il log delle azione sul archivio degli allegati.
+     * Tipologie di spesa dei pagamenti: le chiavi conservano gli identificativi
+     * già utilizzati dai record dell'archivio, senza rinumerarli.
      */
-    'write_file_manager_filesystem' => false,
+    'paymentTypologyCorrenti' => [
+        500 => 'Acquisto di beni e di servizi',
+        501 => 'Contributi in conto esercizio',
+        502 => 'Interessi passivi',
+        503 => 'Altre spese per attività finanziarie',
+        504 => 'Altre spese correnti',
+    ],
 
-    //------------------------------------------------------------------------------------------------------------------
-
+    'paymentTypologyCapitale' => [
+        506 => 'Investimenti in beni materiali',
+        507 => 'Investimenti in beni immateriali',
+        508 => 'Investimenti in attività finanziarie',
+        509 => 'Contributi in conto capitale',
+        510 => 'Altre spese in conto capitale',
+    ],
 
     /**
-     * Prefisso per le chiamate REST
+     * Tipologie dei beneficiari dei pagamenti, con gli identificativi dell'archivio.
      */
-    'prefix_api' => API,
+    'paymentSupplierTypology' => [
+        515 => 'Persona fisica',
+        516 => 'Altro soggetto pubblico e privato',
+        517 => 'Soggetto estero',
+    ],
+
+    'providers' => [
+        ServiceProvider::class,
+//        AppServiceProvider::class,
+    ],
 
     /**
      * Invio per email se l'interprete ha sollevato un errore.
@@ -326,7 +403,8 @@ return [
     'mail_errors' => false,
 
     /**
-     * Limita le richieste API
+     * CORS Allowed Origins
+     * Array di domini consentiti per le chiamate Cross-Origin (es. ['https://example.com'])
      */
-    'limits_call_api' => 100,
+    'cors_allowed_origins' => [],
 ];

@@ -21,12 +21,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
                     <div class="attributi">
                         @if(empty($privacy))
                             <div class="attributo">
@@ -122,7 +127,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <div class="attributo">
                                         <span class="titolo">Data:</span>
                                         <span class="text-muted">
-                                            {{date('d-m-Y|date'): $instance['reference_date'] }}
+                                            {{date('d/m/Y|date'): $instance['reference_date'] }}
                                         </span>
                                     </div>
                                 @endif
@@ -149,7 +154,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Dirigente o funzionario responsabile:</span>
                                 @foreach($instance['personnel'] as $personnel)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}"
+                                       href="{{ siteUrl('page/4/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}"
                                        title="{{escape_xss: $personnel['full_name'] }}" class="ml-1">
                                         {{e: $personnel['full_name'] }}
                                     </a>
@@ -161,7 +166,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <div>
                             @if(!empty($instance['concession_amount']))
                                 <div class="attributo">
-                                    <span class="titolo">Importo atto di concessione:</span>
+                                    <span class="titolo">{{$labeling['concession_amount']}}</span>
                                     <span class="mr-2 text-muted">
                                      &euro; {{currency('filter=escape_xss decimal_separator=, thousands_separator=.'): $instance['concession_amount'] }}
                                     </span>
@@ -169,19 +174,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @endif
 
                             @if(!empty($instance['concession_act_date']))
-                                <div class="attributo">
-                                    <span class="titolo">Data atto di concessione:</span>
-                                    <span class="mr-2 text-muted">
-                                        {{date('d-m-Y|date'): $instance['concession_act_date'] }}
-                                    </span>
-                                </div>
+                                @if($date_only_year)
+                                   <div class="attributo">
+                                        <span class="titolo">Anno atto di concessione:</span>
+                                        <span class="mr-2 text-muted">
+                                        {{date('Y|date'): $instance['concession_act_date'] }}
+                                        </span>
+                                   </div>
+                                @else
+                                    <div class="attributo">
+                                        <span class="titolo">Data atto di concessione:</span>
+                                        <span class="mr-2 text-muted">
+                                        {{date('d/m/Y|date'): $instance['concession_act_date'] }}
+                                        </span>
+                                    </div>
+                                @endif
                             @endif
 
                             @if(!empty($instance['start_date']))
                                 <div class="attributo">
                                     <span class="titolo">Data inizio:</span>
                                     <span class="mr-2 text-muted">
-                                        {{date('d-m-Y|date'): $instance['start_date'] }}
+                                        {{date('d/m/Y|date'): $instance['start_date'] }}
                                     </span>
                                 </div>
                             @endif
@@ -190,7 +204,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo">
                                     <span class="titolo">Data fine:</span>
                                     <span class="mr-2 text-muted">
-                                        {{date('d-m-Y|date'): $instance['end_date'] }}
+                                        {{date('d/m/Y|date'): $instance['end_date'] }}
                                     </span>
                                 </div>
                             @endif
@@ -240,7 +254,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <td>
                                             &euro; {{currency('filter=escape_xss decimal_separator=, thousands_separator=.'): $liquidation['compensation_paid'] }}</td>
                                         <td>
-                                            {{ !empty($liquidation['reference_date']) ? date('d-m-Y', strtotime($liquidation['reference_date'])) : null }}
+                                            {{ !empty($liquidation['reference_date']) ? date('d/m/Y', strtotime($liquidation['reference_date'])) : null }}
                                         </td>
                                         <td>{{ $liquidation['compensation_paid_date'] }}</td>
                                         <td class="text-center">
@@ -257,6 +271,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     @endif
                     {{-- Solo per le sovvenzioni --}}
 
+                    @if(!empty($instance['project_link']))
+                        <p class="mt-3">
+                            <span class="fas fa-link mr-1"></span>
+                            <strong>Link al progetto: </strong>
+                            <a class="text-muted" href="{{escape_xss: $instance['project_link'] }}">
+                                {{escape_xss: $instance['project_link'] }}
+                            </a>
+                        </p>
+                    @endif
+
 
                     {{-- Attach List --}}
                     {% include v1/layout/partials/attach_list %}
@@ -264,25 +288,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
+                    {{-- Inclusione di librerie esterne --}}
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

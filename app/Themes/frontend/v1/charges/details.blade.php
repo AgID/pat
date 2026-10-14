@@ -21,6 +21,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
 
                     @if($noRequiredPublication)
@@ -36,9 +37,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                            style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
                     @endif
 
-                    <div class="titolo mb-4">
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['title'] }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
 
                     <div class="attributi">
                         @if(!empty($instance['citizen']))
@@ -58,7 +62,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @if(!empty($instance['expiration_date']))
                             <div class="attributo">
                                 <span class="titolo">Data di scadenza:</span>
-                                <span class="mr-2 text-muted"><strong> {{date('d-m-Y|date'): $instance['expiration_date'] }} </strong></span>
+                                <span class="mr-2 text-muted"><strong> {{date('d/m/Y|date'): $instance['expiration_date'] }} </strong></span>
                             </div>
                         @endif
 
@@ -145,25 +149,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
-                </div>
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                    {{-- Inclusione di librerie esterne --}}
+
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

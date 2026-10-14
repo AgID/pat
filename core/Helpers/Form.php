@@ -1,4 +1,8 @@
 <?php
+/**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
 
 /**
  * CodeIgniter
@@ -355,8 +359,6 @@ if (!function_exists('form_checkbox')) {
 
         if ($checked == TRUE) {
             $defaults['checked'] = 'checked';
-        } else {
-            unset($defaults['checked']);
         }
 
         return '<input ' . _parse_form_attributes($data, $defaults) . stringifyAttributes($extra) . " />\n";
@@ -547,7 +549,7 @@ if (!function_exists('set_checkbox')) {
     {
 
         $value = (string) $value;
-        isset($_POST[$field]) OR $_POST[$field] = array();
+        isset($_POST[$field]) OR $_POST[$field] = [];
 
         $set = isset($_POST[$field])
             ? (is_array($_POST[$field]) ? in_array($value, $_POST[$field], TRUE) : ($_POST[$field] === $value))

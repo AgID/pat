@@ -56,7 +56,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             <i class="fas fa-trash mr-1"></i> Cancella profili selezionati
                                         </a>
                                     </li>
+
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                 @endif
+
+
                             </ul>
                         </div>
                     </div>
@@ -72,15 +78,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </th>
                         <th>PROFILO ACL</th>
                         <th>DESCRIZIONE</th>
-                        {{-- Ente di appartenenza se l'utente è super admin--}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @else
+
                             {{-- Altrimenti la tipologia del profilo, se è di sistema o meno --}}
                             <th>
                                 TIPOLOGIA
                             </th>
-                        @endif
+
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -113,7 +116,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         {{-- Begin Paginazione records datatable --}}
         let dtable = $("#list_profiles").DataTable({
             sPaginationType: "full_numbers",
-            lengthMenu: [25, 50, 75, 100, 150],
+            lengthMenu: [50, 75, 100, 150],
             responsive: true,
             lengthChange: true,
             autoWidth: false,
@@ -133,7 +136,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 },
                 null,
                 null,
-                null,
+
+                        null,
+
                 {
                     orderable: false,
                     width: "5%"
@@ -185,7 +190,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */

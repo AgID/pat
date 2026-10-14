@@ -8,7 +8,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 {{-- Sezione che viene mostrata quando una pagina non ha contenuto --}}
 
-@if(empty($paragraphs) && @$snodo)
+@if( false && empty($paragraphs) && @$snodo)
     <div class="mt-5 col-md-12">
         <div class="mb-3" style="font-size: 20px;">
             <p>

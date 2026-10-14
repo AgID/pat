@@ -13,8 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
-use System\Action;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -36,7 +35,10 @@ class GeneralActsDocumentsModel extends Model
     protected $fillable = [
         'id',
         'institution_id',
+        'workflow_state',
         'owner_id',
+        'source_id',
+        'o_id',
         'object',
         'publishing_status',
         'notes',
@@ -48,6 +50,9 @@ class GeneralActsDocumentsModel extends Model
         'financing_amount',
         'financial_sources',
         'procedural_implementation_status',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at'
     ];
@@ -79,14 +84,14 @@ class GeneralActsDocumentsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -96,7 +101,7 @@ class GeneralActsDocumentsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -107,6 +112,15 @@ class GeneralActsDocumentsModel extends Model
     public function created_by()
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -193,7 +207,7 @@ class GeneralActsDocumentsModel extends Model
         }
 
         if (!empty($endDate)) {
-            $query->where('object_bdncp_general_acts_documents.document_date', '<=', date('Y-m-d H:i:s', strtotime($endDate)));
+            $query->where('object_bdncp_general_acts_documents.document_date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
         }
     }
 }

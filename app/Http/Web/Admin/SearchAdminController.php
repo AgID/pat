@@ -11,6 +11,7 @@ use Helpers\Validators\SearchValidator;
 use Model\PermitsModel;
 use System\Input;
 use System\JsonResponse;
+use System\Validator;
 use System\View;
 use function authPatOs;
 
@@ -50,29 +51,42 @@ class SearchAdminController extends BaseAuthController
         $data = [];
         $data['breadcrumbs'] = $this->breadcrumb->show();
 
-        $getIdentity = authPatOs()->getIdentity();
-        $profiles = unserialize($getIdentity['options']['profiles']);
-        $query = PermitsModel::select(['permits.id as permitId', 'sbo.name', 'sbo.model', 'sbo.icon', 'permits.read', 'permits.sections_bo_id', 'sbo.id']);
-        if (!isSuperAdmin()) {
+        $validation = new Validator();
+
+        $validation->label('Frase da ricercare')
+            ->value(trim(Input::get('s')))
+            ->betweenString('4', '20')
+            ->required()
+            ->end();
+
+        if (!$validation->isSuccess()) {
+            $data['errorHtml'] = $validation->getErrorsHtml();
+        } else {
+            $getIdentity = authPatOs()->getIdentity();
+            $profiles = unserialize($getIdentity['options']['profiles']);
+            $query = PermitsModel::select(['permits.id as permitId', 'sbo.name', 'sbo.model', 'sbo.icon', 'permits.read', 'permits.sections_bo_id', 'sbo.id']);
             $query->whereIn('acl_profiles_id', $profiles);
+            $query->join('section_bo AS sbo', 'sbo.id', '=', 'permits.sections_bo_id');
+            $query->where('read', 1);
+            // ->where('parent_id', '>', 0);
+            $query->whereNotNull('model');
+
+            $excludedModel = [27, 96, 97, 99, 110, 111];
+
+            $query->whereNotIn('model', $excludedModel);
+            $result = $query->get();
+            $result = !empty($result) ? $result->toArray() : [];
+            $permits = collect($result)->unique('sections_bo_id');
         }
-        $query->join('section_bo AS sbo', 'sbo.id', '=', 'permits.sections_bo_id');
-        $query->where('read', 1);
-        // ->where('parent_id', '>', 0);
-        $query->whereNotNull('model');
-        $query->where('model', '!=', 27);
-        $result = $query->get();
-        $result = !empty($result) ? $result->toArray() : [];
-        $permits = collect($result)->unique('sections_bo_id');
 
         $data['titleSection'] = 'Risultati di ricerca';
         $data['subTitleSection'] = 'ANTEPRIMA DEI RISULTATI DI RICERCA';
         $data['sectionIcon'] = '<i class="fas fa-search"></i>';
-        $data['token'] = Input::get(config('csrf_token_name',null,'app'));
+        $data['token'] = csrf_hash();
         $data['keyToken'] = config('csrf_token_name',null,'app');
         // $data['info'] = '<i class="fas fa-search"></i>';
 
-        $data['permits'] = $permits;
+        $data['permits'] = $permits ?? null;
 
         render('search/index', $data, 'admin');
     }
@@ -129,6 +143,7 @@ class SearchAdminController extends BaseAuthController
             $institutionId = (checkAlternativeInstitutionId() != 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
             $tableName = new $className();
+
             // Per le pagine generiche inserisco anche il controllo sull'id dell'ente dato che non hanno lo scope
             if(Input::get('model') == 23) {
                 $query->where(function ($query) use($tableName, $institutionId){
@@ -194,7 +209,7 @@ class SearchAdminController extends BaseAuthController
                     $relation = $with['relation'];
                     $fields = !empty($with['select']) ? $with['select'] : false;
                     if ($fields) {
-                        $query->with([$relation => function ($query) use ($fields) {
+                        $query->with([$relation => function ($query) use ($fields, $with) {
                             $query->select($fields);
                             if (!empty($with['join'])) {
                                 $withJoin = $with['join'];
@@ -259,7 +274,7 @@ class SearchAdminController extends BaseAuthController
         }
 
         // Paginazione
-        $querySQL = $query->paginate($perPage, null, 'p', (int)Input::get('p'));
+        $querySQL = $query->paginate($perPage, null, 'p', boundedQueryInt('p', 10000));
         $querySQL->appends(Input::get(['sid', 'type', 'model', 's', 'per_page', 'page']))
             ->setPath(currentUrl());
 

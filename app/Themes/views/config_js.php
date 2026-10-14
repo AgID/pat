@@ -1,15 +1,15 @@
-<?php
+// Configurazioni per i datatable delle select nei form
+
+const config = {
+    //personale
+    personnel: {
+        url: '<?php
 /**
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
-// Configurazioni per i datatable delle select nei form
-const config = {
-    //personale
-    personnel: {
-        url: '<?php echo siteUrl("/admin/async/get/data"); ?>',
+ echo siteUrl("/admin/async/get/data"); ?>',
         textLoad: 'Attendere, caricamento personale in corso..',
         columns: [
             'TITOLO',
@@ -52,13 +52,34 @@ const config = {
             show_action: <?php echo $is_box; ?>,
             url: '<?php echo siteUrl('admin/assignment/create-box'); ?>',
             editUrl: '<?php echo baseUrl('admin/assignment/edit-box-assignment/'); ?>',
-            label: 'Aggiungi nuovo'
+            label: 'Aggiungi nuovo',
+            perlapa: <?php echo '0'; ?>,
         },
         footerTable: false,
         classTable: 'table table-hover table-bordered table-striped table-sm',
         hideTable: '<i class="fas fa-plus-circle"></i> MOSTRA TABELLA',
         showTable: '<i class="fas fa-minus-circle"></i> NASCONDI TABELLA',
         search_placeholder: 'Cerca negli incarichi..'
+    },
+    //sovvenzioni
+    grant: {
+    url: '<?php echo siteUrl("/admin/async/get/data"); ?>',
+    textLoad: 'Attendere, caricamento sovvenzioni in corso..',
+    columns: [
+    'SOGGETTO BENEFICIARIO',
+    'OGGETTO',
+    'Data atto di concessione',
+    'Importo atto di concessione',
+    ],
+    dataSource: [
+    'id', 'beneficiary_name', 'object','concession_act_date', 'concession_amount'
+    ],
+    dateFormat: ['concession_act_date'],
+    footerTable: false,
+    classTable: 'table table-hover table-bordered table-striped table-sm',
+    hideTable: '<i class="fas fa-plus-circle"></i> MOSTRA TABELLA',
+    showTable: '<i class="fas fa-minus-circle"></i> NASCONDI TABELLA',
+    search_placeholder: 'Cerca nelle sovvenzioni..'
     },
     //concorsi
     contest: {
@@ -132,6 +153,29 @@ const config = {
         showTable: '<i class="fas fa-minus-circle"></i> NASCONDI TABELLA',
         search_placeholder: 'Cerca nei fornitori..'
     },
+    supplier_with_foreign: {
+        url: '<?php echo siteUrl("/admin/async/get/data"); ?>',
+        textLoad: 'Attendere, caricamento fornitori in corso...',
+        columns: [
+            'NOME',
+            'CODICE FISCALE',
+            'IDENTIFICATIVO ESTERO',
+        ],
+        dataSource: [
+            'id', 'name', 'p_iva', 'foreign_tax_identification',
+        ],
+        addRecord: {
+            show_action: <?php echo $is_box; ?>,
+            url: '<?php echo siteUrl('admin/supplier/create-box'); ?>',
+            editUrl: '<?php echo baseUrl('admin/supplier/edit-box/'); ?>',
+            label: 'Aggiungi nuovo'
+        },
+        footerTable: false,
+        classTable: 'table table-hover table-bordered table-striped table-sm',
+        hideTable: '<i class="fas fa-plus-circle"></i> MOSTRA TABELLA',
+        showTable: '<i class="fas fa-minus-circle"></i> NASCONDI TABELLA',
+        search_placeholder: 'Cerca nei fornitori..'
+    },
     //provvedimenti
     measure: {
         url: '<?php echo siteUrl("/admin/async/get/data"); ?>',
@@ -163,11 +207,10 @@ const config = {
         textLoad: 'Attendere, caricamento strutture in corso..',
         columns: [
             'NOME STRUTTURA',
-            'STRUTTURA DI APPARTENENZA',
             'EMAIL'
         ],
         dataSource: [
-            'id', 'structure_name', 'parent_structure', 'reference_email'
+            'id', 'structure_name', 'reference_email'
         ],
         addRecord: {
             show_action: <?php echo $is_box; ?>,

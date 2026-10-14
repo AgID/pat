@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Scope\DeletedScope;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -34,6 +34,8 @@ class UsersModel extends Model
 
     protected $fillable = [
         'id',
+        'o_id',
+        'register_o_id',
         'institution_id',
         'name',
         'username',
@@ -47,17 +49,25 @@ class UsersModel extends Model
         'deleted',
         'last_visit',
         'registration_date',
-        'super_admin',
         'admin',
         'prevent_password_repetition',
         'password_expiration_days',
         'refresh_password',
         'profile_image',
+        'editor_wishing',
         'registration_type',
+        'register_role',
         'filter_owner_record',
         'prevent_password_change_day',
         'deactivate_account_no_use',
+        'force_change_password',
+        'technical_user',
+        'deactivation_date',
         'notes',
+        'two_factor_enabled',
+        'two_factor_secret',
+        'two_factor_recovery',
+        'two_factor_last_timestamp',
         'created_at',
         'updated_at',
         'deleted_at'
@@ -93,16 +103,19 @@ class UsersModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Campi di relazione su cui effettuare la ricerca
+     * @var array[]
+     */
+    protected $searchableWhereHas = [];
+
+    /**
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchable[] = 'i.full_name_institution';
-        }
     }
 
     /**
@@ -113,7 +126,7 @@ class UsersModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
         static::addGlobalScope(new DeletedScope);
     }
 
@@ -146,4 +159,25 @@ class UsersModel extends Model
     {
         return $this->hasMany(PasswordHistoryModel::class, 'user_id', 'id');
     }
+
+    /**
+     * @return HasMany
+     */
+    public function scp(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function related_office(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
 }

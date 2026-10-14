@@ -21,32 +21,38 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
-                        <h1 class="page-title">{{e: !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '') }}</h1>
-                        @if(!empty($instance['type']))
-                            <h5 class="text-secondary page-subtitle"><i
-                                        class="fas fa-caret-right mr-1"></i> {{e: $instance['type'] }}
-                            </h5>
-                        @endif
 
-                        @if(!empty($instance['relative_procedure']['cig']) || !empty($instance['relative_procedure']['relative_notice']['cig']))
-                            @php
-                                $tmpCig = !empty($instance['relative_procedure']['cig'])
-                                                ? $instance['relative_procedure']['cig']
-                                                : $instance['relative_procedure']['relative_notice']['cig'];
-                            @endphp
-                            <div class="attributi">
-                                <div class="attributo">
-                                    <span class="titolo">Codice CIG:</span>
-                                    <span class="mr-2 text-muted">
-                                    {{e: $tmpCig }}
-                                </span>
+                    <div class="div-title">
+                        <div>
+                            <h1 class="page-title">{{e: !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '') }}</h1>
+                            @if(!empty($instance['type']))
+                                <h2 class="h5 text-secondary page-subtitle"><i
+                                            class="fas fa-caret-right mr-1"></i> {{e: $instance['type'] }}
+                                </h2>
+                            @endif
+
+                            @if(!empty($instance['relative_procedure']['cig']) || !empty($instance['relative_procedure']['relative_notice']['cig']))
+                                @php
+                                    $tmpCig = !empty($instance['relative_procedure']['cig'])
+                                                    ? $instance['relative_procedure']['cig']
+                                                    : $instance['relative_procedure']['relative_notice']['cig'];
+                                @endphp
+                                <div class="attributi">
+                                    <div class="attributo">
+                                        <span class="titolo">Codice CIG:</span>
+                                        <span class="mr-2 text-muted">
+                                        {{e: $tmpCig }}
+                                    </span>
+                                    </div>
                                 </div>
-                            </div>
-                        @endif
+                            @endif
+                        </div>
+                        <div class="button-normative">
+                        </div>
                     </div>
 
                     {{-- Per le liquidazioni --}}
@@ -104,7 +110,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data liquidazione:</span>
                                 <span class="text-muted">
-                                        {{date('d-m-Y|date'): $instance['activation_date'] }}
+                                        {{date('d/m/Y|date'): $instance['activation_date'] }}
                                     </span>
                             </div>
                         @endif
@@ -137,25 +143,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
+                    {{-- Inclusione di librerie esterne --}}
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

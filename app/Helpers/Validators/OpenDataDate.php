@@ -8,6 +8,7 @@ namespace Helpers\Validators;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+use Carbon\Carbon;
 use Exception;
 use System\Input;
 use System\Validator;
@@ -27,6 +28,7 @@ class OpenDataDate
     /**
      * @return array
      * @throws Exception
+     * @noinspection PhpInconsistentReturnPointsInspection
      */
     public function validateDateAndDiff(): array
     {
@@ -34,7 +36,7 @@ class OpenDataDate
 
         $this->validator->label('Inizio intervallo di esportazione')
             ->value(Input::get('skip'))
-            ->notIn('-1', 'Non è stato selezionato alcun intervallo di esportazione')
+            ->notIn('-1', 'Non &egrave; stato selezionato alcun intervallo di esportazione')
             ->isNatural('Il valore di inizio intervallo deve essere numerico')
             ->end();
 

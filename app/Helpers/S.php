@@ -6,10 +6,90 @@
 
 namespace Helpers;
 
-defined('_FRAMEWORK_') or exit ('No direct script access allowed');
+defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 class S
 {
+
+    private static $patterns = array(
+        'uri' => '[A-Za-z0-9-\/_?&=]+',
+        'url' => '[A-Za-z0-9-:.\/_?&=#]+',
+        'alpha' => '[\p{L}]+',
+        'words' => '[\p{L}\s]+',
+        'alphanum' => '[\p{L}0-9]+',
+        'int' => '[0-9]+',
+        'one' => '[1]+',
+        'float' => '[0-9\.,]+',
+        'tel' => '[0-9+\s()-]+',
+        'text' => '[\p{L}0-9\s-.,;:!"%&()?+\'???#\/@]+',
+        'file' => '[\p{L}\s0-9-_!%&()=\[\]#@,.;+]+\.[A-Za-z0-9]{2,4}',
+        'folder' => '[\p{L}\s0-9-_!%&()=\[\]#@,.;+]+',
+        'address' => '[\p{L}0-9\s.,()???-]+',
+        'date_dmy' => '[0-9]{1,2}\-[0-9]{1,2}\-[0-9]{4}',
+        'date_ymd' => '[0-9]{4}\-[0-9]{1,2}\-[0-9]{1,2}',
+        'email' => '[-0-9a-zA-Z.+_]+@[-0-9a-zA-Z.+_]+.[a-zA-Z]{2,5}'
+    );
+
+    const URI = 'uri';
+    const URL = 'url';
+    const ALPHA = 'alpha';
+    const WORDS = 'words';
+    const ALPHANUM = 'alphanum';
+    const INT = 'int';
+    const ONE = 'one';
+    const FLOAT = 'float';
+    const TEL = 'tel';
+    const TEXT = 'text';
+    const FILE = 'file';
+    const FOLDER = 'folder';
+    const ADDRESS = 'address';
+    const DATE_DMY = 'date_dmy';
+    const DATE_YMD = 'date_ymd';
+    const EMAIL = 'email';
+
+    public static function filter($string = null, $patternKey = null, $default = null)
+    {
+
+        if ($string === null) {
+            if ($default === null) {
+                return null;
+            }
+            return $default;
+        }
+
+
+        if ($patternKey && array_key_exists($patternKey, self::$patterns)) {
+            $pattern = self::$patterns[$patternKey];
+            $string = preg_replace($pattern, '', $string);
+        }
+
+        foreach (self::$patterns as $type => $typePattern) {
+            if (preg_match($typePattern, $string)) {
+                switch ($type) {
+                    case 'int':
+                        return (int) $string;
+                    case 'float':
+                        return (float) $string;
+                    case 'email':
+                    case 'uri':
+                    case 'url':
+                    case 'alpha':
+                    case 'words':
+                    case 'alphanum':
+                    case 'one':
+                    case 'tel':
+                    case 'text':
+                    case 'file':
+                    case 'folder':
+                    case 'date_dmy':
+                    case 'date_ymd':
+                        return (string) $string;
+                }
+            }
+        }
+
+        return $string;
+    }
 
     /**
      * Converte una stringa da ISO-8859-1 a UTF-8
@@ -89,7 +169,7 @@ class S
     {
         $_GET = filter_input_array(INPUT_GET, FILTER_SANITIZE_STRING);
         $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_STRING);
-        $_REQUEST = (array)$_POST + (array)$_GET + (array)$_REQUEST;
+        $_REQUEST = (array) $_POST + (array) $_GET + (array) $_REQUEST;
     }
 
     /**
@@ -148,7 +228,7 @@ class S
     public static function currency($number, $decimals = 2, $decimalSep = '.', $thousandsSep = ',', $hasNumberFormat = true)
     {
 
-        if (strlen((string)$number) === 0) {
+        if (strlen((string) $number) === 0) {
             return null;
         }
 
@@ -185,13 +265,13 @@ class S
     private static function converterFormat($number = '', $symbol = ',')
     {
 
-        $number = (string)$number;
+        $number = (string) $number;
         $countSymbol = strpos($number, $symbol);
 
         $r = '';
         $found = 0;
 
-        for ($i = 0; $i < strlen((string)$number); $i++) {
+        for ($i = 0; $i < strlen((string) $number); $i++) {
 
             $tmpString = '';
 
@@ -199,7 +279,7 @@ class S
 
                 $found++;
 
-                if ((int)$found === (int)$countSymbol) {
+                if ((int) $found === (int) $countSymbol) {
 
                     $tmpString = '.';
                 }
@@ -248,7 +328,8 @@ class S
         return $string;
     }
 
-    public static function ellipsizeString($str, $maxLength = 20, $ellipsis = '&hellip;') {
+    public static function ellipsizeString($str, $maxLength = 20, $ellipsis = '&hellip;')
+    {
         $str = trim(strip_tags($str));
 
         if (mb_strlen($str) <= $maxLength) {
@@ -263,5 +344,15 @@ class S
         $end = mb_substr($str, -$endLength);
 
         return $start . $ellipsis . $end;
+    }
+
+    public static function disableIframeAndMediaEmbed(mixed $html): mixed
+    {
+        $html = preg_replace('/<iframe\b[^>]*>(.*?)<\/iframe>/is', '', $html);
+        $html = preg_replace('/<dialog\b[^>]*>(.*?)<\/dialog>/is', '', $html);
+        $html = preg_replace('/<div\s+[^>]*class=["\'][^"\']*(?:media_embed|cke_media_embed)[^"\']*["\'][^>]*>.*?<\/div>/is', '', $html);
+        $html = preg_replace('/<div\s+[^>]*data-oembed[^>]*>.*?<\/div>/is', '', $html);
+
+        return $html;
     }
 }

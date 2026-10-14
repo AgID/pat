@@ -29,7 +29,6 @@ Di seguito la struttura della directory
 **../Logs**
 **../Middleware**
 **../Models**
-**../Modules**
 **../Plugins**
 **../Routes**
 **../Themes**
@@ -77,8 +76,6 @@ Partendo dalla radice del framework le cartelle principali sono:
 	In questa cartella ci sono tutte le classi di tipo middleware dell'applicazione web.
 - **Models**
 	In questa cartella ci sono tutte le classi ti tipo model per la comunicazione con un database.
-- **Modules**
-	Se con il Framework viene sviluppato un CMS, questa cartella è vista come un'estensione delle funzionalità del CMS; ad esempio se in un  CMS viene sviluppato un calendario eventi, in questa cartella vengono salvati tutti i sorgenti del calendario, dal Controller, helpers, models template etc.. 
 - **Plugins**
 	Se con il Framework viene sviluppato un CMS in questa cartella vengono salvati tutti i sorgenti atti ad estendere le funzionalità base del CMS.
 - **Routes**
@@ -97,10 +94,7 @@ Tutte le richieste dell'applicazione passano dalla **index.php**, questo file è
 
 - Index.php; inizializza tutte le risorse base necessarie nell'avvio dell'applicazione.
 
-- Successivamente le richieste vengono indirizzate nel package di routing, dove quest'ultimo inizializzerà un Controller oppure una funzione anonima. La gestione delle rotte è divisa in due specifiche tipologia di chiamata: 
-
-  - **WEB**: Queste rotte sono per le interazione di tipo web, ovvero le richieste che avvengono tramite browser, e sono salvate nella path *"app/Routes/Web.php"*
-  - **API**: Queste rotte sono finalizzate alla costruzione di chiamate RESTful API e sono salvate nella path  *"app/Routes/Api.php"*
+- Successivamente le richieste vengono indirizzate nel package di routing, dove quest'ultimo inizializzerà un Controller oppure una funzione anonima. Le rotte web gestiscono le richieste che avvengono tramite browser e sono definite nel file *"app/Routes/Web.php"*.
 
   una volta chiamato il "Controller" si ha l'accesso a tutto il Patter MCV, chiamare i modelli, le viste e tutte le librerie messe a disposizione del Framework.
 
@@ -144,7 +138,6 @@ Prima di iniziare con i tutorial per la creazione delle rotte, Controller, model
 | **CACHE_PATH**      | Constante del percorso della cartella cache                  |
 | **CONFIG_PATH**     | Constante del percorso della cartella config                 |
 | **LOGS_PATH**       | Constante del percorso della cartella di Logs                |
-| **MODULES_PATH**    | Constante del percorso della cartella dei moduli             |
 | **THEME_PATH**      | Constante del percorso della cartella dei temi (Viste)       |
 | **VERSION**         | Versione del Framework                                       |
 | **MB_ENABLED**      | Verifica se la funzione mbstring (multibyte string) è installata sul server.<br />Maggiori informazioni:  [mbsrtring](https://www.php.net/manual/en/mbstring.installation.php) |

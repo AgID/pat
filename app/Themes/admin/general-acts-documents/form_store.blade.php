@@ -41,17 +41,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
                             {% include general-acts-documents/normative_info %}
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Codice Oggetto --}}
@@ -71,7 +86,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Data del documento --}}
                                 <div class="form-group col-md-6">
-                                    <label for="document_date">Data del documento *</label>
+                                    <label id="document_date_label" for="document_date">Data del documento *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
@@ -106,12 +121,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Pubblica in --}}
                                 <div class="form-group col-md-12">
                                     <label for="public_in">Pubblica in *</label>
-                                    <div class="select2-blue" id="public_in">
+                                    <div id="public_in">
                                         {{ form_dropdown(
                                             'public_in',
                                             @$publicIn,
                                             @$publicInIDs,
-                                            'class="form-control select2-public_in" data-placeholder="Seleziona" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-public_in" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -138,7 +153,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     {{-- Campo Tipologia --}}
                                     <div class="form-group col-md-6">
                                         <label for="typology">Tipologia *</label>
-                                        <div class="select2-blue" id="input_typology">
+                                        <div id="input_typology">
                                             {{ form_dropdown(
                                                 'typology',
                                                 [
@@ -147,7 +162,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     'acquisti' => 'Acquisti di forniture e servizi, per assenza di acquisti di forniture e servizi'
                                                 ],
                                                 @$document['typology'],
-                                                'class="form-control select2-typology" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                                'class="ts-typology" style="width: 100%;"'
                                             ) }}
                                         </div>
                                     </div>
@@ -162,7 +177,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-row mt-2">
                                     {{-- Campo CUP --}}
                                     <div class="form-group col-md-6">
-                                        <label for="cup" id="cig-label">CUP
+                                        <label for="cup" id="cig-label">CUP *
                                         </label>
                                         {{ form_input([
                                             'name' => 'cup',
@@ -175,7 +190,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                     {{-- Campo Data del documento --}}
                                     <div class="form-group col-md-6">
-                                        <label for="start_date">Data avvio</label>
+                                        <label for="start_date">Data avvio *</label>
                                         <div class="input-group">
                                             <div class="input-group-prepend">
                                                 <span class="input-group-text"><i
@@ -193,7 +208,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-row">
                                     {{-- Campo Importo atto di concessione --}}
                                     <div class="form-group col-md-6">
-                                        <label for="financing_amount">Importo finanziamento</label>
+                                        <label for="financing_amount">Importo finanziamento *</label>
                                         <div class="input-group">
                                             <div class="input-group-prepend">
                                                 <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
@@ -210,7 +225,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                     {{-- Campo fonti finanziarie --}}
                                     <div class="form-group col-md-6">
-                                        <label for="financial_sources" id="cig-label">Fonti finanziarie
+                                        <label for="financial_sources" id="cig-label">Fonti finanziarie *
                                         </label>
                                         {{ form_input([
                                             'name' => 'financial_sources',
@@ -227,7 +242,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     {{-- Campo fonti finanziarie --}}
                                     <div class="form-group col-md-12">
                                         <label for="procedural_implementation_status" id="cig-label">Stato di attuazione
-                                            procedurale
+                                            procedurale *
                                         </label>
                                         {{ form_input([
                                             'name' => 'procedural_implementation_status',
@@ -239,6 +254,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     </div>
                                 </div>
                             </div>
+
+
                         </div>
                         {{-- END: Form --}}
                     </div>
@@ -251,7 +268,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
+
             </div>
         </div>
 
@@ -283,6 +303,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -303,29 +324,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
-
-        // $('#work_fields').hide();
-        // $('#purchases_fields').hide();
-
-        // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
-        if ($('#_storage_type').val() == 'insert') {
-            @if(empty($contest['document_date']))
-            $('#input_document_date').attr('value', "<?= date('Y-m-d') ?>");
-            @endif
-        }
 
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
         CKEDITOR.on('instanceCreated', function (e) {
@@ -333,34 +343,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_notes');
+        CKEDITOR.replace('input_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+        let institutionId = document.getElementById('institution_id').value ?? '';
 
-        {{-- Select2 per campo "Tipo di documento (pubblica in) *" --}}
-        let $dropdownPublicIn = $('.select2-public_in');
-        $dropdownPublicIn.select2();
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        const publicIn = new TomSelect('.ts-public_in', {
+            ...TS_SINGLE,
+            onChange(value) {
+                showFieldFromPublicIn(value);
+            }
         });
-        $dropdownPublicIn.on('change', function () {
-            let selected = $(this).val();
-            showFieldFromPublicIn(selected);
-        });
+        showFieldFromPublicIn(publicIn.getValue());
 
-        showFieldFromPublicIn($dropdownPublicIn.val());
-
-        {{-- Select2 per campo "Tipo di documento (tipologia) *" --}}
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona tipologia',
-            minimumResultsForSearch: -1
-        });
+        {{-- Tom Select per campo "Tipo di documento (tipologia) *" --}}
+        new TomSelect('.ts-typology', {...TS_SINGLE, placeholder: 'Seleziona tipologia'});
 
         {{-- Begin salvataggio --}}
         /**
@@ -396,6 +395,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -411,6 +411,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }
@@ -434,7 +435,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
         $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
+            '.ts-control, input',
             function (e) {
                 formModified = true;
             });
@@ -454,23 +455,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     });
 
     function showFieldFromPublicIn(selected) {
-        $('#work_fields').hide();
-        $('#purchases_fields').hide();
+        selected = selected || [];
 
-        //progetti in pubblico
+        const workFields = document.getElementById('work_fields');
+        const purchasesFields = document.getElementById('purchases_fields');
+        const documentDateLabel = document.getElementById('document_date_label');
+
+        workFields.style.display = 'none';
+        purchasesFields.style.display = 'none';
+
+        // Progetti in pubblico
         if (selected.includes('583')) {
-            $('#work_fields').show();
-        } else {
-            $('#work_fields').hide();
+            workFields.style.display = 'block';
         }
 
         if (selected.includes('586')) {
-            $('#purchases_fields').show();
+            purchasesFields.style.display = 'block';
+            documentDateLabel.textContent = 'Data del documento';
         } else {
-            $('#purchases_fields').hide();
+            documentDateLabel.textContent = 'Data del documento *';
         }
-
-
     }
 
 </script>

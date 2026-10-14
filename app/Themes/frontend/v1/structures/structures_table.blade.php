@@ -16,26 +16,33 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <main>
     <section class="my-2">
         <div class="container">
-            <div class="header-structures">
-                {{-- Nome pagina --}}
-                <h1>{{e: !empty($h1) ? $h1 : $pageName }}</h1>
+            <div class="row">
+                <div class="col-12">
 
-                @if( empty($formFilter) and !empty($linkDownloadOpenData) && !empty($table))
-                    <button type="button" class="btn btn-xs btn-primary open-data-download-btn" id="btn-open-model-data">
-                        <span class="fas fa-save"></span> Scarica Open data
-                    </button>
-                @endif
+                    {{-- Nome pagina --}}
+                    <div class="div-title">
+                        <h1>{{e: !empty($h1) ? $h1 :  $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
 
-                {{-- Contenuto della pagina --}}
-                {% include v1/layout/partials/page_content %}
+                    {{-- Inclusione di librerie esterne --}}
+
+                    {{-- Contenuto della pagina --}}
+                    {% include v1/layout/partials/page_content %}
+                </div>
             </div>
         </div>
     </section>
+
 
     {{-- Sezione per i risultati della ricerca --}}
     {% include v1/layout/partials/search_results %}
 
 </main>
+
+{{-- Cards Link --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

@@ -9,9 +9,12 @@ namespace Helpers\Validators;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Maer\Config\Config;
 use Model\PasswordHistoryModel;
 use Model\UsersModel;
+use Scope\DeletedScope;
 use System\Input;
+use System\Log;
 use System\Password;
 use System\Registry;
 use System\Validator;
@@ -95,20 +98,23 @@ class UserValidator
      */
     protected function validate(string $mode = 'insert'): array
     {
+        /* $this->validator->verifyToken()
+             ->end();*/
+
         // Profilo completo utente
         $identity = authPatOs()->getIdentity();
 
         $this->validator->label('Nome')
-            ->value(trim(Input::post('name')))
+            ->value(trim((string)Input::post('name')))
             ->required()
-            ->betweenString(3, 45)
+            ->betweenString(3, 80)
             ->end();
 
         // Validator insert
         if ($mode === 'insert') {
 
             $this->validator->label('Username')
-                ->value(Input::post('username'))
+                ->value(trim((string)Input::post('username')))
                 ->required()
                 ->betweenString(3, 45)
                 ->add(function () {
@@ -121,7 +127,7 @@ class UserValidator
                 }, 'Lo username pu&ograve; contenere caratteri alfanumerici e i seguenti caratteri speciali: !?.@=$& ')
                 ->add(function () {
                     //Controllo se già esiste un utente con lo stesso username per l'ente
-                    $usernameExist = UsersModel::where('username', checkEncrypt(strtolower(Input::post('username'))))->first();
+                    $usernameExist = UsersModel::where('username', checkEncrypt(strtolower(trim((string)Input::post('username')))))->first();
                     if (!empty($usernameExist)) {
                         return ['error' => __('username_exist', null, 'patos')];
                     }
@@ -139,12 +145,13 @@ class UserValidator
                 ->end();
 
             $this->validator->label('Email')
-                ->value(Input::post('email'))
+                ->value(trim((string)Input::post('email')))
                 ->required()
                 ->isEmail()
-                ->isMatches(Input::post('re_email'), 'Conferma Email')
+                ->isMatches(trim((string)Input::post('re_email')), 'Conferma Email')
                 ->add(function () {
-                    $emailExist = UsersModel::where('email', checkEncrypt(strtolower(Input::post('email'))))->first();
+                    $emailExist = UsersModel::where('email', checkEncrypt(strtolower(trim((string)Input::post('email')))))
+                    ->first();
                     if (!empty($emailExist)) {
                         return ['error' => __('email_exist', null, 'patos')];
                     }
@@ -179,6 +186,12 @@ class UserValidator
                 ->required()
                 ->in('25,50,100,180,365')
                 ->end();
+
+
+            $this->validator->label('Modalità di visualizzazione dell\'editor redazionale dei contenuti')
+                ->value(Input::post('editor_wishing'))
+                ->in('inheritance,base,adv,expert')
+                ->end();
         }
 
         // Validator update
@@ -190,7 +203,10 @@ class UserValidator
                 ->isInt()
                 ->isNaturalNoZero()
                 ->add(function () {
-                    $user = UsersModel::where('id', Input::post('id'))->first();
+                    $query = UsersModel::query();
+                    $query->where('id', Input::post('id'));
+                    $user = $query->first();
+
                     if (empty($user)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Utente')];
                     }
@@ -201,7 +217,7 @@ class UserValidator
             $this->validator->label('Password')
                 ->value(Input::post('password'))
                 ->isMatches(Input::post('re_password'), 'Conferma Password')
-                ->add(function () {
+                ->add(function () use ($identity) {
 
                     $checkPassword = checkPassword(Input::post('password'));
 
@@ -209,51 +225,74 @@ class UserValidator
                         return $checkPassword;
                     }
 
-                    // Diverso da Super Admin.
-                    if (!isSuperAdmin()) {
+                    if (Input::post('id') == null) {
+                        return ['error' => __('not_exist_user', null, 'patos')];
+                    }
 
-                        if (Input::post('id') == null) {
-                            return ['error' => __('not_exist_user', null, 'patos')];
+                    //se sto modificando il mio profilo controllo di aver inserito correttamente la vecchia password
+                    if ((int)$identity['id'] === (int)Input::post('id')) {
+
+                        $query = UsersModel::query();
+                        $query->select(['id', 'password']);
+                        $query->where('id', (int)Input::post('id'));
+                        $user = $query->first();
+                        $user = $user->toArray();
+
+                        $config = new Config();
+                        $config->load(APP_PATH . 'Config/auth_pat_os.php');
+                        $passwordField = $config->get('password');
+
+                        $isOldPassCorrect = Password::verify(trim((string)Input::post('old_password', true)), $user[$passwordField]);
+                        if (!$isOldPassCorrect) {
+                            return ['error' => "Password attuale errata"];
                         }
+                    }
 
-                        $passwordHistory = PasswordHistoryModel::where('user_id', Input::post('id'))
-                            ->limit(5)
-                            ->orderBy('id', 'DESC')
-                            ->get()
-                            ->toArray();
+                    //controllo il password history
+                    $passwordHistory = PasswordHistoryModel::where('user_id', Input::post('id'))
+                        ->limit(5)
+                        ->orderBy('id', 'DESC')
+                        ->get()
+                        ->toArray();
 
-                        if (empty($passwordHistory)) {
-                            return null;
-                        }
+                    if (empty($passwordHistory)) {
+                        return null;
+                    }
 
-                        $user = UsersModel::select(['prevent_password_change_day', 'prevent_password_repetition'])
-                            ->where('id', Input::post('id'))
-                            ->first()
-                            ->toArray();
+                    $query = UsersModel::query();
+                    $query->select([
 
-                        if (empty($user)) {
-                            return [
-                                'error' => __('not_exist_user', null, 'patos')
-                            ];
-                        }
+                        'prevent_password_change_day',
+                        'prevent_password_repetition'
+                    ]);
 
-                        $currentDay = date('Y-m-d');
-                        foreach ($passwordHistory as $ph) {
+                    $query->where('id', Input::post('id'));
+                    $user = $query->first();
 
-                            if ($user['prevent_password_change_day'] === 1) {
-                                if ($currentDay === date('Y-m-d', strtotime($ph['created_at']))) {
-                                    return [
-                                        'error' => __('password_change_day', null, 'patos')
-                                    ];
-                                }
+                    if ($user===null) {
+                        return [
+                            'error' => __('not_exist_user', null, 'patos')
+                        ];
+                    }
+
+                    $user = $user->toArray();
+
+                    $currentDay = date('Y-m-d');
+                    foreach ($passwordHistory as $ph) {
+
+                        if ($user['prevent_password_change_day'] === 1) {
+                            if ($currentDay === date('Y-m-d', strtotime($ph['created_at']))) {
+                                return [
+                                    'error' => __('password_change_day', null, 'patos')
+                                ];
                             }
+                        }
 
-                            if ($user['prevent_password_repetition'] === 1) {
-                                if (Password::verify(Input::post('password'), $ph['password']) === true) {
-                                    return [
-                                        'error' => __('last_5_password', null, 'patos')
-                                    ];
-                                }
+                        if ($user['prevent_password_repetition'] === 1) {
+                            if (Password::verify(Input::post('password'), $ph['password']) === true) {
+                                return [
+                                    'error' => __('last_5_password', null, 'patos')
+                                ];
                             }
                         }
                     }
@@ -263,14 +302,37 @@ class UserValidator
                 ->end();
 
             $this->validator->label('Email')
-                ->value(Input::post('email'))
+                ->value(trim((string)Input::post('email')))
                 ->isEmail()
                 ->isMatches(Input::post('re_email'), 'Conferma Email')
                 ->add(function () {
-                    $emailExist = UsersModel::where('id', '!=', Input::post('id'))
-                        ->where('email', Input::post('email'))->first();
+                    $query = UsersModel::query();
+                    $query->where('id', '!=', Input::post('id'));
+                    $query->where('email', checkEncrypt(strtolower(trim((string)Input::post('email')))));
+                    $emailExist = $query->first();
+
                     if (!empty($emailExist)) {
                         return ['error' => __('email_exist', null, 'patos')];
+                    }
+                    return null;
+                })
+                ->end();
+
+            $this->validator->label('Codice Fiscale')
+                ->value(Input::post('fiscal_code'))
+                ->add(function () {
+                    $fiscalCodeCheck = new FiscalCodeRule(Input::post('fiscal_code'));
+                    if (!$fiscalCodeCheck->isValidate()) {
+                        return ['error' => __('fiscal_code_error', null, 'patos')];
+                    } else {
+                        $query = UsersModel::query();
+                        $query->where('id', !'=', Input::post('id'));
+                        $query->where('fiscal_code', Input::post('fiscal_code'));
+                        $fiscalCodeExist = $query->first();
+
+                        if (!empty($fiscalCodeExist)) {
+                            return ['error' => __('fiscal_code_exist', null, 'patos')];
+                        }
                     }
                     return null;
                 })
@@ -280,7 +342,13 @@ class UserValidator
                 ->value(Input::post('password_expiration_days'))
                 ->in('25,50,100,180,365')
                 ->end();
+
+            $this->validator->label('Modalità di visualizzazione dell\'editor redazionale dei contenuti')
+                ->value(Input::post('editor_wishing'))
+                ->in('inheritance,base,adv,expert')
+                ->end();
         }
+
 
         $this->validator->label('Cellulare')
             ->value(Input::post('phone'))
@@ -321,7 +389,7 @@ class UserValidator
 
         $this->validator->label('Visualizza i soli elementi dell\'utente')
             ->value(Input::post('filter_owner_record'))
-            ->in('1,2')
+            ->in('0,1')
             ->end();
 
         $this->validator->label('Note')
@@ -349,6 +417,7 @@ class UserValidator
             }
         }
 
+
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
@@ -363,8 +432,10 @@ class UserValidator
      */
     public function validatePasswordReset(): array
     {
+
         $this->validator->label('Password')
             ->value(Input::post('password'))
+            ->required()
             ->isMatches(Input::post('re_password'), 'Conferma Password')
             ->add(function () {
 
@@ -374,52 +445,62 @@ class UserValidator
                     return $checkPassword;
                 }
 
-                // Diverso da Super Admin.
-                if (!isSuperAdmin()) {
+                if (Input::post('id') == null) {
+                    return ['error' => __('not_exist_user', null, 'patos')];
+                }
 
-                    if (Input::post('id') == null) {
-                        return ['error' => __('not_exist_user', null, 'patos')];
+                $passwordHistory = PasswordHistoryModel::where('user_id', Input::post('id'))
+                    ->limit(5)
+                    ->orderBy('id', 'DESC')
+                    ->get()
+                    ->toArray();
+
+                if (empty($passwordHistory)) {
+                    return null;
+                }
+
+                $query = UsersModel::query();
+                $query->select([
+                    'password',
+                    'prevent_password_change_day',
+                    'prevent_password_repetition'
+                ]);
+                $query->where('id', Input::post('id'));
+                $result = $query->first();
+                $user = ($result === null) ? false : $result->toArray();
+
+                if (empty($user)) {
+                    return [
+                        'error' => __('not_exist_user', null, 'patos')
+                    ];
+                }
+
+                $currentDay = date('Y-m-d');
+                foreach ($passwordHistory as $ph) {
+
+                    if ($user['prevent_password_change_day'] === 1) {
+                        if ($currentDay === date('Y-m-d', strtotime($ph['created_at']))) {
+                            return [
+                                'error' => __('password_change_day', null, 'patos')
+                            ];
+                        }
                     }
 
-                    $passwordHistory = PasswordHistoryModel::where('user_id', Input::post('id'))
-                        ->limit(5)
-                        ->orderBy('id', 'DESC')
-                        ->get()
-                        ->toArray();
-
-                    if (empty($passwordHistory)) {
-                        return null;
+                    if ($user['prevent_password_repetition'] === 1) {
+                        if (Password::verify(Input::post('password'), $ph['password']) === true) {
+                            return [
+                                'error' => __('last_5_password', null, 'patos')
+                            ];
+                        }
                     }
+                }
 
-                    $user = UsersModel::select(['prevent_password_change_day', 'prevent_password_repetition'])
-                        ->where('id', Input::post('id'))
-                        ->first()
-                        ->toArray();
-
-                    if (empty($user)) {
+                //Controllo anche la password stessa, altrimenti posso rimettere la stessa tutte le volte che voglio
+                if ($user['prevent_password_repetition'] === 1){
+                    if (Password::verify(Input::post('password'), $user['password']) === true) {
                         return [
-                            'error' => __('not_exist_user', null, 'patos')
+                            'error' => __('last_5_password', null, 'patos')
                         ];
-                    }
-
-                    $currentDay = date('Y-m-d');
-                    foreach ($passwordHistory as $ph) {
-
-                        if ($user['prevent_password_change_day'] === 1) {
-                            if ($currentDay === date('Y-m-d', strtotime($ph['created_at']))) {
-                                return [
-                                    'error' => __('password_change_day', null, 'patos')
-                                ];
-                            }
-                        }
-
-                        if ($user['prevent_password_repetition'] === 1) {
-                            if (Password::verify(Input::post('password'), $ph['password']) === true) {
-                                return [
-                                    'error' => __('last_5_password', null, 'patos')
-                                ];
-                            }
-                        }
                     }
                 }
                 return null;
@@ -433,13 +514,12 @@ class UserValidator
     }
 
     /**
-     * Validatore per le operazioni multiple(Delete, Lock/Unlock)
+     * Validatore per la cancellazione multipla degli utenti
      *
-     * @param bool $lockUnlock Indica se si tratta di un operazione di blocco/sblocco utenti
      * @return array
      * @throws Exception
      */
-    public function multipleSelection(bool $lockUnlock = true): array
+    public function multipleSelection(): array
     {
         $this->validator->label('Identificativi elementi');
         $this->validator->value(Input::get('ids'));
@@ -456,9 +536,10 @@ class UserValidator
 
             if ($isError) {
 
-                $users = UsersModel::select(['*'])
-                    ->whereIn('id', $ids)
-                    ->get();
+                $query = UsersModel::query();
+                $query->select(['*']);
+                $query->whereIn('id', $ids);
+                $users = $query->get();
 
                 if ($users === null) {
 
@@ -479,13 +560,6 @@ class UserValidator
 
         $this->validator->end();
 
-        if ($lockUnlock) {
-            $this->validator->label('azione');
-            $this->validator->value(Input::get('action'));
-            $this->validator->required();
-            $this->validator->in('lock,unlock');
-            $this->validator->end();
-        }
 
         return [
             'is_success' => $this->validator->isSuccess(),

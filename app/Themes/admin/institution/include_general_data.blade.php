@@ -4,7 +4,7 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+defined('_FRAMEWORK_') or exit('No direct script access allowed'); ?>
 
 <div class="row">
     <div class="col-md-6">
@@ -21,7 +21,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 
-    <div class="col-md-6">
+    <div class="col-md-3">
         {{-- Campo Partita IVA --}}
         <div class="form-group">
             <label for="vat">Partita IVA *</label>
@@ -31,6 +31,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 'placeholder' => 'Partita IVA',
                 'id' => 'input_vat',
                 'class' => 'form-control input_vat',
+            ]) }}
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="form-group">
+            <label for="fiscal_code">Codice fiscale</label>
+            {{ form_input([
+                'name' => 'fiscal_code',
+                'value' => !empty($institution['fiscal_code']) ? $institution['fiscal_code'] : null,
+                'placeholder' => 'Codice fiscale',
+                'id' => 'input_fiscal_code',
+                'class' => 'form-control input_fiscal_code',
             ]) }}
         </div>
     </div>
@@ -64,7 +77,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 
     <div class="col-md-6">
-        {{--  Ente di appartenenza --}}
+        {{-- Ente di appartenenza --}}
         <div class="form-group">
             <label for="top_level_institution_name">Ente di appartenenza</label>
             {{ form_input([
@@ -78,7 +91,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 
     <div class="col-md-6">
-        {{--  URL ente di appartenenza --}}
+        {{-- URL ente di appartenenza --}}
         <div class="form-group">
             <label for="snapchat">URL ente di appartenenza</label>
             <div class="input-group">
@@ -101,22 +114,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <div class="col-md-6">
         {{-- Allegato logo ente --}}
         <div class="form-group">
-            <label for="simple_logo_file">Logo ente* </label>
+            <label for="simple_logo_file">Logo ente</label>
             <div class="custom-file">
                 <input type="file" class="custom-file-input" id="simple_logo_file"
-                       name="simple_logo_file" accept="image/png, image/gif, image/jpeg">
+                    name="simple_logo_file" accept="image/png, image/gif, image/jpeg"
+                    aria-describedby="simple_logo_file_help">
                 <label class="custom-file-label" for="simple_logo_file"
-                       id="label_attach_logo">
+                    id="label_attach_logo">
                     Allega il logo dell'ente
                 </label>
             </div>
+            <small id="simple_logo_file_help" class="form-text text-muted">
+                Formati ammessi: PNG, GIF, JPG/JPEG. Dimensione massima:
+                {{ \Helpers\Utility\FileUpload::maxSizeLabel(5024 * 1024) }};
+                risoluzione da 50 × 50 a 1024 × 1024 pixel.
+            </small>
             <div id="preview-url-logo">
                 <div class="mt-2">
                     <img src="" alt="Logo Ente" id="src-logo-ente"
-                         class="img-thumbnail attach-image">
+                        class="img-thumbnail attach-image">
                     <div class="mt-2">
                         <button type="button" class="btn btn-xs btn-outline-danger"
-                                id="clear-preview-logo">
+                            id="clear-preview-logo">
                             <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina logo
                         </button>
                     </div>
@@ -128,21 +147,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <div class="col-md-6">
         {{-- Allegato immagine favico --}}
         <div class="form-group">
-            <label for="full_name_institution">Icon favicon* </label>
+            <label for="favicon_file">Icon favicon </label>
             <div class="custom-file">
                 <input type="file" class="custom-file-input" id="favicon_file"
-                       name="favicon_file" accept="image/png, image/ico">
+                    name="favicon_file"
+                    accept=".png,.gif,.jpg,.jpeg,.ico,image/png,image/gif,image/jpeg,image/x-icon,image/vnd.microsoft.icon"
+                    aria-describedby="favicon_file_help">
                 <label class="custom-file-label" for="favicon_file" id="label_favicon_file">
                     Allega l'icona di favicon
                 </label>
             </div>
+            <small id="favicon_file_help" class="form-text text-muted">
+                Formati ammessi: PNG, GIF, JPG/JPEG, ICO. Dimensione massima:
+                {{ \Helpers\Utility\FileUpload::maxSizeLabel(5024 * 1024) }};
+                per PNG, GIF e JPG/JPEG, risoluzione da 50 × 50 a 1024 × 1024 pixel.
+            </small>
             <div id="preview-url-favicon">
                 <div class="mt-2">
                     <img src="" alt="Icon favicon" id="src-favicon-ente"
-                         class="img-thumbnail attach-image">
+                        class="img-thumbnail attach-image">
                     <div class="mt-2">
                         <button type="button" class="btn btn-xs btn-outline-danger"
-                                id="clear-preview-favicon">
+                            id="clear-preview-favicon">
                             <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina favicon
                         </button>
                     </div>
@@ -152,7 +178,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     </div>
 
     <div class="col-md-6">
-        {{--  Url portale istituzionale --}}
+        {{-- Url portale istituzionale --}}
         <div class="form-group">
             <label for="snapchat">Url portale istituzionale</label>
             <div class="input-group">
@@ -171,4 +197,5 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
         </div>
     </div>
+
 </div>

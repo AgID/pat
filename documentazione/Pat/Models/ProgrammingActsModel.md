@@ -7,7 +7,6 @@ Il modello `ProgrammingActsModel` rappresenta la tabella `object_programming_act
 * `$table`: Il nome della tabella nel database (default: `'object_programming_acts'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaProgrammingActsModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'programming_acts'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Atti di programmazione'`).
 * `$objectId`: L'ID dell'oggetto (default: `22`).
@@ -55,10 +54,3 @@ scopeFilter(Builder $query, string$object = null, string$description = null, str
 ```
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati degli atti di programmazione in base all'oggetto, alla descrizione, alla data di inizio e alla data di fine.
-
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaProgrammingActsModel`, rappresentante i metadati associati agli atti di programmazione.

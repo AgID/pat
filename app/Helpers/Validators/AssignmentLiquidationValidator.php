@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\AssignmentsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,29 +37,34 @@ class AssignmentLiquidationValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId(?bool $checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID Liquidazione')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la liquidazione con l'id passato in input
-                $check = AssignmentsModel::where('typology', 'liquidation')
-                    ->where('id', uri()->segment(4, 0))
-                    ->with(['related_assignment' => function ($query) {
-                        $query->select(['id', 'name', 'object', 'assignment_start', 'assignment_end']);
-                    }])
-                    ->first();
+                $check = AssignmentsModel::where('typology', 'liquidation');
+                $check->with('structure:id,structure_name');
+                $check->where('id', uri()->segment($uriSegment, 0));
+                $check->with(['related_assignment' => function ($query) {
+                    $query->select(['id', 'name', 'object', 'assignment_start', 'assignment_end']);
+                }]);
+                $check->with([
+                    'created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }
+                ]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $check = $check->first();
 
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'liquidazione ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -83,9 +89,9 @@ class AssignmentLiquidationValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -96,7 +102,7 @@ class AssignmentLiquidationValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
 
         $this->validator->verifyToken()
@@ -132,16 +138,28 @@ class AssignmentLiquidationValidator
             ->betweenString(4, 1000)
             ->end();
 
+
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
+                ->add(function () use ($id, $institutionId) {
+
                     //Recupero la liquidazione da aggiornare
-                    $liquidation = AssignmentsModel::where('id', Input::post('id'))->first();
+                    $query = AssignmentsModel::where('id', $id);
+
+                    $liquidation = $query->first();
+
 
                     //Se non esiste mostro un messaggio di errore
                     if (empty($liquidation)) {
@@ -149,6 +167,7 @@ class AssignmentLiquidationValidator
                     }
                 })
                 ->end();
+
         }
 
         return [

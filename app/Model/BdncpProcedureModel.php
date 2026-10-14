@@ -11,11 +11,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
-use System\Action;
+
+use System\Log;
 use System\Model;
 use Traits\SearchableTrait;
-
 
 class BdncpProcedureModel extends Model
 {
@@ -23,6 +22,7 @@ class BdncpProcedureModel extends Model
 
     protected $table = 'object_bdncp_procedure';
     protected $primaryKey = 'id';
+    protected string $metaModel = 'MetaBdncpProcedureModel';
     protected string $archiveName = 'bdncp_procedure';
     protected string $objectName = 'Bandi di gara e contratti (dal 1/1/2024)';
     protected int $objectId = 91;
@@ -31,7 +31,9 @@ class BdncpProcedureModel extends Model
         'id',
         'owner_id',
         'institution_id',
+        'workflow_state',
         'object_procedure_id',
+        'object_structures_id',
         'source_id',
         'o_id',
         'publishing_status',
@@ -44,6 +46,8 @@ class BdncpProcedureModel extends Model
         'liquidation_date',
         'amount_liquidated',
         'bdncp_link',
+        'eproc_url',
+        'econnect_id',
         'multicig',
         'publish_father_document',
         'notes',
@@ -67,6 +71,11 @@ class BdncpProcedureModel extends Model
         'emergency_foster_notes',
         'foster_procedure_check',
         'foster_procedure_notes',
+        'publishing_responsable',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
+        'ac_extra_info',
         'source_id',
         'o_id',
         '__tag',
@@ -80,7 +89,8 @@ class BdncpProcedureModel extends Model
         'objectType' => 'typology',
         'alert' => 'object',
         'procedure' => 'object',
-        'liquidation' => 'object'
+        'liquidation' => 'object',
+        'variation' => 'object'
     ];
 
     /**
@@ -116,20 +126,19 @@ class BdncpProcedureModel extends Model
         'users.name'
     ];
 
+    protected array $relationshipsToDelete = [
+        'rel_variation_procedure',
+        'measures'
+    ];
+
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -139,7 +148,7 @@ class BdncpProcedureModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -150,6 +159,15 @@ class BdncpProcedureModel extends Model
     public function created_by()
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -164,33 +182,16 @@ class BdncpProcedureModel extends Model
     }
 
     /**
-     * Funzione post update, chiamata automaticamente a seguito della funzione custom updateWithLogs
-     * @param object $element Elemento aggiornato
-     * @return void
-     */
-    public function postInsert(object $element): void
-    {
-    }
-
-    /**
-     * Funzione post update, chiamata automaticamente a seguito della funzione custom updateWithLogs
-     * @param object $element Elemento aggiornato
-     * @return void
-     */
-    public function postUpdate(object $element): void
-    {
-    }
-
-    /**
      * Relazione con gli Incarichi (tabella object_assignments)
      * Rappresenta la composizione della commissione giudicatrice
      * @return BelongsToMany
      */
     public function commission(): BelongsToMany
     {
-        return $this->belongsToMany(AssignmentsModel::class, 'rel_bdncp_procedure_assignments', 'object_procedure_id', 'object_assignment_id')
+        $ass = $this->belongsToMany(AssignmentsModel::class, 'rel_bdncp_procedure_assignments', 'object_procedure_id', 'object_assignment_id')
             ->withTimestamps()
             ->wherePivot('typology', '=', 'commission');
+        return $ass;
     }
 
     /**
@@ -206,14 +207,62 @@ class BdncpProcedureModel extends Model
         return $ass;
     }
 
+
+    /**
+     * Relazione con Se stesso
+     * Tutte le procedure relative di una variazione
+     * @return BelongsToMany
+     */
+    public function rel_variation_procedure(): BelongsToMany
+    {
+        $procedures = $this->belongsToMany(BdncpProcedureModel::class, 'rel_bdncp_procedure_bdncp_procedure', 'object_procedure_id', 'object_procedure_id2')
+            ->withTimestamps()
+            ->wherePivot('typology', '=', 'variation');
+
+        return $procedures;
+    }
+
+    /**
+     * Tutte le variazioni inserite per un procedura pubblicata
+     * @return BelongsToMany
+     */
+    public function variations(): BelongsToMany
+    {
+        $variations = $this->belongsToMany(BdncpProcedureModel::class, 'rel_bdncp_procedure_bdncp_procedure', 'object_procedure_id2', 'object_procedure_id')
+            ->withTimestamps()
+            ->wherePivot('typology', '=', 'variation');
+
+        return $variations;
+    }
+
+
     /**
      * Relazione con Strutture Organizzative (tabella object_structures)
-     * Rappresenta le strutture che appartengono a quella corrente
-     * @return HasMany
+     * Rappresenta la struttura
      */
-    public function measures(): HasMany
+    public function structure(): belongsTo
     {
-        return $this->hasMany(MeasuresModel::class, 'object_bdncp_procedure_id', 'id');
+        return $this->belongsTo(StructuresModel::class, 'object_structures_id');
+    }
+
+
+//    Vecchio metodo per la relazione con Provvedimenti, ora sostituito da una relazione BelongsToMany
+//    /**
+//     * Relazione con Provvedimenti
+//     * @return HasMany
+//     */
+//    public function measures(): HasMany
+//    {
+//        return $this->hasMany(MeasuresModel::class, 'object_bdncp_procedure_id', 'id');
+//    }
+
+    /**
+     * Relazione con Provvedimenti
+     * @return BelongsToMany
+     */
+    public function measures(): BelongsToMany
+    {
+        return $this->belongsToMany(MeasuresModel::class, 'rel_measures_bdncp_procedure', 'object_procedure_id', 'object_measures_id')->withTimestamps();
     }
 
     /**
@@ -223,6 +272,46 @@ class BdncpProcedureModel extends Model
     public function relative_bdncp_procedure(): BelongsTo
     {
         return $this->belongsTo(BdncpProcedureModel::class, 'object_procedure_id');
+    }
+
+    /**
+     * @return HasMany
+     * Avvisi correlati alla procedura
+     */
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(BdncpProcedureModel::class, 'object_procedure_id', 'id')->where('typology', 'alert');
+    }
+
+    /**
+     * @return HasMany
+     * Luquidazioni correlati alla procedura
+     */
+    public function liquidations(): HasMany
+    {
+        return $this->hasMany(BdncpProcedureModel::class, 'object_procedure_id', 'id')->where('typology', 'liquidation');
+    }
+
+
+    /**
+     * Relazione se stesso
+     * Rappresenta i figli di una procedure (sono presenti se multicig)
+     * @return HasMany
+     */
+    public function children_procedure(): HasMany
+    {
+        return $this->hasMany(BdncpProcedureModel::class, 'object_procedure_id', 'id');
+    }
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 
     /**
@@ -255,7 +344,7 @@ class BdncpProcedureModel extends Model
     }
 
     /**
-     * Scope locale per il filtraggio dei dati dei bilanci
+     * Scope locale per il filtraggio dei dati dei bandi di gara
      * @param Builder     $query Query
      * @param string|null $name  Nome
      * @param int|null    $year  Anno
@@ -263,10 +352,12 @@ class BdncpProcedureModel extends Model
      */
     public function scopeFilter(
         Builder $query,
-        string  $object = null,
-        string $cig = null
-    ): void
-    {
+        string $object = null,
+        string $cig = null,
+        string $dataDal = null,
+        string $dataAl = null,
+        string $fase = null,
+    ): void {
         if (!empty($object)) {
             $query->where('object_bdncp_procedure.object', 'LIKE', '%' . $object . '%');
         }
@@ -274,6 +365,24 @@ class BdncpProcedureModel extends Model
         if (!empty($cig)) {
             $query->where('object_bdncp_procedure.cig', 'LIKE', '%' . $cig . '%');
         }
+
+        if (!empty($dataDal)) {
+            $query->where('object_bdncp_procedure.publishing_start', '>=', date('Y-m-d H:i:s', strtotime($dataDal)));
+        }
+
+        if (!empty($dataAl)) {
+            $query->where('object_bdncp_procedure.publishing_start', '<=', date('Y-m-d 23:59:59', strtotime($dataAl)));
+        }
+
+        if (
+            !empty($fase) &&
+            in_array($fase, ['public_debate_check', 'notice_documents_check', 'equal_opportunities_af_check', 'local_public_services_check',
+                    'equal_opportunities_es_check', 'free_contract_check', 'emergency_foster_check', 'foster_procedure_check',
+                'judging_commission_check', 'advisory_board_technical_check'])
+        ) {
+            $query->where($fase, '=', 1);
+        }
+
     }
 
     /**
@@ -286,11 +395,10 @@ class BdncpProcedureModel extends Model
      */
     public function scopeAlertFilter(
         Builder $query,
-        string  $object = null,
-        string  $startDate = null,
-        string  $endDate = null
-    ): void
-    {
+        string $object = null,
+        string $startDate = null,
+        string $endDate = null
+    ): void {
         if (!empty($object)) {
             $query->where('object_bdncp_procedure.object', 'LIKE', '%' . $object . '%');
         }
@@ -300,8 +408,28 @@ class BdncpProcedureModel extends Model
         }
 
         if (!empty($endDate)) {
-            $query->where('object_bdncp_procedure.alert_date', '<=', date('Y-m-d H:i:s', strtotime($endDate)));
+            $query->where('object_bdncp_procedure.alert_date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
         }
+
+    }
+
+
+
+
+    /**
+     * Scope locale per il filtraggio dei dati delle variazioni in corso d'opera
+     * @param Builder     $query     Query
+     * @param string|null $object    Oggetto
+     * @return void
+     */
+    public function scopeVariationFilter(
+        Builder $query,
+        string $object = null
+    ): void {
+        if (!empty($object)) {
+            $query->where('object_bdncp_procedure.object', 'LIKE', '%' . $object . '%');
+        }
+
     }
 
     /**
@@ -313,10 +441,9 @@ class BdncpProcedureModel extends Model
      */
     public function scopeLiquidationFilter(
         Builder $query,
-        string  $object = null,
-        string  $cig = null
-    ): void
-    {
+        string $object = null,
+        string $cig = null
+    ): void {
         if (!empty($object)) {
             $query->where('object_bdncp_procedure.object', 'LIKE', '%' . $object . '%');
         }
@@ -326,4 +453,45 @@ class BdncpProcedureModel extends Model
                 ->orWhere('object_bdncp_procedure.cig', 'LIKE', $cig . '%');
         }
     }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder      $query        Query
+     * @param string|null  $typology     Tipologia
+     * @param string|null  $dataFrom     Data dal
+     * @param string|null  $dataTo       Data al
+     * @param string|null  $user         Utente
+     * @return void
+     */
+    public function scopeBdncpProcedureFilterDataTable(
+        $query,
+        $typology = null,
+        $dataFrom = null,
+        $dataTo = null,
+        $user = null,
+        $hasAttach = null
+    ) {
+        if (!empty($typology)) {
+            $query->where('object_bdncp_procedure.typology', '=', $typology);
+        }
+        if (!empty($dataFrom)) {
+            $query->where('object_bdncp_procedure.created_at', '>=', date('Y-m-d H:i:s', strtotime($dataFrom)));
+        }
+        if (!empty($dataTo)) {
+            $query->where('object_bdncp_procedure.created_at', '<=', date('Y-m-d 23:59:59', strtotime($dataTo)));
+        }
+        if (!empty($user)) {
+            $query->where('object_bdncp_procedure.owner_id', '=', $user);
+        }
+        if(!empty($hasAttach)){
+            if($hasAttach == '1'){
+                $query->whereHas('all_attachs');
+            }elseif ($hasAttach == '2'){
+                $query->whereDoesntHave('all_attachs');
+            }
+
+        }
+
+    }
+
 }

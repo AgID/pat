@@ -1,4 +1,9 @@
 <?php
+/**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 $identity = authPatOs()->getIdentity();
 $adv = 'base';
@@ -6,12 +11,10 @@ $adv = 'base';
 // https://ckeditor.com/docs/ckeditor4/latest/features/toolbarconcepts.html CONFIGURAZIONE CKEDITOR
 
 
-if (\System\Action::getInstance()->do_action('i_s_s_a', true)) {
-    $adv = 'expert';
-} else {
+
 
     // Forzatura sessione utente
-    switch ($identity['editor_wishing']) {
+    switch ($identity['editor_wishing'] ?? null) {
         case 'base':
             $adv = 'base';
             break;
@@ -39,16 +42,20 @@ if (\System\Action::getInstance()->do_action('i_s_s_a', true)) {
                 break;
         }
     }
-}
 ?>
 /**
 * @license Copyright (c) 2003-2022, CKSource Holding sp. z o.o. All rights reserved.
 * For licensing, see https://ckeditor.com/legal/ckeditor-oss-license
 */
 CKEDITOR.editorConfig = function (config) {
+
+config.versionCheck = false;
+config.clipboard_handleImages = false;
+
 // Define changes to default configuration here. For example:
 config.language = 'it';
 config.uiColor = '#F4F4F4';
+
 
 <?php if ($adv === 'expert'): /* Editor per esperti */ ?>
     config.toolbarGroups = [
@@ -90,13 +97,12 @@ config.uiColor = '#F4F4F4';
     ];
 <?php endif; ?>
 
-<?php \System\Action::getInstance()->do_action('p_d_i_m_e_c_k_e') ?>
 
 // Simplify the dialog windows.
-config.removeDialogTabs = 'image:advanced;link:advanced';
-config.filebrowserBrowseUrl = '/admin/file-archive?f=1';
-config.filebrowserUploadUrl = '/admin/sys/filemanager';
-config.imageUploadUrl = '/admin/sys/filemanager';
+config.removeDialogTabs = 'image:advanced;image:Upload;link:advanced;link:upload';
+config.filebrowserBrowseUrl = '<?php echo verifyFirstOrLastSlash('/admin/file-archive?f=1') ?>';
+config.filebrowserUploadUrl = '<?php echo verifyFirstOrLastSlash('/admin/sys/filemanager') ?>';
+config.imageUploadUrl = '<?php echo verifyFirstOrLastSlash('/admin/sys/filemanager') ?>';
 config.height = 260;
 config.width = '100%';
 

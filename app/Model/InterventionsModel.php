@@ -12,7 +12,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -26,6 +26,7 @@ class InterventionsModel extends Model
     protected $table = 'object_interventions';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaInterventionModel';
     protected string $archiveName = 'interventions';
 
     protected string $objectName = 'Interventi straordinari e di emergenza';
@@ -45,6 +46,10 @@ class InterventionsModel extends Model
         'effective_cost',
         'publishing_status',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
+        'source_id',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -64,7 +69,15 @@ class InterventionsModel extends Model
      */
     protected $searchable = [
         'object_interventions.name',
-        'userName',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -92,19 +105,13 @@ class InterventionsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Array di valori
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -115,7 +122,7 @@ class InterventionsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -136,6 +143,15 @@ class InterventionsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -160,6 +176,7 @@ class InterventionsModel extends Model
         $regulations = $this->belongsToMany(RegulationsModel::class, 'rel_interventions_regulations', 'object_interventions_id', 'object_regulations_id');
         return $regulations;
     }
+
 
     /**
      * Relazione con gli allegati

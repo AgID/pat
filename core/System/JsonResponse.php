@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -293,10 +293,14 @@ class JsonResponse
      *
      * @param bool $send
      */
-    public function response($send = true)
+    public function response($send = true, $locationUrl = null, $contentType = null)
     {
         $response = new Response();
-        $response->setHeader('Content-Type', 'application/json');
+        $strContentType = $contentType !== null ? $contentType : 'application/json';
+        if ($locationUrl !== null && filter_var($locationUrl, FILTER_VALIDATE_URL)) {
+            $response->setHeader('Location', 'link');
+        }
+        $response->setHeader('Content-Type', $strContentType);
         $response->setStatus($this->statusCode);
         $response->body($this->toString());
         $response->send($send);

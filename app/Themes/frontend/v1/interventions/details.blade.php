@@ -21,6 +21,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     @if(!empty($genericInfo))
                         @php
@@ -29,9 +30,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <p id="generic-info" class="testo-blu anchor sr-only"
                            style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
                     @endif
-                    <div class="titolo mb-4">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['name'] }}</h1>
-                    </div>
+                        <div class="button-normative">
+                        </div>
+                    </div>                    
 
                     @if(!empty($genericInfo))
                         <div class="attributi">
@@ -120,25 +124,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
                 </div>
-
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
-
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

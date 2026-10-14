@@ -21,12 +21,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['name'] }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
 
                     @if(!empty($instance['image']))
                         <img class="img-evidenza-personale"
@@ -68,12 +73,61 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         @endif
 
+                        @if(!empty($instance['skills']))
+                            @php
+                                $anchorsNumber++;
+                            @endphp
+                            <h3 id="description" class="anchor testo-blu anchor page-subtitle mt-2">Competenze</h3>
+                            <div>
+                                {{xss: $instance['skills'] }}
+                            </div>
+                        @endif
+
+                        @if(!empty($instance['management_structure']) || !empty($instance['non_management_structure']))
+                            @php
+                                $anchorsNumber++;
+                            @endphp
+                            <h3 id="members" class="anchor testo-blu anchor page-subtitle mt-2">Uffici</h3>
+                        @endif
+                        @if(!empty($instance['management_structure']))
+                            @php
+                                $i = 0;
+                                $len = count($instance['management_structure'])-1;
+                            @endphp
+                            <div class="attributo">
+                                <span class="titolo">Dirigenziali:</span>
+                                @foreach($instance['management_structure'] as $str)
+                                    <a class="mr-2 text-muted"
+                                       href="{{ siteUrl('page/40/details/'.$str['id'].'/'.urlTitle($str['structure_name'])) }}">
+                                        {{xss: $str['archived'] ? '<b>[Archiviata]</b> '. $str['structure_name'] : $str['structure_name'] }}</a>
+                                    {{ ($i++ < $len ? ', ' : '') }}
+                                @endforeach
+                            </div>
+
+                        @endif
+                            @if(!empty($instance['non_management_structure']))
+                                @php
+                                    $i = 0;
+                                    $len = count($instance['non_management_structure'])-1;
+                                @endphp
+                                <div class="attributo">
+                                    <span class="titolo">Non dirigenziali:</span>
+                                    @foreach($instance['non_management_structure'] as $str)
+                                        <a class="mr-2 text-muted"
+                                           href="{{ siteUrl('page/40/details/'.$str['id'].'/'.urlTitle($str['structure_name'])) }}">
+                                            {{xss: $str['archived'] ? '<b>[Archiviata]</b> '. $str['structure_name'] : $str['structure_name'] }}</a>
+                                        {{ ($i++ < $len ? ', ' : '') }}
+                                    @endforeach
+                                </div>
+
+                            @endif
+
+
                         @if(!empty($instance['description']))
                             @php
                                 $anchorsNumber++;
                             @endphp
-                            <h3 id="description" class="anchor testo-blu anchor page-subtitle mt-2">Descrizione
-                                commissione</h3>
+                            <h3 id="description" class="anchor testo-blu anchor page-subtitle mt-2">Descrizione</h3>
                             <div>
                                 {{xss: $instance['description'] }}
                             </div>
@@ -87,9 +141,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @if(!empty($instance['president']))
                                 <div class="attributo">
                                     <span class="fas fa-user testo-blu mr-1"></span>
-                                    <span class="titolo">Presidente:</span>
+                                    <span class="titolo">Presidente/Capogruppo:</span>
                                     <a class="mr-2 text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$instance['president']['id'].'/'.urlTitle($instance['president']['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$instance['president']['id'].'/'.urlTitle($instance['president']['full_name'])) }}">
                                         {{xss: $instance['president']['archived'] ? '<b>[Cessato]</b>' : '' . $instance['president']['full_name'] }}</a>
                                 </div>
                             @endif
@@ -105,7 +159,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Vicepresidente:</span>
                                 @foreach($instance['vicepresidents'] as $vicepresident)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$vicepresident['id'].'/'.urlTitle($vicepresident['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$vicepresident['id'].'/'.urlTitle($vicepresident['full_name'])) }}">
                                         {{xss: ($vicepresident['archived'] ? '<b>[Cessato]</b>' : '') . $vicepresident['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -123,7 +177,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Segretari:</span>
                                 @foreach($instance['secretaries'] as $secretarie)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$secretarie['id'].'/'.urlTitle($secretarie['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$secretarie['id'].'/'.urlTitle($secretarie['full_name'])) }}">
                                         {{xss: ($secretarie['archived'] ? '<b>[Cessato]</b>' : '') . $secretarie['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -141,7 +195,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Membri:</span>
                                 @foreach($instance['members'] as $member)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$member['id'].'/'.urlTitle($member['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$member['id'].'/'.urlTitle($member['full_name'])) }}">
                                         {{xss: ($member['archived'] ? '<b>[Cessato]</b>' : '') . $member['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -159,7 +213,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Membri supplenti:</span>
                                 @foreach($instance['substitutes'] as $substitute)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$substitute['id'].'/'.urlTitle($substitute['full_name'])) }}">
+                                       href="{{ siteUrl('page/4/details/'.$substitute['id'].'/'.urlTitle($substitute['full_name'])) }}">
                                         {{xss: ($substitute['archived'] ? '<b>[Cessato]</b>' : '') . $substitute['full_name'] }}
                                     </a>
                                     {{ ($i++ < $len ? ', ' : '') }}
@@ -193,25 +247,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
+                    {{-- Inclusione di librerie esterne --}}
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
@@ -11,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\LeaseCanonsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -37,30 +37,51 @@ class CanonValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID canone')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il canone con l'id passato in input
-                $check = LeaseCanonsModel::where('id', uri()->segment(4, 0))
+                $query = LeaseCanonsModel::where('id', uri()->segment(4, 0))
                     ->with('properties:id')
-                    ->with(['structure' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                    ->with([
+                        'structure' => function ($query) {
+                            $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                                ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                        }
+                    ])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+                $query->where('id', uri()->segment($uriSegment, 0));
+                $query->with('properties:id');
+                $query->with([
+                    'structure' => function ($query) {
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->first();
+                    }
+                ]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                $query = $query ?? null;
 
+                $check = $query->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'canone ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -71,12 +92,13 @@ class CanonValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
+
 
     /**
      * Metodo che esegue la validazione dei campi del form
@@ -85,9 +107,9 @@ class CanonValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -98,9 +120,8 @@ class CanonValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
-
         $this->validator->verifyToken()
             ->end();
 
@@ -110,13 +131,9 @@ class CanonValidator
             ->in('1,2')
             ->end();
 
-        if (Input::post('canon_type') == 1) {
-            $this->validator->label('Informazioni sul beneficiario')
-                ->value(Input::post('beneficiary'))
-                ->required()
-                ->betweenString(5, 60)
-                ->end();
 
+
+        if (Input::post('canon_type') == 1) {
             $this->validator->label('Partita IVA / Cod. fisc. beneficiario')
                 ->value(Input::post('fiscal_code'))
                 ->add(function () {
@@ -144,25 +161,44 @@ class CanonValidator
             ->betweenString(5, 60)
             ->end();
 
-        $this->validator->label('Data inizio')
-            ->value(Input::post('start_date'))
-            ->required()
-            ->isDate('Y-m-d')
-            ->end();
+        $check = false;
 
-        $this->validator->label('Data fine')
-            ->value(Input::post('end_date'))
-            ->required()
-            ->isDate('Y-m-d')
-            ->add(function () {
-                if (Input::post('end_date') < Input::post('start_date')) {
+        if(!$check){
 
-                    return ['error' => __('invalid_end_date', null, 'patos')];
+            if (Input::post('canon_type') == 1) {
+                $this->validator->label('Informazioni sul beneficiario')
+                    ->value(Input::post('beneficiary'))
+                    ->required()
+                    ->betweenString(5, 60)
+                    ->end();
+            }
 
-                }
-                return null;
-            })
-            ->end();
+            $this->validator->label('Data inizio')
+                ->value(Input::post('start_date'))
+                ->required()
+                ->isDate('Y-m-d')
+                ->end();
+
+            $this->validator->label('Data fine')
+                ->value(Input::post('end_date'))
+                ->required()
+                ->isDate('Y-m-d')
+                ->add(function () {
+                    if (Input::post('end_date') < Input::post('start_date')) {
+
+                        return ['error' => __('invalid_end_date', null, 'patos')];
+                    }
+                    return null;
+                })
+                ->end();
+        }else{
+        }
+
+
+
+
+
+
 
         if (Input::post('properties')) {
             foreach (Input::post('properties') as $property) {
@@ -195,24 +231,31 @@ class CanonValidator
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $company = LeaseCanonsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = LeaseCanonsModel::where('id', $id);
+
+                    $company = $query->first();
+
                     if (empty($company)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Canone di locazione')];
                     }
                 })
                 ->end();
+
         }
 
 
         return [
             'is_success' => $this->validator->isSuccess(),
-            'errors' => $this->validator->getErrorsHtml()
+            'errors' => $this->validator->getErrorsHtml(),
         ];
     }
 

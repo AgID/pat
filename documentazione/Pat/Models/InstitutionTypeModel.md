@@ -14,10 +14,6 @@ boot()
 
 Il metodo `boot` inizializza il modello.
 
-#### Metodi di relazione
-
-Il modello `InstitutionTypeModel` dichiara una relazione con il modello `RelSectionExcludedModel` utilizzando il metodo `hasMany`.
-
 ### Proprietà
 
 * `$table`: Il nome della tabella nel database (default: `'institution_type'`).

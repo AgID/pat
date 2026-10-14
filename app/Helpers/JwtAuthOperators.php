@@ -68,6 +68,16 @@ class JwtAuthOperators
      */
     protected $token = null;
 
+    /**
+     * @var null
+     */
+    protected $sessionName = null;
+
+    /**
+     * @var null
+     */
+    protected $expireToken = null;
+
 
     /**
      * Jwt constructor.
@@ -107,11 +117,9 @@ class JwtAuthOperators
             if (!$this->validEmail($usernameOrEmail)) {
 
                 $fieldIdentityUser = $this->nameUsername;
-
             } else {
 
                 $fieldIdentityUser = $this->nameEmail;
-
             }
 
             $users = $DB::table($this->nameTable)
@@ -136,15 +144,13 @@ class JwtAuthOperators
                         'device' => $userAgent->device(),
                         'browser' => $userAgent->browser(),
                         'userAgent' => $userAgent->getUserAgent(),
-                        'expire_token' => $this->expireToken(),
+                        'expire_token' => $this->expireToken(), // Manteniamo per retrocompatibilità
+                        'exp' => time() + $this->expireToken, // Campo standard JWT per scadenza
                     ]);
 
                     $this->isValid = true;
-
                 }
-
             }
-
         }
 
         return $this->isValid;
@@ -156,7 +162,6 @@ class JwtAuthOperators
     public function isValid()
     {
         return $this->isValid;
-
     }
 
     /**
@@ -188,17 +193,16 @@ class JwtAuthOperators
 
             if (\System\Arr::is_multi($storage) === false) {
 
-                foreach ($storage as $key => $value) {
-
-                    $getToken['options'][$key] = $value;
+                if (is_iterable($storage)) {
+                    foreach ($storage as $key => $value) {
+                        $getToken['options'][$key] = $value;
+                    }
                 }
-
             }
 
 
             $this->token = $this->generateToken($getToken);
             return $this->token;
-
         }
 
         return true;
@@ -218,7 +222,6 @@ class JwtAuthOperators
             if (!empty($getToken['options'][$data])) {
 
                 return $getToken['options'][$data];
-
             }
         }
 
@@ -299,7 +302,6 @@ class JwtAuthOperators
             if ($domain !== false) {
 
                 $str = $matches[1] . '@' . $domain;
-
             }
         }
 

@@ -40,15 +40,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
             <div class="card-body card-primary" id="new">
 
+
+                {{-- Inclusione di librerie esterne --}}
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
+
                             {{-- Campo Nome struttura --}}
                             <div class="form-group">
                                 <label for="name">Nome struttura * </label>
@@ -61,12 +78,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
 
+
                             {{-- Campo Struttura di appartenenza --}}
-                            <div class="form-row d-flex align-items-end">
+
+                            @php
+
+                                $displayStrBelonging = false;
+                                if($_storageType != 'insert' && empty($structure['management_structure_id']) && empty($structure['non_management_structure_id']) && !empty($structure['structure_of_belonging_id'])){
+                                    $displayStrBelonging = true;
+                                }
+
+                            @endphp
+
+                            <div class="form-row align-items-end" style="display: {{$displayStrBelonging ? 'flex' : 'none'}}">
                                 <div class="form-group col-md-12" id="president">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label for="ajax_structure_of_belonging" id="structure_of_belonging_label">Struttura
-                                            di appartenenza</label>
+                                        <label for="ajax_structure_of_belonging" id="structure_of_belonging_label">Denominazione ufficio di appartenenza</label>
                                     </div>
                                     <div id="ajax_structure_of_belonging"></div>
                                     <input type="hidden" value="" name="structure_of_belonging_id"
@@ -76,47 +103,72 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Utilizza in Articolazione degli Uffici --}}
-                                <div class="form-group col-md-6">
-                                    <label for="articulationtion">Utilizza in Articolazione degli Uffici</label>
-                                    <div class="select2-blue" id="input_articulation">
+                                <div class="form-group col-md-12">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_management_structure" id="management_structure_label">Denominazione ufficio di livello dirigenziale</label>
+                                    </div>
+                                    <div id="ajax_management_structure"></div>
+                                    <input type="hidden" value="" name="management_structure_id"
+                                           id="input_management_structure_id"
+                                           class="management_structure_id">
+                                </div>
+                            </div>
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_non_management_structure" id="non_management_structure_label">Denominazione ufficio non di livello dirigenziale</label>
+                                    </div>
+                                    <div id="ajax_non_management_structure"></div>
+                                    <input type="hidden" value="" name="non_management_structure_id"
+                                           id="input_non_management_structure_id"
+                                           class="non_management_structure_id">
+                                </div>
+                            </div>
+
+                        @php $structure = $structure ?? null; @endphp
+
+
+
+                                <div class="form-row d-flex align-items-end">
+                                    {{-- Campo Utilizza in Articolazione degli Uffici --}}
+                                    <div class="form-group col-md-6" id="input_articulation">
+                                        <label for="articulation">Utilizza in Articolazione degli Uffici</label>
                                         {{ form_dropdown(
                                             'articulation',
-                                            [''=>'',1=>'Si',0=>'No'],
+                                            [1=>'Si',0=>'No'],
                                             @$structure['articulation'],
-                                            'class="select2-articulation" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-articulation" style="width: 100%;"'
                                         ) }}
+                                    </div>
+
+                                    {{-- Campo Ordine --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="order">Ordine di visualizzazione</label>
+                                        {{ form_input([
+                                            'type' => 'number',
+                                            'name' => 'order',
+                                            'value' => !empty($structure['order']) ? $structure['order'] : 1,
+                                            'placeholder' => 'Ordine di visualizzazione',
+                                            'id' => 'input_order',
+                                            'class' => 'form-control input_order'
+                                        ]) }}
                                     </div>
                                 </div>
 
-                                {{-- Campo Ordine --}}
-                                <div class="form-group col-md-6">
-                                    <label for="order">Ordine di visualizzazione</label>
-                                    {{ form_input([
-                                        'type' => 'number',
-                                        'name' => 'order',
-                                        'value' => !empty($structure['order']) ? $structure['order'] : 1,
-                                        'placeholder' => 'Ordine di visualizzazione',
-                                        'id' => 'input_order',
-                                        'class' => 'form-control input_order'
-                                    ]) }}
-                                </div>
-                            </div>
 
                             {{generateSeparator('Personale collegato')}}
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Responsabile non disponibile --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-6" id="input_responsible_not_available">
                                     <label for="responsible_not_available">Responsabile disponibile</label>
-                                    <div class="select2-blue" id="input_responsible_not_available">
-                                        {{ form_dropdown(
-                                            'responsible_not_available',
-                                            [1=>'Si',0=>'No',],
-                                            @$structure['responsible_not_available'],
-                                            'class="form-control select2-responsible_not_available" style="width: 100%;"' )
-                                        }}
-                                    </div>
+                                    {{ form_dropdown(
+                                        'responsible_not_available',
+                                        [1=>'Si',0=>'No',],
+                                        @$structure['responsible_not_available'],
+                                        'class="ts-responsible_not_available" style="width: 100%;"' )
+                                    }}
                                 </div>
 
                                 <div class="form-group col-md-6" id="notAvaiableReferent">
@@ -138,10 +190,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             'ad_interim',
                                             [0=>'No',1=>'Si'],
                                             @$structure['ad_interim'],
-                                            'class="form-control select2-ad_interim" style="width: 100%;"')
+                                            'class="ts-ad_interim" style="width: 100%;"')
                                         }}
                                 </div>
                             </div>
+
 
                             {{-- Campo Responsabile/i --}}
                             <div class="form-row d-flex align-items-end">
@@ -153,6 +206,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <input type="hidden" value="" name="responsibles" id="input_responsibles"
                                            class="responsibles">
                                 </div>
+                            </div>
+
+                            <div>
                             </div>
 
                             {{-- Campo Personale da contattare --}}
@@ -172,21 +228,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Indirizzo email non disponibile --}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-6" id="input_email_not_available">
                                     <label for="email_not_available">Indirizzo email disponibile</label>
-                                    <div class="select2-blue" id="input_email_not_available">
-                                        {{ form_dropdown(
-                                            'email_not_available',
-                                            [1=>'Si',0=>'No'],
-                                            @$structure['email_not_available'],
-                                            'class="select2-email_not_available" data-dropdown-css-class="select2-blue" style="width: 100%;"'
-                                        ) }}
-                                    </div>
+                                    {{ form_dropdown(
+                                        'email_not_available',
+                                        [1=>'Si',0=>'No'],
+                                        @$structure['email_not_available'],
+                                        'class="ts-email_not_available" style="width: 100%;"'
+                                    ) }}
                                 </div>
 
                                 {{-- Campo Indirizzo email --}}
                                 <div class="form-group col-md-6" id="showEmail">
-                                    <label for="reference_email">Indirizzo email *</label>
+                                    <label for="reference_email">Casella di posta elettronica ordinaria *</label>
                                     {{ form_input([
                                         'name' => 'reference_email',
                                         'value' => !empty($structure['reference_email']) ? $structure['reference_email'] : null,
@@ -213,7 +267,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Indirizzo email certificata --}}
                                 <div class="form-group col-md-4">
-                                    <label for="certified_email">Indirizzo email certificata</label>
+                                    <label for="certified_email">Casella di posta elettronica certificata</label>
                                     {{ form_input([
                                         'name' => 'certified_email',
                                         'value' => !empty($structure['certified_email']) ? $structure['certified_email'] : null,
@@ -246,11 +300,34 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'class' => 'form-control input_fax'
                                     ]) }}
                                 </div>
+
+                                {{-- Campo Vuoi aggiungere ulteriori contatti? --}}
+                                <div class="form-group col-md-6" id="input_other_contacts_check">
+                                    <label for="other_contacts_check">Vuoi aggiungere ulteriori contatti?</label>
+                                    {{ form_dropdown(
+                                        'other_contacts_check',
+                                        [0=>'No',1=>'Si'],
+                                        @$structure['other_contacts_check'],
+                                        'class="ts-other_contacts_check" style="width: 100%;"'
+                                    ) }}
+                                </div>
+
+                                {{-- Campo Ulteriori contatti --}}
+                                <div class="form-group col-md-12" id="other_contacts_container" style="display: none;">
+                                    <label for="other_contacts">Ulteriori contatti</label>
+                                    {{form_editor([
+                                        'name' => 'other_contacts',
+                                        'value' => !empty($structure['other_contacts']) ? $structure['other_contacts'] : null,
+                                        'id' => 'input_other_contacts',
+                                        'class' => 'form-control input_other_contacts'
+                                    ]) }}
+                                </div>
                             </div>
+
 
                             {{-- Campo Descrizione delle attività --}}
                             <div class="form-group">
-                                <label for="description">Descrizione delle attività *</label>
+                                <label for="description">Competenze *</label>
                                 {{form_editor([
                                     'name' => 'description',
                                     'value' => !empty($structure['description']) ? $structure['description'] : null,
@@ -274,20 +351,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             {{-- Campo Struttura con sede --}}
-                            <div class="form-group">
-                                <label for="based_structure"> Struttura con sede </label>
-                                <div class="select2-blue" id="input_based_structure">
+                            <div class="form-row d-flex align-items-end mb-3">
+                                <div class="form-group col-md-4" id="input_based_structure">
+                                    <label for="based_structure"> Struttura con sede </label>
                                     {{ form_dropdown(
                                         'based_structure',
                                         [0 => 'No',1=>'Si'],
                                         @$structure['based_structure'],
-                                        'class="select2-based_structure" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                        'class="ts-based_structure" style="width: 100%;"'
                                     ) }}
                                 </div>
                             </div>
 
+
                             {{-- Inizio Sezione Maps --}}
-                            <div class="col-md-12 showMaps">
+                            <div class="col-md-12 mt-5 showMaps">
                                 <div id="map" style="min-height: 350px; margin-bottom: 20px;">
 
                                 </div>
@@ -355,47 +433,56 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     correttamente censito su Maps</small>
                             </div>
 
-                            {{generateSeparator('Altre informazioni')}}
 
-                            <div class="form-row d-flex align-items-end">
-                                {{-- Campo Riferimenti normativi --}}
-                                <div class="form-group col-md-9" id="input_normatives">
-                                    <label for="normatives">Riferimenti normativi</label>
-                                    <div class="select2-blue">
+                                {{generateSeparator('Altre informazioni')}}
+
+                                <div class="form-row d-flex align-items-end">
+                                    {{-- Campo Riferimenti normativi --}}
+                                    <div class="form-group col-md-9" id="input_normatives">
+                                        <label for="normatives">Riferimenti normativi</label>
                                         {{ form_dropdown(
                                             'normatives[]',
                                             '',
                                             '',
-                                            'class="form-control select2-normatives" multiple="multiple" data-placeholder="Seleziona o cerca normativa..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-normatives" multiple="multiple" style="width: 100%;"'
                                         ) }}
                                     </div>
+
+                                    @if(empty($is_box))
+                                        <div class="form-group col-md-3">
+                                            {{ form_button([
+                                                    'name' => 'add',
+                                                    'id' => 'btn_viewOnMap',
+                                                    'class' => 'btn btn-outline-primary open-modal',
+                                                    'style' => 'width:100%;',
+                                                    'data-url' => siteUrl('admin/normative/create-box')
+                                                ],'Aggiungi Nuovo &nbsp; <i class="fas fa-plus-circle"></i>') }}
+                                        </div>
+                                    @endif
                                 </div>
 
-                                @if(empty($is_box))
-                                    <div class="form-group col-md-3">
-                                        {{ form_button([
-                                                'name' => 'add',
-                                                'id' => 'btn_viewOnMap',
-                                                'class' => 'btn btn-outline-primary open-modal',
-                                                'style' => 'width:100%;',
-                                                'data-url' => siteUrl('admin/normative/create-box')
-                                            ],'Aggiungi Nuovo &nbsp; <i class="fas fa-plus-circle"></i>') }}
-                                    </div>
-                                @endif
-                            </div>
                         </div>
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
-                    {{-- ***** BEGIN: include attach **** --}}
-                    {% include layout/partials/attach %}
-                    {{-- ***** END: include attach **** --}}
+
+                        {{-- ***** BEGIN: include attach **** --}}
+                        {% include layout/partials/attach %}
+                        {{-- ***** END: include attach **** --}}
+
+
+
+
                 </div>
             </div>
 
             {{-- Card Footer --}}
             <div class="card-footer" id="__save_">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
 
         </div>
@@ -462,24 +549,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('leaflet/leaflet.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
         let map = L.map('map');
         setTimeout(function () {
             map.invalidateSize();
@@ -493,7 +577,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             });
         });
 
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+        CKEDITOR.replace('input_other_contacts', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         {{--Inizializzazione Mappa --}}
         let baseLayers = {
@@ -543,9 +633,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endif
 
         {{-- Per responsabile non disponibile --}}
-        $('#input_responsible_not_available').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'No') {
+        document.querySelector('.ts-responsible_not_available').addEventListener('change', function () {
+            if (this.value === '0') {
                 document.getElementById("notAvaiableReferent").style.display = "block";
                 for (let i = 0; i < document.getElementsByClassName('disponibleResp').length; i++) {
                     document.getElementsByClassName('disponibleResp')[i].style.display = 'none';
@@ -559,9 +648,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         {{-- Per indirizzo email non disponibile --}}
-        $('#input_email_not_available').on('select2:select', function (e) {
-            let data = e.params.data;
-            if (data.text === 'No') {
+        document.querySelector('.ts-email_not_available').addEventListener('change', function () {
+            if (this.value === '0') {
                 document.getElementById("showEmail").style.display = "none";
                 document.getElementById("showEmailNotAvaiable").style.display = "block";
             } else {
@@ -570,11 +658,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             }
         });
 
+        {{-- Per indirizzo email non disponibile --}}
+        document.querySelector('.ts-other_contacts_check').addEventListener('change', function () {
+            const container = document.getElementById('other_contacts_container');
+            if (this.value === '0') {
+                container.style.display = 'none';
+            } else {
+                container.style.display = '';
+            }
+        });
+
         {{-- Per maps in caso di struttura con sede --}}
-        $('#input_based_structure').on('select2:select', function (e) {
-            let data = e.params.data;
+        document.querySelector('.ts-based_structure').addEventListener('change', function () {
             let tmp = document.getElementsByClassName("showMaps");
-            if (data.text === 'Si') {
+            if (this.value === '1') {
                 setTimeout(function () {
                     map.invalidateSize();
                 }, 50)
@@ -675,65 +772,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @endif
 
         {{-- Inizio metodi per campi Select --}}
-        {{-- Begin Select2 campo "Riferimenti normativi" --}}
-        let $dropdownNormatives = $('.select2-normatives');
-        $dropdownNormatives.select2({
-            allowClear: true,
-            // Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 12,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        // Recupero gli elementi gia selezionati e li setto nella select
-        @if(in_array($_storageType,['update', 'duplicate']))
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_normativeIds').val(),
+        if (document.querySelector('.ts-normatives')) {
+            createAjaxTomSelect({
+                selector: '.ts-normatives',
+                searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+                selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+                selectedIdsSelector: '#_normativeIds',
                 model: 12,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
-                createValidatorFormErrorToast(
-                    'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
-                    5000,
-                    'Validatore select'
-                );
-            }
-        }).then(function (data) {
-            let item = data.data.selected;
-            for (const el of item) {
-                // Creo l'opzione e l'appendo alla select
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownNormatives.append(option).trigger('change');
-            }
-        });
-        @endif
-        {{-- End Select2 campo "Riferimenti normativi" --}}
+                institutionId,
+                placeholder: 'Seleziona o cerca normativa...',
+                loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+                onError(error) {
+                    console.error('Errore durante il caricamento dei riferimenti normativi:', error);
+                    createValidatorFormErrorToast(
+                        'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
+                        5000,
+                        'Validatore select'
+                    );
+                }
+            });
+        }
 
         // Tabella per la selezione della struttura di appartenenza
         let structureOfBelonging = $('#ajax_structure_of_belonging').patOsAjaxPagination({
@@ -764,55 +822,86 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
         @if(in_array($_storageType,['update', 'duplicate']) && !empty($structure['structure_of_belonging_id']))
-        structureOfBelonging.patOsAjaxPagination.setValue('{{ $structure['structure_of_belonging_id'] }}', '{{e: (!empty($structure['structure_of_belonging'])? $structure['structure_of_belonging']['structure_name']:'').(!empty($structure['structure_of_belonging']['reference_email'])?' - '.$structure['structure_of_belonging']['reference_email']:'N.D') }}', true);
+            structureOfBelonging.patOsAjaxPagination.setValue('{{ $structure['structure_of_belonging_id'] }}', '{{e: (!empty($structure['structure_of_belonging'])? $structure['structure_of_belonging']['structure_name']:'').(!empty($structure['structure_of_belonging']['reference_email'])?' - '.$structure['structure_of_belonging']['reference_email']:'N.D') }}', true);
         @endif
 
-        {{-- Select2 campo  "Responsabile non disponibile" --}}
-        let $dropdownResponsable = $('.select2-responsible_not_available');
-        $dropdownResponsable.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        // Tabella per la selezione della struttura di appartenenza
+        let managementStructure = $('#ajax_management_structure').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Struttura selezionata',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_management_structure_id',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId,
+                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $structure['id'] ?>
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#management_structure_label'
         });
 
-        {{-- Select2 campo "Ad interim" --}}
-        let $dropdownAdInterim = $('.select2-ad_interim');
-        $dropdownAdInterim.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($structure['management_structure_id']))
+            managementStructure.patOsAjaxPagination.setValue('{{ $structure['management_structure_id'] }}', '{{e: (!empty($structure['management_structure'])? $structure['management_structure']['structure_name']:'').(!empty($structure['management_structure']['reference_email'])?' - '.$structure['management_structure']['reference_email']:'N.D') }}', true);
+        @endif
+
+        // Tabella per la selezione della struttura di appartenenza
+        let nonManagementStructure = $('#ajax_non_management_structure').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Struttura selezionata',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_non_management_structure_id',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId,
+                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $structure['id'] ?>
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#non_management_structure_label'
         });
 
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($structure['non_management_structure_id']))
+            nonManagementStructure.patOsAjaxPagination.setValue('{{ $structure['non_management_structure_id'] }}', '{{e: (!empty($structure['non_management_structure'])? $structure['non_management_structure']['structure_name']:'').(!empty($structure['non_management_structure']['reference_email'])?' - '.$structure['non_management_structure']['reference_email']:'N.D') }}', true);
+        @endif
 
-        {{-- Select2 campo "Indirizzo email non disponibile" --}}
-        let $dropdownEmailNotAvailable = $('.select2-email_not_available');
-        $dropdownEmailNotAvailable.select2({
-            minimumResultsForSearch: -1
-        });
+        @if($_storageType === 'update' && !empty($structure['other_contacts_check']))
+        document.getElementById('other_contacts_container').style.display = '';
+        @endif
 
-        {{-- Select2 campo "Utilizza in Articolazione degli Uffici" --}}
-        let $dropdownArticulation = $('.select2-articulation');
-        $dropdownArticulation.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        if (document.querySelector('.ts-articulation')) {
+            new TomSelect('.ts-articulation', TS_SINGLE_PRESELECT);
+        }
 
-        {{-- Select2 campo "Struttura con sede" --}}
-        let $dropdownBasedStructure = $('.select2-based_structure');
-        $dropdownBasedStructure.select2({
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Tipo di Mappa" --}}
-        let $dropdownMapType = $('.select2-mapType');
-        $dropdownMapType.select2({
-            minimumResultsForSearch: -1
-        });
-        {{-- Fine metodi per campi Select --}}
+        new TomSelect('.ts-responsible_not_available', TS_SINGLE_PRESELECT);
+        new TomSelect('.ts-ad_interim', TS_SINGLE_PRESELECT);
+        new TomSelect('.ts-email_not_available', TS_SINGLE_PRESELECT);
+        new TomSelect('.ts-other_contacts_check', TS_SINGLE_PRESELECT);
+        new TomSelect('.ts-based_structure', TS_SINGLE_PRESELECT);
 
         /**
          * Metodo per il salvataggio
@@ -838,7 +927,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = false;
 
                 // Funzione che genera il toast con il messaggio di successo
-                {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Struttura Organizzativa');
 
                 {{-- Controllo se non sono all'interno di un modale --}}
@@ -865,7 +953,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
 
                 // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
@@ -877,24 +964,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         @if(!$is_box)
         {{-- Messaggio di uscita senza salvare dal form --}}
@@ -905,7 +990,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
         @endif
 
-        {{-- Vedere nel footer --}}
         /**
          * Funzione che controlla se sono arrivato in questa pagina dal versioning
          */

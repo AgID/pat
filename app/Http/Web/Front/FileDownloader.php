@@ -34,6 +34,7 @@ class FileDownloader extends BaseFrontController
     {
         $active = true;
         $validator = new Validator();
+
         //$validator->verifyToken();
         $validator->label('Il parametro di ingresso non è valido')
             ->value(uri()->segment(2, '-?^'/* @Hack */))
@@ -103,6 +104,7 @@ class FileDownloader extends BaseFrontController
         $archive = config($result['data']['archive_name'], null, 'archiveConfig') ?? null;
 
         $archive = $archive['model'];
+        $model = $archive;
 
         //Se l'allegato è pubblico lo mostro/scarico
         if ($active) {

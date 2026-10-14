@@ -9,7 +9,7 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Scope\InstitutionScope;
+
 use System\Model;
 
 /**
@@ -46,6 +46,6 @@ class RecoveryPassword extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 }

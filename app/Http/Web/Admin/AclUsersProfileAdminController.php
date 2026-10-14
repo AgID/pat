@@ -21,7 +21,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Security;
-use System\Token;
 
 /**
  *
@@ -94,10 +93,6 @@ class AclUsersProfileAdminController extends BaseAuthController
                 2 => 'description',
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[5] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $draw = !empty(Input::get('draw')) ? Input::get('draw', true) : 1;
@@ -122,28 +117,44 @@ class AclUsersProfileAdminController extends BaseAuthController
                 ->where(function ($query) use ($institutionId) {
                     $query->where('acl_profiles.institution_id', '=', $institutionId);
                     $query->orWhereNull('institution_id');
-                })
-                ->count();
+                });
+
+            $totalRecords = $totalRecords ?? null;
+
+            $totalRecords = $totalRecords->count();
 
             $totalRecordsWithFilter = AclProfilesModel::search($searchValue)
                 ->select(['count(acl_profiles.id) as allcount'])
                 ->where(function ($query) use ($institutionId) {
                     $query->where('acl_profiles.institution_id', '=', $institutionId);
                     $query->orWhereNull('institution_id');
-                })
-                ->count();
+                });
+
+            $totalRecordsWithFilter = $totalRecordsWithFilter ?? null;
+
+            $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($columnName, $orderable, 'name');
 
             $records = AclProfilesModel::search($searchValue)
-                ->select(['acl_profiles.id', 'acl_profiles.institution_id', 'name', 'is_system', 'description', 'acl_profiles.updated_at',
-                    'i.full_name_institution'])
+                ->select([
+                    'acl_profiles.id',
+                    'acl_profiles.institution_id',
+                    'name',
+                    'is_system',
+                    'description',
+                    'acl_profiles.updated_at',
+                    'i.full_name_institution'
+                ])
                 ->with('institution:id,full_name_institution')
                 ->where(function ($query) use ($institutionId) {
                     $query->where('acl_profiles.institution_id', '=', $institutionId);
                     $query->orWhereNull('institution_id');
-                })
-                ->join('institutions as i', 'acl_profiles.institution_id', '=', 'i.id', 'left outer')
+                });
+
+            $records = $records ?? null;
+
+            $records = $records->join('institutions as i', 'acl_profiles.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy('acl_profiles.is_system', 'desc')
                 ->orderBy($order, $columnSortOrder)
                 ->offset($start)
@@ -151,10 +162,10 @@ class AclUsersProfileAdminController extends BaseAuthController
                 ->get()
                 ->toArray();
 
-            $response ['draw'] = intval($draw);
-            $response ['iTotalRecords'] = ($totalRecords);
-            $response ['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
-            $response ['aaData'] = [];
+            $response['draw'] = intval($draw);
+            $response['iTotalRecords'] = ($totalRecords);
+            $response['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
+            $response['aaData'] = [];
 
             if (!empty($records)) {
 
@@ -164,10 +175,10 @@ class AclUsersProfileAdminController extends BaseAuthController
 
                     //Setto i pulsanti da mostrare in base ai permessi dell'utente e se è un profilo di sistema o meno
                     $buttonAction = ButtonAction::create([
-                        'view' => isSuperAdmin() ? $this->acl->getRead() : $this->acl->getRead(),
-                        'edit' => isSuperAdmin() ? $this->acl->getUpdate() : $this->acl->getUpdate() && !$isSystem,
-                        'duplicate' => isSuperAdmin() ? $this->acl->getCreate() : ($this->acl->getCreate() && !$isSystem),
-                        'delete' => isSuperAdmin() ? $this->acl->getDelete() : $this->acl->getDelete() && !$isSystem,
+                        'view' => false ? $this->acl->getRead() : $this->acl->getRead(),
+                        'edit' => false ? $this->acl->getUpdate() : $this->acl->getUpdate() && !$isSystem,
+                        'duplicate' => false ? $this->acl->getCreate() : ($this->acl->getCreate() && !$isSystem),
+                        'delete' => false ? $this->acl->getDelete() : $this->acl->getDelete() && !$isSystem,
                     ])
                         ->addView('admin/acl-users-profile/read-only/' . $record['id'], $record['id'])
                         ->addEdit('admin/acl-users-profile/edit/' . $record['id'], $record['id'])
@@ -181,30 +192,18 @@ class AclUsersProfileAdminController extends BaseAuthController
                     $setTempData[] = !empty($record['name']) ? escapeXss($record['name']) : 'N.D.';
                     $setTempData[] = !empty($record['description']) ? escapeXss($record['description']) : 'N.D.';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution']) && $record['is_system'] === 0
-                            ? '<small class="badge badge-primary" style="font-size: 85%;">' . escapeXss($record['institution']['full_name_institution']) . '</small>'
-                            : '<small class="badge badge-success" style="font-size: 85%;">Di Sistema</small>';
-
-                    } else {
-                        //Se non è SuperAdmin mostro solo il tipo di profilo
-                        $setTempData[] = $record['is_system'] === 0
-                            ? '<small class="badge badge-primary" style="font-size: 85%;">Dell\' Ente</small>'
-                            : '<small class="badge badge-success" style="font-size: 85%;">Di Sistema</small>';
-
-                    }
+                    $setTempData[] = '<small class="badge badge-primary" style="font-size: 85%;">Dell\' Ente</small>';
 
                     $setTempData[] = $buttonAction;
 
                     $data[] = $setTempData;
                 }
 
-                $response ['aaData'] = $data;
+                $response['aaData'] = $data;
 
             }
 
-            echo json_encode($response);
+            jsonOut($response);
 
         }
 
@@ -228,6 +227,7 @@ class AclUsersProfileAdminController extends BaseAuthController
         $sectionBackOffice = new Hierarchy();
         $sectionFrontOffice = new Hierarchy('front_office');
 
+
         $this->breadcrumb->push('Profili ACL', 'admin/acl-users-profile');
         $this->breadcrumb->push('Nuovo', '/');
         $data['breadcrumbs'] = $this->breadcrumb->show();
@@ -237,8 +237,10 @@ class AclUsersProfileAdminController extends BaseAuthController
         $data['subTitleSection'] = 'GESTIONE DEI PROFILI ACCESS CONTROL LIST PER GLI AMMINISTRATORI';
         $data['sectionIcon'] = '<i class="fas fa-unlock-alt fa-3x"></i>';
 
+        $data = $data ?? null;
+
         $data['sectionBackOffice'] = $sectionBackOffice->getGroupedChildren();
-        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId) : null;
+        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId, true) : null;
         $data['formAction'] = '/admin/acl-users-profile/store';
         $data['formSettings'] = [
             'name' => 'form_acl_profile',
@@ -246,6 +248,8 @@ class AclUsersProfileAdminController extends BaseAuthController
             'class' => 'form_acl_profile',
         ];
         $data['_storageType'] = 'insert';
+
+        $data = $data ?? null;
 
         render('acl_users_profile/form_store', $data, 'admin');
     }
@@ -269,22 +273,24 @@ class AclUsersProfileAdminController extends BaseAuthController
         $institutionId = checkAlternativeInstitutionId();
 
         if (!$validate['is_success']) {
-
-            redirect('admin/acl-users-profile', sessionSetNotify($validate['errors'], 'danger'));
+            sessionSetNotify($validate['errors'], 'danger');
+            redirect('admin/acl-users-profile');
             exit();
-
         }
+
+        $data = [];
 
         $sectionBackOffice = new Hierarchy();
         $sectionFrontOffice = new Hierarchy('front_office');
+
 
         $this->breadcrumb->push('Profili ACL', 'admin/acl-users-profile');
         $this->breadcrumb->push('Nuovo', '/');
 
         // Query Profile
-        $profile = AclProfilesModel::with('permits')
-            // ->with('usersAclProfiles')
-            ->find(uri()->segment(4, 0))
+        $profile = AclProfilesModel::with('permits');
+
+        $profile = $profile->find(uri()->segment(4, 0))
             ->toArray();
 
         // Assegnazione e valorizzazioni dei estratti nel database.
@@ -298,7 +304,6 @@ class AclUsersProfileAdminController extends BaseAuthController
         $data['versioning'] = $profile['versioning'];
         $data['archiving'] = $profile['archiving'];
         $data['is_system'] = $profile['is_system'];
-        $data['lock_user'] = $profile['lock_user'];
         $data['advanced'] = $profile['advanced'];
         $data['fileArchive'] = $profile['file_archive'];
         $data['editorWishing'] = $profile['editor_wishing'];
@@ -307,7 +312,8 @@ class AclUsersProfileAdminController extends BaseAuthController
         $data['subTitleSection'] = 'GESTIONE DEI PROFILI ACCESS CONTROL LIST PER GLI AMMINISTRATORI';
         $data['sectionIcon'] = '<i class="fas fa-unlock-alt fa-3x"></i>';
         $data['sectionBackOffice'] = $sectionBackOffice->getGroupedChildren();
-        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId) : null;
+        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId, true) : null;
+        $data['scp'] = $profile['scp'] ?? null;
 
         $data['_storageType'] = 'read_only';
 
@@ -404,7 +410,7 @@ class AclUsersProfileAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $validator = new AclUserProfileValidator();
@@ -420,34 +426,32 @@ class AclUsersProfileAdminController extends BaseAuthController
             $dataProfile = [];
             $isSystem = 0;
 
-            if (isSuperAdmin(true) === true) {
 
-                // Setto l'ID dell'ente se la select è valorizzata
-                if (!empty(Input::post('select_institution_id'))) {
-
-                    $institutionId = strip_tags((int)Input::post('select_institution_id', true));
-                }
-
-                $isSystem = !empty(Input::post('is_system')) ? (int)Input::post('is_system', true) : 0;
-
-            }
 
             // ACL Profiles
             $dataAclProfile = [
                 'is_system' => $isSystem,
-                'name' => strip_tags((string)Input::post('title', true)),
-                'description' => strip_tags((string)Input::post('description', true)),
-                'lock_user' => strip_tags((int)Input::post('lock_user', true)),
+                'name' => Input::post('title', true, true, true, [Input::CAST_STRIP]),
+                'description' => Input::post('description', true, true, true, [Input::CAST_STRIP]),
+                'versioning' => 0,
+                'archiving' => 0,
+                'advanced' => Input::post('advanced', true, true, true, [Input::CAST_INT]),
+                'file_archive' => Input::post('file_archive', true, true, true, [Input::CAST_INT]),
+                'editor_wishing' => Input::post('editor_wishing', true, true, true, [Input::CAST_STRIP]),
             ];
 
             if (empty($isSystem)) {
                 $dataAclProfile['institution_id'] = $institutionId;
             }
 
+
+
             // Storage nuovo Profilo ACL
             $insert = AclProfilesModel::create($dataAclProfile);
 
             $insertId = $insert->id;
+
+            //Inclusione librerie esterne
 
             foreach ($profileACL as $key => $value) {
 
@@ -498,11 +502,6 @@ class AclUsersProfileAdminController extends BaseAuthController
             ActivityLog::create([
                 'action' => 'Creazione nuovo profilo ACL "' . strip_tags((string)Input::post('title', true)),
                 'description' => Input::post('description', true),
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
                 'action_type' => 'addACLInstance',
                 'object_id' => 55,
                 'record_id' => $insertId,
@@ -513,7 +512,7 @@ class AclUsersProfileAdminController extends BaseAuthController
             if ($insert === true) {
 
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
                 $json->set('message', 'Operazione avvenuta con successo!');
 
@@ -547,7 +546,7 @@ class AclUsersProfileAdminController extends BaseAuthController
     public function update(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute(__FUNCTION__);
+        $this->acl->setRoute(__FUNCTION__, true);
 
         $json = new JsonResponse();
         $validator = new AclUserProfileValidator();
@@ -566,17 +565,7 @@ class AclUsersProfileAdminController extends BaseAuthController
             $dataProfile = [];
             $isSystem = 0;
 
-            if (isSuperAdmin(true) === true) {
 
-                // Setto l'ID dell'ente se la select è valorizzata
-                if (!empty(Input::post('select_institution_id')) && Input::post('is_system') != 1) {
-
-                    $institutionId = strip_tags((int)Input::post('select_institution_id'));
-                }
-
-                $isSystem = !empty(Input::post('is_system')) ? strip_tags(Input::post('is_system', true)) : 0;
-
-            }
 
             // Query Profile
             // Recupero il profilo ACL attuale prima di modificarlo e lo salvo nel versioning
@@ -584,17 +573,24 @@ class AclUsersProfileAdminController extends BaseAuthController
                 ->find(Input::post('id'))
                 ->toArray();
 
+            //Inclusione librerie esterne
+
             // ACL Profiles UPDATE
             $dataAclProfile = [
                 'is_system' => $isSystem,
                 'name' => strip_tags((string)Input::post('title', true)),
                 'description' => strip_tags((string)Input::post('description', true)),
-                'lock_user' => strip_tags((int)Input::post('lock_user', true)),
+                'versioning' => 0,
+                'archiving' => 0,
+                'advanced' => strip_tags((int)Input::post('advanced', true)),
+                'file_archive' => strip_tags((int)Input::post('file_archive', true)),
+                'editor_wishing' => setDefaultData(strip_tags((string)Input::post('editor_wishing', true)), 'base', ['', null]),
             ];
 
             if (empty($isSystem)) {
                 $dataAclProfile['institution_id'] = $institutionId;
             }
+
 
             //Update sul db del profilo ACL
             AclProfilesModel::where('id', '=', (int)Input::post('id'))
@@ -603,6 +599,7 @@ class AclUsersProfileAdminController extends BaseAuthController
             //Elimino i permessi associati al profilo prima di reinserirli aggiornati
             PermitsModel::where('acl_profiles_id', '=', (int)Input::post('id'))
                 ->delete();
+
 
             foreach ($profileACL as $key => $value) {
 
@@ -653,11 +650,6 @@ class AclUsersProfileAdminController extends BaseAuthController
             ActivityLog::create([
                 'action' => 'Modifica profilo ACL "' . strip_tags((string)Input::post('title', true)),
                 'description' => Input::post('description', true),
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
                 'action_type' => 'updateACLInstance',
                 'object_id' => 55,
                 'record_id' => (int)Input::post('id'),
@@ -670,7 +662,7 @@ class AclUsersProfileAdminController extends BaseAuthController
                 $json->set('message', 'Operazione avvenuta con successo!');
 
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
             } else {
 
                 $code = $json->bad();
@@ -701,37 +693,31 @@ class AclUsersProfileAdminController extends BaseAuthController
     public function delete(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute(__FUNCTION__);
+        $this->acl->setRoute(__FUNCTION__, true);
 
         $validator = new AclUserProfileValidator();
         $validate = $validator->validateUriSegmentId();
 
         if (!$validate['is_success']) {
-
             redirect('admin/acl-users-profile', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         //Recupero il profilo da eliminare dal Registro
         $profile = Registry::get('temp_profile');
 
-        if(!empty($profile)){
+        if (!empty($profile)) {
             $profileId = $profile->id;
             $institutionId = $profile->institution_id;
 
             //Elimino il profilo (con tutti i relativi permessi)
             $profile->delete();
 
+
             // Create Activity Log
             ActivityLog::create([
                 'action' => 'Eliminazione profilo ACL "' . $profile['name'],
                 'description' => $profile['description'],
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
                 'action_type' => 'deleteACLInstance',
                 'object_id' => 55,
                 'record_id' => $profile['id'],
@@ -739,23 +725,27 @@ class AclUsersProfileAdminController extends BaseAuthController
                 'platform' => 'all',
             ]);
 
+
             PermitsModel::where('acl_profiles_id', '=', $profileId)
-                ->where('institution_id', '=',$institutionId)
+                ->where('institution_id', '=', $institutionId)
                 ->delete();
 
             RelUsersAclProfilesModel::where('acl_profile_id', '=', $profileId)
                 ->delete();
 
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
             sessionSetNotify(sprintf(__('success_delete', null, 'patos'), 'Profilo ACL '));
+
 
             redirect('admin/acl-users-profile');
         } else {
             redirect('admin/acl-users-profile', sessionSetNotify('Profilo non trovato!', 'danger'));
             exit();
         }
+
     }
+
 
     /**
      * @description Renderizza il form di modifica di un Profilo Acl
@@ -784,12 +774,14 @@ class AclUsersProfileAdminController extends BaseAuthController
         $sectionBackOffice = new Hierarchy();
         $sectionFrontOffice = new Hierarchy('front_office');
 
+
         $this->breadcrumb->push('Profili ACL', 'admin/acl-users-profile');
         $this->breadcrumb->push('Nuovo', '/');
 
         // Query Profile
-        $profile = AclProfilesModel::with('permits')
-            ->find(uri()->segment(4, 0))
+        $profile = AclProfilesModel::with('permits');
+
+        $profile = $profile->find(uri()->segment(4, 0))
             ->toArray();
 
         // Assegnazione e valorizzazioni dei estratti nel database.
@@ -800,8 +792,18 @@ class AclUsersProfileAdminController extends BaseAuthController
         $data['created_at'] = $profile['created_at'];
         $data['updated_at'] = $profile['updated_at'];
         $data['permits'] = $profile['permits'];
-        $data['lock_user'] = $profile['lock_user'];
+        $data['versioning'] = $profile['versioning'];
+        $data['archiving'] = $profile['archiving'];
+        $data['is_system'] = $profile['is_system'];
+        $data['editorWishing'] = $profile['editor_wishing'];
+        $data['advanced'] = $profile['advanced'];
+        $data['import_allowed_for'] = $profile['import_allowed_for'] ?? null;
+        $data['fileArchive'] = $profile['file_archive'];
         $data['breadcrumbs'] = $this->breadcrumb->show();
+        $data['scp'] = $profile['scp'] ?? null;
+
+        $data = $data ?? null;
+
         //Dati header della sezione
         $data['titleSection'] = 'Gestione Profili Acl';
         $data['subTitleSection'] = 'GESTIONE DEI PROFILI ACCESS CONTROL LIST PER GLI AMMINISTRATORI';
@@ -810,7 +812,7 @@ class AclUsersProfileAdminController extends BaseAuthController
         $institutionId = $profile['institution_id'];
 
         $data['sectionBackOffice'] = $sectionBackOffice->getGroupedChildren();
-        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId) : null;
+        $data['sectionFrontOffice'] = ($sectionFrontOffice) ? $sectionFrontOffice->getGroupedChildren(0, $institutionId, true) : null;
 
         $data['formAction'] = '/admin/acl-users-profile/update';
         $data['formSettings'] = [
@@ -820,6 +822,8 @@ class AclUsersProfileAdminController extends BaseAuthController
         ];
 
         $data['_storageType'] = 'edit';
+
+        $data = $data ?? null;
 
         render('acl_users_profile/form_store', $data, 'admin');
     }
@@ -835,11 +839,11 @@ class AclUsersProfileAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         //Validatore per le operazioni multiple
         $validator = new AclUserProfileValidator();
-        $validate = $validator->multipleSelection(false);
+        $validate = $validator->multipleSelection();
 
         if ($validate['is_success'] === true) {
 
@@ -857,15 +861,11 @@ class AclUsersProfileAdminController extends BaseAuthController
                 $deletedIds[] = $profile->id;
 
 
+
                 // Storage Activity log
                 ActivityLog::create([
                     'action' => 'Eliminazione Profilo ACL',
                     'description' => 'Eliminazione Profilo ACL "' . $profile['name'] . '" con ID ' . $profile['id'],
-                    'request_post' => [
-                        'post' => @$_POST,
-                        'get' => Input::get(),
-                        'server' => Input::server(),
-                    ],
                     'action_type' => 'deleteACLInstance',
                     'record_id' => $profile['id'],
                     'object_id' => 55,
@@ -874,15 +874,13 @@ class AclUsersProfileAdminController extends BaseAuthController
                 ]);
             }
 
+
             PermitsModel::whereIn('acl_profiles_id', $deletedIds)
-                ->where('institution_id', '=',$institutionId)
+                ->where('institution_id', '=', $institutionId)
                 ->delete();
 
             RelUsersAclProfilesModel::whereIn('acl_profile_id', $deletedIds)
                 ->delete();
-
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
 
         } else {
 

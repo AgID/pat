@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * CodeIgniter
  *
  * An open source application development framework for PHP
@@ -39,7 +44,25 @@
 
 namespace System;
 
+use Exception;
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
+
+// Polyfills/stubs for mcrypt functions to prevent undefined function errors or deprecation warnings on PHP 7.2+
+if (!\function_exists('mcrypt_module_open')) {
+    function mcrypt_list_algorithms() { return array(); }
+    function mcrypt_enc_get_algorithms_name($h) { return ''; }
+    function mcrypt_enc_get_modes_name($h) { return ''; }
+    function mcrypt_module_close($h) { return false; }
+    function mcrypt_module_open($cipher, $cipher_directory, $mode, $mode_directory) { return false; }
+    function mcrypt_create_iv($size, $source) { return ''; }
+    function mcrypt_enc_get_iv_size($h) { return 0; }
+    function mcrypt_generic_init($h, $key, $iv) { return -1; }
+    function mcrypt_enc_get_block_size($h) { return 0; }
+    function mcrypt_generic($h, $data) { return ''; }
+    function mdecrypt_generic($h, $data) { return ''; }
+    function mcrypt_generic_deinit($h) { return false; }
+}
 
 class Encryption
 {
@@ -140,6 +163,7 @@ class Encryption
      *
      * @param array $params Configuration parameters
      * @return    void
+     * @throws Exception
      */
     public function __construct(array $params = array())
     {
@@ -152,7 +176,7 @@ class Encryption
             show404('Encryption: Unable to find an available encryption driver.');
         }
 
-        isset(self::$func_overload) or self::$func_overload = (extension_loaded('mbstring') && ini_get('mbstring.func_overload'));
+        isset(self::$func_overload) OR self::$func_overload = ( ! isPhp('8.0') && extension_loaded('mbstring') && @ini_get('mbstring.func_overload'));
         $this->initialize($params);
 
         if (!isset($this->_key) && self::strlen($key = config('encryption_key', null, 'app')) > 0) {
@@ -293,7 +317,7 @@ class Encryption
             try {
                 return random_bytes((int)$length);
             } catch (Exception $e) {
-                log_message('error', $e->getMessage());
+                \System\Log::danger($e->getMessage());
                 return FALSE;
             }
         } elseif (defined('MCRYPT_DEV_URANDOM')) {

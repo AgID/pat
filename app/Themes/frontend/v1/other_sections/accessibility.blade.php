@@ -13,34 +13,39 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-2">
         <div class="container">
             <div class="row variable-gutters _reverse">
-                <div class="col-lg-8">
+                <div class="col-lg-12">
                     {{-- Nome della pagina --}}
-                    <h1 class="mb-4 page-title">{{e: $pageName }}</h1>
-
+                    <div class="div-title">
+                        <h1 class="mb-4 page-title">{{e: $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
                     {{-- Contenuto della pagina --}}
                     @if(!empty($accessibilityText))
-                        {{e: $accessibilityText }}
+                        {{xss: $accessibilityText }}
                     @else
 
                         <p>
-                            <strong>Il presente sito web è realizzato seguendo le direttive sancite dal W3C ed è
-                                pienamente conforme alla Legge n. 4/04 aggiornata dal decreto legislativo 10 agosto
-                                2018, n. 106 e successive disposizioni attuative, ivi inclusi i requisiti di cui al
-                                punto 9 della norma UNI EN 301549:2018 che equivalgono alla conformità con il livello AA
-                                delle WCAG 2.1.</strong>
+                            <strong>Il presente sito web è realizzato nel rispetto dei requisiti di accessibilità
+                                previsti dalla Legge 9 gennaio 2004, n. 4 e successive modifiche e integrazioni, nonché
+                                dalle Linee Guida sull'accessibilità degli strumenti informatici emanate da AgID.
+                                <br>
+                                Il sito è pienamente conforme ai requisiti previsti dalla norma UNI CEI EN 301549:2021 e
+                                alle Web Content Accessibility Guidelines (WCAG) 2.1 del W3C, livello di conformità AA.</strong>
                         </p>
 
                     @endif
 
                 </div>
 
-                {{-- Right Drawer --}}
-                {% include v1/layout/partials/right_menu %}
-
             </div>
         </div>
     </section>
 </main>
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Cards Link --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

@@ -11,7 +11,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +27,7 @@ class GrantsModel extends Model
     protected $primaryKey = 'id';
 
     protected string $archiveName = 'grants';
+    protected string $metaModel = 'MetaGrantsModel';
 
     protected string $objectName = 'Sovvenzioni e vantaggi economici';
     protected int $objectId = 24;
@@ -62,7 +63,11 @@ class GrantsModel extends Model
         'source_id',
         'number_readings',
         'notes',
+        'project_link',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -85,6 +90,14 @@ class GrantsModel extends Model
         'object_grants.typology',
         'object_grants.beneficiary_name',
         'users.name',
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     protected $searchableWhereHas = [
@@ -120,18 +133,12 @@ class GrantsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -141,7 +148,7 @@ class GrantsModel extends Model
     protected static function boot()
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -152,6 +159,15 @@ class GrantsModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -256,28 +272,139 @@ class GrantsModel extends Model
     }
 
     /**
-     * Scope per il filtraggio dei dati dei procedimenti nel DataTable
-     * @param Builder  $query            Query
-     * @param int|null $typology        Tipologia
-     * @param int|null $structures      Id della struttura
-     * @param int|null $responsibles    Id del responsabile
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param \Illuminate\Database\Eloquent\Builder $query       Query
+     * @param string|null                           $beneficiary Beneficiario
+     * @param int|null                              $structure   Id della struttura
+     * @param int|null                              $responsible Id responsabile
+     * @param int|null                              $year        Anno
      * @return void
      */
-    public function scopeGrantFilterDataTable(Builder $query, string $typology = null, int $structures = null, int $responsibles = null ): void
+    public function scopeLiquidationFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        string  $beneficiary = null,
+        int     $structure = null,
+        int     $responsible = null,
+        int     $year = null
+    ): void
     {
-
-        if (!empty($typology)) {
-            $query->where('object_grants.type','=' ,$typology);
+        if (!empty($beneficiary)) {
+            $query->join('object_grants as relative', 'relative.id', 'object_grants.grant_id');
+            $query->where('relative.beneficiary_name', 'LIKE', '%' . $beneficiary . '%');
         }
 
-        if (!empty($structures)) {
-            $query->where('object_grants.object_structures_id','=', $structures );
+        if (!empty($structure)) {
+            $query->join('object_grants as relative_str', 'relative_str.id', 'object_grants.grant_id');
+            $query->where('relative_str.object_structures_id', '=', $structure);
         }
 
-        if (!empty($responsibles)) {
-            $query->whereHas('personnel', function ($query) use ($responsibles){
-                $query->where('object_personnel.id', '=',$responsibles);
+        if (!empty($responsible)) {
+            $query->join('rel_grants_personnel as relative_resp', 'relative_resp.object_grants_id', 'object_grants.grant_id');
+            $query->where('relative_resp.object_personnel_id', '=', $responsible);
+        }
+
+        if (!empty($year)) {
+            $query->where('object_grants.compensation_paid_date', '=', $year);
+        }
+
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle sovvenzioni
+     * @param \Illuminate\Database\Eloquent\Builder $query       Query
+     * @param string|null                           $object      Oggetto
+     * @param int|null                              $year        Anno
+     * @param string|null                           $beneficiary Beneficiario
+     * @param int|null                              $structure   Id della struttura
+     * @param int|null                              $responsible Id del responsabile
+     * @return void
+     */
+    public function scopeGrantFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        string                                $object = null,
+        int                                   $year = null,
+        string                                $beneficiary = null,
+        int                                   $structure = null,
+        int                                   $responsible = null
+    ): void
+    {
+        if (!empty($object)) {
+            $query->where('object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($year)) {
+            $query->whereYear('concession_act_date', '=', $year);
+        }
+
+        if (!empty($beneficiary)) {
+            $query->where('privacy', '=', 0)
+                ->where('beneficiary_name', 'LIKE', '%' . $beneficiary . '%');
+        }
+
+        if (!empty($structure)) {
+            $query->where('object_structures_id', '=', $structure);
+        }
+
+        if (!empty($responsible)) {
+            $query->join('rel_grants_personnel as relative_resp', 'relative_resp.object_grants_id', 'object_grants.id');
+            $query->where('relative_resp.object_personnel_id', '=', $responsible);
+        }
+
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati dei beneficiari delle sovvenzioni
+     * @param \Illuminate\Database\Eloquent\Builder $query Query
+     * @param int|null                              $year  Anno
+     * @return void
+     */
+    public function scopeBeneficiaryFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        int $year = null
+    ): void
+    {
+        if (!empty($year)) {
+            $query->whereYear('concession_act_date', '=', $year);
+        }
+    }
+
+    /**
+     * Scope locale per la ricerca in front-office delle sovvenzioni.
+     * Per le sovvenzioni con il campo Omissis(privacy) a 1 non cerca per il nome del beneficiario, mentre per quelle
+     * che hanno il campo Omissis a 0 si
+     * @param \Illuminate\Database\Eloquent\Builder $query Query
+     * @param string|null                           $term  Beneficiario
+     * @return void
+     */
+    public function scopePrivacyFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        ?string $term = ''
+    ): void
+    {
+        if (!empty($term)) {
+            $query->orWhere(function ($query) use ($term) {
+                $query->where('privacy', '=', 0)
+                    ->where(function ($query) use ($term) {
+                        $query->where('beneficiary_name', 'like', '%' . ($term) . '%')
+                            ->orWhere('beneficiary_name', 'like', ($term) . '%')
+                            ->orWhere('beneficiary_name', 'like', '%' . ($term))
+                            ->orWhere('beneficiary_name', '=', ($term));
+                    });
             });
         }
+    }
+
+
+
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
     }
 }

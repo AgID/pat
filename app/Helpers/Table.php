@@ -1,4 +1,8 @@
 <?php
+/**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
 
 /**
  * CodeIgniter
@@ -285,14 +289,7 @@ class Table {
         // either as a database result object or an array
         if ( ! empty($table_data))
         {
-            if ($table_data instanceof CI_DB_result)
-            {
-                $this->_set_from_db_result($table_data);
-            }
-            elseif (is_array($table_data))
-            {
-                $this->_set_from_array($table_data);
-            }
+            $this->_set_from_array($table_data);
         }
 
         // Is there anything to display? No? Smite them!
@@ -422,27 +419,6 @@ class Table {
         return $this;
     }
 
-    // --------------------------------------------------------------------
-
-    /**
-     * Set table data from a database result object
-     *
-     * @param	CI_DB_result	$object	Database result object
-     * @return	void
-     */
-    protected function _set_from_db_result($object)
-    {
-        // First generate the headings from the table column names
-        if ($this->auto_heading === TRUE && empty($this->heading))
-        {
-            $this->heading = $this->_prep_args($object->list_fields());
-        }
-
-        foreach ($object->result_array() as $row)
-        {
-            $this->rows[] = $this->_prep_args($row);
-        }
-    }
 
     // --------------------------------------------------------------------
 
@@ -480,12 +456,12 @@ class Table {
             return;
         }
 
-        $this->temp = $this->_default_template();
+        $temp = $this->_default_template();
         foreach (array('table_open', 'thead_open', 'thead_close', 'heading_row_start', 'heading_row_end', 'heading_cell_start', 'heading_cell_end', 'tbody_open', 'tbody_close', 'row_start', 'row_end', 'cell_start', 'cell_end', 'row_alt_start', 'row_alt_end', 'cell_alt_start', 'cell_alt_end', 'table_close') as $val)
         {
             if ( ! isset($this->template[$val]))
             {
-                $this->template[$val] = $this->temp[$val];
+                $this->template[$val] = $temp[$val];
             }
         }
     }
@@ -500,9 +476,9 @@ class Table {
     protected function _default_template()
     {
         return array(
-            'table_open'		=> '<div class="table-responsive"><table class="table">',
+            'table_open'		=> '<div class="table-responsive"><table class="table table-striped table-hover">',
 
-            'thead_open'		=> '<thead>',
+            'thead_open'		=> '<thead class="table-dark">',
             'thead_close'		=> '</thead>',
 
             'heading_row_start'	=> '<tr>',

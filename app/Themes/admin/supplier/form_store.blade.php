@@ -39,15 +39,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Tipologia fornitore --}}
                                 <div class="form-group col-md-6">
@@ -90,20 +105,46 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
-                            <div class="form-row d-flex align-items-end" id="_ita">
+
+                            <div class="form-row align-items-end" id="box_iva">
+
                                 {{-- Campo Codice fiscale--}}
-                                <div class="form-group col-md-6" id="input_vat">
-                                    <label for="vat">Codice fiscale *
-                                    </label>
+                                <div class="form-group col-md-6" id="input_p_iva">
+                                    <label for="p_iva">Codice fiscale *</label>
                                     {{ form_input([
-                                        'name' => 'vat',
-                                        'value' => !empty($supplier['vat']) ? $supplier['vat'] : null,
+                                        'name' => 'p_iva',
+                                        'value' => !empty($supplier['p_iva']) ? $supplier['p_iva'] : null,
                                         'placeholder' => 'Codice fiscale',
-                                        'id' => 'input_vat_field',
-                                        'class' => 'form-control input_vat'
+                                        'id' => 'input_p_iva_field',
+                                        'class' => 'form-control input_p_iva'
                                     ]) }}
                                 </div>
+
+
                             </div>
+
+
+
+                            @if(!empty($supplier['vat']))
+                                <div class="form-row d-flex align-items-end" id="_ita">
+                                    {{-- Campo Codice fiscale--}}
+                                    <div class="form-group col-md-6" id="input_vat" style="">
+                                        <label for="vat">Codice fiscale (Bandi Gare e Contratti fino al 31/12/2023)
+                                            {{-- Inclusione di librerie esterne --}}
+                                        </label>
+                                        {{ form_input([
+                                            'name' => 'vat',
+                                            'value' => !empty($supplier['vat']) ? $supplier['vat'] : null,
+                                            'placeholder' => 'Codice fiscale',
+                                            'id' => 'input_vat_field',
+                                            'class' => 'form-control input_vat',
+                                            'readonly' => 'readonly'
+                                        ]) }}
+                                    </div>
+                                </div>
+                            @else
+                                <div class="form-group col-md-6" id="input_vat"></div>
+                            @endif
 
                             <div class="singleBox">
                                 <div id="foreign">
@@ -112,6 +153,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         {{-- Campo Identificativo fiscale estero --}}
                                         <div class="form-group col-md-6" id="input_foreign_tax_identification">
                                             <label for="foreign_tax_identification">Identificativo fiscale estero *
+                                                {{-- Inclusione di librerie esterne --}}
                                             </label>
                                             {{ form_input([
                                                 'name' => 'foreign_tax_identification',
@@ -127,8 +169,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 <div class="form-row d-flex align-items-end">
                                     {{-- Campo Indirizzo sede --}}
-                                    <div class="form-group col-md-6" id="input_addrerss">
-                                        <label for="addrerss">Indirizzo sede</label>
+                                    <div class="form-group col-md-6" id="input_address">
+                                        <label for="address">Indirizzo sede</label>
                                         {{ form_input([
                                             'name' => 'address',
                                             'value' => !empty($supplier['address']) ? $supplier['address'] : null,
@@ -180,6 +222,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             <div id="groupingBox">
 
+
                                 {{-- Campo Capogruppo --}}
                                 <div class="form-row d-flex align-items-end">
                                     <div class="form-group col-md-12">
@@ -197,6 +240,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <div class="form-group col-md-12">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <label for="ajax_principals" id="_principals_label">Mandante
+                                                {{-- Inclusione di librerie esterne --}}
                                             </label>
                                         </div>
                                         <div id="ajax_principals"></div>
@@ -210,6 +254,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <div class="form-group col-md-12">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <label for="ajax_mandatarie" id="_mandatarie_label">Mandataria
+                                                {{-- Inclusione di librerie esterne --}}
                                             </label>
                                         </div>
                                         <div id="ajax_mandatarie"></div>
@@ -300,25 +345,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{--  ************************************************ JAVASCRIPT ************************************************ --}}
 {% block javascript %}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
+
 
     $(document).ready(function () {
         document.getElementById("groupingBox").style.display = "none";
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- Select2 campo "Tipologia fornitore" --}}
         let $dropdownTypology = $('.select2-typology');
@@ -337,27 +380,34 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             if (data.id == 0) {
                 $('#input_vat').show();
+                $('#box_iva').show();
                 $('#foreign').hide();
             } else if (data.id == 1) {
                 $('#input_vat').hide();
+                $('#box_iva').hide();
                 $('#foreign').show();
             }
 
             if(data.text === 'Italiano'){
                 document.getElementById("input_foreign_tax_identification_field").value = "";
                 @if(!empty($supplier['vat']))
-                document.getElementById("input_vat_field").value = '{{ $supplier['vat'] }}';
+                    document.getElementById("input_vat_field").value = '{{ $supplier['vat'] }}';
                 @else
-                document.getElementById("input_vat_field").value = null;
+                    document.getElementById("input_vat_field").value = null;
+                @endif
+                @if(!empty($supplier['p_iva']))
+                    document.getElementById("input_p_iva_field").value = '{{ $supplier['p_iva'] }}';
+                @else
+                    document.getElementById("input_p_iva_field").value = null;
                 @endif
 
             }else if (data.text === 'Estero'){
                 document.getElementById("input_vat_field").value = "";
-
+                document.getElementById("input_p_iva_field").value = "";
                 @if(!empty($supplier['foreign_tax_identification']))
-                document.getElementById("input_foreign_tax_identification_field").value = '{{ $supplier['foreign_tax_identification'] }}';
+                    document.getElementById("input_foreign_tax_identification_field").value = '{{ $supplier['foreign_tax_identification'] }}';
                 @else
-                document.getElementById("input_foreign_tax_identification_field").value = null;
+                    document.getElementById("input_foreign_tax_identification_field").value = null;
                 @endif
             }
         });
@@ -365,18 +415,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         {{-- Begin dinamicizzazione campi form --}}
         {{-- In fase di modifica nascondo i campi in base alla tipologia --}}
         @if(empty($supplier['typology']) || $supplier['typology'] === '1')
-        document.getElementById("groupingBox").style.display = "none";
-        @if(empty($supplier['it']))
-        document.getElementById("input_vat").style.display = "block";
-        document.getElementById("foreign").style.display = "none";
-        @elseif($supplier['it'] == 1)
-        document.getElementById("foreign").style.display = "block";
-        document.getElementById("input_vat").style.display = "none";
-        @endif
+            document.getElementById("groupingBox").style.display = "none";
+            @if(empty($supplier['it']))
+                document.getElementById("input_vat").style.display = "block";
+                document.getElementById("box_iva").style.display = "flex";
+                document.getElementById("foreign").style.display = "none";
+            @elseif($supplier['it'] == 1)
+                document.getElementById("foreign").style.display = "block";
+                document.getElementById("input_vat").style.display = "none";
+                document.getElementById("box_iva").style.display = "none";
+            @endif
         @else
-        $(".singleBox").hide();
-        document.getElementById("input_vat").style.display = "none";
-        document.getElementById("groupingBox").style.display = "block";
+            $(".singleBox").hide();
+            document.getElementById("input_vat").style.display = "none";
+            document.getElementById("box_iva").style.display = "none";
+            document.getElementById("groupingBox").style.display = "block";
         @endif
 
         /**

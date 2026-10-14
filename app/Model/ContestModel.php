@@ -9,10 +9,13 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+use System\Log;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -28,6 +31,7 @@ class ContestModel extends Model
 
     protected string $objectName = 'Bandi di Concorso';
     protected string $archiveName = 'contest';
+    protected string $metaModel = 'MetaContestModel';
     protected int $objectId = 23;
 
     protected $fillable = [
@@ -62,8 +66,11 @@ class ContestModel extends Model
         'source_id',
         'number_readings',
         'last_update_date',
+        'publishing_end',
+        'unfixed',
         'publishing_responsable',
         'register_id',
+        '__tag',
         'created_at',
         'updated_at'
     ];
@@ -87,7 +94,16 @@ class ContestModel extends Model
      */
     protected $searchable = [
         'object',
+        'source_id',
         'typology',
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
         'users.name'
     ];
 
@@ -106,19 +122,13 @@ class ContestModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -129,7 +139,7 @@ class ContestModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -140,6 +150,15 @@ class ContestModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'owner_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 
     /**
@@ -161,9 +180,11 @@ class ContestModel extends Model
     public function assignments(): BelongsToMany
     {
         $assignments = $this->belongsToMany(AssignmentsModel::class, 'rel_contest_assignments', 'object_contest_id', 'object_assignments_id')
+            ->wherePivot('typology', '=', 'commission')
             ->withTimestamps();
         return $assignments;
     }
+
 
     /**
      * Relazione con gli allegati
@@ -245,4 +266,62 @@ class ContestModel extends Model
         return $this->hasMany(ContestModel::class, 'related_contest_id', 'id')
             ->where('typology', '=', 'esito');
     }
+
+    /**
+     * Scope locale per il filtraggio dei dati
+     * @param Builder     $query      Query
+     * @param string|null $object     Oggetto bando
+     * @param string|null $startPDate Data Inizio pubblicazione (da)
+     * @param string|null $endPDate   Data Inizio pubblicazione (a)
+     * @param string|null $startSDate Data fine pubblicazione (da)
+     * @param string|null $endSDate   Data fine pubblicazione (a)
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $object = null,
+        int|string|array  $structureId = null,
+        string  $startPDate = null,
+        string  $endPDate = null,
+        string  $startSDate = null,
+        string $endSDate = null
+    ): void
+    {
+        if (!empty($object)) {
+            $query->where('object_contest.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($structureId)) {
+            $query->whereIn('object_contest.object_structures_id',  (array)$structureId);
+        }
+
+        if (!empty($startPDate)) {
+            $query->where('object_contest.activation_date', '>=', date('Y-m-d H:i:s', strtotime($startPDate)));
+        }
+
+        if (!empty($endPDate)) {
+            $query->where('object_contest.activation_date', '<=', date('Y-m-d  23:59:59', strtotime($endPDate)));
+        }
+
+        if (!empty($startSDate)) {
+            $query->where('object_contest.expiration_date', '>=', date('Y-m-d H:i:s', strtotime($startSDate)));
+        }
+
+        if (!empty($endSDate)) {
+            $query->where('object_contest.expiration_date', '<=', date('Y-m-d 23:59:59', strtotime($endSDate)));
+        }
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+
+
 }

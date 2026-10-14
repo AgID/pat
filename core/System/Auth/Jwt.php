@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System\Auth;
@@ -66,6 +66,15 @@ class Jwt
      */
     protected $token = null;
 
+    /**
+     * @var null
+     */
+    protected $sessionName = null;   
+    
+    /**
+     * @var null
+     */
+    protected $expireToken = null;
 
     /**
      * Jwt constructor.
@@ -141,7 +150,8 @@ class Jwt
                         'device' => $userAgent->device(),
                         'browser' => $userAgent->browser(),
                         'userAgent' => $userAgent->getUserAgent(),
-                        'expire_token' => $this->expireToken(),
+                        'expire_token' => $this->expireToken(), // Manteniamo per retrocompatibilità
+                        'exp' => time() + $this->expireToken, // Campo standard JWT per scadenza
                     ]);
 
                     $this->isValid = true;
@@ -193,7 +203,7 @@ class Jwt
 
             if (\System\Arr::is_multi($storage) === false) {
 
-                foreach ($storage as $key => $value) {
+                foreach ((array)$storage as $key => $value) {
 
                     $getToken['options'][$key] = $value;
                 }

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\CompanyModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -37,28 +38,35 @@ class CompanyValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID società')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 // Recupero la società con l'id passato in input
-                $check = CompanyModel::where('id', uri()->segment(4, 0))
-                    ->with(['representatives' => function ($query) {
+                $check = CompanyModel::where('id', uri()->segment($uriSegment, 0));
+
+                if ($institutionId) {
+                    $check->where('institution_id', '=', $institutionId);
+                }
+
+                $check->with(['representatives' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'role_id');
+                    }])
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
                     }]);
+
 
                 $check = $check->first();
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
-
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'società ')
                     ];
@@ -78,6 +86,7 @@ class CompanyValidator
         ];
     }
 
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
@@ -85,12 +94,12 @@ class CompanyValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', $institutionId = null): array
     {
         if ($mode == 'archiving') {
             return $this->archivingValidate();
         } else {
-            return $this->validate($mode);
+            return $this->validate($mode, $institutionId);
         }
     }
 
@@ -139,7 +148,7 @@ class CompanyValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', $institutionId = null): array
     {
 
         $this->validator->verifyToken()
@@ -150,6 +159,13 @@ class CompanyValidator
             ->required()
             ->betweenString(5, 191)
             ->end();
+
+        if (Input::post('source_id') !== null) {
+            $this->validator->label('source_id')
+                ->value(Input::post('source_id'))
+                ->betweenString(1, 191)
+                ->end();
+        }
 
         $this->validator->label('Tipo')
             ->value(Input::post('typology'))
@@ -169,7 +185,7 @@ class CompanyValidator
 
         $this->validator->label('Oneri complessivi (annuale)')
             ->value(Input::post('year_charges'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 5000)
             ->end();
 
         $this->validator->label('Descrizione delle attività')
@@ -190,7 +206,7 @@ class CompanyValidator
 
         $this->validator->label('Incarichi amministrativi e relativo trattamento economico')
             ->value(Input::post('treatment_assignments'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 5000)
             ->end();
 
         $this->validator->label('Url sito web')
@@ -201,7 +217,7 @@ class CompanyValidator
 
         $this->validator->label('Risultati di bilancio (ultimi 3 anni)')
             ->value(Input::post('balance'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 5000)
             ->end();
 
         $this->validator->label('Dichiarazione sulla insussistenza di una delle cause di inconferibilità dell\'incarico (link)')
@@ -216,20 +232,28 @@ class CompanyValidator
             ->betweenString(4, 191)
             ->end();
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $company = CompanyModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+                    $query = CompanyModel::where('id', $id);
+                    $company = $query->first();
                     if (empty($company)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Società')];
                     }
                 })
                 ->end();
+
         }
 
 

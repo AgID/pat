@@ -40,6 +40,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
@@ -49,6 +51,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
 
                             {{-- Campo Oggetto --}}
                             <div class="form-row d-flex align-items-end">
@@ -80,6 +94,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
+
                             <div id="bdncp-link-box">
                                 <div class="form-row d-flex align-items-end">
                                     {{-- Campo Link alla BDNCP --}}
@@ -102,8 +118,31 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Campo Link eProcurement --}}
+                                <div class="form-group col-md-12" id="input_eproc_url">
+                                    <label for="eproc_url">Link alla piattaforma di e-procurement</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-link"></i></span>
+                                        </div>
+                                        {{ form_input([
+                                            'name' => 'eproc_url',
+                                            'value' => !empty($procedure['eproc_url']) ? $procedure['eproc_url'] : null,
+                                            'placeholder' => 'https://www.',
+                                            'id' => 'input_eproc_url',
+                                            'class' => 'form-control input_eproc_url',
+                                         ]) }}
+                                    </div>
+                                </div>
+                            </div>
+
+
+
                             {{-- Fase PUBBLICAZIONE --}}
                             {{generateSeparator('FASE PUBBLICAZIONE')}}
+
+                            <div id="anchor__publicDebate"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -173,6 +212,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {% include bdncp_procedure/check_field_box %}
                             </div>
 
+                            <div id="anchor__noticeDocuments"></div>
                             <div class="form-row align-items-end">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -181,7 +221,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <div>
                                             <h5>
                                                 <i class="icon fas fa-info"></i>
-                                                Informativa - Documenti di gara
+                                                Informativa - Documenti di gara e affidamenti diretti
                                             </h5>
                                             <a class="text-muted"
                                                href="javascript:maggioriInfo('maggioriInfoDocumentiGara');"
@@ -206,7 +246,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     <ul>
                                                         Documenti di gara. Che comprendono, almeno:
                                                         <li>
-                                                            Delibera a contrarre
+                                                            Delibera a contrarre (anche per gli affidamenti diretti)
                                                         </li>
                                                         <li>
                                                             Bando/avviso di gara/lettera di invito
@@ -235,6 +275,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             {{generateSeparator('FASE AFFIDAMENTO')}}
                             {{-- Fase AFFIDAMENTO --}}
+
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -277,7 +318,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="{{$cat['field']}}">Stai pubblicando la
                                         <u>{{  $cat['title'] }}</u>?</label>
-                                    <div class="select2-blue" id="input_{{$cat['field']}}_check">
+                                    <div id="input_{{$cat['field']}}_check">
                                         {{ form_dropdown(
                                             $cat['field'].'_check',
                                             [
@@ -285,7 +326,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                 1 => 'Si'
                                             ],
                                             @$procedure[$cat['field'].'_check'],
-                                            'class="form-control select2-'.$cat['field'].' check_select" id="'.$catId.'" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-'.$cat['field'].' check_select" id="'.$catId.'" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -315,6 +356,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            <div id="anchor__equalOpportunitiesAf"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -365,7 +407,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         </div>
                                     </div>
                                 </div>
-
                                 {{-- Pari opportunità e inclusione lavorativa nei contratti pubblici PNRR e PNC e nei contratti riservati --}}
                                 <?php $cat = $procedureCat['_equalOpportunitiesAf']; $catId = '_equalOpportunitiesAf'; ?>
 
@@ -373,6 +414,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             </div>
 
+                            <div id="anchor__localPublicServices"></div>
                             <div class="form-row align-items-end">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -486,7 +528,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-6">
                                     <label for="{{$cat['field']}}">Stai pubblicando la
                                         <u>{{  $cat['title'] }}</u>?</label>
-                                    <div class="select2-blue" id="input_{{$cat['field']}}_check">
+                                    <div id="input_{{$cat['field']}}_check">
                                         {{ form_dropdown(
                                             $cat['field'].'_check',
                                             [
@@ -494,7 +536,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                 1 => 'Si'
                                             ],
                                             @$procedure[$cat['field'].'_check'],
-                                            'class="form-control select2-'.$cat['field'].' check_select" id="'.$catId.'" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-'.$cat['field'].' check_select" id="'.$catId.'" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -524,6 +566,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+                            <div id="anchor__equalOpportunitiesEs"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -593,8 +636,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {% include bdncp_procedure/check_field_box %}
                             </div>
 
-                            {{generateSeparator('FASE SPONSORIZZAZIONI')}}
+                            {{generateSeparator('SPONSORIZZAZIONI')}}
                             {{-- Fase SPONSORIZZAZIONI --}}
+                            <div id="anchor__freeContract"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -642,8 +686,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {% include bdncp_procedure/check_field_box %}
                             </div>
 
-                            {{generateSeparator('FASE PROCEDURE DI SOMMA URGENZA E DI PROTEZIONE CIVILE')}}
-                            {{-- Fase PROCEDURE DI SOMMA URGENZA E DI PROTEZIONE CIVILE --}}
+                            {{generateSeparator('PROCEDURE DI SOMMA URGENZA E DI PROTEZIONE CIVILE')}}
+                            {{-- PROCEDURE DI SOMMA URGENZA E DI PROTEZIONE CIVILE --}}
+                            <div id="anchor__emergencyFoster"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -705,8 +750,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {% include bdncp_procedure/check_field_box %}
                             </div>
 
-                            {{generateSeparator('FASE FINANZA DI PROGETTO')}}
+                            {{generateSeparator('FINANZA DI PROGETTO')}}
                             {{-- Fase FINANZA DI PROGETTO --}}
+                            <div id="anchor__fosterProcedure"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12">
                                     <div class="alert alert-info alert-dismissible">
@@ -750,6 +796,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             {{generateSeparator('ALTRE INFORMAZIONI')}}
+                            <div id="anchor__generalInfo"></div>
                             <div class="form-row align-items-end mt-2">
                                 <div class="col-md-12 px-0" id="general_info">
                                     <div class="col-md-12 mb-3 px-0">
@@ -771,10 +818,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             'class' => 'form-control input_notes'
                                         ]) }}
                                     </div>
+
+
                                 </div>
                             </div>
                         </div>
                         {{-- END: Form --}}
+
 
                     </div>
 
@@ -782,7 +832,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -822,6 +874,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
            'class' => '_typology',
        ]) }}
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -842,15 +895,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName !== 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
@@ -859,24 +911,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         let formModified = false;
         let institutionId = $('#institution_id').val();
 
-        CKEDITOR.replace('input_judging_commission_notes');
-
-        CKEDITOR.replace('input_advisory_board_technical_notes');
-
-        CKEDITOR.replace('input_notes');
-
-        {{-- Select2 per campo "Commissione Giudicatrice" --}}
-        let $dropdownJudgingCommission = $('.select2-judging_commission');
-        $dropdownJudgingCommission.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_judging_commission_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
 
-        let $dropdownAdvisoryBoardTechnical = $('.select2-advisory_board_technical');
-        $dropdownAdvisoryBoardTechnical.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_advisory_board_technical_notes', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
+
+        CKEDITOR.replace('input_notes', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+
+        {{-- Tom Select per campo "Commissione Giudicatrice" --}}
+        new TomSelect('.ts-judging_commission', TS_SINGLE_PRESELECT);
+
+        new TomSelect('.ts-advisory_board_technical', TS_SINGLE_PRESELECT);
 
         $('.check_select').on('change', function () {
             let selected = $(this).attr('id');
@@ -977,7 +1028,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 return true;
             },
             beforeSend: function () {
-                console.log($('#{{ $formSettings['id'] }}').serialize())
                 btnSend.empty().append('{{ __('brn_save_spinner',null,'patos') }}').attr("disabled", true);
                 $('.error-toast').remove();
             },
@@ -998,6 +1048,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -1013,6 +1064,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 // Funzione che genera il toast con gli errori
                 {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000);
+
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
             }
@@ -1035,11 +1087,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

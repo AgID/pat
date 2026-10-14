@@ -6,23 +6,26 @@
 
 namespace Helpers\Utility;
 
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 /**
  * Classe per la gestione dei bottoni delle azioni sui record in base ai permessi dell'utente
+ *
+ * @phpstan-consistent-constructor
  */
 class ButtonAction
 {
     private string $tagOpenDesktop = '<!-- Action -->
             <div class="dropdown dropdown-azioni dropdown-btn-desktop">
-            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false" >
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown" aria-expanded="false" ></button>
             <div class="dropdown-menu dropdown-menu-right" role="menu">
     ';
     private string $tagOpenMobile = '<!-- Action -->
             <div class="btn-toolbar dropdown-btn-mobile" role="toolbar" aria-label="Toolbar Azioni">
             <div class="btn-group" role="group" aria-label="Azioni">
     ';
-    private string $tagCloseDesktop = '</div></button></div><!-- /Action -->';
+    private string $tagCloseDesktop = '</div></div><!-- /Action -->';
     private string $tagCloseMobile = '</div></div><!-- /Action -->';
     protected string $htmlDesktop = '';
     protected string $htmlMobile = '';
@@ -33,11 +36,14 @@ class ButtonAction
         'delete' => false, // Permits
         'versioning' => false, // Profilo ACL
         'archiving' => false, // Profilo ACL
+        'lock_unlock' => false, // Profilo ACL
         'cancel' => false,
+        'archive' => false,
         'extension' => false,
         'scp' => false,
+        'assign_editor' => false,
     ];
-
+    private string $editOutsideButton = '';
     /**
      * Accetta come parametro un array contente le info per visualizzare i pulsanti delle action
      *
@@ -123,19 +129,42 @@ class ButtonAction
      * @param int|string|null $id  id del record da modificare
      * @return $this
      */
-    public function addEdit(string $url = '#!', int|string|null $id = ''): static
+    public function addEdit(string $url = '#!', int|string|null $id = '', string $params='', bool $outsideDropdown = false): static
     {
         if ($this->profile['edit'] === true) {
-            $this->htmlDesktop .= anchor(
+
+            if ($outsideDropdown) {
+
+                $this->editOutsideButton = anchor(
                     $url,
                     '<i class="fas fa-edit"></i>',
-                    'title="" id="edit_' . $id . '" class="btn btn-sm btn-primary _record-edit dropdown-item" data-toggle="tooltip"  data-placement="top" data-original-title="Modifica voce" aria-label="Modifica voce"'
-                ) . "\n";
+                    'title="" id="edit_' . $id . '" ' . $params . '
+                        class="btn btn-sm btn-outline-secondary"
+                        style="padding: 0.1rem 0.5rem"
+                        data-toggle="tooltip"
+                        data-placement="top"
+                        data-original-title="Modifica voce"
+                        aria-label="Modifica voce"'
+                );
+
+            } else {
+
+                $this->htmlDesktop .= anchor(
+                        $url,
+                        '<i class="fas fa-edit"></i>',
+                        'title="" id="edit_' . $id . '" ' . $params . '
+                            class="btn btn-sm btn-primary _record-edit dropdown-item"
+                            data-toggle="tooltip"
+                            data-placement="top"
+                            data-original-title="Modifica voce"
+                            aria-label="Modifica voce"'
+                    ) . "\n";
+            }
 
             $this->htmlMobile .= anchor(
                     $url,
                     '<i class="fas fa-edit"></i>',
-                    'title="" id="edit_' . $id . '" class="btn btn-sm btn-primary _record-edit" data-toggle="tooltip"  data-placement="top" data-original-title="Modifica voce" aria-label="Modifica voce"'
+                    'title="" id="edit_' . $id . '" ' . $params . '  class="btn btn-sm btn-primary _record-edit" data-toggle="tooltip"  data-placement="top" data-original-title="Modifica voce" aria-label="Modifica voce"'
                 ) . "\n";
         }
         return $this;
@@ -174,19 +203,75 @@ class ButtonAction
      * @param int|string|null $id  id del record da eliminare
      * @return $this
      */
-    public function addDelete(string $url = '#!', int|string|null $id = ''): static
+    public function addDelete(string $url = '#!', int|string|null $id = '', string $params=''): static
     {
         if ($this->profile['delete'] === true) {
             $this->htmlDesktop .= anchor(
                     $url,
                     '<i class="fas fa-trash"></i>',
-                    'title="" id="delete_' . $id . '" class="btn btn-sm btn-danger record-delete dropdown-item" data-toggle="tooltip" data-placement="top" data-original-title="Elimina voce" aria-label="Elimina voce"'
+                    'title="" id="delete_' . $id . '" ' . $params . '  class="btn btn-sm btn-danger record-delete dropdown-item" data-toggle="tooltip" data-placement="top" data-original-title="Elimina voce" aria-label="Elimina voce"'
                 ) . "\n";
 
             $this->htmlMobile .= anchor(
                     $url,
                     '<i class="fas fa-trash"></i>',
-                    'title="" id="delete_' . $id . '" class="btn btn-sm btn-danger record-delete" data-toggle="tooltip" data-placement="top" data-original-title="Elimina voce" aria-label="Elimina voce"'
+                    'title="" id="delete_' . $id . '" ' . $params . '  class="btn btn-sm btn-danger record-delete" data-toggle="tooltip" data-placement="top" data-original-title="Elimina voce" aria-label="Elimina voce"'
+                ) . "\n";
+        }
+        return $this;
+    }
+
+    /**
+     * @description Funzione che aggiunge un bottone custom di un record
+     *
+     * @param string          $tag     Nome tag
+     * @param string          $url     url del metodo
+     * @param int|string|null $id      id del record da archiviare
+     * @param string|null     $type    Tipologia
+     * @param string|null     $name    Nome
+     * @param string|null     $permits Permessi
+     * @return $this
+     */
+    public function addCustomButton(string $tag = '', string $url = '#!', int|string|null $id = '', ?string $type = '', ?string $name = '', ?string $permits = ''): static
+    {
+        // Queste operazioni non sono disponibili, anche per profili salvati in precedenza.
+        if ($permits === 'versioning' || $permits === 'archiving') {
+            return $this;
+        }
+
+        $this->htmlDesktop .= false;
+
+        $this->htmlMobile .= false;
+
+        return $this;
+    }
+
+    /**
+     * @description Metodo che attiva o disattiva un record
+     *
+     * @param string          $url  url del metodo
+     * @param int             $lock Indica se è un operazione di blocco
+     *                              o sblocco
+     * @param int|string|null $id   id del record da bloccare/sbloccare
+     * @param string|null     $type Tipologia
+     * @return $this
+     */
+    public function addLockUnlock(string $url = '#!', int $lock = 1, int|string|null $id = '', ?string $type = 'user'): static
+    {
+        $textLockUnlock = ($lock === 0) ? 'Disattiva' : 'Attiva';
+        $lockUnlockVoice = ($type === 'user') ? 'Utente' : 'Ente';
+
+        if ($this->profile['lock_unlock']) {
+            $this->htmlDesktop .= anchor(
+                    $url,
+                    ($type === 'user') ? '<i class="fas fa-user-lock"></i>' : (($lock) ? '<i class="fas fa-lock-open"></i>' : '<i class="fas fa-lock"></i>'),
+                    'title="" id="_lock_unlock' . $id . '" class="__record_lock_unlock btn btn-sm btn-primary dropdown-item" data-blocked="'.$lock.'" data-toggle="tooltip" data-placement="top" data-original-title="' . $textLockUnlock . ' ' . $lockUnlockVoice . '"'
+                ) . "\n";
+
+            $this->htmlMobile .= anchor(
+                    $url,
+                    ($type === 'user') ? '<i class="fas fa-user-lock"></i>' : (($lock) ? '<i class="fas fa-lock-open"></i>' : '<i class="fas fa-lock"></i>'),
+                    'title="" id="_lock_unlock' . $id . '" class="__record_lock_unlock btn btn-sm btn-primary" data-blocked="'.$lock.'" data-toggle="tooltip" data-placement="top" data-original-title="' . $textLockUnlock . ' ' . $lockUnlockVoice . '"'
                 ) . "\n";
         }
         return $this;
@@ -200,6 +285,18 @@ class ButtonAction
     {
         $this->htmlDesktop .= $this->tagCloseDesktop;
         $this->htmlMobile .= $this->tagCloseMobile;
+
+        if (!empty($this->editOutsideButton)) {
+
+            $this->htmlDesktop = '
+            <div class="dropdown-btn-desktop">
+                <div class="d-flex g" style="gap: 0.3rem;">
+                    ' . $this->editOutsideButton . '
+                    ' . $this->htmlDesktop . '
+                </div>
+            </div>';
+        }
+
         return $this->htmlDesktop . $this->htmlMobile;
     }
 

@@ -54,6 +54,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     @endif
 
                     <div class="col-md-12 mb-3">
+
+                        {{generateSeparator('INFORMAZIONI UTENTE')}}
+
                         {{-- BEGIN: Form --}}
                         <div class="row">
 
@@ -69,47 +72,44 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
 
-                            {{-- Campo Username --}}
+                        <div class="row">
                             <div class="form-group col-md-6">
-                                <label for="username">Username *</label>
-                                {{ form_input([
-                                    'name' => 'username',
-                                    'value' => !empty($user['username']) ? checkDecrypt($user['username']) : null,
-                                    'placeholder' => 'Username',
-                                    'id' => 'input_username',
-                                    'class' => 'form-control input_username disabled readonly',
-                                    'readonly' => 'readonly',
-                                    'disabled' => 'disabled',
-                                ]) }}
+                                {{-- Allegato Immagine del Profilo --}}
+                                <label for="profile_image_file">Immagine profilo</label>
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="profile_image_file"
+                                           name="profile_image" accept="image/png, image/gif, image/jpeg"
+                                           aria-describedby="profile_image_help">
+                                    <label class="custom-file-label" for="profile_image_file"
+                                           id="label_attach_logo">
+                                        Allega immagine profilo
+                                    </label>
+                                </div>
+                                <small id="profile_image_help" class="form-text text-muted">
+                                    Formati ammessi: PNG, GIF, JPG/JPEG. Dimensione massima:
+                                    {{ \Helpers\Utility\FileUpload::maxSizeLabel(5042 * 1024) }};
+                                    risoluzione da 50 × 50 a 1024 × 1024 pixel.
+                                </small>
                             </div>
 
-                            {{-- Campo Password --}}
-                            <div class="form-group col-md-6">
-                                <label for="password">Password *</label>
-                                {{ form_password([
-                                    'name' => 'password',
-                                    'value' => '',
-                                    'placeholder' => 'Password',
-                                    'id' => 'input_password',
-                                    'class' => 'form-control input_password',
-
-                                ]) }}
+                            {{-- Preview Immagine Profilo --}}
+                            <div id="preview-url-image" class="form-group col-md-6">
+                                <div class="mt-2">
+                                    <img src="" alt="Immagine Profilo" id="src-profile_image"
+                                         class="img-thumbnail attach-image">
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-xs btn-outline-danger"
+                                                id="clear-preview-image">
+                                            <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina immagine
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
 
-                            {{-- Campo Conferma Password --}}
-                            <div class="form-group col-md-6">
-                                <label for="re_password">Conferma password *</label>
-                                {{ form_password([
-                                    'name' => 're_password',
-                                    'value' => '',
-                                    'placeholder' => 'Conferma password',
-                                    'id' => 'input_re_password',
-                                    'class' => 'form-control input_re_password',
-
-                                ]) }}
-                            </div>
-
+                        <div class="row">
                             {{-- Campo Indirizzo email --}}
                             <div class="form-group col-md-6">
                                 <label for="email">Email *</label>
@@ -135,6 +135,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
+
+                        <div class="row">
+
 
                             {{-- Campo Recapito cellulare --}}
                             <div class="form-group col-md-6">
@@ -149,143 +153,185 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                                 ]) }}
                             </div>
+                        </div>
+
+                        {{generateSeparator('CREDENZIALI ACCESSO')}}
+
+
+                        <div class="row">
+                            {{-- Campo Username --}}
+                            <div class="form-group col-md-6">
+                                <label for="username">Username *</label>
+                                {{ form_input([
+                                    'name' => 'username',
+                                    'value' => !empty($user['username']) ? checkDecrypt($user['username']) : null,
+                                    'placeholder' => 'Username',
+                                    'id' => 'input_username',
+                                    'class' => 'form-control input_username disabled readonly',
+                                    'readonly' => 'readonly',
+                                    'disabled' => 'disabled',
+                                ]) }}
+                            </div>
 
                             <div class="form-group col-md-6">
-                                {{-- Allegato Immagine del Profilo --}}
-                                <label for="profile_image">Immagine profilo</label>
-                                <div class="custom-file">
-                                    <input type="file" class="custom-file-input" id="profile_image_file"
-                                           name="profile_image" accept="image/png, image/gif, image/jpeg">
-                                    <label class="custom-file-label" for="profile_image_file"
-                                           id="label_attach_logo">
-                                        Allega immagine profilo
-                                    </label>
-                                </div>
+                                <label for="old_password">Password attuale *</label>
+                                {{ form_password([
+                                    'name' => 'old_password',
+                                    'value' => '',
+                                    'placeholder' => 'Vecchia password',
+                                    'id' => 'input_old_password',
+                                    'class' => 'form-control input_old_password',
+
+                                ]) }}
+                            </div>
+                            {{-- Campo Password --}}
+                            <div class="form-group col-md-6">
+                                <label for="password">Nuova password *</label>
+                                {{ form_password([
+                                    'name' => 'password',
+                                    'value' => '',
+                                    'placeholder' => 'Password',
+                                    'id' => 'input_password',
+                                    'class' => 'form-control input_password',
+
+                                ]) }}
                             </div>
 
-                            {{-- Preview Immagine Profilo --}}
-                            <div id="preview-url-image" class="col-md-6">
-                                <div class="mt-2">
-                                    <img src="" alt="Immagine Profilo" id="src-profile_image"
-                                         class="img-thumbnail attach-image">
-                                    <div class="mt-2">
-                                        <button type="button" class="btn btn-xs btn-outline-danger"
-                                                id="clear-preview-image">
-                                            <i class="fas fa-trash"></i> {{ nbs(1) }} Elimina immagine
-                                        </button>
+                            {{-- Campo Conferma Password --}}
+                            <div class="form-group col-md-6">
+                                <label for="re_password">Conferma la nuova password *</label>
+                                {{ form_password([
+                                    'name' => 're_password',
+                                    'value' => '',
+                                    'placeholder' => 'Conferma password',
+                                    'id' => 'input_re_password',
+                                    'class' => 'form-control input_re_password',
+
+                                ]) }}
+                            </div>
+                        </div>
+
+
+
+
+                        @if(getAclModifyProfile()===true)
+
+                            {{generateSeparator('PERMESSI E CONFIGURAZIONI')}}
+                            <div class="row">
+                                    {{-- Campo Profili ACL --}}
+                                    <div class="col-md-12">
+                                        <div class="form-group" id="input_profili_acl">
+                                            <label for="profiles">Profili ACL</label>
+                                            <div class="select2-blue">
+                                                {{ form_dropdown(
+                                                    'profiles[]',
+                                                    @$acl,
+                                                    @$profilesIds,
+                                                    'class="form-control select2-profiles input_profiles" multiple="multiple" data-placeholder="Seleziona profili" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                                ) }}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
                             </div>
+                            <div class="row">
 
-                            @if(getAclModifyProfile()===true)
-                                {{-- Campo Profili ACL --}}
-                                <div class="col-md-12">
-                                    <div class="form-group" id="input_profili_acl">
-                                        <label for="profiles">Profili ACL</label>
-                                        <div class="select2-blue">
+                                    {{-- Campo Validità Password --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="password_expiration_days">Validità della password</label>
+                                        <div class="select2-blue" id="input_password_expiration_days">
                                             {{ form_dropdown(
-                                                'profiles[]',
-                                                @$acl,
-                                                @$profilesIds,
-                                                'class="form-control select2-profiles input_profiles" multiple="multiple" data-placeholder="Seleziona profili" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                                'password_expiration_days',
+                                                [
+                                                    '' => '',
+                                                    25 => '25 gg',
+                                                    50 => '50 gg',
+                                                    100 => '100 gg',
+                                                    180 => '180 gg',
+                                                    365 => '365 gg'
+                                                ],
+                                                !empty($user['password_expiration_days']) ? $user['password_expiration_days'] : 365,
+                                                'class="form-control select2-password_expiration_days" style="width: 100%;"'
                                             ) }}
                                         </div>
                                     </div>
-                                </div>
 
-                                {{-- Campo Validità Password --}}
-                                <div class="form-group col-md-6">
-                                    <label for="password_expiration_days">Validità della password</label>
-                                    <div class="select2-blue" id="input_password_expiration_days">
-                                        {{ form_dropdown(
-                                            'password_expiration_days',
-                                            [
-                                                '' => '',
-                                                25 => '25 gg',
-                                                50 => '50 gg',
-                                                100 => '100 gg',
-                                                180 => '180 gg',
-                                                365 => '365 gg'
-                                            ],
-                                            !empty($user['password_expiration_days']) ? $user['password_expiration_days'] : 365,
-                                            'class="form-control select2-password_expiration_days" style="width: 100%;"'
-                                        ) }}
+                                    {{-- Campo Impedisci ripetizione delle utlime 5 password --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="prevent_password_repetition">Impedisci ripetizione delle ultime 5
+                                            password</label>
+                                        <div class="select2-blue" id="input_prevent_password_repetition">
+                                            {{ form_dropdown(
+                                                'prevent_password_repetition',
+                                                [
+                                                    '' => '',
+                                                    1 => 'Si',
+                                                    2 => 'No'
+                                                ],
+                                                !empty($user['prevent_password_repetition']) ? $user['prevent_password_repetition'] : 2,
+                                                'class="form-control select2-prevent_password_repetition" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {{-- Campo Impedisci ripetizione delle utlime 5 password --}}
-                                <div class="form-group col-md-6">
-                                    <label for="prevent_password_repetition">Impedisci ripetizione delle ultime 5
-                                        password</label>
-                                    <div class="select2-blue" id="input_prevent_password_repetition">
-                                        {{ form_dropdown(
-                                            'prevent_password_repetition',
-                                            [
-                                                '' => '',
-                                                1 => 'Si',
-                                                2 => 'No'
-                                            ],
-                                            !empty($user['prevent_password_repetition']) ? $user['prevent_password_repetition'] : 2,
-                                            'class="form-control select2-prevent_password_repetition" style="width: 100%;"'
-                                        ) }}
+                                    {{-- Campo Impedisci il cambio password più di una volta al giorno --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="prevent_password_change_day">Impedisci il cambio password più di una
+                                            volta al giorno</label>
+                                        <div class="select2-blue" id="input_prevent_password_change_day">
+                                            {{ form_dropdown(
+                                                'prevent_password_change_day',
+                                                [
+                                                    '' => '',
+                                                    1 => 'Si',
+                                                    2 => 'No'
+                                                ],
+                                                !empty($user['prevent_password_repetition_6_months']) ? $user['prevent_password_repetition_6_months'] : 2,
+                                                'class="form-control select2-prevent_password_change_day" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {{-- Campo Impedisci il cambio password più di una volta al giorno --}}
-                                <div class="form-group col-md-6">
-                                    <label for="prevent_password_change_day">Impedisci il cambio password più di una
-                                        volta al giorno</label>
-                                    <div class="select2-blue" id="input_prevent_password_change_day">
-                                        {{ form_dropdown(
-                                            'prevent_password_change_day',
-                                            [
-                                                '' => '',
-                                                1 => 'Si',
-                                                2 => 'No'
-                                            ],
-                                            !empty($user['prevent_password_repetition_6_months']) ? $user['prevent_password_repetition_6_months'] : 2,
-                                            'class="form-control select2-prevent_password_change_day" style="width: 100%;"'
-                                        ) }}
+                                    {{-- Campo Disattivazione account per mancato utilizzo --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="account_deactivation_for_non_use">Disattivazione account per mancato
+                                            utilizzo</label>
+                                        <div class="select2-blue" id="input_deactivate_account_no_use">
+                                            {{ form_dropdown(
+                                                'deactivate_account_no_use',
+                                                [
+                                                    '' => '',
+                                                    25 => 'Dopo 25 giorni',
+                                                    50 => 'Dopo 50 giorni',
+                                                    100 => 'Dopo 100 giorni',
+                                                    180 => 'Dopo 180 giorni',
+                                                    365 => 'Dopo 365 giorni'
+                                                ],
+                                                 !empty($user['deactivate_account_no_use']) ? $user['deactivate_account_no_use'] : 365,
+                                                'class="form-control select2-account_deactivation_for_non_use" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {{-- Campo Disattivazione account per mancato utilizzo --}}
-                                <div class="form-group col-md-6">
-                                    <label for="account_deactivation_for_non_use">Disattivazione account per mancato
-                                        utilizzo</label>
-                                    <div class="select2-blue" id="input_deactivate_account_no_use">
-                                        {{ form_dropdown(
-                                            'deactivate_account_no_use',
-                                            [
-                                                '' => '',
-                                                25 => 'Dopo 25 giorni',
-                                                50 => 'Dopo 50 giorni',
-                                                100 => 'Dopo 100 giorni',
-                                                180 => 'Dopo 180 giorni',
-                                                365 => 'Dopo 365 giorni'
-                                            ],
-                                             !empty($user['deactivate_account_no_use']) ? $user['deactivate_account_no_use'] : 365,
-                                            'class="form-control select2-account_deactivation_for_non_use" style="width: 100%;"'
-                                        ) }}
+
+
+                                    {{-- Campo Note --}}
+                                    <div class="form-group col-md-12">
+                                        <label for="note">Note</label>
+                                        {{ form_textarea([
+                                            'name' => 'notes',
+                                            'value' => !empty($user['notes']) ? $user['notes'] : null,
+                                            'placeholder' => 'Note',
+                                            'id' => 'input_notes',
+                                            'class' => 'form-control input_notes',
+                                            'cols' => '10',
+                                            'rows' => '3',
+                                        ]) }}
                                     </div>
-                                </div>
+                            </div>
+                        @endif
 
-                                {{-- Campo Note --}}
-                                <div class="form-group col-md-12">
-                                    <label for="note">Note</label>
-                                    {{ form_textarea([
-                                        'name' => 'notes',
-                                        'value' => !empty($user['notes']) ? $user['notes'] : null,
-                                        'placeholder' => 'Note',
-                                        'id' => 'input_notes',
-                                        'class' => 'form-control input_notes',
-                                        'cols' => '10',
-                                        'rows' => '3',
-                                    ]) }}
-                                </div>
-                            @endif
-                        </div>
                         {{-- END: Form --}}
+
 
                     </div>
                 </div>
@@ -341,8 +387,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
-{{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
 <style type="text/css">
     .select2-container--default .select2-selection--single {
         height: 38px !important;
@@ -363,7 +407,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <script type="text/javascript">
     $(document).ready(function () {
 
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         let formModified = false;
 

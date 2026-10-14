@@ -10,12 +10,14 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Maer\Config\Config;
+use Model\ConfigsModel;
 use System\Arr;
 use System\Database;
 use System\Encryption;
 use System\Input;
 use System\Password;
 use System\Session;
+use function Symfony\Component\Translation\t;
 
 class AuthPatOS
 {
@@ -97,27 +99,12 @@ class AuthPatOS
     /**
      * @var
      */
-    private $nameSuperAdmin;
-
-    /**
-     * @var
-     */
     private $nameAdmin;
 
     /**
      * @var
      */
     private $nameDeleted;
-
-    /**
-     * @var
-     */
-    private $nameIsAPI;
-
-    /**
-     * @var
-     */
-    private $namePasswordToken;
 
     /**
      * @var
@@ -140,11 +127,6 @@ class AuthPatOS
     private $isAuthTwoFactor = false;
 
     /**
-     * @var
-     */
-    private $limitCallsApi;
-
-    /**
      * @var null
      */
     public $error = null;
@@ -160,6 +142,7 @@ class AuthPatOS
         $config = new Config();
         $config->load(APP_PATH . 'Config/auth_pat_os.php');
 
+        $appSecurityId = defined('_APP_S_ID') ? _APP_S_ID : '';
         $this->nameTable = $config->get('table');
         $this->nameTableInstitution = $config->get('table_institutions');
         $this->lastVisitTimeLimit = $config->get('last_visit_time_limit');
@@ -169,17 +152,12 @@ class AuthPatOS
         $this->nameEmail = $config->get('email');
         $this->namePassword = $config->get('password');
         $this->nameActive = $config->get('active');
-        $this->nameSuperAdmin = $config->get('super_admin');
         $this->nameAdmin = $config->get('admin');
         $this->nameDeleted = $config->get('deleted');
         $this->lastVisited = $config->get('last_visit');
         $this->institutionsId = $config->get('institutions_id');
         $this->hasEncryption = $config->get('has_encryption');
-        $this->nameIsAPI = $config->get('enable_api');
-        $this->namePasswordToken = $config->get('token_password');
-        $this->limitCallsApi = $config->get('limit_calls_api');
-
-        $this->sessionName = $config->get('session_name') . '___pat_os_auth';
+        $this->sessionName = $appSecurityId . $config->get('session_name') . '___pat_os_auth';
         $this->hasIdentity = $this->sessionName . '___auth' . '_pat_os_has_identity';
 
         if ($this->hasEncryption === true) {
@@ -192,51 +170,9 @@ class AuthPatOS
             $this->encryption->create_key(18);
         }
 
-        $this->session = new Session();
+        $this->session = session();
         $this->db = new Database();
     }
-
-    public function basiAuthAPI($username = null, $password = null)
-    {
-        $hasIdentity = false;
-        $user = null;
-        $DB = $this->db;
-
-        $query = $DB::table($this->nameTable)
-            ->select(
-                $this->nameTable . '.*',
-                $this->nameTableInstitution . '.' . $this->limitCallsApi . ' AS limits_call_api'
-            )
-            ->join(
-                $this->nameTableInstitution,
-                $this->nameTableInstitution . '.' . $this->nameInstitutionPk, '=', $this->nameTable . '.' . $this->institutionsId,
-                'left outer'
-            )
-            ->where(function ($query) use ($username) {
-                $query->where($this->nameUsername, '=', $username)
-                    ->orWhere($this->nameUsername, '=', checkEncrypt($username));
-            })
-            ->where($this->nameIsAPI, '=', 1)
-            ->where($this->nameTable . '.' . $this->nameActive, '=', 1)
-            ->where($this->nameTable . '.' . $this->nameDeleted, '=', 0)
-            ->where(function ($q) {
-                $q->where($this->institutionsId, '=', PatOsInstituteId());
-            })
-            ->first();
-
-        if ($query !== null) {
-
-            $user = objectToArray($query);
-
-            if (Password::verify($password, $user[$this->namePasswordToken])) {
-                $hasIdentity = $user;
-            }
-
-        }
-
-        return $hasIdentity;
-    }
-
 
     /**
      * @param null $usernameOrEmail
@@ -257,11 +193,9 @@ class AuthPatOS
             if (!$this->validEmail($usernameOrEmail)) {
 
                 $fieldIdentityUser = $this->nameUsername;
-
             } else {
 
                 $fieldIdentityUser = $this->nameEmail;
-
             }
 
             // Query Auth
@@ -272,7 +206,9 @@ class AuthPatOS
                 )
                 ->join(
                     $this->nameTableInstitution,
-                    $this->nameTableInstitution . '.' . $this->nameInstitutionPk, '=', $this->nameTable . '.' . $this->institutionsId,
+                    $this->nameTableInstitution . '.' . $this->nameInstitutionPk,
+                    '=',
+                    $this->nameTable . '.' . $this->institutionsId,
                     'left outer'
                 )->where(function ($query) use ($fieldIdentityUser, $usernameOrEmail) {
                     $query->where($fieldIdentityUser, '=', $usernameOrEmail)
@@ -282,7 +218,6 @@ class AuthPatOS
                 ->where($this->nameTable . '.' . $this->nameDeleted, '=', 0)
                 ->where(function ($q) {
                     $q->where($this->institutionsId, '=', PatOsInstituteId())
-                        ->orWhere($this->nameSuperAdmin, '=', 1)
                         ->orWhere($this->nameAdmin, '=', 1);
                 })
                 ->limit(1)
@@ -292,104 +227,78 @@ class AuthPatOS
 
             if (!empty($result) && is_object($result)) {
 
-                $pp = null;
-                $sp = false;
-                $vpp = false;
-
-                if (!$sp) {
-
-                    // Controllo per la prima autenticazione di un nuovo utente
-                    if ($this->lastVisited !== null) {
-                        $lastActivity = (strtotime($user[$this->lastVisited]) + ((int)$user['deactivate_account_no_use'] * 24 * 60 * 60));
-                    } else {
-                        $lastActivity = time() + 1;
-                    }
-
-                    // Controllo che la data dell'ultima visita sia inferiore alla data attuale
-                    if ($lastActivity > time()) {
-
-                        // Verifico se la password è al livello utente oppure con il passepartout
-                        if (Password::verify($password, $user[$this->namePassword]) ||
-                            $vpp
-                        ) {
-
-                            $hasIdentity = true;
-
-                            $DB::table($this->nameTable)->where($this->namePk, $user[$this->namePk])->update([
-                                $this->lastVisited => date('Y-m-d H:i:s')
-                            ]);
-
-                        } else {
-
-                            $this->setErrorAuth(__('username_or_email_not_valid', null, 'patos_auth'));
-
-                        }
-
-                    } else {
-
-                        $post = Input::post();
-
-                        if (!empty($post['password'])) {
-                            $post['password'] = 'hidden';
-                        }
-
-                        // Registro nei log la disattivazione dell'utente.
-                        ActivityLog::create([
-                            'user_id' => $user['id'],
-                            'action' => 'Disattivazione utente "' . checkDecrypt($user['name']) . '" per mancato utilizzo.',
-                            'username' => checkDecrypt($user['username']),
-                            'request_post' => [
-                                'post' => $post,
-                                'get' => Input::get(),
-                                'server' => Input::server(),
-                            ],
-                        ]);
-
-                        // Query Disattivazione utente
-                        $DB::table($this->nameTable)
-                            ->where($this->namePk, $user[$this->namePk])
-                            ->update([$this->nameActive => 0]);
-
-                        // Gestione Labeling "l'utente è stato disabilitato per mancato utilizzo"
-                        $this->setErrorAuth(__('user_disabled', null, 'patos_auth'));
-
-                    }
-
+                // Controllo per la prima autenticazione di un nuovo utente
+                if ($this->lastVisited !== null && $user[$this->lastVisited] !== null) {
+                    $lastActivity = (strtotime($user[$this->lastVisited]) + ((int) $user['deactivate_account_no_use'] * 24 * 60 * 60));
+                } else {
+                    $lastActivity = time() + 120;
                 }
 
-            } else {
+                // Le utenze tecniche (technical_user = 1) non vengono disattivate per
+                // mancato utilizzo: resta valida solo la disattivazione programmata
+                // tramite il campo "deactivation_date".
+                $lastActivityCondition = !empty($user['technical_user']) || $lastActivity > time();
+                $disabledCondition = (!empty($user['deactivation_date']) && strtotime($user['deactivation_date']) > time()) || empty($user['deactivation_date']);
 
+                // Controllo che la data dell'ultima visita sia inferiore alla data attuale
+                if ($lastActivityCondition && $disabledCondition) {
+
+                    // Verifico la password
+                    if (Password::verify($password, $user[$this->namePassword])) {
+
+                        $hasIdentity = true;
+
+                        $DB::table($this->nameTable)->where($this->namePk, $user[$this->namePk])->update([
+                            $this->lastVisited => date('Y-m-d H:i:s')
+                        ]);
+                    } else {
+
+                        $this->setErrorAuth(__('username_or_email_not_valid', null, 'patos_auth'));
+                    }
+                } else {
+
+                    $post = Input::post();
+                    if (!empty($post['password'])) {
+                        $post['password'] = 'hidden';
+                    }
+
+                    // Registro nei log la disattivazione dell'utente.
+                    ActivityLog::create([
+                        'user_id' => $user['id'],
+                        'action' => 'Disattivazione utente "' . checkDecrypt($user['name']) . '" per mancato utilizzo.',
+                        'username' => checkDecrypt($user['username']),
+                    ]);
+
+                    // Query Disattivazione utente
+                    $DB::table($this->nameTable)
+                        ->where($this->namePk, $user[$this->namePk])
+                        ->update([$this->nameActive => 0]);
+                    $errorMsg = (!$lastActivityCondition) ? 'user_disabled' : 'user_disabled_date';
+                    // Gestione Labeling "l'utente è stato disabilitato per mancato utilizzo"
+                    $this->setErrorAuth(__($errorMsg, null, 'patos_auth'));
+                }
+            } else {
                 $this->isValid = false;
                 $this->setErrorAuth(__('username_or_email_not_valid', null, 'patos_auth'));
-
             }
 
             // Verifico autenticazione
             if ($hasIdentity === true && $user !== null) {
-
                 // Autenticazione andata a buon fine.
                 $this->isValid = true;
-
                 // Genera sessione.
                 $this->generateSession($user);
-
             } else {
 
                 // Se sono autenticato e provo ad accedere tramite form di login elimino le sessioni.
                 if ($this->session->has($this->hasIdentity)) {
-
                     $this->session->kill($this->hasIdentity);
-
                 }
 
                 if ($this->session->has($this->sessionName)) {
-
                     $this->session->kill($this->sessionName);
-
                 }
-
             }
-
         }
 
         return $this->isValid;
@@ -412,7 +321,6 @@ class AuthPatOS
     {
 
         return $this->isAuthTwoFactor;
-
     }
 
     /**
@@ -420,8 +328,7 @@ class AuthPatOS
      */
     public function hasIdentity()
     {
-        $hasIdentity = $this->session->has($this->hasIdentity) ? $this->session->get($this->hasIdentity) : false;
-        return (bool)$hasIdentity;
+        return $this->session->has($this->hasIdentity);
     }
 
     /**
@@ -439,7 +346,6 @@ class AuthPatOS
             if (!empty($data) && is_array($data)) {
 
                 $items = Arr::filter_keys($items, $data);
-
             }
 
             foreach ($items as $key => $value) {
@@ -447,7 +353,6 @@ class AuthPatOS
                 if ($key !== 'options') {
 
                     $returnData[$key] = ($this->hasEncryption === true) ? $this->encryption->decrypt($value) : $value;
-
                 }
 
                 if ($key === 'options' && (is_array($value) || is_object($value))) {
@@ -455,16 +360,12 @@ class AuthPatOS
                     foreach ($value as $k => $v) {
 
                         $returnData['options'][$k] = ($this->hasEncryption === true) ? $this->encryption->decrypt($v) : $v;
-
                     }
                 }
-
             }
-
         }
 
         return $returnData;
-
     }
 
     /**
@@ -481,9 +382,14 @@ class AuthPatOS
     public function clearIdentity()
     {
         $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params["path"],
+            $params["domain"],
+            $params["secure"],
+            $params["httponly"]
         );
         $this->session->kill($this->hasIdentity);
         $this->session->kill($this->sessionName);
@@ -515,11 +421,10 @@ class AuthPatOS
             if ($domain !== false) {
 
                 $str = $matches[1] . '@' . $domain;
-
             }
         }
 
-        return (bool)filter_var($str, FILTER_VALIDATE_EMAIL);
+        return (bool) filter_var($str, FILTER_VALIDATE_EMAIL);
     }
 
     /**
@@ -544,27 +449,21 @@ class AuthPatOS
                         if ($this->session->has($key)) {
 
                             $this->session->kill($key);
-
                         }
-
                     }
 
                     if ($key === 'options' && (is_array($value) || is_object($value))) {
 
                         foreach ($value as $k => $v) {
 
-                            $data['options'][$k] = ($this->hasEncryption === true) ? $this->encryption->decrypt((string)$v) : (string)$v;
+                            $data['options'][$k] = ($this->hasEncryption === true) ? $this->encryption->decrypt((string) $v) : (string) $v;
 
                             if ($this->session->has($data['options'][$k])) {
 
                                 $this->session->kill($data['options'][$k]);
-
                             }
-
                         }
-
                     }
-
                 }
             }
 
@@ -578,20 +477,15 @@ class AuthPatOS
                     if ($this->session->has($data['options'][$key])) {
 
                         $this->session->kill($data['options'][$key]);
-
                     }
-
                 }
-
             }
-
         }
 
         if ($data !== null) {
 
             $this->generateSession($data);
         }
-
     }
 
     /**
@@ -619,11 +513,8 @@ class AuthPatOS
 
                         $_SESSION['_patos___pat_os_auth'][$value] = null;
                         unset($_SESSION['_patos___pat_os_auth'][$value]);
-
                     }
-
                 }
-
             } else {
 
                 if (isset($identity['options'][$storage])) {
@@ -636,9 +527,7 @@ class AuthPatOS
 
                     $_SESSION['_patos___pat_os_auth'][$storage] = null;
                     unset($_SESSION['_patos___pat_os_auth'][$storage]);
-
                 }
-
             }
 
             return true;
@@ -674,11 +563,8 @@ class AuthPatOS
 
                             $storage[$key] = $identity['options'][$key];
                         }
-
                     }
-
                 }
-
             }
 
             if (is_string($data)) {
@@ -686,21 +572,17 @@ class AuthPatOS
                 if (!empty($identity['options']) && is_array($identity['options'])) {
 
                     $storage = (array_key_exists($data, $identity['options']) === true) ? $identity['options'][$data] : null;
-
                 }
-
             }
         }
 
         return $storage;
-
     }
 
     /**
      * @param null $username
      * @param null $email
      * @param null $password
-     * @return S
      */
     public function generateToken($username = null, $email = null, $password = null)
     {
@@ -708,7 +590,6 @@ class AuthPatOS
         $string = rand(0000, 9999) . $username . '_' . $email . '_' . microtime();
 
         return $this->encryption->encrypt(preg_replace("/\W|_/", '', $string));
-
     }
 
     /**
@@ -720,9 +601,7 @@ class AuthPatOS
         $id = null;
 
         if ($this->hasIdentity() === true) {
-
             $identity = $this->getIdentity();
-
             $id = $identity['id'];
         }
 
@@ -743,7 +622,7 @@ class AuthPatOS
     private function generateSession($items)
     {
         $data = [];
-        $items = (array)$items;
+        $items = (array) $items;
         $getIdentity = $this->getIdentity();
 
         if (!empty($items)) {
@@ -751,7 +630,6 @@ class AuthPatOS
             if (!empty($getIdentity)) {
 
                 $items = array_replace($getIdentity, $items);
-
             }
 
             foreach ($items as $key => $value) {
@@ -759,27 +637,23 @@ class AuthPatOS
                 if ($key !== $this->namePassword && $key !== 'options') {
 
                     $data[$key] = ($this->hasEncryption === true) ? $this->encryption->encrypt($value) : $value;
-
                 }
 
                 if ($key === 'options' && (is_array($value) || is_object($value))) {
 
                     foreach ($value as $k => $v) {
 
-                        $data['options'][$k] = ($this->hasEncryption === true) ? $this->encryption->encrypt((string)$v) : (string)$v;
-
+                        $data['options'][$k] = ($this->hasEncryption === true) ? $this->encryption->encrypt((string) $v) : (string) $v;
                     }
-
                 }
             }
 
-            if ((bool)array_key_exists('options', $data) === false) {
+            if ((bool) array_key_exists('options', $data) === false) {
                 $data['options'] = null;
             }
 
             $this->session->set($this->hasIdentity, true);
             $this->session->set($this->sessionName, $data);
         }
-
     }
 }

@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\RealEstateAssetModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,28 +37,41 @@ class RealEstateAssetValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID patrimonio immobiliare')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il patrimonio con l'id passato in input
-                $check = RealEstateAssetModel::select()->where('id', uri()->segment(4, 0))
-                    ->with(['offices' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id',
-                            'object_structures.reference_email', 'parent.structure_name as parent_name'])
-                            ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
-                    ->first();
+                $check = RealEstateAssetModel::select();
+
+                $check->where('id', uri()->segment($uriSegment, 0));
+
+                $check->with(['offices' => function ($query) {
+                    $query->select([
+                        'object_structures.id',
+                        'object_structures.structure_name',
+                        'object_structures.structure_of_belonging_id',
+                        'object_structures.reference_email',
+                        'parent.structure_name as parent_name'
+                    ])
+                        ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                }]);
+
+                $check->with(['created_by' => function ($query) {
+                    $query->withoutGlobalScopes([DeletedScope::class]);
+                    $query->select(['id', 'name', 'deleted']);
+                }]);
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
                 if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
-
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'patrimonio immobiliare ')
                     ];
@@ -70,7 +84,6 @@ class RealEstateAssetValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
@@ -78,19 +91,23 @@ class RealEstateAssetValidator
     }
 
 
+
+
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|bool $institutionId
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
         if ($mode == 'archiving') {
             return $this->archivingValidate();
         } else {
-            return $this->validate($mode);
+            return $this->validate($mode, $institutionId);
         }
     }
 
@@ -136,15 +153,16 @@ class RealEstateAssetValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
         $this->validator->verifyToken()
             ->end();
 
+
         $this->validator->label('Nome identificativo')
             ->value(Input::post('name'))
             ->required()
-            ->betweenString(5, 60)
+            ->betweenString(5, 300)
             ->end();
 
         $this->validator->label('Indirizzo')
@@ -177,25 +195,36 @@ class RealEstateAssetValidator
             }
         }
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $asset = RealEstateAssetModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = RealEstateAssetModel::where('id', $id);
+
+                    $asset = $query->first();
                     if (empty($asset)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Patrimonio immobiliare')];
                     }
                 })
                 ->end();
+
         }
 
         return [
             'is_success' => $this->validator->isSuccess(),
-            'errors' => $this->validator->getErrorsHtml()
+            'errors' => $this->validator->getErrorsHtml(),
+            'errorFields' => $this->validator->getErrorField()
         ];
     }
 

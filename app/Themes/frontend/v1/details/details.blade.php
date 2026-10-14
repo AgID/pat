@@ -6,8 +6,6 @@
 
 defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
-{{-- Pagina per dettaglio Temporanea --}}
-
 {% extends v1/layout/master %}
 
 {{--  ************************************************ CONTENT ************************************************ --}}
@@ -26,6 +24,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </section>
 </main>
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

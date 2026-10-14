@@ -8,8 +8,8 @@ namespace Http\Web\Front;
 
 use Exception;
 use Helpers\FormBuilder;
+use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\ModulesRegulationsModel;
 use Model\SectionsFoModel;
 use System\Input;
@@ -45,33 +45,71 @@ class ModuleFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione dei filtri per la ricerca
+        $validation = new Validator();
+        $validation->label('Nome')->value(Input::get('n'))->maxLength(50)->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+
+        }
+
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
-        // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
-            ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
-
-        // Recupero le voci per costruire il menu dei contenuti
-        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero la modulistica di tipo (dichiarazione sostitutiva) da mostrare
         $modules = ModulesRegulationsModel::where('typology', 'dichiarazione sostitutiva')
-            ->paginate(20, ['id', 'title as name'], 'p', (int)Input::get('p'))
+            ->filter(
+                Input::get('n', true),
+            )
+            ->paginate(20, ['id', 'title as name'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['n', 'sec_token']))
             ->setPath(currentUrl());
 
         $modules = !empty($modules) ? $modules->toArray() : [];
+
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($modules);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $modules;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, filtri, contenuti) serve solo alla pagina
+        // completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Recupero le informazioni della pagina corrente
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
+            ->where('section_fo.id', $currentPageId)
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
+            ->toArray();
+
+        // Recupero le voci per costruire il menu dei contenuti
+        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($modules['data'])) {
@@ -94,23 +132,115 @@ class ModuleFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class=" form-group col-lg-8">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'n',
+                    'id' => 'n',
+
+                    'value' => '{name}',
+                ],
+                'label' => [
+                    'for' => 'n',
+                    'text' => 'Nome',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+        $formFilterFields = [
+            'n' => Input::get('n', true)
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'name' => htmlEscape(Input::get('n', true)),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['finalSectionId'] = 101;
         $data['paragraphs'] = $contents;
-        $data['instances'] = $modules;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/modulistics/modulistics', $data, 'frontend');
     }
@@ -135,38 +265,65 @@ class ModuleFrontController extends BaseFrontController
 
         if (!$validation->isSuccess()) {
 
-            echo showError('Attenzione', $validation->getErrorsHtml());
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
             die();
 
         }
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
 
-        // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
-            ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
-
-        // Recupero le voci per costruire il menu dei contenuti
-        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         // Recupero la modulistica di tipo (dichiarazione sostitutiva) da mostrare
         $modules = ModulesRegulationsModel::where('typology', 'modulo')
-            ->paginate(20, ['id', 'title as name'], 'p', (int)Input::get('p'))
+            ->filter(
+                (Input::get('s', true)),
+            )
+            ->paginate(21, ['id', 'title as name'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['s', 'sec_token']))
             ->setPath(currentUrl());
 
         $modules = !empty($modules) ? $modules->toArray() : [];
+
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($modules);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $modules;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, filtri, contenuti) serve solo alla pagina
+        // completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Recupero le informazioni della pagina corrente
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            ->where('section_fo.id', $currentPageId)
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
+            ->toArray();
+
+        // Recupero le voci per costruire il menu dei contenuti
+        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($modules['data'])) {
@@ -189,29 +346,146 @@ class ModuleFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-12">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'id' => 'search_text',
+
+                    'value' => '{text}',
+                ],
+                'label' => [
+                    'for' => 'search_text',
+                    'text' => 'Nome',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            's' => Input::get('s', true)
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'text' => htmlEscape(Input::get('s', true)),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['finalSectionId'] = $currentPageId;
         $data['paragraphs'] = $contents;
-        $data['instances'] = $modules;
         $data['instance'] = $currentPage;
         $data['allowSearch'] = true;
-        $data['noRequiredPublication'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
-
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
-
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/modulistics/modulistics', $data, 'frontend');
+    }
+
+    /**
+     * Metodo che crea la tabella con i dati della modulistica pubblicata nel front-office.
+     * @param null $modules Dati paginati da inserire nella tabella
+     * @return Table|null
+     * @throws Exception
+     */
+    private function createTableRows($modules = null): ?Table
+    {
+        $currentPageId = (int)uri()->segment(2, 0);
+        $table = null;
+
+        if (!empty($modules['data'])) {
+
+            // Creo la tabella da mostrare nella pagina con i risultati della ricerca
+            $table = new Table();
+            $table->set_heading('Nome');
+
+            // Creo le righe della tabella settando i dati da mostrare
+            foreach ($modules['data'] as $module) {
+
+                $table->add_row(
+                    '<a href="' . siteUrl('page/' . $currentPageId . '/details/' . $module['id'] . '/' . urlTitle($module['name'])) . '" data-id="' . $module['id'] . ' ">' . escapeXss($module['name']) . '</a>'
+                );
+            }
+        }
+
+        return $table;
     }
 
     /**
@@ -225,13 +499,15 @@ class ModuleFrontController extends BaseFrontController
         $data = [];
 
         // Id della pagina corrente
-        $currentPageId = uri()->segment(2, 0);
-        $elementId = uri()->segment(4, 0);
+        $currentPageId = (int)uri()->segment(2, 0);
+        $elementId = (int)uri()->segment(4, 0);
 
         // Recupero l'elemento da mostrare
         $element = ModulesRegulationsModel::where('id', $elementId)
-            ->with('proceedings:id,name')
-            ->first();
+            ->with('proceedings:id,name');
+
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
@@ -283,20 +559,17 @@ class ModuleFrontController extends BaseFrontController
             'created_at',
             'updated_at'
         ];
+        // $showOnlyPublic = true;
+        $sectionId = (int)uri()->segment(2, 0);
 
-        // Allegati
-        $attach = new AttachmentArchive();
-        $data['listAttach'] = $attach->getAllByObject(
-            $label,
-            $elementId,
-            $selectFields,
-            true
-        );
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['title'])
-            ->toHtml();
+            // Allegati
+            $attach = new AttachmentArchive();
+            $data['listAttach'] = $attach->getAllByObject(
+                $label,
+                $elementId,
+                $selectFields,
+                true
+            );
 
         renderFront(config('vfo', null, 'app') . '/modulistics/details', $data, 'frontend');
 

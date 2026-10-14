@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * CodeIgniter
  *
  * An open source application development framework for PHP
@@ -26,19 +31,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * @package	CodeIgniter
- * @author	EllisLab Dev Team
- * @copyright	Copyright (c) 2008 - 2014, EllisLab, Inc. (https://ellislab.com/)
- * @copyright	Copyright (c) 2014 - 2019, British Columbia Institute of Technology (https://bcit.ca/)
- * @copyright	Copyright (c) 2019 - 2022, CodeIgniter Foundation (https://codeigniter.com/)
- * @license	https://opensource.org/licenses/MIT	MIT License
- * @link	https://codeigniter.com
- * @since	Version 1.0.0
+ * @package    CodeIgniter
+ * @author    EllisLab Dev Team
+ * @copyright    Copyright (c) 2008 - 2014, EllisLab, Inc. (https://ellislab.com/)
+ * @copyright    Copyright (c) 2014 - 2019, British Columbia Institute of Technology (https://bcit.ca/)
+ * @copyright    Copyright (c) 2019 - 2022, CodeIgniter Foundation (https://codeigniter.com/)
+ * @license    https://opensource.org/licenses/MIT	MIT License
+ * @link    https://codeigniter.com
+ * @since    Version 1.0.0
  * @filesource
  */
 
 namespace System;
 
+use InvalidArgumentException;
 use \Maer\Config\Config;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -49,6 +55,35 @@ class SanitizeRequest
     protected $enableXss;
     protected $standardNewlines;
     protected $security;
+
+    /**
+     * Istanza condivisa per la richiesta.
+     *
+     * Il costruttore carica Config/app.php e costruisce un Security, e veniva pagato a OGNI
+     * lettura di parametro: Input::run() e Input::getData() ne creano uno per chiamata, e i
+     * punti di chiamata Input::*() nel codebase sono 11.820. Sulla homepage sono ~1.320
+     * caricamenti di app.php, il 58% del totale misurato.
+     *
+     * Perche' condividere l'istanza e' sicuro: le uniche assegnazioni a $this stanno nel
+     * costruttore (security, allowGetArray, enableXss, standardNewlines), tutti i metodi
+     * pubblici sono puri e i tre valori letti sono letterali in app.php - nessuno dipende
+     * dalla richiesta o dal Registry.
+     *
+     * Nota per chi tocchera' i file di config: se qualcuno aggiungesse una _env() ad app.php
+     * si avrebbe una ricorsione (_env -> SanitizeRequest -> load(app.php) -> _env). Il rischio
+     * esiste gia' oggi e questa memoizzazione non lo introduce, ma qui e' piu' facile da
+     * dimenticare.
+     */
+    public static function instance(): self
+    {
+        static $instance = null;
+
+        if ($instance === null) {
+            $instance = new self();
+        }
+
+        return $instance;
+    }
 
     public function __construct()
     {
@@ -61,48 +96,33 @@ class SanitizeRequest
         $this->standardNewlines = (bool)$config->get('standardize_newlines');
     }
 
-    public function  fetchFromArray(&$array, $index = NULL, $xssClean = true, $sanitizekey = true, $sanitizeData = true, $file = false)
+    public function fetchFromArray(&$array, $index = null, $xssClean = true, $sanitizeKey = true, $sanitizeData = true, $file = false)
     {
-
-        isset($index) or $index = array_keys($array);
+        if ($index === null) {
+            $index = array_keys($array);
+        }
 
         if (is_array($index)) {
             $output = [];
 
             foreach ($index as $key) {
-                // Sanificazione della chiave  richiesta
-
-                if ($sanitizekey === true) {
+                // Sanificazione della chiave richiesta
+                if ($sanitizeKey === true) {
                     $key = $this->cleanRequestKeys($key);
                 }
 
-                $output[$key] = $this->fetchFromArray($array, $key, $xssClean, $sanitizekey = true, $sanitizeData = true);
-
+                $output[$key] = $this->fetchFromArray($array, $key, $xssClean, $sanitizeKey, $sanitizeData, $file);
             }
 
             return $output;
         }
 
-        if (isset($array[$index])) {
-            $value = $array[$index];
-
-        } elseif (($count = preg_match_all('/(?:^[^\[]+)|\[[^]]*\]/', $index, $matches)) > 1) {
-            $value = $array;
-            for ($i = 0; $i < $count; $i++) {
-                $key = trim($matches[0][$i], '[]');
-                if ($key === '') {
-                    break;
-                }
-
-                if (isset($value[$key])) {
-                    $value = $value[$key];
-                } else {
-                    return NULL;
-                }
-            }
-        } else {
-            return NULL;
+        // Sanificazione della chiave richiesta
+        if ($sanitizeKey === true) {
+            $index = $this->cleanRequestKeys($index);
         }
+
+        $value = $this->getValueFromArray($array, $index);
 
         // Per il campo file la sanificazione non viene applicata.
         if ($file === true) {
@@ -114,35 +134,48 @@ class SanitizeRequest
             $value = $this->cleanRequestData($value);
         }
 
-        return ($xssClean === TRUE)
+        return ($xssClean === true)
             ? $this->security->xssClean($value)
             : $value;
     }
 
+    private function getValueFromArray($array, $index)
+    {
+        $keys = explode('.', $index);
+
+        foreach ($keys as $key) {
+            if (is_array($array) && array_key_exists($key, $array)) {
+                $array = $array[$key];
+            } else {
+                return null;
+            }
+        }
+
+        return $array;
+    }
+
     public function cleanRequestData($data)
     {
+        if ($data === null) {
+            return $data;
+        }
+
         $utf8 = new Utf8(CHARSET);
 
         if (is_array($data)) {
             $newArray = [];
-            foreach (array_keys($data) as $key) {
-                $newArray[$this->cleanRequestKeys($key)] = $this->cleanRequestKeys($data[$key]);
+            foreach ($data as $key => $value) {
+                $cleanKey = $this->cleanRequestKeys($key);
+                $newArray[$cleanKey] = $this->cleanRequestData($value);
             }
             return $newArray;
         }
-
-
-        if (!isPhp('5.4') && get_magic_quotes_gpc()) {
-            $data = stripslashes($data);
-        }
-
 
         if (UTF8_ENABLED === true) {
             $data = $utf8->cleanString($data);
         }
 
         $data = removeInvisibleCharacters($data, false);
-
 
         if ($this->standardNewlines === true) {
             return preg_replace('/(?:\r\n|[\r\n])/', PHP_EOL, $data);
@@ -157,29 +190,30 @@ class SanitizeRequest
      * @param bool $fatal
      * @return bool|string
      */
-    public function cleanRequestKeys($data, $fatal = true)
+    public function cleanRequestKeys($data, $fatal = false)
     {
         $utf8 = new Utf8(CHARSET);
 
-        if (!empty($data) && !is_array($data) && !preg_match('/^[a-z0-9:_\/|-]+$/i', $data)) {
+        // Aggiungiamo il carattere punto '.' ai caratteri consentiti nell'espressione regolare
+        if (!empty($data) && !is_array($data) && !preg_match('/^[a-z0-9:._\/|-]+$/i', $data)) {
             if ($fatal === true) {
-                return false;
+                throw new \Exception('Disallowed Key Characters.');
             } else {
-                set_status_header(503);
+                \setStatusHeader(403);
                 echo 'Disallowed Key Characters.';
                 exit(7);
             }
         }
 
-
-        if (UTF8_ENABLED === true && !empty($data) && !is_array($data)) {
+        if (UTF8_ENABLED === true && !empty($data)) {
             return $utf8->cleanString($data);
         }
 
         return $data;
     }
 
-    public function cleanRequest($data) {
+    public function cleanRequest($data)
+    {
 
         if (is_string($data)) {
             return $this->cleanRequestData($data);
@@ -194,7 +228,7 @@ class SanitizeRequest
         foreach ($data as $key => $value) {
             if (is_array($value)) {
                 $cleanSubArray = [];
-                foreach($value as $subKey => $subValue) {
+                foreach ($value as $subKey => $subValue) {
                     if (!is_array($subKey)) {
                         $cleanSubKey = $this->cleanRequestKeys($subKey);
 

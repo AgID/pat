@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\RegulationsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,25 +37,39 @@ class RegulationValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $institutionId = null): array
     {
+$nId = 4;
+
         $this->validator->label('ID regolamento/documentazione')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($nId, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $institutionId, $nId) {
 
                 //Recupero il regolamento con l'id passato in input
-                $check = RegulationsModel::where('id', uri()->segment(4, 0))
-                    ->with(['structures' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id', 'object_structures.reference_email',
-                            'parent.structure_name as parent_name'])
-                            ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
-                    }])
+                $check = RegulationsModel::where('id', uri()->segment($nId, 0));
+
+                $check->with(['structures' => function ($query) {
+                    $query->select([
+                        'object_structures.id',
+                        'object_structures.structure_name',
+                        'object_structures.structure_of_belonging_id',
+                        'object_structures.reference_email',
+                        'parent.structure_name as parent_name'
+                    ])
+                        ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                }])
                     ->with('proceedings:id')
                     ->with('public_in')
-                    ->first();
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -86,9 +101,9 @@ class RegulationValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -99,11 +114,11 @@ class RegulationValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode, int $institutionId): array
     {
-
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Nome del documento')
             ->value(Input::post('title'))
@@ -174,27 +189,38 @@ class RegulationValidator
             ->isNaturalNoZero()
             ->end();
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = RegulationsModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = RegulationsModel::where('id', $id);
+
+                    $regulation = $query->first();
+
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Regolamento o documentazione')];
                     }
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
+
     }
 
     /**

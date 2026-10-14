@@ -4,7 +4,8 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+defined('_FRAMEWORK_') or exit('No direct script access allowed');
+?>
 
 <script type="text/javascript">
 
@@ -60,7 +61,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 move: function (event, elfinderInstance) {
                     _trackOperations('move', event.data)
                 },
+                upload: function (event, fm) {
+                    if (event.data && event.data.added && event.data.added.length) {
+                        //ISSUE 3725 (https://github.com/Studio-42/elFinder/issues/3725)
 
+                    }
+                },
                 paste: function (event, elfinderInstance) {
 
                     let eData = event.data;
@@ -76,8 +82,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             _trackOperations('removed_cmd', eData)
                         }
                     }
-
                 },
+                /*error : function(event, instance) {
+                    // event.data.error — contiene l’oggetto errore
+                    alert('Si è verificato un errore: verifica la configurazione e riprova.');
+                    // oppure loggalo in console
+                    console.error(event.data.error);
+                }*/
             },
             commands: [
                 'archive', 'colwidth', 'copy', 'cut', 'download', 'duplicate', 'extract',

@@ -46,14 +46,10 @@ return [
     /**
      * Testo nel meta generator
      */
-    'meta_generator' => 'PAT OS è la soluzione applicativa completamente open source volta a soddisfare il quadro normativo relativo all’adempimento degli obblighi di pubblicità.',
+    'meta_generator' => 'PAT OS è la soluzione applicativa volta a soddisfare il quadro normativo relativo all’adempimento degli obblighi di pubblicità.',
     /**
      * Title Pat OS
      */
-    'pat_os_title' => 'PAT OS',
-    /**
-     * Git Hub links
-     */
-    'pat_os_github_link' => 'https://github.com/ISWEB-Git/PAT-OS---Private-RC-repository',
+    'pat_os_title' => NOME_PIATTAFORMA,
 
 ];

@@ -3,8 +3,7 @@
  * Nome applicativo: PAT
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
-
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+?>
 
 <html>
 <head>
@@ -40,7 +39,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 <body>
 <div class="box">
     <h1>
-        Per garantire il corretto funzionamento del software, si consiglia vivamente di aggiornare l'interprete PHP alla versione uguale o superiore a 8.0.0. La versione attualmente installata, {php_version}, potrebbe non essere sufficiente per soddisfare tutti i requisiti del software.
+        Per garantire il corretto funzionamento del software, si consiglia vivamente di aggiornare l'interprete PHP ad una versione compresa tra la 8.0.0 e la 8.3 La versione attualmente installata, {php_version}, potrebbe non essere sufficiente per soddisfare tutti i requisiti del software.
     </h1>
 </div>
 </body>

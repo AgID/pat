@@ -1,6 +1,11 @@
 <?php
 /**
- * Constante che impedisce l'esecuzione degli script con chimata diretta in GET.
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
+ * Constante che impedisce l'esecuzione degli script con chiamata diretta in GET.
  */
 define('_FRAMEWORK_', true);
 
@@ -12,7 +17,7 @@ $getMicrotime = microtime();
  *  - testing     : Ambiente di test
  *  - production  : Ambiente di produzione
  */
-define('ENVIRONMENT', 'development');
+define('ENVIRONMENT', 'production');
 
 /**
  *---------------------------------------------------------------
@@ -29,7 +34,6 @@ switch (ENVIRONMENT) {
     case 'production':
         ini_set('display_errors', 0);
         error_reporting(0);
-//        error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT & ~E_USER_NOTICE & ~E_USER_DEPRECATED);
         break;
 
     default:
@@ -50,6 +54,7 @@ define('CORE_PATH', PATH . 'core' . DIRECTORY_SEPARATOR);
 // Constante del percorso assoluto dei packages dell'APP
 define('APP_PATH', PATH . 'app' . DIRECTORY_SEPARATOR);
 
+
 // Constante del percorso assoluto dei file media
 define('MEDIA_PATH', PATH . 'media' . DIRECTORY_SEPARATOR);
 
@@ -65,11 +70,11 @@ define('CONFIG_PATH', APP_PATH . 'Config' . DIRECTORY_SEPARATOR);
 // Constante del percorso della cartella di Logs
 define('LOGS_PATH', APP_PATH . 'Logs' . DIRECTORY_SEPARATOR);
 
-// Constante del percorso della cartella dei moduli
-define('MODULES_PATH', APP_PATH . 'Modules' . DIRECTORY_SEPARATOR);
-
 // Constante del percorso della cartella dei temi (Viste)
 define('THEME_PATH', APP_PATH . 'Themes' . DIRECTORY_SEPARATOR);
+
+// Tipo di applicativo
+define('APP_TYPE', 'PatOS');
 
 // Custom configs
 if (file_exists(CONFIG_PATH . 'constants.php')) {
@@ -78,6 +83,3 @@ if (file_exists(CONFIG_PATH . 'constants.php')) {
 
 // Includo il Bootstrap (inizializzazione) dell'avvio dell'applicazione.
 require_once PATH . 'core/Bootstrap.php';
-
-// Commentare la riga successiva per il Debug di tutte le rotte instanziate nell'applicazione.
-// d(\System\Route::allRoutes());

@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -57,30 +57,44 @@ class Breadcrumbs
 
     }
 
-    function push($page, $href)
+    function push($page, $href, $avoidSiteUrl = false)
     {
-        if (!$page or !$href) return;
+        if (!$page or !$href)
+            return;
 
-        $href = baseUrl($href);
+        if(!$avoidSiteUrl){
+            $href = siteUrl($href);
+        }
 
         $this->breadcrumbs[$href] = ['page' => $page, 'href' => $href];
     }
 
-    function unshift($page, $href)
+    function unshift($page, $href, $avoidSiteUrl = false)
     {
-        if (!$page or !$href) return;
+        if (!$page or !$href)
+            return;
 
-        $href = site_url($href);
+        if(!$avoidSiteUrl){
+            $href = siteUrl($href);
+        }
 
         array_unshift($this->breadcrumbs, ['page' => $page, 'href' => $href]);
+    }
+
+    /**
+     * Restituisce le voci accumulate nell'ordine di visualizzazione:
+     * [['page' => ..., 'href' => ...], ...]
+     *
+     * @return array
+     */
+    function items()
+    {
+        return array_values($this->breadcrumbs);
     }
 
     function show()
     {
         $output = $this->tagOpen;
-        $output .= $this->crumbOpen . '<a href="' . baseUrl($this->baseUrl) . '">';
-        $output .= $this->icoHome . ' Home</a> ';
-        $output .= $this->crumbDivider;
         $output .= $this->crumbClose;
 
         if ($this->breadcrumbs) {
@@ -95,7 +109,7 @@ class Breadcrumbs
 
                 } else {
 
-                    $output .= $this->crumbOpen . '<a href="' . escapeXss($crumb['href'],true,false) . '">' . escapeXss($crumb['page']) . '</a> ' . $this->crumbDivider . $this->crumbClose;
+                    $output .= $this->crumbOpen . '<a href="' . escapeXss($crumb['href'], true, false) . '">' . escapeXss(html_entity_decode($crumb['page'])) . '</a> ' . $this->crumbDivider . $this->crumbClose;
 
                 }
             }

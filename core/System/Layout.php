@@ -1,8 +1,10 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
+
+/** @noinspection ALL */
 
 namespace System;
 
@@ -52,6 +54,9 @@ class Layout
         'compileEndCodePhp',
         'compileContinue',
         'compileBreak',
+        'compileClosingSwitch',
+        'compileOpeningSwitch',
+        'compileSwitchCase'
         // 'compileWidget'
     ];
     /**
@@ -85,6 +90,11 @@ class Layout
     static string $extCache = '.php';
 
     /**
+     * @var string Suffisso del file che elenca i sorgenti da cui un compilato dipende.
+     */
+    static string $extDeps = '.dep';
+
+    /**
      * @var ?string
      */
     static ?string $theme = null;
@@ -100,14 +110,28 @@ class Layout
     static array $buffer = [];
 
     /**
-     * @var int
+     * @var int Rete di sicurezza, non piu' il meccanismo primario di invalidazione.
+     *
+     * Era 10 secondi: ogni template in uso veniva ricompilato - riletto, appiattito, passato per una
+     * decina di preg_replace e riscritto su disco - una volta ogni dieci secondi, per sempre, anche
+     * se nessuno aveva toccato niente. Adesso la cache si invalida sul filemtime dei sorgenti
+     * (vedi isStale()), e questo TTL serve solo a coprire il caso in cui l'elenco delle dipendenze
+     * fosse incompleto o corrotto: una ricompilazione al giorno, non ogni dieci secondi.
      */
-    static int $timeCache = 10;
+    static int $timeCache = 86400;
+
+    /**
+     * @var array Sorgenti attraversati dall'ultima compilazione, usati per l'invalidazione.
+     *
+     * Popolato da includeFiles() mentre appiattisce l'albero di {% extends %} e {% include %},
+     * azzerato da cache() prima di ogni compilazione. Le chiavi sono i percorsi assoluti.
+     */
+    static array $compileDeps = [];
 
     /**
      * @var array
      */
-    static array $dirs;
+    static array $dirs = [];
 
     /**
      * @param array|string $code Elemento su cui fare il replace
@@ -254,7 +278,6 @@ class Layout
                 $time = ($format !== 'unix') ? strtotime($args[1]) : $args[1];
                 $data = date($formatDate, $time);
             }
-
         }
 
         return $data;
@@ -312,7 +335,6 @@ class Layout
                     }
                 }
             }
-
         } else if (is_array($args) && count($args) === 1) {
             $value = (string)trim($args[0]);
         }
@@ -332,7 +354,6 @@ class Layout
                     $value = preg_replace('/,/u', '', $value);
                     $value = preg_replace('/\./u', '.', $value);
                 }
-
             } else if ($getComma >= 1 && $getPoint == 0) {
                 $symbol = ',';
             } else if ($getPoint >= 1 && $getComma == 0 && !floatval($value)) {
@@ -394,17 +415,14 @@ class Layout
 
             self::$theme = $theme;
             self::$dirs = $dirs;
-
         } else {
 
             if ($theme !== null) {
 
                 self::$theme = $theme;
-
             } else {
 
                 self::$theme = config('theme', null, 'app');
-
             }
 
             self::$theme = APP_PATH . 'Themes' . DIRECTORY_SEPARATOR . self::$theme . DIRECTORY_SEPARATOR;
@@ -416,6 +434,86 @@ class Layout
     }
 
     /**
+     * Dice se un template va ricompilato, confrontando la data dei sorgenti con quella del compilato.
+     *
+     * Sostituisce l'invalidazione a TTL: prima bastava che il compilato avesse piu' di
+     * self::$timeCache secondi - dieci - perche' venisse rifatto, indipendentemente dal fatto che
+     * qualcuno avesse toccato un sorgente.
+     *
+     * Non basta guardare il template richiesto: compileCode() lavora sull'albero gia' appiattito da
+     * includeFiles(), quindi il compilato dipende anche da ogni {% extends %} e {% include %},
+     * ricorsivamente. I loro percorsi sono nel file affiancato scritto al momento della
+     * compilazione; se manca - compilato da una versione precedente, o cancellato - si ricompila.
+     *
+     * @param string $cachedFile Percorso del compilato
+     * @param string $depFile Percorso dell'elenco dei sorgenti
+     * @return bool
+     */
+    private static function isStale(string $cachedFile, string $depFile): bool
+    {
+        if (!file_exists($cachedFile) || !file_exists($depFile)) {
+            return true;
+        }
+
+        $compiledAt = filemtime($cachedFile);
+
+        // Rete di sicurezza: copre un elenco delle dipendenze incompleto o non piu' veritiero.
+        if (($compiledAt + self::$timeCache) <= time()) {
+            return true;
+        }
+
+        $sources = @file($depFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        if ($sources === false) {
+            return true;
+        }
+
+        foreach ($sources as $source) {
+
+            // Un sorgente sparito e' un cambiamento come un altro: si ricompila, cosi' l'errore
+            // viene a galla subito invece di restare nascosto dietro un compilato vecchio.
+            // Il confronto e' ">=" e non ">" per via della granularita' al secondo di filemtime:
+            // un sorgente salvato nello stesso secondo in cui il template veniva compilato avrebbe
+            // la stessa data del compilato e con ">" passerebbe inosservato fino alla scadenza del
+            // TTL, cioe' un giorno. Con ">=" quel salvataggio provoca qualche ricompilazione in
+            // piu' dentro quel secondo, e si ferma da sola non appena il secondo avanza.
+            if (!file_exists($source) || filemtime($source) >= $compiledAt) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Scrive un file di cache in modo atomico: file temporaneo con nome irripetibile, poi rename.
+     *
+     * Estratta perche' ora i file scritti per ogni compilazione sono due, il compilato e l'elenco
+     * delle sue dipendenze. Il rename e' atomico sullo stesso filesystem, quindi un processo che
+     * legge mentre un altro compila vede sempre una versione intera, mai un file a meta'.
+     *
+     * @param string $path
+     * @param string $content
+     * @return void
+     */
+    private static function writeAtomic(string $path, string $content): void
+    {
+        $tmpFile = $path . '.' . getmypid() . '.' . uniqid('', true) . '.tmp';
+        $result = @file_put_contents($tmpFile, $content, LOCK_EX);
+
+        if ($result === false) {
+            error_log("Impossibile scrivere il file di cache temporaneo: " . $tmpFile);
+
+            return;
+        }
+
+        if (!@rename($tmpFile, $path)) {
+            @unlink($tmpFile);
+            error_log("Impossibile rinominare il file di cache: " . $path);
+        }
+    }
+
+    /**
      * @param $file
      * @return string
      * @throws Exception
@@ -423,43 +521,60 @@ class Layout
     public static function cache($file): string
     {
 
+        // if (!file_exists(self::$cachePath)) {
+        //     mkdir(self::$cachePath, 0744);
+        // }
+
         if (!file_exists(self::$cachePath)) {
-            mkdir(self::$cachePath, 0744);
-        }
-
-        $cachedFile = self::$cachePath . (str_replace(['/', self::$ext], ['_', ''], $file . self::$extCache));
-        $currentTime = time();
-        $hasCache = false;
-
-        if (!self::$cacheEnabled && !file_exists($cachedFile)) {
-
-            $hasCache = true;
-
-        } else {
-
-            if (!file_exists($cachedFile)) {
-
-                $hasCache = true;
-
-            } else {
-
-                $limit = filemtime($cachedFile);
-
-                if (($limit + self::$timeCache) <= $currentTime) {
-
-                    $hasCache = true;
-
-                }
-
+            if (!@mkdir(self::$cachePath, 0744, true)) {
+                error_log("Impossibile creare la directory di cache: " . self::$cachePath);
+                // throw new Exception("Impossibile creare la directory di cache");
             }
-
         }
 
-        if ($hasCache === true) {
+        // Verifica se la directory è scrivibile
+        if (!is_writable(self::$cachePath)) {
+            error_log("La directory di cache non è scrivibile: " . self::$cachePath);
+            // throw new Exception("La directory di cache non è scrivibile");
+        }
+
+        // Il nome del file non basta a identificare il template: lo stesso nome relativo esiste in
+        // piu' temi (layout/master, layout/partials/header e footer stanno sia in Themes/admin sia
+        // in Themes/frontend/v1). Finche' la cache scadeva ogni 10 secondi la collisione si
+        // auto-guariva - il richiedente successivo ricompilava dal proprio tema - ma con
+        // l'invalidazione sul filemtime resterebbe appiccicata finche' non cambia il sorgente.
+        // Tema e directory di ricerca entrano quindi nella chiave.
+        $cacheKey = substr(md5(self::$theme . '|' . implode(',', self::$dirs)), 0, 8);
+
+        $cachedFile = self::$cachePath
+            . str_replace(['/', self::$ext], ['_', ''], $file)
+            . '.' . $cacheKey
+            . self::$extCache;
+
+        $depFile = $cachedFile . self::$extDeps;
+
+        // In sviluppo si ricompila sempre, come prima. Con la cache disattivata pure: la condizione
+        // precedente ("!$cacheEnabled && !file_exists") faceva l'opposto, se il file c'era gia' lo
+        // riusava. Inerte - $cacheEnabled e' true e non viene mai riassegnato - ma sbagliata.
+        $mustCompile = (!self::$cacheEnabled || ENVIRONMENT == 'development')
+            ? true
+            : self::isStale($cachedFile, $depFile);
+
+        if ($mustCompile) {
+
+            self::$compileDeps = [];
 
             $code = self::includeFiles($file);
             $code = self::compileCode($code);
-            @file_put_contents($cachedFile, '<?php class_exists(\'' . __CLASS__ . '\') or exit; ?>' . $code);
+            $content = '<?php class_exists(\'' . __CLASS__ . '\') or exit; ?>' . $code;
+
+            // Prima le dipendenze, poi il compilato: se il secondo write fallisce restiamo con un
+            // elenco piu' recente del compilato, che al giro dopo provoca una ricompilazione. Il
+            // contrario lascerebbe un compilato senza elenco, che isStale() tratta comunque come da
+            // rifare - ma passando per un giro di I/O in piu'.
+            self::writeAtomic($depFile, implode(PHP_EOL, array_keys(self::$compileDeps)));
+            self::writeAtomic($cachedFile, $content);
+
             // Elimino gli spazi bianchi.
             // $code = preg_replace('/\s\s+/', ' ', $code);
         }
@@ -491,10 +606,46 @@ class Layout
 
             // $code = trim(preg_replace('/\s\s+/', ' ', $code));
             $code = self::$method($code);
-
         }
 
-        return preg_replace(['/<@{/', '/}@>/'], ['{{', '}}'], $code);
+        $code = preg_replace(['/<@{/', '/}@>/'], ['{{', '}}'], $code);
+
+        return self::trimCompiledEdges((string)$code);
+    }
+
+    protected static function trimCompiledEdges(string $code): string
+    {
+        // Con PREG_SPLIT_DELIM_CAPTURE le posizioni pari sono testo letterale
+        // e quelle dispari i tag PHP catturati dal delimitatore.
+        $parts = preg_split('/(<\?php.*?\?>)/s', $code, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        if ($parts === false) {
+            return $code;
+        }
+
+        $lastIndex = count($parts) - 1;
+        $lastLiteral = $lastIndex - ($lastIndex % 2);
+
+        for ($i = 0; $i <= $lastLiteral; $i += 2) {
+
+            $parts[$i] = ltrim($parts[$i]);
+
+            if ($parts[$i] !== '') {
+                break;
+            }
+        }
+
+        // Coda: stessa logica a partire dall'ultima parte letterale.
+        for ($i = $lastLiteral; $i >= 0; $i -= 2) {
+
+            $parts[$i] = rtrim($parts[$i]);
+
+            if ($parts[$i] !== '') {
+                break;
+            }
+        }
+
+        return implode('', $parts);
     }
 
     /**
@@ -506,7 +657,7 @@ class Layout
 
         $filePath = self::$theme . $file . self::$ext;
         $code = null;
-
+    
         if (!file_exists($filePath) && self::$dirs !== null) {
 
             foreach (self::$dirs as $dir) {
@@ -515,11 +666,12 @@ class Layout
 
                 if (file_exists($filePath)) {
                     $code = @file_get_contents($filePath);
+                    self::$compileDeps[$filePath] = true;
                 }
-
             }
         } else {
             $code = @file_get_contents($filePath);
+            self::$compileDeps[$filePath] = true;
         }
 
         preg_match_all('/{% ?(extends|include) ?\'?(.*?)\'? ?%}/i', (string)$code, $matches, PREG_SET_ORDER);
@@ -527,7 +679,6 @@ class Layout
         foreach ($matches as $value) {
 
             $code = str_replace($value[0], self::includeFiles($value[2]), (string)$code);
-
         }
 
         $code = preg_replace('/{% ?(extends|include) ?\'?(.*?)\'? ?%}/i', '', (string)$code);
@@ -650,10 +801,12 @@ class Layout
      */
     protected static function compileComment(array|string $code): array|string|null
     {
+        $returnPattern = '/\{\{--((?:(?!\{\{--)[\s\S])*?)--}}/';
+        $code = preg_replace($returnPattern, "<?php /* $1 */ ?>", $code);
         $pattern = '/\{\{--(.+?)(--}})?\n/';
-        $returnPattern = '/\{\{--((.|\s)*?)--}}/';
         $code = preg_replace($pattern, "<?php // $1 ?>", $code);
-        return preg_replace($returnPattern, "<?php /* $1 */ ?>\n", $code);
+
+        return $code;
     }
 
     /**
@@ -664,6 +817,16 @@ class Layout
     {
         $pattern = '/(\s*)@(if|elseif|foreach|for|while)(\s*\(.*\))/';
         return preg_replace($pattern, '$1<?php $2$3: ?>', $code);
+    }
+
+    /**
+     * @param array|string $code Elemento su cui fare il replace
+     * @return array|string|null
+     */
+    protected static function compileOpeningSwitch(array|string $code): array|string|null
+    {
+        $pattern = '/(\s*)@(switch)(\s*.*\))/';
+        return preg_replace($pattern, '$1<?php $2$3{ ?>', $code);
     }
 
     /**
@@ -684,6 +847,26 @@ class Layout
     {
         $pattern = '/(\s*)@(endif|endforeach|endfor|endwhile)(\s*)/';
         return preg_replace($pattern, '$1<?php $2; ?>$3', $code);
+    }
+
+    /**
+     * @param array|string $code Elemento su cui fare il replace
+     * @return array|string|null
+     */
+    protected static function compileClosingSwitch(array|string $code): array|string|null
+    {
+        $pattern = '/(\s*)@(endswitch)(\s*)/';
+        return preg_replace($pattern, '$1<?php } ?>$3', $code);
+    }
+
+    /**
+     * @param array|string $code Elemento su cui fare il replace
+     * @return array|string|null
+     */
+    protected static function compileSwitchCase(array|string $code): array|string|null
+    {
+        $pattern = '/(\s*)@(case)(\s.*\')/';
+        return preg_replace($pattern, '$1<?php $2$3: ?>', $code);
     }
 
     /**

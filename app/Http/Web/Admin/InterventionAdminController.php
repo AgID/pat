@@ -22,7 +22,6 @@ use System\JsonResponse;
 use System\Registry;
 use System\Security;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -109,76 +108,72 @@ class InterventionAdminController extends BaseAuthController
                 8 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[9] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
-            $draw = !empty(Input::get('draw')) ? Input::get('draw', true) : 1;
-            $start = !empty(Input::get("start")) ? (int)Input::get("start", true) : 0;
-            $rowPerPage = !empty(Input::get("length")) ? Input::get("length", true) : 25;
-
-            $security = new Security();
-
-            $columnIndexArr = Input::get('order', true);
-            $columnNameArr = Input::get('columns', true);
-            $orderArr = Input::get('order', true);
-            $searchArr = !empty($_GET['search']) ? $security->xssClean(removeInvisibleCharacters($_GET['search'])) : null;
-
-            $columnIndex = !empty($columnIndexArr[0]['column']) ? $columnIndexArr[0]['column'] : null;
-            $columnName = !empty($columnNameArr[$columnIndex]['data']) ? (int)$columnNameArr[$columnIndex]['data'] : 'name';
-            $columnSortOrder = !empty($orderArr[0]['dir']) ? $orderArr[0]['dir'] : 'ASC';
-            $searchValue = !empty($searchArr['value']) ? $searchArr['value'] : null;
+            $dataTable = [];
+            setDataTableData($dataTable, 'updated_at');
 
             //Query per i dati da mostrare nel datatable
             $totalRecords = InterventionsModel::select('count(id) as allcount')
                 ->count();
 
-            $totalRecordsWithFilter = InterventionsModel::search($searchValue)
+            $totalRecordsWithFilter = InterventionsModel::search($dataTable['searchValue'])
                 ->select('count(object_interventions.id) as allcount')
                 ->join('users', 'users.id', '=', 'object_interventions.owner_id');
 
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_interventions.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
-            $order = setOrderDatatable($columnName, $orderable, 'name');
+            $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
-            $records = InterventionsModel::search($searchValue)
-                ->select(['object_interventions.id', 'object_interventions.institution_id', 'owner_id', 'object_interventions.name',
-                    'time_limits', 'estimated_cost', 'effective_cost', 'object_interventions.updated_at', 'publishing_status',
-                    'users.name as userName', 'i.full_name_institution'])
+            $records = InterventionsModel::search($dataTable['searchValue'])
+                ->select([
+                    'object_interventions.id',
+                    'object_interventions.institution_id', 'object_interventions.owner_id',
+                    'object_interventions.name', 'time_limits',
+                    'estimated_cost', 'effective_cost',
+                    'object_interventions.updated_at',
+                    'users.name as userName', 'i.full_name_institution'
+                ])
                 ->join('users', 'users.id', '=', 'object_interventions.owner_id')
                 ->with('measures:id,object')
                 ->with('regulations:id,title')
-                ->with(['created_by' => function ($query) {
-                    $query->withoutGlobalScopes([DeletedScope::class]);
-                    $query->select(['id', 'name', 'deleted']);
-                }])
-                ->with(['institution' => function ($query) {
-                    $query->select(['id', 'full_name_institution']);
-                }]);
+                ->with('all_attachs:id,archive_id')
+                ->with([
+                    'created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }
+                ])
+                ->with([
+                    'institution' => function ($query) {
+                        $query->select(['id', 'full_name_institution']);
+                    }
+                ]);
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_interventions.id', '=', $dataTable['searchValue']);
             }
 
             $records = $records->join('institutions as i', 'object_interventions.institution_id', '=', 'i.id', 'left outer')
-                ->orderBy($order, $columnSortOrder)
-                ->offset($start)
-                ->limit($rowPerPage)
+                ->orderBy($order, $dataTable['columnSortOrder'])
+                ->offset($dataTable['start'])
+                ->limit($dataTable['rowPerPage'])
                 ->get()
                 ->toArray();
 
-            $response['draw'] = intval($draw);
+            $response['draw'] = intval($dataTable['draw']);
             $response['iTotalRecords'] = ($totalRecords);
             $response['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -231,19 +226,25 @@ class InterventionAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/intervention/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/intervention/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/intervention/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/intervention/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l', siteUrl('admin/intervention/show-record-log/' . $record['id']), $record['id'], '28', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/intervention/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -251,10 +252,13 @@ class InterventionAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['name'])
-                            ? '<a href="' . siteUrl('/page/187/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss($record['name']) . '</a>'
-                            : 'N.D.');
+                        ? '<a href="' . siteUrl('/page/187/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss($record['name']) . '</a>'
+                        : 'N.D.');
                     $setTempData[] = $measures;
                     $setTempData[] = $regulations;
                     $setTempData[] = $timeLimits;
@@ -266,13 +270,9 @@ class InterventionAdminController extends BaseAuthController
                         : '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definito">N.D.</small>';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -281,8 +281,7 @@ class InterventionAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -302,7 +301,7 @@ class InterventionAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/intervention/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/intervention/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -327,7 +326,7 @@ class InterventionAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('intervention/form_store', $data, 'admin');
@@ -344,7 +343,7 @@ class InterventionAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -388,17 +387,12 @@ class InterventionAdminController extends BaseAuthController
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $insert,
-                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null,
+                    !empty(Input::post('measures')) ? explode(',', strip_tags((string) Input::post('measures', true))) : null,
                     Input::post('regulations', true)
                 );
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'interventions', $insert->id, $insert['name']);
-
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -484,7 +478,7 @@ class InterventionAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $intervention['institution_id'];
 
         $data['time_limits'] = $timeLimits['date'];
@@ -516,7 +510,7 @@ class InterventionAdminController extends BaseAuthController
         if ($check['is_success']) {
             $doAction = true;
 
-            $interventionId = (int)strip_tags(Input::post('id', true));
+            $interventionId = (int) strip_tags(Input::post('id', true));
 
             // Recupero l'intervento attuale prima di modificarlo e lo salvo nel versioning
             $intervention = InterventionsModel::where('id', $interventionId)
@@ -527,7 +521,7 @@ class InterventionAdminController extends BaseAuthController
             $intervention = $intervention->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($intervention['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($intervention['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -554,10 +548,11 @@ class InterventionAdminController extends BaseAuthController
                 // Update Intervento
                 InterventionsModel::where('id', $interventionId)->updateWithLogs($intervention, $data);
 
+
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
                     $intervention,
-                    !empty(Input::post('measures')) ? explode(',', strip_tags((string)Input::post('measures', true))) : null,
+                    !empty(Input::post('measures')) ? explode(',', strip_tags((string) Input::post('measures', true))) : null,
                     Input::post('regulations', true)
                 );
 
@@ -570,9 +565,6 @@ class InterventionAdminController extends BaseAuthController
                     $intervention['name']
                 );
 
-
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -649,12 +641,6 @@ class InterventionAdminController extends BaseAuthController
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
-        // Generazione nuovo token
-        if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-        }
-
         redirect('admin/intervention');
     }
 
@@ -669,7 +655,7 @@ class InterventionAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new InterventionValidator();
         $validate = $validator->multipleSelection();
@@ -689,8 +675,6 @@ class InterventionAdminController extends BaseAuthController
                 $intervention->deleteWithLogs($intervention);
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -698,4 +682,5 @@ class InterventionAdminController extends BaseAuthController
 
         redirect('/admin/intervention');
     }
+
 }

@@ -16,28 +16,17 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
     <meta name="institute_id" content="{{ PatOsInstituteId() }}">
     <meta name="uid" content="{{  authPatOs()->id() }}">
     {{ csrf_meta() }}
-    <meta name="base_url" content="{{xss: baseUrl() }}">
+    <meta name="base_url" content="{{xss: baseUrl(verifyFirstOrLastSlash("/")) }}">
     <meta name="current_url" content="{{xss: currentUrl() }}">
     {{-- Begin favicon --}}
-    <!--<link rel="apple-touch-icon" sizes="57x57" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
     <link rel="manifest" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'.$faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="60x60" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="72x72" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="76x76" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="114x114" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="120x120" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="144x144" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile)}}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="icon" type="image/png" sizes="96x96" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
+    <link rel="apple-touch-icon" sizes="any" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
+    <link rel="icon" type="image/png" sizes="any" href="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile)}}">
     <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">-->
+    <meta name="msapplication-TileImage" content="{{ baseUrl('media/'. $shotInstitutionName . '/assets/images/'. $faviconFile) }}">
     <meta name="theme-color" content="#ffffff">
     {{-- End favicon --}}
-    <title>{{xss: !empty($title) ? $title : 'Admin Pat OS' }}</title>
+    <title>{{xss: !empty($title) ? $title : 'Gestione trasparenza' }}</title>
     {{ css('css/source_sans_pro_web.css?display=fallback&v='. VERSION_STYLE_CSS,'admin') }}
     {{ css('ionicons-v2.0.1-master/css/ionicons.min.css','common') }}
     {{ css('fontawesome-free-5.15.4-web/css/all.css','common') }}
@@ -48,12 +37,18 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
     {{ css('select2/css/select2.min.css','common') }}
     {{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
     {{ css('jquery-ui/jquery-ui.css','common') }}
+    {{ css('tom-select/tom-select.css','common') }}
+    {{ css('sweetalert2/sweetalert2.min.css','common') }}
     {{ css('css/custom.css','admin') }}
+    @php
+        if(file_exists('media/'. $shotInstitutionName . '/assets/css/admin.css')){
+            echo '<link href="'.baseUrl('media/'. $shotInstitutionName . '/assets/css/admin.css').'" rel="stylesheet" type="text/css" />';
+        }
+    @endphp
     {{-- CSS aggiuntivo --}}
     @yield(css)
     {{-- Init JS --}}
-    {{ js('alpine.js','common') }}
-    {{-- js('jquery/jquery.min.js','common') --}}
+    <script src="{{ baseUrl("assets\common\alpine.js") }}" defer></script>
     {{ js('jquery/jquery-3.7.1.min.js','common') }}
     {{ js('bootstrap/js/bootstrap.bundle.min.js','common') }}
     {{ js('js/adminlte.min.js','admin') }}
@@ -65,8 +60,19 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
     {{ js('autonumeric/autonumeric.js','common') }}
     {{ js('detect-private-mode.js','common') }}
     {{ js('fontawesome-6/all.min.js','common') }}
+    {{ js('tom-select/tom-select.complete.min.js','common') }}
+    {{ js('js/tom-select-default.js','admin') }}
+    {{ js('sweetalert2/sweetalert2.all.min.js','common') }}
+    {{ js('js/sweetalert2-default.js','admin') }}
     {{-- Javascript aggiuntivo --}}
     <script type="text/javascript">
+
+        /**
+         * Global BASE URL
+         * @type {string}
+         */
+        const APP_BASE_URL = '{{ rtrim(preg_replace('/\.html$/', '', siteUrl()), '/') . '/' }}';
+
         /**
          * Global CSRF Meta Token
          * @type {string}
@@ -105,7 +111,7 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
         /**
          * File size
          */
-        function getReadableFileSizeString(fileSizeInBytes, origin = false) {
+        function getReadableFileSizeString(fileSizeInBytes, origin=false) {
             let i = -1;
             let originSize = fileSizeInBytes;
             let byteUnits = [' kB', ' MB', ' GB', ' TB', 'PB', 'EB', 'ZB', 'YB'];
@@ -114,11 +120,11 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
                 i++;
             } while (fileSizeInBytes > 1024);
 
-            if (!origin) {
+            if(!origin) {
                 return Math.max(fileSizeInBytes, 0.1).toFixed(1).trim() + byteUnits[i];
             } else {
 
-                if (isInt(originSize)) {
+                if(isInt(originSize)) {
                     let j = -1;
                     do {
                         originSize = originSize / 1024;
@@ -228,7 +234,7 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
         /**
          * Modale (show) spinner
          */
-        function showFullModalSpinner() {
+        function showFullModalSpinner(){
             $('._layer_spinner_notify').show();
             $('._spinner_notify').show();
         }
@@ -236,7 +242,7 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
         /**
          * Modale (hide) spinner
          */
-        function hideFullModalSpinner() {
+        function hideFullModalSpinner(){
             $('._layer_spinner_notify').hide();
             $('._spinner_notify').hide();
         }
@@ -246,9 +252,9 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
          * @param str
          * @returns {string}
          */
-        function htmlEncode(str) {
-            return String(str).replace(/[^\w. ]/gi, function (c) {
-                return '&#' + c.charCodeAt(0) + ';';
+        function htmlEncode(str){
+            return String(str).replace(/[^\w. ]/gi, function(c){
+                return '&#'+c.charCodeAt(0)+';';
             });
         }
 
@@ -277,7 +283,7 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
             }
         }
     </script>
-</head>
+    </head>
 <body class="hold-transition sidebar-mini">
 <div class="wrapper">
 
@@ -325,36 +331,7 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
         <div class="content text-sm">
             <div class="container-fluid">
 
-                @if(isSuperAdmin(true))
-                    @php
-                        $alternative = false;
-                        $name = null;
-                        $patOsName = null;
-                        if( session()->has('alternative_pat_os_id') ) {
-                            $alternative = true;
-                            $name = session()->get('alternative_pat_os_full_name');
-                            $patOsName = patOsInstituteInfo(['full_name_institution']);
-                        }
-                    @endphp
-                    @if($alternative && empty($is_box))
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
-                                Attualmente stai gestendo <strong>"{{xss: $name }}"</strong>.
-                                <a href="{{ PatOsInstituteId() }}" id="__restore_institute_default_"
-                                   class="btn btn-outline-secondary btn-sm">
-                                    <i class="fas fa-exchange-alt"></i>
-                                    Ripristina la normale gestione
-                                    <div class="spinner-grow spinner-grow-sm" id="spinner-grow-sm-restore"
-                                         role="status">
-                                        <span class="sr-only">Loading...</span>
-                                    </div>
-                                </a>
 
-                            </div>
-                        </div>
-                    @endif
-
-                @endif
 
                 {{-- Messaggi di sessioni di tipo Flash per operazioni di CRUD --}}
                 @if(sessionHasNotify())
@@ -368,46 +345,75 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
                     </div>
                 @endif
 
-
                 @if(\System\Registry::exist('session_allowed'))
                     {{-- Sessioni concorrenti --}}
-                    <!--<div class="row justify-content-center" id="layer-session-allowed">
-                         <div class="col-md-12">
-                            <div class="callout callout-danger">
-                                <button type="button" class="close close-sess-allowed" data-dismiss="alert" aria-hidden="true">×</button>
-                                 <i class="fas fa-info-circle"></i> &nbsp; Avviso: Un altro utente &egrave; gi&agrave; connesso con lo stesso nome utente.
-                                <hr />
-                                <ul>
-                                 @foreach(\System\Registry::get('session_allowed_results') AS $resultConSess)
-                        <li>
-                             <strong>Accesso:</strong>  in data {{ date('d-m-Y',strtotime($resultConSess['created_at'])) }} alle ore {{ date('h:i',strtotime($resultConSess['created_at'])) }} -
-                                          <strong>Sistema operativo:</strong>  {{ $resultConSess['platform'] }} -
-                                          <strong>Browser:</strong>  {{ $resultConSess['browser'] }}  -
-                                          <strong>Device:</strong>  {{ $resultConSess['device'] }}  -
-                                          <strong>Indirizzo IP:</strong>  {{ $resultConSess['ip'] }}  -
-                                          <strong>Connessione anonima browser:</strong> {{ ($resultConSess['browser_private_mode']===1) ? 'Si' : 'No' }}.
-                                      </li>
+                    <div class="card card-danger">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fas fa-info-circle"></i> &nbsp; Avviso: Un altro utente &egrave; gi&agrave;
+                                connesso con lo stesso nome utente.
+                            </div>
 
-                    @endforeach
-                    </ul>
-
+                            <div class="card-tools">
+                                <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button>
+                                <button type="button" class="btn btn-tool" data-card-widget="remove"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <ul>
+                                @foreach(\System\Registry::get('session_allowed_results') AS $resultConSess)
+                                    <li>
+                                        @if(session()->getId() === $resultConSess['sess_id'])
+                                            <strong class="text-success">[Sessione corrente]</strong> {{ nbs(2) }}
+                                        @endif
+                                        <strong>Accesso:</strong> in
+                                        data {{ date('d-m-Y',strtotime($resultConSess['created_at'])) }} alle
+                                        ore {{ date('h:i',strtotime($resultConSess['created_at'])) }} -
+                                        <strong>Sistema operativo:</strong> {{ $resultConSess['platform'] }} -
+                                        <strong>Browser:</strong> {{ $resultConSess['browser'] }} -
+                                        <strong>Device:</strong> {{ $resultConSess['device'] }} -
+                                        <strong>Indirizzo IP:</strong> {{ $resultConSess['ip'] }} -
+                                        <strong>Connessione anonima
+                                            browser:</strong> {{ ($resultConSess['browser_private_mode']===1) ? 'Si' : 'No' }}
+                                        .
+                                        @if(session()->getId() !== $resultConSess['sess_id'] && $resultConSess['destroyed_sess_id']===0)
+                                            - {{ form_open(
+                                                'admin/concurrent/sess/'. (int) $resultConSess['id'],
+                                                ['method' => 'post', 'class' => 'd-inline'],
+                                                ['r' => currentUrl()]
+                                            ) }}
+                                                <strong><button type="submit" class="btn btn-link p-0 align-baseline">Disconnetti</button></strong>
+                                            {{ form_close() }}
+                                        @else
+                                            @if($resultConSess['destroyed_sess_id']===1)
+                                                - [Evento di disconnessione attivato.
+                                                <span class="text-danger" data-toggle="tooltip" data-placement="top"
+                                                      title="La sessione verrà terminata automaticamente al prossimo tentativo di accesso.">
+                                                    <i class="fa-solid fa-question"></i>
+                                                </span>
+                                                ]
+                                            @endif
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
                     </div>
-                </div>-->
-            </div>
-            {{-- Chiususra layer sessioni duplicate --}}
-            <script type="text/javascript">
-                $(document).ready(function () {
-                    $('.close-sess-allowed').click(function () {
-                        $('#layer-session-allowed').hide();
-                    });
-                });
-            </script>
-            @endif
-            @if(guard())
-                @yield(content)
-            @else
-                {% include access_denied/index %}
-            @endif
+                @endif
+
+            {{-- Notifiche generali applicativo --}}
+
+            {{-- Funzione che verifica il permesso di accesso alla pagina corrente --}}
+
+                @if(\System\Registry::get('enable_module')===false)
+                @else
+                    @if(guard())
+                        @yield(content)
+                    @else
+                        {% include access_denied/index %}
+                    @endif
+                @endif
+
         </div>
     </div>
     {{-- Contenuto --}}
@@ -415,12 +421,15 @@ $faviconFile = patOsInstituteInfo(['favicon_file'])['favicon_file'] ?? '';
 {{-- Right Drawer --}}
 {% include layout/partials/right_drawer %}
 
+
+
+
+
 {{-- Footer --}}
 {% include layout/partials/footer %}
 </div>
 @if(guard())
     @yield(javascript)
 @endif
-
 </body>
 </html>

@@ -39,15 +39,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+                            <div class="form-row d-flex align-items-end">
+
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data di pubblicazione *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="datetime-local" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ @$contest['activation_date'] }}"
+                                               id="activation_date">
+                                    </div>
+                                </div>
+
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+                            </div>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Oggetto --}}
@@ -62,6 +90,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     ]) }}
                                 </div>
                             </div>
+
+
+
+                            @php $s_c_t = $s_c_t ?? null; @endphp
 
                             {{generateSeparator('Informazioni collegate')}}
 
@@ -83,7 +115,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="form-group col-md-12" id="object_structures_id">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <label for="ajax_structure" id="c_ajax_structure_label">Ufficio di
-                                            riferimento</label>
+                                            riferimento </label>
                                     </div>
                                     <div id="ajax_structure"></div>
                                     <input type="hidden" value="" name="object_structures_id"
@@ -98,12 +130,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Sede Prova - Provincia --}}
                                 <div class="form-group col-md-4">
                                     <label for="province_office">Sede Prova - Provincia</label>
-                                    <div class="select2-blue" id="input_province_office">
+                                    <div id="input_province_office">
                                         {{ form_dropdown(
                                             'province_office',
                                             $provinceShort,
                                             !empty($contest['province_office']) ? $contest['province_office'] : null,
-                                            'class="select2-province_office" data-dropdown-css-class="select2-blue" style="width: 100%; height: unset;"'
+                                            'class="ts-province_office" style="width: 100%; height: unset;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -172,19 +204,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Data di pubblicazione --}}
-                                <div class="form-group col-md-6">
-                                    <label for="activation_date">Data di pubblicazione *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="datetime-local" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ @$contest['activation_date'] }}"
-                                               id="activation_date">
-                                    </div>
-                                </div>
 
                                 {{-- Campo Data di scadenza del bando --}}
                                 <div class="form-group col-md-6">
@@ -237,51 +256,56 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                             <div class="form-row d-flex align-items-end">
                                 {{-- Campo Numero dipendenti assunti --}}
-                                <div class="form-group col-md-4">
-                                    <label for="hired_employees">Numero dipendenti assunti</label>
-                                    {{ form_input([
-                                        'name' => 'hired_employees',
-                                        'type' => 'number',
-                                        'value' => !empty($contest['hired_employees']) ? $contest['hired_employees'] : null,
-                                        'placeholder' => 'n° dipendenti',
-                                        'id' => 'input_hired_employees',
-                                        'class' => 'form-control input_hired_employees'
-                                    ]) }}
-                                </div>
+                                @if($_storageType == 'update' && !empty($contest['hired_employees']))
+                                    <div class="form-group col-md-4">
+                                        <label for="hired_employees">Numero dipendenti assunti</label>
+                                        {{ form_input([
+                                            'name' => 'hired_employees',
+                                            'type' => 'number',
+                                            'value' => !empty($contest['hired_employees']) ? $contest['hired_employees'] : null,
+                                            'placeholder' => 'n° dipendenti',
+                                            'id' => 'input_hired_employees',
+                                            'class' => 'form-control input_hired_employees'
+                                        ]) }}
+                                    </div>
+                                @endif
 
+                                @if($_storageType == 'update' && !empty($contest['expected_expenditure']))
                                 {{-- Campo Eventuale spesa prevista --}}
-                                <div class="form-group col-md-4">
-                                    <label for="expected_expenditure">Eventuale spesa prevista</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
+                                    <div class="form-group col-md-4">
+                                        <label for="expected_expenditure">Eventuale spesa prevista</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
+                                            </div>
+                                            {{ form_input([
+                                            'name' => 'expected_expenditure',
+                                            'value' => !empty($contest['expected_expenditure']) ? $contest['expected_expenditure'] : null,
+                                            'placeholder' => '',
+                                            'id' => 'input_expected_expenditure',
+                                            'class' => 'form-control input_expected_expenditure a-num-class'
+                                        ]) }}
                                         </div>
-                                        {{ form_input([
-                                        'name' => 'expected_expenditure',
-                                        'value' => !empty($contest['expected_expenditure']) ? $contest['expected_expenditure'] : null,
-                                        'placeholder' => '',
-                                        'id' => 'input_expected_expenditure',
-                                        'class' => 'form-control input_expected_expenditure a-num-class'
-                                    ]) }}
                                     </div>
-                                </div>
-
+                                @endif
+                                @if($_storageType == 'update' && !empty($contest['expenditures_made']))
                                 {{-- Campo Spese effettuate --}}
-                                <div class="form-group col-md-4">
-                                    <label for="expenditures_made">Spese effettuate</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
+                                    <div class="form-group col-md-4">
+                                        <label for="expenditures_made">Spese effettuate</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-euro-sign"></i></span>
+                                            </div>
+                                            {{ form_input([
+                                            'name' => 'expenditures_made',
+                                            'value' => !empty($contest['expenditures_made']) ? $contest['expenditures_made'] : null,
+                                            'placeholder' => '',
+                                            'id' => 'input_expenditures_made',
+                                            'class' => 'form-control input_expenditures_made a-num-class'
+                                        ]) }}
                                         </div>
-                                        {{ form_input([
-                                        'name' => 'expenditures_made',
-                                        'value' => !empty($contest['expenditures_made']) ? $contest['expenditures_made'] : null,
-                                        'placeholder' => '',
-                                        'id' => 'input_expenditures_made',
-                                        'class' => 'form-control input_expenditures_made a-num-class'
-                                    ]) }}
                                     </div>
-                                </div>
+                                @endif
                             </div>
 
                             {{-- Campo Provvedimento --}}
@@ -312,6 +336,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
 
                             <div class="form-group">
+                                {{-- Campo Tracce prove scritte --}}
+                                <label for="traces_written_tests">Incarichi ad esterni</label>
+                                {{form_editor([
+                                    'name' => 'external_assignment',
+                                    'value' => !empty($contest['external_assignment']) ? $contest['external_assignment'] : null,
+                                    'id' => 'input_external_assignment',
+                                    'class' => 'form-control input_external_assignment'
+                                ]) }}
+                            </div>
+
+                            <div class="form-group">
                                 {{-- Campo Maggiori informazioni sul bando --}}
                                 <label for="description">Maggiori informazioni sul bando</label>
                                 {{form_editor([
@@ -323,6 +358,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -330,11 +367,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -376,6 +416,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -386,8 +427,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
-{{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
 <style type="text/css">
     .ck-editor__editable_inline {
         min-height: 200px;
@@ -398,29 +437,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?box='.$is_box) }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js?box='.$is_box)) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
+
+    const institutionId = $('#institution_id').val();
+    let contest;
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
 
         {{-- Begin creazione campi select --}}
-        let $dropdownProvinceOffice = $('.select2-province_office');
-        $dropdownProvinceOffice.select2({
-            placeholder: 'Seleziona Provincia',
-            allowClear: true
-        });
+        new TomSelect('.ts-province_office', TS_SINGLE_CLEAR);
 
         // Tabella per la selezione della struttura
         let structure = $('#ajax_structure').patOsAjaxPagination({
@@ -432,6 +467,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
             hideTable: config.structure.hideTable,
             showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($contest['office']) ? implode(",",array_column($contest['office'], 'id')) : ''; ?>',
             search_placeholder: config.structure.search_placeholder,
             setInputDataValue: '#input_object_structures_id',
             dataParams: {
@@ -449,60 +486,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         });
 
         // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($contest['office']))
-        structure.patOsAjaxPagination.setValue('{{ $contest['object_structures_id'] }}', '{{ htmlEscape($contest['office']['structure_name']).(!empty($contest['office']['parent_name'])?' - '.htmlEscape($contest['office']['parent_name']):'').(!empty($contest['office']['reference_email'])?' - '.$contest['office']['reference_email']:'') }}', true);
+        @if(!empty($contest['office']))
+        structure.patOsAjaxPagination.setValue('{{ $contest['office']['id'] }}', '{{ htmlEscape($contest['office']['structure_name']).(!empty($contest['office']['parent_name'])?' - '.htmlEscape($contest['office']['parent_name']):'').(!empty($contest['office']['reference_email'])?' - '.$contest['office']['reference_email']:'') }}', true);
         @endif
 
-        {{-- Begin Select2 campo "Concorso o Avviso relativo" --}}
         // Tabella per la selezione del Concorso relativo
-        let contest = $('#ajax_contest').patOsAjaxPagination({
-            url: config.contest.url,
-            textLoad: config.contest.textLoad,
-            selectedLabel: 'Concorso relativo selezionato',
-            footerTable: config.contest.footerTable,
-            classTable: config.contest.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
-            hideTable: config.contest.hideTable,
-            showTable: config.contest.showTable,
-            search_placeholder: config.contest.search_placeholder,
-            setInputDataValue: '#input_related_contest',
-            dataParams: {
-                model: 34,
-                institution_id: institutionId,
-                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $contest['id'] ?>
-            },
-            dateFormat: config.contest.dateFormat,
-            columns: config.contest.columns,
-            action: {
-                type: 'radio',
-            },
-            dataSource: config.contest.dataSource,
-            addRecord: config.contest.addRecord,
-            label: '#ajax_contest_label'
-        });
-
-        // Setto il concorso relativo se sono in modifica o duplicazione
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($contest['related_contest']))
-        @php
-            $tmpActivationDate = !empty($contest['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($contest['related_contest']['activation_date'])) : null;
-            $tmpExpirationDate = !empty($contest['related_contest']['expiration_date']) ? ' - '.date('d/m/Y', strtotime($contest['related_contest']['expiration_date'])) : null;
-        @endphp
-        contest.patOsAjaxPagination.setValue('{{ $contest['related_contest']['id'] }}', '{{htmlEscape($contest['related_contest']['object']).' - '.$contest['related_contest']['typology'].''.$tmpActivationDate.''.$tmpExpirationDate }}', true);
-        @endif
-
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        contest = refreshContest(institutionId, null, false);
 
         // Tabella per la selezione degli Incarichi che formano la "Commissione giudicatrice - seleziona da archivio incarichi e consulenze"
         let assignments = $('#ajax_assignments').patOsAjaxPagination({
@@ -571,7 +560,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @php
             $tmpStartDate = !empty($contest['relative_measure']) ? ' - '.date('d/m/Y', strtotime($contest['relative_measure']['date'])) : null;
         @endphp
-        measure.patOsAjaxPagination.setValue('{{ $contest['object_measure_id'] }}', '{{ htmlEscape($contest['relative_measure']['object']).' - '.$contest['relative_measure']['number'].''.$tmpStartDate }}', true);
+        measure.patOsAjaxPagination.setValue('{{ $contest['object_measure_id'] }}', '{{ htmlEscape($contest['relative_measure']['object']).' - '.htmlEscape($contest['relative_measure']['number']).''.$tmpStartDate }}', true);
         @endif
         {{-- End creazione campi select --}}
 
@@ -582,18 +571,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_test_calendar');
-        CKEDITOR.replace('input_evaluation_criteria');
-        CKEDITOR.replace('input_traces_written_tests');
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_test_calendar', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_evaluation_criteria', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_traces_written_tests', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_description', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+        CKEDITOR.replace('input_external_assignment', {
+             customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End creazione campi CKEDITOR --}}
 
         // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
-        if ($('#_storage_type').val() == 'insert') {
-            @if(empty($contest['activation_date']))
-            $('#activation_date').attr('value', "<?= date('Y-m-d H:i') ?>");
-            @endif
-        }
+        @if(empty($contest['activation_date']) && $_storageType == 'insert')
+            $('#activation_date').attr('value', "<?= date('Y-m-d\TH:i') ?>");
+        @endif
+
         {{-- End creazione campi data --}}
 
         /**
@@ -631,6 +630,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -668,11 +668,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -686,7 +686,47 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
          */
         {{-- Vedere nel footer --}}
         checkIfRestore();
-
     });
+
+    function refreshContest(institutionId, tag, showTable) {
+        let c = $('#ajax_contest').patOsAjaxPagination({
+            url: config.contest.url,
+            textLoad: config.contest.textLoad,
+            selectedLabel: 'Concorso relativo selezionato',
+            footerTable: config.contest.footerTable,
+            classTable: config.contest.classTable,
+            hideShowTable: showTable ? showTable : Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.contest.hideTable,
+            showTable: config.contest.showTable,
+            search_placeholder: config.contest.search_placeholder,
+            setInputDataValue: '#input_related_contest',
+            dataParams: {
+                model: 34,
+                institution_id: institutionId,
+                exclude_id: <?php echo ($_storageType == 'insert') ? 0 : $contest['id'] ?>,
+                tag: tag
+            },
+            dateFormat: config.contest.dateFormat,
+            columns: config.contest.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.contest.dataSource,
+            addRecord: config.contest.addRecord,
+            label: '#ajax_contest_label'
+        });
+
+        // Setto il concorso relativo se sono in modifica o duplicazione
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($contest['related_contest']))
+        @php
+            $tmpActivationDate = !empty($contest['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($contest['related_contest']['activation_date'])) : null;
+            $tmpExpirationDate = !empty($contest['related_contest']['expiration_date']) ? ' - '.date('d/m/Y', strtotime($contest['related_contest']['expiration_date'])) : null;
+        @endphp
+            c.patOsAjaxPagination.setValue('{{ $contest['related_contest']['id'] }}', '{{htmlEscape($contest['related_contest']['object']).' - '.$contest['related_contest']['typology'].''.$tmpActivationDate.''.$tmpExpirationDate }}', true);
+        @endif
+
+            return c;
+    }
+
 </script>
 {% endblock %}

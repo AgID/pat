@@ -6,7 +6,7 @@
 
 namespace Model;
 
-use Scope\InstitutionScope;
+
 use System\Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
@@ -37,6 +37,6 @@ class ConfigsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 }

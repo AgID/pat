@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Viewer</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+        height: 100%;
+        overflow: hidden;
+        background: #525659;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: #323639;
+        color: #d7d7d7;
+        font-size: 13px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        user-select: none;
+    }
+    #toolbar button {
+        background: transparent;
+        border: 1px solid #555;
+        color: #d7d7d7;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s;
+    }
+    #toolbar button:hover { background: #4a4e52; }
+    #toolbar button:disabled { opacity: 0.4; cursor: default; }
+    #toolbar input[type="number"] {
+        width: 50px;
+        text-align: center;
+        background: #1e1e1e;
+        color: #d7d7d7;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 4px;
+        font-size: 13px;
+        -moz-appearance: textfield;
+    }
+    #toolbar input::-webkit-outer-spin-button,
+    #toolbar input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    #viewer-container {
+        height: calc(100% - 40px);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 0;
+        scroll-behavior: smooth;
+    }
+    .page-wrapper {
+        margin: 5px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        background: white;
+        position: relative;
+    }
+    .page-wrapper canvas {
+        display: block;
+    }
+    .page-number-badge {
+        position: absolute;
+        bottom: 6px;
+        right: 6px;
+        background: rgba(0,0,0,0.5);
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    #loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #aaa;
+        font-size: 16px;
+    }
+    .highlight-overlay {
+        position: absolute;
+        background: rgba(255, 200, 0, 0.35);
+        border: 2px solid rgba(255, 160, 0, 0.8);
+        border-radius: 3px;
+        pointer-events: none;
+        z-index: 10;
+        animation: highlight-pulse 1.5s ease-in-out 3;
+    }
+    @keyframes highlight-pulse {
+        0%, 100% { background: rgba(255, 200, 0, 0.35); }
+        50% { background: rgba(255, 200, 0, 0.6); }
+    }
+    /* ── Text Layer (selezione testo) ───────────────────────────────── */
+    .textLayer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        opacity: 1;
+        line-height: 1;
+        pointer-events: auto; /* consente selezione */
+    }
+    .textLayer span {
+        position: absolute;
+        white-space: pre;
+        cursor: text;
+        transform-origin: 0% 0%;
+        color: transparent;
+        /* visibile solo durante la selezione */
+    }
+    .textLayer ::selection {
+        background: rgba(0, 120, 215, 0.35);
+        color: transparent;
+    }
+    /* ── Find Bar ───────────────────────────────────────────────────── */
+    #find-bar {
+        display: none;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        background: #3a3d41;
+        border-top: 1px solid #555;
+        font-size: 12px;
+    }
+    #find-bar input {
+        flex: 1;
+        max-width: 220px;
+        background: #1e1e1e;
+        color: #d7d7d7;
+        border: 1px solid #555;
+        border-radius: 4px;
+        padding: 3px 7px;
+        font-size: 12px;
+        outline: none;
+    }
+    #find-bar input:focus { border-color: #88aacc; }
+    #find-bar button {
+        background: transparent;
+        border: 1px solid #555;
+        color: #d7d7d7;
+        padding: 3px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.15s;
+        white-space: nowrap;
+    }
+    #find-bar button:hover { background: #4a4e52; }
+    #find-bar button:disabled { opacity: 0.4; cursor: default; }
+    #find-match-info {
+        font-size: 11px;
+        color: #aaa;
+        white-space: nowrap;
+        min-width: 60px;
+    }
+    .find-highlight {
+        position: absolute;
+        background: rgba(255, 220, 0, 0.45);
+        border-radius: 2px;
+        pointer-events: none;
+        z-index: 11;
+    }
+    .find-highlight.current {
+        background: rgba(255, 140, 0, 0.65);
+        outline: 2px solid rgba(255, 100, 0, 0.9);
+    }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+    <button id="btn-prev" title="Pagina precedente">&#9664;</button>
+    <input type="number" id="page-input" min="1" value="1">
+    <span>/ <span id="total-pages">0</span></span>
+    <button id="btn-next" title="Pagina successiva">&#9654;</button>
+    <span style="margin: 0 8px; color: #555;">|</span>
+    <button id="btn-zoom-out" title="Riduci">−</button>
+    <span id="zoom-level">100%</span>
+    <button id="btn-zoom-in" title="Ingrandisci">+</button>
+    <button id="btn-zoom-fit" title="Adatta alla larghezza" style="font-size: 11px;">Adatta</button>
+    <span style="margin: 0 8px; color: #555;">|</span>
+    <button id="btn-find" title="Cerca nel documento" style="font-size: 11px;">&#128269; Cerca</button>
+</div>
+
+<!-- Find Bar -->
+<div id="find-bar">
+    <input type="text" id="find-input" placeholder="Cerca nel documento..." autocomplete="off" spellcheck="false">
+    <span id="find-match-info"></span>
+    <button id="btn-find-prev" title="Occorrenza precedente" disabled>&#9650;</button>
+    <button id="btn-find-next" title="Occorrenza successiva" disabled>&#9660;</button>
+    <button id="btn-find-close" title="Chiudi ricerca" style="margin-left: 4px; color: #f88;">&#x2715;</button>
+</div>
+
+<div id="viewer-container"></div>
+<div id="loading">Caricamento PDF...</div>
+
+<script type="module">
+    // Percorsi adattati a PatOS — la libreria è in ../build/ rispetto a questa pagina
+    import * as pdfjsLib from '../build/pdf.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '../build/pdf.worker.mjs';
+
+    const container = document.getElementById('viewer-container');
+    const loading = document.getElementById('loading');
+    const pageInput = document.getElementById('page-input');
+    const totalPagesEl = document.getElementById('total-pages');
+    const zoomLevelEl = document.getElementById('zoom-level');
+
+    let pdfDoc = null;
+    let currentScale = 1.0;
+    let pageElements = [];
+    let isRendering = false;
+
+    // Parse URL params
+    function getParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hash = window.location.hash.substring(1);
+        const hashParams = {};
+        hash.split('&').forEach(p => {
+            const [k, v] = p.split('=');
+            if (k) hashParams[k] = v;
+        });
+        return {
+            file: urlParams.get('file') || '',
+            page: parseInt(hashParams.page) || 1
+        };
+    }
+
+    async function loadPDF(url) {
+        try {
+            loading.style.display = 'flex';
+            container.style.display = 'none';
+
+            const loadingTask = pdfjsLib.getDocument(url);
+            pdfDoc = await loadingTask.promise;
+
+            totalPagesEl.textContent = pdfDoc.numPages;
+            pageInput.max = pdfDoc.numPages;
+            loading.style.display = 'none';
+            container.style.display = 'flex';
+
+            await renderAllPages();
+
+            // Navigate to requested page
+            const params = getParams();
+            if (params.page > 1 && params.page <= pdfDoc.numPages) {
+                setTimeout(() => scrollToPage(params.page), 100);
+            }
+        } catch (err) {
+            loading.textContent = 'Errore caricamento PDF: ' + err.message;
+            console.error(err);
+        }
+    }
+
+    async function renderAllPages() {
+        container.innerHTML = '';
+        pageElements = [];
+        isRendering = true;
+        // Cancella tutti gli highlight della find bar al re-render
+        findHighlights = [];
+        findCurrentIndex = -1;
+        if (findMatchInfo) findMatchInfo.textContent = '';
+
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({ scale: currentScale });
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'page-wrapper';
+            wrapper.dataset.page = i;
+            wrapper.style.width = viewport.width + 'px';
+            wrapper.style.height = viewport.height + 'px';
+
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width * window.devicePixelRatio);
+            canvas.height = Math.floor(viewport.height * window.devicePixelRatio);
+            canvas.style.width = viewport.width + 'px';
+            canvas.style.height = viewport.height + 'px';
+
+            const ctx = canvas.getContext('2d');
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+            // ── Text Layer: sovrappone span trasparenti per abilitare la selezione del testo
+            try {
+                const textContent = await page.getTextContent();
+                const textLayerDiv = document.createElement('div');
+                textLayerDiv.className = 'textLayer';
+
+                const textItems = textContent.items;
+                for (let j = 0; j < textItems.length; j++) {
+                    const item = textItems[j];
+                    if (!item.str || item.str.trim() === '') continue;
+
+                    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                    const angle = Math.atan2(tx[1], tx[0]);
+                    const fontHeight = Math.sqrt(tx[2] * tx[2] + tx[3] * tx[3]);
+                    const ascent = item.ascent ? item.ascent * fontHeight : fontHeight;
+
+                    const span = document.createElement('span');
+                    span.textContent = item.str;
+                    span.style.left   = tx[4] + 'px';
+                    span.style.top    = (tx[5] - ascent) + 'px';
+                    span.style.fontSize = fontHeight + 'px';
+                    span.style.fontFamily = item.fontName ? item.fontName : 'sans-serif';
+                    if (angle !== 0) {
+                        span.style.transform = `rotate(${-angle}rad)`;
+                    }
+                    // Calcola la larghezza effettiva del testo
+                    const scaledWidth = item.width * (viewport.width / page.getViewport({ scale: 1.0 }).width);
+                    span.style.width = scaledWidth + 'px';
+
+                    textLayerDiv.appendChild(span);
+                }
+                wrapper.appendChild(canvas);
+                wrapper.appendChild(textLayerDiv);
+            } catch (e) {
+                // Fallback: solo canvas senza text layer (es. PDF scansionato)
+                wrapper.appendChild(canvas);
+            }
+
+            const badge = document.createElement('div');
+            badge.className = 'page-number-badge';
+            badge.textContent = i;
+
+            wrapper.appendChild(badge);
+            container.appendChild(wrapper);
+            pageElements.push(wrapper);
+        }
+
+        isRendering = false;
+        updateFitScale();
+    }
+
+    function scrollToPage(pageNum) {
+        if (pageNum < 1 || pageNum > pageElements.length) return;
+        const target = pageElements[pageNum - 1];
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            pageInput.value = pageNum;
+        }
+    }
+
+    function updateFitScale() {
+        if (!pdfDoc) return;
+        pdfDoc.getPage(1).then(page => {
+            const viewport = page.getViewport({ scale: 1.0 });
+            const containerWidth = container.clientWidth - 40;
+            const fitScale = containerWidth / viewport.width;
+            if (currentScale === 1.0) {
+                currentScale = fitScale;
+                zoomLevelEl.textContent = Math.round(currentScale * 100) + '%';
+                renderAllPages().then(() => {
+                    const params = getParams();
+                    if (params.page > 1) {
+                        setTimeout(() => scrollToPage(params.page), 100);
+                    }
+                });
+            }
+        });
+    }
+
+    function setZoom(newScale) {
+        const visiblePage = getCurrentVisiblePage();
+        currentScale = Math.max(0.25, Math.min(5.0, newScale));
+        zoomLevelEl.textContent = Math.round(currentScale * 100) + '%';
+        renderAllPages().then(() => {
+            if (visiblePage > 0) scrollToPage(visiblePage);
+        });
+    }
+
+    function getCurrentVisiblePage() {
+        const containerRect = container.getBoundingClientRect();
+        const containerMid = containerRect.top + containerRect.height / 2;
+        for (let i = 0; i < pageElements.length; i++) {
+            const rect = pageElements[i].getBoundingClientRect();
+            if (rect.top <= containerMid && rect.bottom >= containerMid) {
+                return i + 1;
+            }
+        }
+        return 1;
+    }
+
+    // Update page input on scroll
+    container.addEventListener('scroll', () => {
+        if (!isRendering) {
+            pageInput.value = getCurrentVisiblePage();
+        }
+    });
+
+    // Toolbar buttons
+    document.getElementById('btn-prev').addEventListener('click', () => {
+        const p = getCurrentVisiblePage();
+        if (p > 1) scrollToPage(p - 1);
+    });
+    document.getElementById('btn-next').addEventListener('click', () => {
+        const p = getCurrentVisiblePage();
+        if (p < pageElements.length) scrollToPage(p + 1);
+    });
+    document.getElementById('btn-zoom-in').addEventListener('click', () => setZoom(currentScale + 0.15));
+    document.getElementById('btn-zoom-out').addEventListener('click', () => setZoom(currentScale - 0.15));
+    document.getElementById('btn-zoom-fit').addEventListener('click', () => {
+        if (!pdfDoc) return;
+        pdfDoc.getPage(1).then(page => {
+            const viewport = page.getViewport({ scale: 1.0 });
+            const fitScale = (container.clientWidth - 40) / viewport.width;
+            setZoom(fitScale);
+        });
+    });
+    pageInput.addEventListener('change', () => {
+        scrollToPage(parseInt(pageInput.value) || 1);
+    });
+    pageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') scrollToPage(parseInt(pageInput.value) || 1);
+    });
+
+    // ─── postMessage listener ────────────────────────────────────────────────
+    // Risponde ai comandi inviati dalla pagina PatOS tramite pdfPreview.contentWindow.postMessage()
+    window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'scrollToPage') {
+            scrollToPage(event.data.page);
+        }
+        if (event.data && event.data.type === 'highlight') {
+            highlightRect(event.data.page, event.data.rect, event.data.index);
+        }
+        if (event.data && event.data.type === 'loadPdf') {
+            loadPDF(event.data.url);
+        }
+    });
+
+    // ─── Find Bar ────────────────────────────────────────────────────────────
+    const findBar      = document.getElementById('find-bar');
+    const findInput    = document.getElementById('find-input');
+    const findMatchInfo= document.getElementById('find-match-info');
+    const btnFindOpen  = document.getElementById('btn-find');
+    const btnFindPrev  = document.getElementById('btn-find-prev');
+    const btnFindNext  = document.getElementById('btn-find-next');
+    const btnFindClose = document.getElementById('btn-find-close');
+
+    let findHighlights   = []; // Array di { el, pageIndex } per tutti gli highlight trovati
+    let findCurrentIndex = -1;
+
+    function openFindBar() {
+        findBar.style.display = 'flex';
+        // Riduce l'altezza del viewer
+        container.style.height = 'calc(100% - 40px - 38px)';
+        findInput.focus();
+        findInput.select();
+    }
+
+    function closeFindBar() {
+        findBar.style.display = 'none';
+        container.style.height = 'calc(100% - 40px)';
+        clearFindHighlights();
+        findMatchInfo.textContent = '';
+        btnFindPrev.disabled = true;
+        btnFindNext.disabled = true;
+    }
+
+    function clearFindHighlights() {
+        findHighlights.forEach(h => h.el.remove());
+        findHighlights = [];
+        findCurrentIndex = -1;
+    }
+
+    function performFind(query) {
+        clearFindHighlights();
+        if (!query || !pdfDoc) {
+            findMatchInfo.textContent = '';
+            btnFindPrev.disabled = true;
+            btnFindNext.disabled = true;
+            return;
+        }
+
+        const q = query.toLowerCase();
+
+        // Cerca in tutti gli span del text layer
+        pageElements.forEach((wrapper, pageIdx) => {
+            const textLayer = wrapper.querySelector('.textLayer');
+            if (!textLayer) return;
+
+            const spans = textLayer.querySelectorAll('span');
+            spans.forEach(span => {
+                const text = span.textContent.toLowerCase();
+                let idx = 0;
+                while ((idx = text.indexOf(q, idx)) !== -1) {
+                    // Crea un div di highlight sovrapposto allo span
+                    const spanRect = span.getBoundingClientRect();
+                    const wrapperRect = wrapper.getBoundingClientRect();
+
+                    const hl = document.createElement('div');
+                    hl.className = 'find-highlight';
+
+                    // Posizione relativa al wrapper della pagina
+                    // Usiamo le coordinate dello span nel DOM del viewer-container
+                    const spanLeft   = span.offsetLeft;
+                    const spanTop    = span.offsetTop;
+                    const spanW      = span.offsetWidth;
+                    const spanH      = span.offsetHeight;
+                    const charW      = spanW / (span.textContent.length || 1);
+
+                    hl.style.left   = (spanLeft + idx * charW) + 'px';
+                    hl.style.top    = spanTop + 'px';
+                    hl.style.width  = (q.length * charW) + 'px';
+                    hl.style.height = spanH + 'px';
+
+                    wrapper.appendChild(hl);
+                    findHighlights.push({ el: hl, pageIndex: pageIdx + 1 });
+                    idx++;
+                }
+            });
+        });
+
+        if (findHighlights.length === 0) {
+            findMatchInfo.textContent = 'Non trovato';
+            btnFindPrev.disabled = true;
+            btnFindNext.disabled = true;
+        } else {
+            findCurrentIndex = 0;
+            updateFindCurrent();
+            btnFindPrev.disabled = false;
+            btnFindNext.disabled = false;
+        }
+    }
+
+    function updateFindCurrent() {
+        findHighlights.forEach((h, i) => {
+            h.el.classList.toggle('current', i === findCurrentIndex);
+        });
+        const total = findHighlights.length;
+        findMatchInfo.textContent = total > 0 ? `${findCurrentIndex + 1} / ${total}` : 'Non trovato';
+
+        if (findHighlights[findCurrentIndex]) {
+            scrollToPage(findHighlights[findCurrentIndex].pageIndex);
+            // Scrolla l'highlight nella vista del viewer
+            setTimeout(() => {
+                findHighlights[findCurrentIndex].el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }, 120);
+        }
+    }
+
+    btnFindOpen.addEventListener('click', openFindBar);
+    btnFindClose.addEventListener('click', closeFindBar);
+
+    btnFindNext.addEventListener('click', () => {
+        if (findHighlights.length === 0) return;
+        findCurrentIndex = (findCurrentIndex + 1) % findHighlights.length;
+        updateFindCurrent();
+    });
+
+    btnFindPrev.addEventListener('click', () => {
+        if (findHighlights.length === 0) return;
+        findCurrentIndex = (findCurrentIndex - 1 + findHighlights.length) % findHighlights.length;
+        updateFindCurrent();
+    });
+
+    // Cerca mentre si digita (debounce 300ms)
+    let _findDebounce = null;
+    findInput.addEventListener('input', () => {
+        clearTimeout(_findDebounce);
+        _findDebounce = setTimeout(() => performFind(findInput.value.trim()), 300);
+    });
+
+    findInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                btnFindPrev.click();
+            } else {
+                btnFindNext.click();
+            }
+        }
+        if (e.key === 'Escape') closeFindBar();
+    });
+
+    // Shortcut Ctrl+F / Cmd+F per aprire la find bar
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            openFindBar();
+        }
+    });
+
+    function highlightRect(pageNum, rect, index) {
+        // Rimuovi evidenziazioni precedenti
+        document.querySelectorAll('.highlight-overlay').forEach(el => el.remove());
+
+        if (!rect || !Array.isArray(rect) || rect.length < 4) {
+            scrollToPage(pageNum);
+            return;
+        }
+        if (pageNum < 1 || pageNum > pageElements.length) return;
+
+        const wrapper = pageElements[pageNum - 1];
+        if (!wrapper || !pdfDoc) return;
+
+        // Coordinate in formato PyMuPDF (origine top-left, Y verso il basso)
+        // Convertiamo in pixel usando la scala corrente del canvas
+        pdfDoc.getPage(pageNum).then(page => {
+            const viewport = page.getViewport({ scale: currentScale });
+            const pdfWidth  = viewport.viewBox[2] - viewport.viewBox[0];
+            const pdfHeight = viewport.viewBox[3] - viewport.viewBox[1];
+
+            const scaleX = viewport.width  / pdfWidth;
+            const scaleY = viewport.height / pdfHeight;
+
+            const x = rect[0] * scaleX;
+            const y = rect[1] * scaleY;
+            const w = (rect[2] - rect[0]) * scaleX;
+            const h = (rect[3] - rect[1]) * scaleY;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'highlight-overlay';
+            overlay.style.left   = x + 'px';
+            overlay.style.top    = y + 'px';
+            overlay.style.width  = Math.max(w, 20) + 'px';
+            overlay.style.height = Math.max(h, 10) + 'px';
+
+            // Badge numerato opzionale
+            if (index !== undefined) {
+                const badge = document.createElement('div');
+                badge.style.cssText = 'position:absolute;top:-12px;left:-12px;width:22px;height:22px;' +
+                    'background:#ff8c00;color:white;border-radius:50%;display:flex;align-items:center;' +
+                    'justify-content:center;font-size:11px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.3);';
+                badge.textContent = index;
+                overlay.appendChild(badge);
+            }
+
+            wrapper.appendChild(overlay);
+
+            // Scrolla per centrare l'overlay nella finestra del viewer
+            setTimeout(() => {
+                const containerEl = document.getElementById('viewer-container');
+                if (containerEl) {
+                    const overlayTop      = overlay.getBoundingClientRect().top;
+                    const containerTop    = containerEl.getBoundingClientRect().top;
+                    const containerHeight = containerEl.clientHeight;
+                    const scrollOffset    = containerEl.scrollTop + (overlayTop - containerTop) - (containerHeight / 2);
+                    containerEl.scrollTo({ top: scrollOffset, behavior: 'smooth' });
+                }
+            }, 150);
+
+            // Rimuovi dopo 6 secondi
+            setTimeout(() => overlay.remove(), 6000);
+        });
+    }
+
+    // ─── Esposizione globale per accesso diretto da PatOS (stessa origine) ──
+    // highlightItem in input_document.php può chiamare direttamente queste funzioni
+    window._cfdocScrollToPage   = scrollToPage;
+    window._cfdocHighlightRect  = highlightRect;
+    window._cfdocLoadPDF        = loadPDF;
+
+    // Init
+    const params = getParams();
+    if (params.file) {
+        loadPDF(params.file);
+    }
+</script>
+
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 **Riferimento path sorgente classe upload:** *core/System/Route.php*
 
-Nel Framework, si possono definire le “web routes” nel file “app/Routes/web.php”. Le “web routes” corrispondono alle pagine che saranno visitate dagli utenti. E' possibile definire anche un sistema di rotte "Api routes" per applicazione di tipo RESTFul nel file  “app/Routes/Api.php”.
+Nel Framework, si possono definire le “web routes” nel file “app/Routes/Web.php”. Le “web routes” corrispondono alle pagine che saranno visitate dagli utenti.
 
 **Lista dei metodi:**
 

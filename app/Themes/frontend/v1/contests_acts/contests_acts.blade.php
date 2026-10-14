@@ -21,7 +21,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <div class="col-12">
 
                     {{-- Nome pagina --}}
-                    <h1 class="page-title">{{e: !empty($h1) ? $h1 : $pageName }}</h1>
+                    <div class="div-title">
+                        <h1>{{e: !empty($h1) ? $h1 :  $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
+
+                    {{-- Inclusione di librerie esterne --}}
 
                     {{-- Contenuto della pagina --}}
                     {% include v1/layout/partials/page_content %}
@@ -31,15 +37,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </section>
 
-    @if(!empty($allowSearch))
-        {{-- Sezione per i filtri della ricerca --}}
-        {% include v1/layout/partials/search_header %}
-    @endif
 
     {{-- Sezione per i risultati della ricerca --}}
     {% include v1/layout/partials/search_results %}
 
 </main>
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

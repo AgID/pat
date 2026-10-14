@@ -21,7 +21,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -106,11 +105,6 @@ class NoticesActAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'object');
@@ -126,6 +120,8 @@ class NoticesActAdminController extends BaseAuthController
                     $join->on('contest_act.id', '=', 'object_notices_acts.object_contests_acts_id');
                 });
 
+            // Inclusione di librerie esterne
+
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_notices_acts.id', '=', $dataTable['searchValue']);
             }
@@ -137,8 +133,8 @@ class NoticesActAdminController extends BaseAuthController
             $records = NoticesActsModel::search($dataTable['searchValue'])
                 ->select(['object_notices_acts.id', 'object_contests_acts_id', 'object_notices_acts.owner_id', 'object_notices_acts.institution_id',
                     'object_notices_acts.object', 'object_notices_acts.date', 'object_notices_acts.updated_at', 'users.name', 'i.full_name_institution',
-                    'contest_act.object as relativeObj', 'object_notices_acts.publishing_status'])
-                ->join('users', 'users.id', '=', 'object_notices_acts.owner_id', 'left outer')
+                    'contest_act.object as relativeObj'])
+                ->join('users', 'users.id', '=', 'object_notices_acts.owner_id')
                 ->leftJoin('object_contests_acts as contest_act', function ($join) {
                     $join->on('contest_act.id', '=', 'object_notices_acts.object_contests_acts_id');
                 })
@@ -147,11 +143,14 @@ class NoticesActAdminController extends BaseAuthController
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
-                ->with('institution:id,full_name_institution');
+                ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id');
+
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_notices_acts.id', '=', $dataTable['searchValue']);
             }
+
 
             $records = $records->join('institutions as i', 'object_notices_acts.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
@@ -166,6 +165,10 @@ class NoticesActAdminController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -190,20 +193,27 @@ class NoticesActAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
-                        'scp' => getAclProfileInfo('scp'),
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
+                        'scp' => getAclProfileInfo('scp') && $workflowState == 'finale',
                     ])
-                        ->addEdit('admin/notices-act/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/notices-act/edit/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/notices-act/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/notices-act/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_scp', siteUrl('admin/notices-act/scp'), $record['id'], 'notices-acts', '', 'scp')
+                        ->addCustomButton('s_r_l', siteUrl('admin/notices-act/show-record-log/' . $record['id']), $record['id'], '20', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/notices-act/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -211,7 +221,10 @@ class NoticesActAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
 
                     $setTempData[] = $icon . (!empty($record['object'])
                             ? '<a href="' . siteUrl('/page/114/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
@@ -221,13 +234,9 @@ class NoticesActAdminController extends BaseAuthController
                     $setTempData[] = $contests;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -236,8 +245,7 @@ class NoticesActAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -257,7 +265,7 @@ class NoticesActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/notice-act/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/notice-act/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -282,7 +290,7 @@ class NoticesActAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         // Recupero i ruoli per il personale in base alla tipologia dell'ente
@@ -304,7 +312,7 @@ class NoticesActAdminController extends BaseAuthController
     {
 
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -336,17 +344,16 @@ class NoticesActAdminController extends BaseAuthController
                     'institution_id' => checkAlternativeInstitutionId(),
                     'date' => !empty(Input::post('date')) ? convertDateToDatabase(strip_tags(Input::post('date', true))) : null,
                     'object' => strip_tags(Input::post('object', true)),
+                    //'object_contests_acts_id' => setDefaultData((int)strip_tags(Input::post('object_contests_acts_id', true)), null, ['']),
                     'details' => Input::post('details', true),
                 ];
 
                 if (in_array(531, Input::post('public_in'))) {
-                    $arrayValues [] = [
-                        'cup' => setDefaultData(strip_tags(Input::post('cup', true)), null, ['', null]),
-                        'total_fin_amount' => setDefaultData(strip_tags(Input::post('total_fin_amount', true)), null, ['', null]),
-                        'financial_sources' => setDefaultData(strip_tags(Input::post('financial_sources', true)), null, ['', null]),
-                        'implementation_state' => setDefaultData(strip_tags(Input::post('implementation_state', true)), null, ['', null]),
-                        'projects_start_date' => !empty(Input::post('projects_start_date')) ? convertDateToDatabase(strip_tags(Input::post('projects_start_date', true))) : null,
-                    ];
+                    $arrayValues ['cup'] = setDefaultData(strip_tags(Input::post('cup', true)), null, ['', null]);
+                    $arrayValues ['total_fin_amount'] = !empty(Input::post('total_fin_amount')) ? toFloat(strip_tags(Input::post('total_fin_amount', true))) : null;
+                    $arrayValues ['financial_sources'] = setDefaultData(strip_tags(Input::post('financial_sources', true)), null, ['', null]);
+                    $arrayValues ['implementation_state'] = setDefaultData(strip_tags(Input::post('implementation_state', true)), null, ['', null]);
+                    $arrayValues ['projects_start_date'] = !empty(Input::post('projects_start_date')) ? convertDateToDatabase(strip_tags(Input::post('projects_start_date', true))) : null;
                 }
 
                 // Storage nuovo Atto dell' amministrazione
@@ -363,10 +370,6 @@ class NoticesActAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'notices_acts', $insert->id, $insert['object']);
 
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    // Generazione nuovo token
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -462,7 +465,7 @@ class NoticesActAdminController extends BaseAuthController
         $institutionTypeId = patOsInstituteInfo(['institution_type_id'])['institution_type_id'];
         $this->setPublicInData($data, $institutionTypeId);
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $noticeAct['institution_id'];
 
         $data['assignmentIds'] = Arr::pluck($noticeAct['assignments'], 'id');
@@ -506,10 +509,11 @@ class NoticesActAdminController extends BaseAuthController
                 }])
                 ->with('all_attachs');
 
+
             $noticeAct = $noticeAct->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($noticeAct['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($noticeAct['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -538,10 +542,10 @@ class NoticesActAdminController extends BaseAuthController
 
                 if (in_array(531, Input::post('public_in'))) {
                     $data['cup'] = setDefaultData(strip_tags(Input::post('cup', true)), null, ['', null]);
-                    $data['total_fin_amount'] = setDefaultData(strip_tags(Input::post('total_fin_amount', true)), null, ['', null]);
+                    $data['total_fin_amount'] = !empty(Input::post('total_fin_amount')) ? toFloat(strip_tags(Input::post('total_fin_amount', true))) : null;
                     $data['financial_sources'] = setDefaultData(strip_tags(Input::post('financial_sources', true)), null, ['', null]);
                     $data['implementation_state'] = setDefaultData(strip_tags(Input::post('implementation_state', true)), null, ['', null]);
-                    $data['projects_start_date'] = setDefaultData(strip_tags(Input::post('projects_start_date', true)), null, ['', null]);
+                    $data['projects_start_date'] = !empty(Input::post('projects_start_date')) ? convertDateToDatabase(strip_tags(Input::post('projects_start_date', true))) : null;
                 }
 
                 NoticesActsModel::where('id', $noticeActId)->updateWithLogs($noticeAct, $data);
@@ -563,8 +567,6 @@ class NoticesActAdminController extends BaseAuthController
                     $noticeAct['object']
                 );
 
-                // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
         } else {
@@ -581,11 +583,11 @@ class NoticesActAdminController extends BaseAuthController
      * @description Metodo per lo storage nelle tabelle di relazione
      * In caso di update, svuota prima le tabelle di relazione e poi inserisce i dati aggiornati
      *
-     * @param NoticesActsModel|null $noticeAct    Atto
-     * @param array|int|null        $commissions  Commissioni associate all'atto
-     * @param array|int|null        $contestsActs Bandi associati all'atto
-     * @param array|int|null        $publicIn     Sezioni di pubblica in dell'atto
-     * @param bool                  $rest         Parametro aggiuntivo
+     * @param NoticesActsModel|null $noticeAct Atto
+     * @param array|int|null $commissions Commissioni associate all'atto
+     * @param array|int|null $contestsActs Bandi associati all'atto
+     * @param array|int|null $publicIn Sezioni di pubblica in dell'atto
+     * @param bool $rest Parametro aggiuntivo
      * @return void
      */
     protected function clear(NoticesActsModel $noticeAct = null, array|int $commissions = null, array|int $contestsActs = null, array|int $publicIn = null, bool $rest = false): void
@@ -659,8 +661,7 @@ class NoticesActAdminController extends BaseAuthController
         $noticesAct->deleteWithLogs($noticesAct);
 
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
-        // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+
         redirect('admin/notices-act');
     }
 
@@ -675,7 +676,7 @@ class NoticesActAdminController extends BaseAuthController
     public function deletes(): void
     {
         // Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new NoticeActValidator();
         $validate = $validator->multipleSelection();
@@ -693,10 +694,9 @@ class NoticesActAdminController extends BaseAuthController
             //Elimino gli elementi
             foreach ($noticesAct as $noticeAct) {
                 $noticeAct->deleteWithLogs($noticeAct);
+
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -707,24 +707,30 @@ class NoticesActAdminController extends BaseAuthController
 
     /**
      * @description Funzione che setta i dati per il campo "Pubblica In"
-     * @param array $data              Array dei dati da passare alla vista
-     * @param int   $institutionTypeId Id tipo ente
+     * @param array $data Array dei dati da passare alla vista
+     * @param int $institutionTypeId Id tipo ente
      * @return void
      */
     private function setPublicInData(array &$data, int $institutionTypeId): void
     {
         $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_notices_acts')
             ->with(['section' => function ($query) {
-                $query->select(['section_fo.id', 'name']);
-            }])
-            ->get()
-            ->toArray();
+                $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                    ->leftJoin("rel_institution_type_sections_labeling", function ($join) {
+                        $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id");
+                    });
+            }]);
+
+        $publicIn = $publicIn->get()->toArray();
 
         $dataPublicIn = [];
 
         foreach ($publicIn as $tmp) {
-            $dataPublicIn[$tmp['section']['id']] = !empty($tmp['section']['label']) ? $tmp['section']['label'] : $tmp['section']['name'];
+            if(!empty($tmp['section'])) {
+                $dataPublicIn[$tmp['section']['id']] = !empty($tmp['section']['label']) ? $tmp['section']['label'] : $tmp['section']['name'];
+            }
         }
+
         // Per pubblica in
         $data['publicIn'] = $dataPublicIn;
     }

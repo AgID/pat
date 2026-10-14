@@ -28,17 +28,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <ul class="dropdown-menu dropdown-menu-right">
 
                                 @if(getAclAdd())
+                                    @php
+                                        $class = checkAlternativeInstitutionId() == 0 ? 'select-institution' : null;
+                                    @endphp
                                     <li>
-                                        <a href="{{siteUrl('admin/measure/create')}}"
+                                        <a href="{{ empty($class) ? siteUrl('admin/measure/create') : '#!' }}"
                                            title="Crea un nuovo provvedimento"
-                                           id="add-measure" class="dropdown-item" type="button">
+                                           id="add-measure" class="dropdown-item {{ $class }}" type="button">
                                             <i class="fas fa-plus-circle mr-1"></i> Aggiungi un nuovo Provvedimento
                                         </a>
                                     </li>
 
+
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
+                                @endif
+
+                                @if(getAclProfileInfo('scp'))
                                 @endif
 
                                 @if(getAclDelete())
@@ -49,8 +56,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             <i class="fas fa-trash mr-1"></i> Cancella Provvedimenti selezionati
                                         </a>
                                     </li>
+
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                 @endif
 
+                                @php
+                                    if(getAclAdd()){
+                                    }
+                                @endphp
                             </ul>
                         </div>
                     </div>
@@ -59,12 +74,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
             <div class="card-body">
 
+
                 <table id="measures_list" class="table table-bordered table-striped table-hover">
                     <thead class="bg-table-accessibility">
                     <tr>
                         <th>
                             {{ form_checkbox('item[]', null, false, 'class="checkbox_all"') }}
                         </th>
+
+                        {{-- Inclusione di librerie esterne --}}
 
                         <th>OGGETTO</th>
                         <th>NUMERO</th>
@@ -73,10 +91,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>DATA</th>
                         <th>CREATO DA</th>
                         <th>ULTIMA MODIFICA</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
+                        <th>ALLEGATI</th>
                         <th class="text-center">AZIONI</th>
                     </tr>
                     </thead>
@@ -85,6 +102,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </div>
 </div>
+
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
@@ -99,6 +117,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{ js('datatables-responsive/js/dataTables.responsive.min.js','common') }}
 {{ js('datatables-responsive/js/responsive.bootstrap4.min.js','common') }}
 <script type="text/javascript">
+
+
     $(document).ready(function () {
 
         {{-- Begin Paginazione records datatable --}}
@@ -115,7 +135,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             bDeferRender: true,
             ajax: {
                 url: "{{siteUrl('admin/measure/list')}}",
-                type: "GET"
+                type: "GET",
             },
             order: [
                 [7, 'desc']
@@ -134,29 +154,45 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 null,
                 null,
                 null,
-                {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                    @endif
+
                 {
                     orderable: false,
                     width: "5%"
 
                 },
+                {
+                    orderable: false,
+                    width: "5%"
+
+                }
             ],
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'
             },
-            fnDrawCallback: function (oSettings) {
-            }
         }).on('init.dt', function () {
+            //Funzione per la ricerca
+            searchDatatable(dtable);
         });
 
         $.fn.DataTable.ext.pager.numbers_length = 5;
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            getVersionsList('v-spinner');
+
+            /**
+             * Metodo che effettua la chiamata per ottenere la lista delle versioni presenti per l'elemento
+             * selezionato da mostrare nel modale.
+             */
+            {{-- Vedere nel footer --}}
+            openScpModal('scp-spinner');
+
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */
@@ -180,16 +216,31 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
              */
             {{-- Vedere nel footer --}}
             deleteRecord();
+
+
+            /**
+             * Metodo che apre il modale per i log
+             */
+            openLogModal();
+
+
+            /**
+             * Metodo che si occupa di ripubblicare gli elementi
+             */
+            republish();
+
+            /**
+             * workflow
+             */
+            askEdit();
         });
 
-        {{-- Seleziona deseleziona tutti i records nella tabella --}}
-        $('.checkbox_all').bind('click', function () {
-            $isChecked = $(this).is(':checked');
-            if (parseBool($isChecked) === true) {
-                $('.checkbox_item').prop('checked', true);
-            } else {
-                $('.checkbox_item').prop('checked', false);
-            }
+        //Seleziona deseleziona tutti i records nella tabella
+        document.querySelectorAll('.checkbox_all').forEach(checkbox => {
+            checkbox.addEventListener('click', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.checkbox_item').forEach(item => {item.checked = isChecked;});
+            });
         });
     });
 </script>

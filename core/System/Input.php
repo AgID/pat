@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -12,6 +12,13 @@ use \Maer\Config\Config;
 
 class Input
 {
+
+    const CAST_STRIP = 'strip';
+    const CAST_INT = 'int';
+    const CAST_LOWER = 'lower';
+    const CAST_UPPER = 'upper';
+    protected static $streamData = null;
+
     /**
      * @param null $index
      * @param bool $xssClean
@@ -19,16 +26,12 @@ class Input
      * @param bool $sanitizeData
      * @return array|null|string|string[]
      */
-    public static function post($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true)
+    public static function post($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true, $textTransforms = false)
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            return static::run($_POST, $index, $xssClean, $sanitizeKey, $sanitizeData);
+        if (!empty($_POST)) {
+            return self::processData(static::run($_POST, $index, $xssClean, $sanitizeKey, $sanitizeData), $textTransforms);
         } else {
-            if ($index !== null) { // intercetta solo lo stream con "item" post e non file.
-                $index = 'post.' . str_replace(['post.', 'file.'], ['', ''], $index);
-            }
-
-            return self::stream($index, $xssClean, $sanitizeKey, $sanitizeData);
+            return self::stream($index, $xssClean, $sanitizeKey, $sanitizeData, $textTransforms);
         }
     }
 
@@ -67,9 +70,13 @@ class Input
      * @param bool $sanitizeData
      * @return array|null|string|string[]
      */
-    public static function get($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true)
+    public static function get($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true, $textTransforms = false)
     {
-        return static::run($_GET, $index, $xssClean, $sanitizeKey, $sanitizeData);
+        return self::processData(
+            static::run($_GET, $index, $xssClean, $sanitizeKey, $sanitizeData),
+            $textTransforms
+        );
+
     }
 
     /**
@@ -152,21 +159,74 @@ class Input
      * @param bool $sanitizeData
      * @return array|null|string|string[]
      */
-    public static function stream($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true)
+    public static function stream($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true, $textTransforms = false)
     {
-        $_data = [];
-        new Stream($_data);
+        if (self::$streamData === null) {
+            $jsonData = file_get_contents('php://input');
 
-        if ($index === null) {
-            return static::run($_data, $index, $xssClean, $sanitizeKey, $sanitizeData);
-        } else {
-            return self::getData($index, $_data, $xssClean, $sanitizeKey, $sanitizeData);
+            if (!empty($jsonData)) {
+                self::$streamData = json_decode($jsonData, true);
+            } else {
+                self::$streamData = [];
+            }
         }
+
+        $data = static::run(self::$streamData, $index, $xssClean, $sanitizeKey, $sanitizeData);
+
+        return self::processData($data, $textTransforms);
+    }
+
+    private static function processData($data, $textTransforms)
+    {
+        if ($textTransforms ) {
+            if(!is_array($data)){
+                foreach ($textTransforms as $transform) {
+                    switch ($transform) {
+
+                        case 'lower':
+                            $data = strtolower((string)$data);
+                            break;
+                        case 'upper':
+                            $data = strtoupper((string)$data);
+                            break;
+                        case 'strip':
+                            $data = strip_tags((string)$data);
+                            break;
+                        case 'int':
+                            $data = (int)$data;
+                            break;
+                    }
+                }
+
+            }elseif(!empty($data) && is_array($data)){
+                //Nel caso di array applico le trasform direttamente ai valori dell'array.
+                //Attenzione, nel caso di array multidimensionali ritorno l'array stesso
+                foreach ($data as $k => $v){
+                    foreach ($textTransforms as $transform) {
+                        switch ($transform) {
+                            case 'lower':
+                                $data[$k] = !is_array($v) ? strtolower((string)$v) : $v;
+                                break;
+                            case 'upper':
+                                $data[$k] = !is_array($v) ? strtoupper((string)$v) : $v;
+                                break;
+                            case 'strip':
+                                $data[$k] = !is_array($v) ? strip_tags((string)$v) : $v;
+                                break;
+                            case 'int':
+                                $data[$k] = !is_array($v) ? (int)$v : $v;
+                                break;
+                        }
+                    }
+                }
+            }
+        }
+        return $data;
     }
 
     private static function getData($key, $array, $xssClean, $sanitizeKey, $sanitizeData)
     {
-        $sanitizeRequest = new SanitizeRequest();
+        $sanitizeRequest = SanitizeRequest::instance();
 
         $keys = explode('.', $key);
 
@@ -209,17 +269,7 @@ class Input
      */
     public static function files($index = null, $xssClean = false, $sanitizeKey = true, $sanitizeData = true)
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'PUT') {
-            return static::run('files', $index, $xssClean, $sanitizeKey, $sanitizeData);
-        } else {
-            $_data = [];
-            new Stream($_data);
-            if (isset($_data['file']) && !empty($_data['file'])) {
-                return $_data['file'];
-            }
-
-            return null;
-        }
+        return static::run('files', $index, $xssClean, $sanitizeKey, $sanitizeData);
     }
 
     /**
@@ -228,13 +278,31 @@ class Input
      */
     public static function ipAddress()
     {
-        $config = new Config();
-        $config->load(APP_PATH . 'Config/app.php');
+        // proxy_ips memoizzato per richiesta. Il valore e' un letterale in Config/app.php e non
+        // cambia durante la richiesta, mentre ogni chiamata qui ricaricava l'intero file di
+        // configurazione - che non e' un array statico: esegue Registry::get().
+        //
+        // Memoizzato SOLO questo valore e non l'oggetto Config: 'site_url' dipende da
+        // Registry::get('__pat_os_app_domain_name__'), popolato durante pre_system, quindi
+        // condividere l'oggetto significherebbe congelare un site_url nullo per chi lo legge dopo.
+        //
+        // Misurato: ipAddress() viene invocata 1 volta per richiesta (home, pagina di dettaglio e
+        // 404), quindi il risparmio e' un Config::load per richiesta - piccolo ma gratuito.
+        // La normalizzazione (stringa separata da virgole -> array) sta DENTRO il memo: cosi' la
+        // static contiene gia' il valore pronto e nessuna riga piu' sotto la riscrive. Lasciarla
+        // fuori avrebbe dato lo stesso risultato, ma con una static che si modifica da sola al
+        // primo passaggio: una trappola per chi tocchera' questo blocco dopo.
+        static $proxyIps = null;
 
-        $proxyIps = $config->get('proxy_ips', false);
+        if ($proxyIps === null) {
+            $config = new Config();
+            $config->load(APP_PATH . 'Config/app.php');
 
-        if (!empty($proxyIps) && !is_array($proxyIps)) {
-            $proxyIps = explode(',', str_replace(' ', '', $proxyIps));
+            $proxyIps = $config->get('proxy_ips', false);
+
+            if (!empty($proxyIps) && !is_array($proxyIps)) {
+                $proxyIps = explode(',', str_replace(' ', '', $proxyIps));
+            }
         }
 
         $ipAddress = self::server('REMOTE_ADDR');
@@ -383,7 +451,7 @@ class Input
             $file = false;
         }
 
-        $sanitize = new SanitizeRequest();
+        $sanitize = SanitizeRequest::instance();
         return $sanitize->fetchFromArray($method, $index, $xssClean, $sanitizeKey, $sanitizeData, $file);
     }
 

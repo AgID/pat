@@ -7,6 +7,7 @@
 namespace Http\Web\Admin;
 
 use Exception;
+use Helpers\ActivityLog;
 use Helpers\FileSystem\File;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
@@ -14,12 +15,18 @@ use Helpers\Validators\DatatableValidator;
 use Helpers\Validators\PersonnelValidator;
 use Model\DataHistoricalPersonnelModel;
 use Model\PersonnelModel;
-use Model\RelPersonnelPoliticalOrgansModel;
+use Model\PersonnelQualificationsModel;
+use Model\RelSectionsFoPoliticOrganPersonnel;
 use Model\RoleModel;
+use Model\SectionFoConfigPublicationArchive;
+use Model\SectionsFoModel;
+use Model\SelectDataModel;
+use Model\StructuresModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Registry;
 use System\Session;
 use System\Token;
@@ -112,11 +119,6 @@ class PersonnelAdminController extends BaseAuthController
                 7 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[8] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'full_name');
@@ -127,6 +129,7 @@ class PersonnelAdminController extends BaseAuthController
 
             $totalRecordsWithFilter = PersonnelModel::search($dataTable['searchValue'])
                 ->select(['count(object_personnel.id) as allcount'])
+                ->PersonnelFilterDataTable()
                 ->join('users', 'users.id', '=', 'object_personnel.owner_id', 'left outer')
                 ->join('role as r', 'r.id', '=', 'object_personnel.role_id', 'left outer')
                 ->join('institutions as i', 'object_personnel.institution_id', '=', 'i.id', 'left outer');
@@ -135,22 +138,24 @@ class PersonnelAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_personnel.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object_personnel.updated_at');
 
             $records = PersonnelModel::search($dataTable['searchValue'])
                 ->select(['object_personnel.id', 'full_name', 'firstname', 'lastname', 'object_personnel.updated_at', 'object_personnel.institution_id', 'political_role',
-                    'role_id', 'object_personnel.owner_id', 'archived', 'publishing_status', 'users.name', 'i.full_name_institution', 'r.name'])
+                    'role_id', 'object_personnel.owner_id', 'archived', 'users.name', 'i.full_name_institution', 'r.name'])
+                ->PersonnelFilterDataTable()
                 ->with('role:id,name')
                 ->with('referent_structures:id,structure_name,archived')
-                ->with('political_organ:id,political_organ_id,object_personnel_id')
+                ->with('political_organ')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('role as r', 'r.id', '=', 'object_personnel.role_id', 'left outer')
                 ->join('institutions as i', 'object_personnel.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_personnel.owner_id', 'left outer');
@@ -173,7 +178,12 @@ class PersonnelAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
+
                     $referentForStructures = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definite">N.D.</small>';
                     if (!empty($record['referent_structures']) && is_array($record['referent_structures'])) {
 
@@ -181,27 +191,18 @@ class PersonnelAdminController extends BaseAuthController
                         $tmpArchived = Arr::pluck($record['referent_structures'], 'archived');
                         $referentForStructures = str_replace(',', ',' . nbs(2), implode(',',
                             array_map(
-                                function ($name) {
+                                function ($name, $archived) {
                                     return ('<small class="badge-primary mb-1">'
-                                        . escapeXss($name) . '</small>');
+                                        . ($archived
+                                            ? '<i class="fas fa-folder archived" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato"></i> '
+                                            : '') . escapeXss($name) . '</small>');
                                 }, $tmpStructures, $tmpArchived)));
 
                     }
 
                     $politicianOrgans = null;
-                    if (!empty($record['political_organ']) && is_array($record['political_organ'])) {
-                        $organs = config('politicalAdministrative', null, 'app');
-                        $tmpOrgans = Arr::pluck($record['political_organ'], 'political_organ_id');
-
-                        foreach ($tmpOrgans as $organ) {
-                            if(array_key_exists($organ, $organs)) {
-                                $politicianOrgans [] = $organs[$organ];
-                            }
-                        }
-
-                        if(!empty($politicianOrgans) && is_array($politicianOrgans)) {
-                            $politicianOrgans = implode(', ', $politicianOrgans);
-                        }
+                    if (!empty($record['political_organ'])){
+                        $politicianOrgans = implode(', ', array_map(fn($item) => $this->getSectionName($item['section_fo_id']), $record['political_organ']));
                     }
 
                     $updateAt = !empty($record['updated_at']) ? '<small class="badge badge-info"> 
@@ -209,18 +210,27 @@ class PersonnelAdminController extends BaseAuthController
                         . date('d-m-Y H:i:s', strtotime($record['updated_at'])) .
                         '</small>' : '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale',
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/personnel/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/personnel/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/personnel/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/personnel/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/personnel/archive'), $record['id'], 'personnel', escapeXss($record['full_name']), 'archiving')
+                        ->addCustomButton('s_r_l', siteUrl('admin/personnel/show-record-log/' . $record['id']), $record['id'], '3', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/personnel/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -231,7 +241,10 @@ class PersonnelAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', escapeXss($record['id'])) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = !empty($record['lastname'])
                         ? $icon . (($link) ? '<a href="' . siteUrl('/page/4/details/' . $record['id'] . '/' . urlTitle($record['full_name'])) . '" target="_blank">' . escapeXss($record['lastname']) . '</a>' : escapeXss($record['lastname']))
                         : $icon . (($link) ? '<a href="' . siteUrl('/page/4/details/' . $record['id'] . '/' . urlTitle($record['full_name'])) . '" target="_blank">' . escapeXss($record['full_name']) . '</a>' : escapeXss($record['lastname']));
@@ -239,17 +252,13 @@ class PersonnelAdminController extends BaseAuthController
                         ? (($link) ? '<a href="' . siteUrl('/page/4/details/' . $record['id'] . '/' . urlTitle($record['full_name'])) . '" target="_blank">' . escapeXss($record['firstname']) . '</a>' : escapeXss($record['lastname']))
                         : 'N.D.';
                     $setTempData[] = !empty($record['role']['name']) ? escapeXss($record['role']['name']) : 'N.D.';
-                    $setTempData[] = $politicianOrgans;
+                    $setTempData[] = (!empty($politicalRole) ? $politicalRole . ' - ' : '') . $politicianOrgans;
                     $setTempData[] = $referentForStructures;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -260,8 +269,7 @@ class PersonnelAdminController extends BaseAuthController
                 $response ['aaData'] = $data;
 
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -281,7 +289,7 @@ class PersonnelAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/personnel/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/personnel/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -307,17 +315,26 @@ class PersonnelAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
-        $allRoles = RoleModel::orderBy('id', 'ASC')
-            ->get();
+        $institutionTypeId = patOsInstituteInfo(['institution_type_id']);
+        $institutionId = (checkAlternativeInstitutionId() != 0 ? checkAlternativeInstitutionId() : PatOsInstituteId());
 
-        $data['politicalAdministrative'] = config('politicalAdministrative', null, 'app');
+        $allRoles = RoleModel::query();
+        $allRoles = $allRoles->orderBy('name', 'ASC')->get();
+
+
+        $politicOrgan = getSections(605);
+        $data['politicalAdministrative'] = [];
+        array_walk( $politicOrgan, function($section) use (&$data){
+            $data['politicalAdministrative'][$section['id']] = (!empty($section['label']) ? $section['label'] : $section['name']);
+        });
+
+
+        $data['qualifications'] = optional(PersonnelQualificationsModel::where('view_in_personnel_form', '=', 1)
+            ->get()->pluck('name', 'id'))->toArray();
+
 
         //Recupero le sezioni per il "pubblica in"
-        $data['publicIn'] = [241 => 'Collegio dei revisori dei conti', 243 => 'Direzione Generale',
-            246 => 'Titolari di incarichi di amministrazione, di direzione o di governo', 247 => 'Cessati dall\'incarico',
-            60 => 'Titolari di incarichi dirigenziali (ex Dirigenti) - Titolari di incarichi dirigenziali (dirigenti non generali)',
-            63 => 'Posizioni organizzative - Posizioni organizzative',
-            58 => 'Titolari di incarichi dirigenziali amministrativi di vertice - Titolari di incarichi dirigenziali amministrativi di vertice'];
+        $data['publicIn'] = $this->setPublicInData($institutionTypeId);
 
         // Labels
         $data['labels'] = [];
@@ -326,10 +343,15 @@ class PersonnelAdminController extends BaseAuthController
         $data['roles'] = [null => ''] + $allRoles->pluck('name', 'id')->toArray();
         $data['political'] = Arr::pluck(array_filter($allRoles->toArray(), function ($var) {
             return ($var['political'] == 1);
-        }), 'name');
-        $data['assignmentIds'] = null;
+        }), 'name', 'id');
+        $data['po_dir_fields'] = Arr::pluck(array_filter($allRoles->toArray(), function ($var) {
+            return (!empty($var['po_dir_fields']));
+        }), 'name', 'id');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        $data['assignmentIds'] = null;
+        $data['institution_type_id'] = $institutionTypeId['institution_type_id'];
+
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('personnel/form_store', $data, 'admin');
@@ -346,7 +368,7 @@ class PersonnelAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
         $json = new JsonResponse();
         $code = $json->success();
         $doUpload = null;
@@ -387,6 +409,7 @@ class PersonnelAdminController extends BaseAuthController
                         'owner_id' => $getIdentity['id'],
                         'institution_id' => checkAlternativeInstitutionId(),
                         'role_id' => strip_tags(Input::post('role_id', true)),
+                        'qualification_id' => !empty(Input::post('qualification_id')) ? strip_tags(Input::post('qualification_id', true)) : null,
                         'title' => setDefaultData(strip_tags(Input::post('title', true)), null, ['']),
                         'firstname' => strip_tags(Input::post('firstname', true)),
                         'lastname' => strip_tags(Input::post('lastname', true)),
@@ -416,7 +439,9 @@ class PersonnelAdminController extends BaseAuthController
                         'compensations' => Input::post('compensations', true),
                         'trips_import' => Input::post('trips_import', true),
                         'other_assignments' => Input::post('other_assignments', true),
+                        'other_assignments_institutions' => Input::post('other_assignments_institutions', true),
                         'notes' => Input::post('notes', true),
+                        'total_emoluments' => Input::post('total_emoluments', true),
                     ];
 
                     // Storage nuovo Personale
@@ -444,10 +469,6 @@ class PersonnelAdminController extends BaseAuthController
                     // Storage allegati associati al personale.
                     $attach->storage('attach_files', 'personnel', $insert->id, $insert['full_name']);
 
-                    // Generazione nuovo token
-                    if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                    }
                     $json->set('message', __('success_save_operation', null, 'patos'));
                 }
 
@@ -548,28 +569,44 @@ class PersonnelAdminController extends BaseAuthController
         // Allegati
         $attach = new AttachmentArchive();
 
-        $allRoles = RoleModel::orderBy('id', 'ASC')
-            ->get();
+        // Recupero i ruoli per il personale in base alla tipologia dell'ente
+        $institutionTypeId = patOsInstituteInfo(['institution_type_id']);
+        $institutionId = (checkAlternativeInstitutionId() != 0 ? checkAlternativeInstitutionId() : PatOsInstituteId());
+
+        $allRoles = RoleModel::query();
+        $allRoles = $allRoles->orderBy('name', 'ASC')->get();
 
         $data['roles'] = [null => ''] + $allRoles->pluck('name', 'id')->toArray();
+
         $data['political'] = Arr::pluck(array_filter($allRoles->toArray(), function ($var) {
             return ($var['political'] == 1);
-        }), 'name');
+        }), 'name', 'id');
 
-        $data['politicalAdministrative'] = config('politicalAdministrative', null, 'app');
+        $data['po_dir_fields'] = Arr::pluck(array_filter($allRoles->toArray(), function ($var) {
+            return (!empty($var['po_dir_fields']));
+        }), 'name', 'id');
+
+        $politicOrgan = getSections(605);
+        $data['politicalAdministrative'] = [];
+        array_walk( $politicOrgan, function($section) use (&$data){
+            $data['politicalAdministrative'][$section['id']] = (!empty($section['label']) ? $section['label'] : $section['name']);
+        });
 
         //Recupero le sezioni per il "pubblica in"
-        $data['publicIn'] = [241 => 'Collegio dei revisori dei conti', 243 => 'Direzione Generale',
-            246 => 'Titolari di incarichi di amministrazione, di direzione o di governo', 247 => 'Cessati dall\'incarico',
-            60 => 'Titolari di incarichi dirigenziali (ex Dirigenti) - Titolari di incarichi dirigenziali (dirigenti non generali)',
-            63 => 'Posizioni organizzative - Posizioni organizzative',
-            58 => 'Titolari di incarichi dirigenziali amministrativi di vertice - Titolari di incarichi dirigenziali amministrativi di vertice'];
+        $data['publicIn'] = $this->setPublicInData($institutionTypeId);
+
+        $data['qualifications'] = optional(PersonnelQualificationsModel::select(['id', 'name'])
+            ->where('view_in_personnel_form', '=', 1)
+            ->orWhere('id', $personnel['qualification_id'])
+            ->get()->pluck('name', 'id'))->toArray();
 
         $data['structureIds'] = Arr::pluck($personnel['referent_structures'], 'id');
         $data['assignmentIds'] = Arr::pluck($personnel['assignments'], 'id');
         $data['measureIds'] = Arr::pluck($personnel['measures'], 'id');
         $data['publicInIDs'] = Arr::pluck($personnel['public_in'], 'section_fo_id');
-        $data['organIds'] = Arr::pluck($personnel['political_organ'], 'political_organ_id');
+        $data['organIds'] = Arr::pluck($personnel['political_organ'], 'section_fo_id');
+
+        $data['institution_type_id'] = $institutionTypeId['institution_type_id'];
 
         // Lista degli allegati
         $data['listAttach'] = $attach->getAllByObject(
@@ -596,7 +633,7 @@ class PersonnelAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $personnel['institution_id'];
         $data['seo'] = $personnel['p_s_d_r'] ?? null;
         $data['scp'] = $personnel['scp'] ?? null;
@@ -634,13 +671,14 @@ class PersonnelAdminController extends BaseAuthController
                 ->with('measures:id,object')
                 ->with('role:id,name')
                 ->with('public_in')
-                ->with('political_organ:id,political_organ_id')
+                ->with('political_organ')
                 ->with('all_attachs');
+
 
             $personnel = $personnel->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($personnel->owner_id) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($personnel->owner_id) ? ['update', 'create'] : 'update', true);
 
             $photo = $personnel->photo;
 
@@ -686,12 +724,13 @@ class PersonnelAdminController extends BaseAuthController
                 if ($doAction) {
                     $data = [];
                     $data['role_id'] = strip_tags(Input::post('role_id', true));
+                    $data['qualification_id'] = !empty(Input::post('qualification_id')) ? strip_tags(Input::post('qualification_id', true)) : null;
                     $data['title'] = setDefaultData(strip_tags(Input::post('title', true)), null, ['']);
                     $data['firstname'] = strip_tags(Input::post('firstname', true));
                     $data['lastname'] = strip_tags(Input::post('lastname', true));
                     $data['full_name'] = getFullName($data['lastname'], $data['firstname']);
-                    $data['determined_term'] = setDefaultData(strip_tags(Input::post('determined_term', true)), null, ['']);
-                    $data['on_leave'] = setDefaultData(strip_tags(Input::post('on_leave', true)), 0, ['']);
+                    $data['determined_term'] = setDefaultData(strip_tags(Input::post('determined_term', true)), 0, ['', null]);
+                    $data['on_leave'] = setDefaultData(strip_tags(Input::post('on_leave', true)), 0, ['', null]);
                     $data['photo'] = !empty($doUpload['data']['file_name']) ? $doUpload['data']['file_name'] : $photo;
                     $data['phone'] = strip_tags(Input::post('phone', true));
                     $data['mobile_phone'] = strip_tags(Input::post('mobile_phone', true));
@@ -715,10 +754,13 @@ class PersonnelAdminController extends BaseAuthController
                     $data['compensations'] = Input::post('compensations', true);
                     $data['trips_import'] = Input::post('trips_import', true);
                     $data['other_assignments'] = Input::post('other_assignments', true);
+                    $data['other_assignments_institutions'] = Input::post('other_assignments_institutions', true);
                     $data['notes'] = Input::post('notes', true);
+                    $data['total_emoluments'] = Input::post('total_emoluments', true);
 
                     // Update Personale
                     PersonnelModel::where('id', '=', $personnelId)->updateWithLogs($personnel, $data);
+
 
                     if (Input::post('_historical', true)) {
                         // Insert e update dei dati dello storico
@@ -745,12 +787,6 @@ class PersonnelAdminController extends BaseAuthController
                         $personnel->full_name,
                     );
 
-
-                    // Generazione nuovo token
-                    if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
-                        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                    }
-
                     $json->set('message', __('success_update_operation', null, 'patos'));
                 }
 
@@ -775,12 +811,12 @@ class PersonnelAdminController extends BaseAuthController
      * @description Metodo per lo storage nelle tabelle di relazione
      * In caso di update, svuota prima le tabelle di relazione e poi inserisce i dati aggiornati
      *
-     * @param PersonnelModel|null $personnel       Personale per cui inserire le relazioni
-     * @param array|int|null      $structures      Strutture associate al personale
-     * @param array|int|null      $assignments     Incarichi associati al personale
-     * @param array|int|null      $measures        Provvedimenti associati al personale
-     * @param array|int|null      $publicIn        Sezioni per il "pubblica in"
-     * @param array|int|null      $politicalOrgans Valori per il campo "Organo-politico"
+     * @param PersonnelModel|null $personnel Personale per cui inserire le relazioni
+     * @param array|int|null $structures Strutture associate al personale
+     * @param array|int|null $assignments Incarichi associati al personale
+     * @param array|int|null $measures Provvedimenti associati al personale
+     * @param array|int|null $publicIn Sezioni per il "pubblica in"
+     * @param array|int|null $politicalOrgans Valori per il campo "Organo-politico"
      * @return void
      */
     protected function clear(PersonnelModel $personnel = null, array|int $structures = null, array|int $assignments = null, array|int $measures = null, array|int $publicIn = null, array|int $politicalOrgans = null): void
@@ -821,15 +857,22 @@ class PersonnelAdminController extends BaseAuthController
         //Insert/Update nella tabella di relazione
         $personnel->public_in()->sync($dataPublicIn);
 
-        $personnel->political_organ()->delete();
+        //Organi politici
+        RelSectionsFoPoliticOrganPersonnel::where('object_personnel_id', $personnel->id)->delete();
         if ($politicalOrgans !== null) {
-            foreach ($politicalOrgans as $organ) {
-                RelPersonnelPoliticalOrgansModel::create([
-                   'object_personnel_id' => $personnel->id,
-                   'political_organ_id' => is_array($organ) ? strip_tags($organ['id']) : strip_tags($organ),
-                ]);
-            }
+            $now = date("Y-m-d H:i:s");
+            $dataPoliticalOrgans = array_map(function($org) use($personnel,$now){
+                return [
+                    'institution_id' => $personnel->institution_id,
+                    'section_fo_id' => $org,
+                    'object_personnel_id' => $personnel->id,
+                    'created_at' => $now,
+                    'updated_at' => $now
+                ];
+            }, $politicalOrgans);
+            RelSectionsFoPoliticOrganPersonnel::insert($dataPoliticalOrgans);
         }
+
     }
 
     /**
@@ -872,7 +915,7 @@ class PersonnelAdminController extends BaseAuthController
         }
 
         // Generazione nuovo token
-        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//        Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         redirect('admin/personnel');
@@ -889,7 +932,7 @@ class PersonnelAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
         $validator = new PersonnelValidator();
         $validate = $validator->multipleSelection();
 
@@ -912,8 +955,6 @@ class PersonnelAdminController extends BaseAuthController
                 }
             }
 
-            // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
@@ -937,7 +978,8 @@ class PersonnelAdminController extends BaseAuthController
         $config['allowed_types'] = 'png|jpeg|gif|jpg';
         $config['encrypt_name'] = true;
         $config['file_ext_tolower'] = true;
-        $config['max_size'] = 5024;
+        // Allineato al limite già applicato da PersonnelValidator.
+        $config['max_size'] = 1024;
         $config['min_width'] = 50;
         $config['min_height'] = 50;
         $config['max_filename'] = 50;
@@ -960,11 +1002,46 @@ class PersonnelAdminController extends BaseAuthController
         return $data;
     }
 
+    /**
+     * @description Funzione che setta i dati per il campo "Pubblica In"
+     * @param bool|array|string|null $institutionTypeId Id del tipo ente
+     * @return array
+     */
+    private function setPublicInData(bool|array|string|null $institutionTypeId): array
+    {
+        $publicIn = SectionFoConfigPublicationArchive::where('archive_name', '=', 'object_personnel')
+            ->leftJoin("rel_institution_type_public_in_section", function ($join) use ($institutionTypeId) {
+                $join->on("rel_institution_type_public_in_section.section_public_in_id", "=", "section_fo_config_publication_archive.id")
+                    ->where('rel_institution_type_public_in_section.institution_type_id', '=', $institutionTypeId['institution_type_id']);
+            })
+//            ->join('rel_institution_type_public_in_section', 'rel_institution_type_public_in_section.section_public_in_id', '=', 'section_fo_config_publication_archive.id')
+            ->with(['section' => function ($query) use ($institutionTypeId) {
+                $query->select(['section_fo.id', 'name', 'rel_institution_type_sections_labeling.label'])
+                    ->leftJoin("rel_institution_type_sections_labeling", function ($join) use ($institutionTypeId) {
+                        $join->on("rel_institution_type_sections_labeling.sections_id", "=", "section_fo.id")
+                            ->where('rel_institution_type_sections_labeling.institution_type_id', '=', $institutionTypeId['institution_type_id']);
+                    });
+            }]);
+
+        $publicIn = $publicIn->get()->toArray();
+
+        $dataPublicIn = [];
+
+        foreach ($publicIn as $tmp) {
+            if(!empty($tmp['section'])){
+                $dataPublicIn[$tmp['section']['id']] = !empty($tmp['label']) ? $tmp['label'] . ' - ' : '';
+                $dataPublicIn[$tmp['section']['id']] .= !empty($tmp['section']['label']) ? $tmp['section']['label'] : $tmp['section']['name'];
+            }
+        }
+
+        return $dataPublicIn;
+    }
+
 
     /**
      * @description Metodo per l'update e l'insert dei dati dello storico del personale
      *
-     * @param int|null       $personnelId    {id del personale}
+     * @param int|null $personnelId {id del personale}
      * @param array|int|null $historicalData {dati dello storico}
      * @return void
      */
@@ -987,4 +1064,22 @@ class PersonnelAdminController extends BaseAuthController
             DataHistoricalPersonnelModel::create($histData);
         }
     }
+
+
+    protected function getSectionName($sectionID = 0)
+    {
+
+        if(empty($sectionID)){
+            return "";
+        }
+
+        $name = SectionsFoModel::select(['id', 'name'])->where('id', $sectionID)->first();
+
+        if(!empty($name)){
+            return $name->toArray()['name'];
+        }
+        return "";
+
+    }
+
 }

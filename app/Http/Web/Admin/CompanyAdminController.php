@@ -103,10 +103,6 @@ class CompanyAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
@@ -122,6 +118,7 @@ class CompanyAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_company.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
 
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
@@ -130,12 +127,13 @@ class CompanyAdminController extends BaseAuthController
             //Dati da mostrare nel datatable
             $records = CompanyModel::search($dataTable['searchValue'])
                 ->select(['object_company.id', 'object_company.updated_at', 'object_company.owner_id', 'object_company.institution_id',
-                    'company_name', 'website_url', 'archived', 'publishing_status', 'typology', 'users.name', 'i.full_name_institution'])
+                    'company_name', 'website_url', 'archived', 'typology', 'users.name', 'i.full_name_institution'])
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_company.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_company.owner_id', 'left outer');
 
@@ -143,6 +141,8 @@ class CompanyAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_company.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
 
             $records = $records->orderBy($order, $dataTable['columnSortOrder'])
                 ->offset($dataTable['start'])
@@ -156,6 +156,10 @@ class CompanyAdminController extends BaseAuthController
             $response ['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
                     if ($record['typology'] == 'ente pubblico vigilato') {
@@ -173,26 +177,39 @@ class CompanyAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale',
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/company/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/company/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/company/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/company/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/company/archive'), $record['id'], 'company', escapeXss($record['company_name']), 'archiving')
+                        ->addCustomButton('s_r_l',siteUrl('admin/company/show-record-log/'.$record['id']), $record['id'], '6', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/company/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = !empty($record['company_name'])
                         ? $icon . '<a href="' . $recordUrl . '" target="_blank">' . escapeXss($record['company_name']) . '</a>'
                         : 'N.D.';
@@ -200,13 +217,12 @@ class CompanyAdminController extends BaseAuthController
                     $setTempData[] = !empty($record['website_url']) ? escapeXss($record['website_url']) : 'N.D.';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -215,8 +231,7 @@ class CompanyAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -235,7 +250,7 @@ class CompanyAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/company/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/company/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -263,8 +278,9 @@ class CompanyAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('company/form_store', $data, 'admin');
     }
@@ -280,7 +296,7 @@ class CompanyAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -316,6 +332,7 @@ class CompanyAdminController extends BaseAuthController
                     'participation_measure' => strip_tags(Input::post('participation_measure', true)),
                     'duration' => strip_tags(Input::post('duration', true)),
                     'year_charges' => Input::post('year_charges', true),
+                    'notes' => Input::post('notes', true),
                     'description' => Input::post('description', true),
                     'treatment_assignments' => Input::post('treatment_assignments', true),
                     'website_url' => strip_tags(Input::post('website_url', true)),
@@ -324,8 +341,10 @@ class CompanyAdminController extends BaseAuthController
                     'incompatibility_dec_link' => strip_tags(Input::post('incompatibility_dec_link', true)),
                 ];
 
+
                 // Storage nuova Società
                 $insert = CompanyModel::createWithLogs($arrayValues);
+
 
                 $this->clear(
                     $insert,
@@ -334,6 +353,7 @@ class CompanyAdminController extends BaseAuthController
 
                 // Storage allegati associati alla società
                 $attach->storage('attach_files', 'company', $insert->id, $arrayValues['company_name']);
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -438,12 +458,14 @@ class CompanyAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $company['institution_id'];
 
         $data['restore'] = $restore;
         $data['representativeIds'] = Arr::pluck($company['representatives'], 'id');
         $data['seo'] = $company['p_s_d_r'] ?? null;
+
+
         render('company/form_store', $data, 'admin');
     }
 
@@ -477,10 +499,11 @@ class CompanyAdminController extends BaseAuthController
                 ->with('representatives:id,full_name')
                 ->with('all_attachs');
 
+
             $company = $company->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($company['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($company['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -502,6 +525,7 @@ class CompanyAdminController extends BaseAuthController
                 $data['participation_measure'] = strip_tags(Input::post('participation_measure', true));
                 $data['duration'] = strip_tags(Input::post('duration', true));
                 $data['year_charges'] = Input::post('year_charges', true);
+                $data['notes'] = Input::post('notes', true);
                 $data['description'] = Input::post('description', true);
                 $data['treatment_assignments'] = Input::post('treatment_assignments', true);
                 $data['website_url'] = strip_tags(Input::post('website_url', true));
@@ -509,8 +533,10 @@ class CompanyAdminController extends BaseAuthController
                 $data['inconferability_dec_link'] = strip_tags(Input::post('inconferability_dec_link', true));
                 $data['incompatibility_dec_link'] = strip_tags(Input::post('incompatibility_dec_link', true));
 
+
                 // Update Società
                 CompanyModel::where('id', $companyId)->updateWithLogs($company, $data);
+
 
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
@@ -526,6 +552,7 @@ class CompanyAdminController extends BaseAuthController
                     $company['institution_id'],
                     $company['company_name']
                 );
+
 
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
@@ -608,7 +635,7 @@ class CompanyAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new CompanyValidator();
         $validate = $validator->multipleSelection();
@@ -623,6 +650,7 @@ class CompanyAdminController extends BaseAuthController
             //Elimino gli elementi
             foreach ($companies as $company) {
                 $company->deleteWithLogs($company);
+
             }
 
 
@@ -634,4 +662,5 @@ class CompanyAdminController extends BaseAuthController
 
         redirect('/admin/company');
     }
+
 }

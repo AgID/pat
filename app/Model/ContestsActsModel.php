@@ -13,7 +13,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -28,6 +29,7 @@ class ContestsActsModel extends Model
     protected $table = 'object_contests_acts';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaContestsActsModel';
     protected string $archiveName = 'contest_acts';
 
     protected $fillable = [
@@ -86,8 +88,11 @@ class ContestsActsModel extends Model
         'work_end_date',
         'contracting_stations_publication_date',
         'last_update_date',
+        'publishing_end',
+        'unfixed',
         'publishing_responsable',
         'register_id',
+        '__tag',
         'created_at',
         'updated_at'
     ];
@@ -106,7 +111,8 @@ class ContestsActsModel extends Model
         'foster' => 'object',
         'alert' => 'object',
         'lot' => 'object',
-        'liquidation' => 'object'
+        'liquidation' => 'object',
+        'variation' => 'object'
     ];
 
     /**
@@ -115,8 +121,17 @@ class ContestsActsModel extends Model
      */
     protected $searchable = [
         'object_contests_acts.object',
+        'object_contests_acts.source_id',
         'object_contests_acts.type',
         'object_contests_acts.cig',
+//        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
         'users.name'
     ];
 
@@ -125,10 +140,10 @@ class ContestsActsModel extends Model
      * @var array[]
      */
     protected $searchableWhereHas = [
-        'structure' => [
-            'table' => 'object_structures',
-            'field' => ['structure_name']
-        ],
+//        'structure' => [
+//            'table' => 'object_structures',
+//            'field' => ['structure_name']
+//        ],
         'relative_notice' => [
             'field' => ['cig']
         ],
@@ -136,28 +151,28 @@ class ContestsActsModel extends Model
             'field' => [
                 'cig',
             ],
-            'whereAs' => [
-                [
-                    'table' => 'relative_notice',
-                    'field' => 'cig'
-                ],
-                [
-                    'table' => 'structure',
-                    'field' => 'structure_name'
-                ]
-            ],
+//            'whereAs' => [
+//                [
+//                    'table' => 'relative_notice',
+//                    'field' => 'cig'
+//                ],
+//                [
+//                    'table' => 'structure',
+//                    'field' => 'structure_name'
+//                ]
+//            ],
         ],
-        'awardees' => [
-            'table' => 'object_supplie_list',
-            'field' => ['name'],
-        ],
-        'relative_procedure_awardees' => [
-            'table' => 'object_supplie_list',
-            'field' => ['name'],
-        ],
-        'multi_lots' => [
-            'field' => ['cig']
-        ]
+//        'awardees' => [
+//            'table' => 'object_supplie_list',
+//            'field' => ['name'],
+//        ],
+//        'relative_procedure_awardees' => [
+//            'table' => 'object_supplie_list',
+//            'field' => ['name'],
+//        ],
+//        'multi_lots' => [
+//            'field' => ['cig']
+//        ]
     ];
 
     /**
@@ -171,20 +186,13 @@ class ContestsActsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -195,7 +203,25 @@ class ContestsActsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
+    }
+
+    /**
+     * Funzione post insert, chiamata automaticamente a seguito della funzione custom createWithLogs
+     * @param object $element Record appena inserito
+     * @return void
+     */
+    public function postInsert(object $element): void
+    {
+    }
+
+    /**
+     * Funzione post update, chiamata automaticamente a seguito della funzione custom updateWithLogs
+     * @param object $element Elemento appena aggiornato
+     * @return void
+     */
+    public function postUpdate(object $element): void
+    {
     }
 
     /**
@@ -241,6 +267,15 @@ class ContestsActsModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con le Strutture (Tabella object_structures)
      * Rappresenta la struttura associata al bando di gara
      * @return BelongsTo
@@ -283,6 +318,28 @@ class ContestsActsModel extends Model
     {
         return $this->hasMany(ContestsActsModel::class, 'relative_notice_id', 'id')
             ->where('typology', '=', 'result');
+    }
+
+    /**
+     *
+     * @return HasMany
+     */
+    public function scp(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     * @return HasOne
+     */
+    public function avcp(): HasOne
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__,
+            'o' => true
+        ]);
     }
 
     /**
@@ -443,9 +500,10 @@ class ContestsActsModel extends Model
      */
     public function public_in(): BelongsToMany
     {
-        return $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_contest_acts_public_in', 'contest_act_id', 'public_in_id', 'id', 'section_fo_id')
+        $publicIn = $this->belongsToMany(SectionFoConfigPublicationArchive::class, 'rel_contest_acts_public_in', 'contest_act_id', 'public_in_id', 'id', 'section_fo_id')
             ->withTimestamps()
             ->groupBy('public_in_id');
+        return $publicIn;
     }
 
     /**
@@ -561,6 +619,183 @@ class ContestsActsModel extends Model
     }
 
     /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative ai bandi di gara
+     * @param \Illuminate\Database\Eloquent\Builder $query Query
+     * @param int|null $structure Id struttura
+     * @param string|null $object Oggetto
+     * @param int|null $contraent Scelta del contraente
+     * @param string|null $cig Codice CIG
+     * @param string|null $startLiquidationDate Data inizio (liquidazione)
+     * @param string|null $endLiquidationDate Data fine (liquidazione)
+     * @return void
+     */
+    public function scopeFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        int                                   $structure = null,
+        string                                $object = null,
+        int                                   $contraent = null,
+        string                                $cig = null,
+        string                                $startLiquidationDate = null,
+        string                                $endLiquidationDate = null): void
+    {
+        if (!empty($structure)) {
+            $query->join('object_contests_acts as relative', 'relative.id', 'object_contests_acts.relative_procedure_id');
+            $query->where('relative.object_structures_id', '=', $structure);
+        }
+
+        if (!empty($object)) {
+            $query->where('object_contests_acts.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($contraent)) {
+            $query->join('object_contests_acts as relative_contraent', 'relative_contraent.id', 'object_contests_acts.relative_procedure_id');
+            $query->where('relative_contraent.contraent_choice', '=', $contraent);
+        }
+
+        if (!empty($cig)) {
+            $query->join('object_contests_acts as relative_cig', 'relative_cig.id', 'object_contests_acts.relative_procedure_id');
+            $query->where('relative_cig.cig', 'LIKE', '%' . $cig . '%');
+        }
+
+        if (!empty($startLiquidationDate)) {
+            $query->where('object_contests_acts.activation_date', '>=', date('Y-m-d H:i:s', strtotime($startLiquidationDate)));
+        }
+
+        if (!empty($endLiquidationDate)) {
+            $query->where('object_contests_acts.activation_date', '<=', date('Y-m-d 23:59:59', strtotime($endLiquidationDate)));
+        }
+    }
+
+
+    public function scopeVariationFilter(
+        \Illuminate\Database\Eloquent\Builder $query, string $object = null): void
+    {
+        if (!empty($object)) {
+            $query->where('object_contests_acts.object', 'LIKE', '%' . $object . '%');
+        }
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative ai bandi di gara
+     * @param \Illuminate\Database\Eloquent\Builder $query Query
+     * @param int|null $structure Id della struttura
+     * @param string|null $object Oggetto
+     * @param int|null $contraent Scelta del contraente
+     * @param string|null $cig Codice CIG
+     * @param string|null $startDate Data inizio
+     * @param string|null $endDate Data fine
+     * @param string|null $sector Settore
+     * @return void
+     */
+    public function scopeContestActsFilter(
+        \Illuminate\Database\Eloquent\Builder $query,
+        int                                   $structure = null,
+        string                                $object = null,
+        string|int                            $contraent = null,
+        string                                $cig = null,
+        string                                $startDate = null,
+        string                                $endDate = null,
+        string                                $sector = null): void
+    {
+        $query->join('object_contests_acts as relative', 'relative.id', '=', 'object_contests_acts.relative_notice_id', 'left outer');
+
+        if (!empty($structure)) {
+            $query->where(function($query) use ( $structure){
+                $query->where('object_contests_acts.object_structures_id', '=', $structure);
+                $query->orWhere(function ($query) use ($structure) {
+                    $query->where('relative.object_structures_id', '=', $structure);
+                });
+            });
+
+        }
+
+        if (!empty($object)) {
+            $query->where('object_contests_acts.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($sector)) {
+            $query->where('object_contests_acts.sector', '=', $sector);
+        }
+
+        if (!empty($contraent)) {
+            $query->where(function($query) use ($contraent){
+                $query->where('object_contests_acts.contraent_choice', '=', $contraent);
+                $query->orWhere(function ($query) use ($contraent) {
+                    $query->where('relative.contraent_choice', '=', $contraent);
+                });
+            });
+        }
+
+        if (!empty($cig)) {
+            $query->where(function($query) use ($cig){
+                $query->where('object_contests_acts.cig', 'LIKE', '%' . $cig . '%');
+                $query->orWhere(function ($query) use ($cig) {
+                    $query->where('relative.cig', 'LIKE', '%' . $cig . '%');
+                });
+            });
+        }
+
+        if (!empty($startDate)) {
+            $query->where('object_contests_acts.activation_date', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
+        }
+
+        if (!empty($endDate)) {
+            $query->where('object_contests_acts.activation_date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati degli esiti e affidamenti
+     * per la sezione 117
+     * @param \Illuminate\Database\Eloquent\Builder $query Query
+     * @param string|null $object Oggetto
+     * @param string|null $cig Codice CIG
+     * @param string|null $fromStartWorkDate Data inizio lavori (da)
+     * @param string|null $toStartWorkDate Data inizio lavori (a)
+     * @param string|null $fromEndWorkDate Data fine lavori (da)
+     * @param string|null $toEndWorkDate Data fine lavori (a)
+     * @return void
+     */
+    public function scopeFinancialManagementReports(
+        \Illuminate\Database\Eloquent\Builder $query,
+        string                                $object = null,
+        string                                $cig = null,
+        string                                $fromStartWorkDate = null,
+        string                                $toStartWorkDate = null,
+        string                                $fromEndWorkDate = null,
+        string                                $toEndWorkDate = null
+    ): void
+    {
+        if (!empty($object)) {
+            $query->where('object_contests_acts.object', 'LIKE', '%' . $object . '%');
+        }
+
+        if (!empty($cig)) {
+            $query->join('object_contests_acts as relative_cig', 'relative_cig.id', '=', 'object_contests_acts.relative_notice_id');
+            $query->where(function ($query) use ($cig) {
+                $query->where('relative_cig.cig', 'LIKE', '%' . $cig . '%');
+                $query->orWhere('object_contests_acts.cig', 'LIKE', '%' . $cig . '%');
+            });
+        }
+
+        if (!empty($fromStartWorkDate)) {
+            $query->where('object_contests_acts.work_start_date', '>=', date('Y-m-d H:i:s', strtotime($fromStartWorkDate)));
+        }
+
+        if (!empty($toStartWorkDate)) {
+            $query->where('object_contests_acts.work_start_date', '<=', date('Y-m-d 23:59:59', strtotime($toStartWorkDate)));
+        }
+
+        if (!empty($fromEndWorkDate)) {
+            $query->where('object_contests_acts.work_end_date', '>=', date('Y-m-d H:i:s', strtotime($fromEndWorkDate)));
+        }
+
+        if (!empty($toEndWorkDate)) {
+            $query->where('object_contests_acts.work_end_date', '<=', date('Y-m-d 23:59:59', strtotime($toEndWorkDate)));
+        }
+    }
+
+    /**
      * Scope locale per il filtraggio dei lotti che non hanno ancora ricevuto esito
      * @param \Illuminate\Database\Eloquent\Builder $query Query
      * @return void
@@ -601,6 +836,17 @@ class ContestsActsModel extends Model
         });
     }
 
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
     /**
      * Scope utilizzato per non modificare le date di creazione e aggiornamento.
      * Utilizzato quando un record viene aggiornato in seguito all'aggiornamento di un record in relazione con lui.
@@ -611,40 +857,5 @@ class ContestsActsModel extends Model
     {
         $this->timestamps = false;
         return $this;
-    }
-
-
-    /**
-     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
-     * @param Builder       $query              Query
-     * @param string|null   $typology           Tipologia
-     * @param int|null      $structure          ID struttura
-     * @param int|null      $rup                Rup
-     * @param string|null   $activationFrom     Data attivazione dal
-     * @param string|null   $activationTo       Data attivazione al
-     * @return void
-     */
-    public function scopeContestActsFilterDataTable( $query, string $typology = null,int $structure = null, int $rup = null, string $activationFrom = null, string $activationTo = null): void
-    {
-
-        if(!empty($typology)){
-            $query->where('object_contests_acts.typology','=', $typology);
-        }
-
-        if (!empty($structure)) {
-            $query->where('object_contests_acts.object_structures_id','=', $structure);
-        }
-
-        if (!empty($rup)) {
-            $query->where('object_contests_acts.object_personnel_id','=', $rup);
-        }
-
-        if(!empty($activationFrom)){
-            $query->where('object_contests_acts.activation_date', '>=', date('Y-m-d H:i:s', strtotime($activationFrom)));
-        }
-
-        if(!empty($activationTo)){
-            $query->where('object_contests_acts.activation_date', '<=', date('Y-m-d H:i:s', strtotime($activationTo)));
-        }
     }
 }

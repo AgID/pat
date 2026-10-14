@@ -10,7 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\SupplieListModel;
-use Scope\InstitutionScope;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -34,10 +34,13 @@ class SupplierValidator
      * Controlla la validità dell'ID nell'URI segment e se esiste un fornitore con quell'ID per l'ente
      *
      * @param null $checkOwner Indica se controllare il proprietario del record
+     * @param int $uriSegment
+     * @param null $institutionId
+     * @param null $userId
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $hasApi = false, $institutionId = null, $userId = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
 
         $this->validator->label('ID fornitore')
@@ -45,7 +48,7 @@ class SupplierValidator
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner, $uriSegment, $hasApi, $institutionId, $userId) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il fornitore con l'id passato in input
                 $check = SupplieListModel::where('id', uri()->segment($uriSegment, 0))
@@ -53,20 +56,17 @@ class SupplierValidator
                     ->with('principals:id,name,type,vat')
                     ->with('mandatarie:id,name,type,vat')
                     ->with('associates:id,name,type,vat')
-                    ->with('consortiums:id,name,type,vat');
-
-                if ($hasApi && $institutionId !== null) {
-                    $check->withoutGlobalScopes([InstitutionScope::class]);
-                    $check->where('institution_id', '=', $institutionId);
-                }
+                    ->with('consortiums:id,name,type,vat')
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
 
                 $check = $check->first();
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
                 if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'fornitore ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -80,24 +80,22 @@ class SupplierValidator
 
         return [
             'is_success' => $this->validator->isSuccess(),
-            'errors' => !$hasApi ?
-                $this->validator->getErrorsHtml() :
-                $this->validator->getErrors()
+            'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 
     /**
      *  Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione
-     * @param bool $hasApi Indica se la validazione avviene da una richiesta ajax
      * @param int|bool $institutionId indica l'id dell'istituto
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert', bool $hasApi = false, int|bool $institutionId = false): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode, $hasApi, $institutionId);
+        return $this->validate($mode, $institutionId);
     }
 
 
@@ -105,29 +103,30 @@ class SupplierValidator
      *  Metodo per la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione
-     * @param bool $hasApi
      * @param int $institutionId
      * @return array
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode, bool $hasApi, int $institutionId): array
+    protected function validate(string $mode, int $institutionId): array
     {
-        if (!$hasApi) {
-            $this->validator->verifyToken()
-                ->end();
-        }
+        $this->validator->verifyToken()
+            ->end();
+
 
         if ($mode === 'update') {
 
-            $id = $hasApi ? uri()->segment(4, 0) : Input::post('id');
+
+            $id = Input::post('id');
 
             $this->validator->label('id')
                 ->value($id)
                 ->required()
                 ->isNaturalNoZero()
-                ->add(function () use ($id) {
-                    $regulation = SupplieListModel::where('id', $id)->first();
+                ->add(function () use ($id, $institutionId) {
+                    $query = SupplieListModel::where('id', $id);
+
+                    $regulation = $query->first();
 
                     if (empty($regulation)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Fornitore')];
@@ -136,41 +135,63 @@ class SupplierValidator
                 ->end();
 
             if (Input::post('typology') == '1') {
+
                 //italiano
                 if (Input::post('supplier_typology') == 0) {
                     $this->validator->label('Codice fiscale')
                         ->value(Input::post('vat'))
-                        ->required()
-                        ->add(function () use ($hasApi, $id, $institutionId) {
+                        ->add(function () use ($id, $institutionId) {
+                            $vatCheck = new VatRule(Input::post('vat'));
+                            $fiscalCodeCheck = new FiscalCodeRule(Input::post('vat'));
+                            if (!$vatCheck->isValidate() && !$fiscalCodeCheck->isValidate()) {
+                                return ['error' => sprintf(__('fiscal_code_error', null, 'patos'), ' fornitore')];
+                            } else {
 
-                            $query = SupplieListModel::where('id', '!=', $id)
-                                ->where('vat', Input::post('vat'))
-                                ->where('institution_id', $institutionId);
+                                $query = SupplieListModel::where('id', '!=', $id)
+                                    ->where('vat', Input::post('vat'));
 
-                            if ($hasApi) {
-                                $query->withoutGlobalScope(InstitutionScope::class);
-                            }
+                                $vatExist = $query->first();
 
-                            $vatExist = $query->first();
-
-                            if (!empty($vatExist)) {
-                                return ['error' => __('fiscal_code_exist', null, 'patos')];
+                                if (!empty($vatExist)) {
+                                    return ['error' => __('fiscal_code_exist', null, 'patos')];
+                                }
+                                return null;
                             }
                             return null;
+                        })
+                        ->end();
+
+                    $this->validator->label('Codice fiscale')
+                        ->value(trim((string)Input::post('p_iva')))
+                        ->required()
+                        ->add(function () use ($id, $institutionId) {
+                            $vatCheck = new VatRule(Input::post('p_iva'));
+                            $fiscalCode = new FiscalCodeRule(Input::post('p_iva'));
+
+                            if (!$vatCheck->isValidate() && !$fiscalCode->isValidate()) {
+                                return ['error' => sprintf(__('vat_error', null, 'patos'), ' fornitore')];
+                            } else {
+
+                                $query = SupplieListModel::where('id', '!=', $id)
+                                    ->where('p_iva', Input::post('p_iva'));
+
+                                $vatExist = $query->first();
+
+                                if (!empty($vatExist)) {
+                                    return ['error' => __('vat_exist', null, 'patos')];
+                                }
+                                return null;
+                            }
                         })
                         ->end();
                 } else {
                     $this->validator->label('Identificativo fiscale estero')
                         ->value(Input::post('foreign_tax_identification'))
                         ->required()
-                        ->add(function () use ($hasApi, $id, $institutionId) {
+                        ->add(function () use ($id, $institutionId) {
 
                             $query = SupplieListModel::where('id', '!=', $id)
-                                ->where('foreign_tax_identification', Input::post('foreign_tax_identification'))
-                                ->where('institution_id', $institutionId);
-                            if ($hasApi) {
-                                $query->withoutGlobalScope(InstitutionScope::class);
-                            }
+                                ->where('foreign_tax_identification', Input::post('foreign_tax_identification'));
 
                             $foreignTaxExist = $query->first();
 
@@ -196,6 +217,7 @@ class SupplierValidator
             ->in('0,1')
             ->end();
 
+
         /* Per Fornitore Singolo */
         if (Input::post('typology') == '1') {
 
@@ -206,24 +228,18 @@ class SupplierValidator
                 ->end();
 
             if ($mode === 'insert') {
-
                 //italiano
                 if (Input::post('supplier_typology') == 0) {
                     $this->validator->label('Codice fiscale')
                         ->value(Input::post('vat'))
-                        ->required()
-                        ->add(function () use ($hasApi, $institutionId) {
+                        ->add(function () use ($institutionId) {
                             $vatCheck = new VatRule(Input::post('vat'));
-                            if (!$vatCheck->isValidate()) {
+                            $fiscalCodeCheck = new FiscalCodeRule(Input::post('vat'));
+                            if (!$vatCheck->isValidate() && !$fiscalCodeCheck->isValidate()) {
                                 return ['error' => sprintf(__('fiscal_code_error', null, 'patos'), ' fornitore')];
                             } else {
 
-                                $query = SupplieListModel::where('vat', Input::post('vat'))
-                                    ->where('institution_id', $institutionId);
-
-                                if ($hasApi) {
-                                    $query->withoutGlobalScope(InstitutionScope::class);
-                                }
+                                $query = SupplieListModel::where('vat', Input::post('vat'));
 
                                 $vatExist = $query->first();
 
@@ -234,19 +250,40 @@ class SupplierValidator
                             return null;
                         })
                         ->end();
+
+                    $this->validator->label('Codice fiscale')
+                        ->value(trim((string)Input::post('p_iva')))
+                        ->required()
+                        ->add(function () use ($institutionId) {
+                            $vatCheck = new VatRule(Input::post('p_iva'));
+                            $fiscalCode = new FiscalCodeRule(Input::post('p_iva'));
+
+                            if (!$vatCheck->isValidate() && !$fiscalCode->isValidate()) {
+                                return ['error' => sprintf(__('vat_error', null, 'patos'), ' fornitore')];
+                            } else {
+
+                                $query = SupplieListModel::where('p_iva', Input::post('p_iva'));
+
+                                $vatExist = $query->first();
+
+                                if (!empty($vatExist)) {
+                                    return ['error' => __('vat_exist', null, 'patos')];
+                                }
+                                return null;
+                            }
+                        })
+                        ->end();
+
                 } else {
                     //estero
                     $this->validator->label('Identificativo fiscale estero')
                         ->value(Input::post('foreign_tax_identification'))
                         ->required()
-                        ->add(function () use ($hasApi, $institutionId) {
+                        ->add(function () use ($institutionId) {
 
-                            $query = SupplieListModel::where('foreign_tax_identification', Input::post('foreign_tax_identification'))
-                                ->where('institution_id', $institutionId);
+                            $query = SupplieListModel::where('foreign_tax_identification', Input::post('foreign_tax_identification'));
 
-                            if ($hasApi) {
-                                $foreignTaxExist = $query->first();
-                            }
+                            $foreignTaxExist = $query->first();
 
                             if (!empty($foreignTaxExist)) {
                                 return ['error' => __('foreign_tax_identification_exist', null, 'patos')];
@@ -289,6 +326,7 @@ class SupplierValidator
                 ->betweenString(2, 150)
                 ->end();
 
+
             $flagMinComp = [
                 'flag_group_leaders' => false,
                 'flag_principals' => false,
@@ -299,7 +337,7 @@ class SupplierValidator
 
             if (Input::post('group_leaders')) {
                 $flagMinComp['flag_group_leaders'] = true;
-                foreach (explode(',', (string)Input::post('group_leaders')) as $groupLeader) {
+                foreach (explode(',', (string) Input::post('group_leaders')) as $groupLeader) {
                     $this->validator->label('Capogruppo ' . $groupLeader)
                         ->value($groupLeader)
                         ->isInt()
@@ -310,7 +348,7 @@ class SupplierValidator
 
             if (Input::post('principals')) {
                 $flagMinComp['flag_principals'] = true;
-                foreach (explode(',', (string)Input::post('principals')) as $principal) {
+                foreach (explode(',', (string) Input::post('principals')) as $principal) {
                     $this->validator->label('Mandante ' . $principal)
                         ->value($principal)
                         ->isInt()
@@ -321,7 +359,7 @@ class SupplierValidator
 
             if (Input::post('mandatarie')) {
                 $flagMinComp['flag_mandatarie'] = true;
-                foreach (explode(',', (string)Input::post('mandatarie')) as $mandatary) {
+                foreach (explode(',', (string) Input::post('mandatarie')) as $mandatary) {
                     $this->validator->label('Mandataria ' . $mandatary)
                         ->value($mandatary)
                         ->isInt()
@@ -332,7 +370,7 @@ class SupplierValidator
 
             if (Input::post('associates')) {
                 $flagMinComp['flag_associates'] = true;
-                foreach (explode(',', (string)Input::post('associates')) as $associate) {
+                foreach (explode(',', (string) Input::post('associates')) as $associate) {
                     $this->validator->label('Associata ' . $associate)
                         ->value($associate)
                         ->isInt()
@@ -343,7 +381,7 @@ class SupplierValidator
 
             if (Input::post('consortiums')) {
                 $flagMinComp['flag_consortiums'] = true;
-                foreach (explode(',', (string)Input::post('consortiums')) as $consortium) {
+                foreach (explode(',', (string) Input::post('consortiums')) as $consortium) {
                     $this->validator->label('Consorziata ' . $consortium)
                         ->value($consortium)
                         ->isInt()
@@ -371,9 +409,7 @@ class SupplierValidator
 
         return [
             'is_success' => $this->validator->isSuccess(),
-            'errors' => !$hasApi
-                ? $this->validator->getErrorsHtml()
-                : $this->validator->getErrors()
+            'errors' => $this->validator->getErrorsHtml()
         ];
     }
 

@@ -7,13 +7,16 @@
 namespace Http\Web\Front;
 
 use Exception;
+use Helpers\FormBuilder;
 use Helpers\S;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
+use Illuminate\Support\Str;
 use Model\AssignmentsModel;
 use Model\SectionsFoModel;
+use Model\StructuresModel;
 use System\Input;
+use System\Validator;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -59,35 +62,71 @@ class AssignmentsFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
         $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
+        // Validazione dei campi di input per la ricerca
+        $validator = new Validator();
+        if (Input::get('year') != null ||
+            Input::get('object') != null ||
+            Input::get('fn') != null
+        ) {
+            $validator->verifyToken();
+        }
+
+        $validator->label('Anno')->value(Input::get('year'))->isDate('Y')->end();
+        $validator->label('Oggetto')->value(Input::get('object'))->maxLength(30)->end();
+        $validator->label('Nome e Cognome')->value(Input::get('fn'))->maxLength(30)->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
+
+        $liquidationDate = "2025-07-01 00:00:00";
+
         // Recupero i procedimenti(con campo Pubblica automaticamente i dati sul monitoraggio = 1) da mostrare
-        $assignmentsLiquidations = AssignmentsModel::where('object_assignments.typology', 'liquidation')
-            ->where('object_assignments.dirigente', '!=', 1)
-            ->orWhereNull('object_assignments.dirigente')
+        $assignmentsLiquidations = AssignmentsModel::select(['object_assignments.*'])
+            ->where('object_assignments.typology', 'liquidation')
+            ->where('object_assignments.liquidation_date', '<=', $liquidationDate)
+            ->where(function ($query) {
+                $query->where('object_assignments.dirigente', '!=', 1)
+                    ->orWhereNull('object_assignments.dirigente');
+            })
             ->whereHas('related_assignment', function ($query) {
                 $query->where('assignment_type', '!=', '1');
             })
             ->with(['related_assignment' => function ($query) {
-                $query->select(['id', 'name', 'object']);
+                $query->select(['id', 'name', 'object', 'assignment_type']);
             }])
+            ->liquidationfilter(
+                Input::get('fn', true),
+                Input::get('object', true),
+                (int)Input::get('year', true)
+            )
             ->orderBy('object_assignments.liquidation_date')
-            ->paginate(20, ['object_assignments.id', 'object_assignments.name', 'object_assignments.object', 'object_assignments.liquidation_year',
-                'object_assignments.compensation_provided', 'object_assignments.related_assignment_id'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['object_assignments.*'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['fn', 'year', 'object', 'sec_token']))
             ->setPath(currentUrl());
@@ -100,8 +139,11 @@ class AssignmentsFrontController extends BaseFrontController
             //da pubblicare nella pagina
             $firstCreated = optional(AssignmentsModel::select(['created_at'])
                 ->where('object_assignments.typology', 'liquidation')
-                ->where('object_assignments.dirigente', '!=', 1)
-                ->orWhereNull('object_assignments.dirigente')
+                ->where('object_assignments.liquidation_date', '<=', $liquidationDate)
+                ->where(function ($query) {
+                    $query->where('object_assignments.dirigente', '!=', 1)
+                        ->orWhereNull('object_assignments.dirigente');
+                })
                 ->whereHas('related_assignment', function ($query) {
                     $query->where('assignment_type', '!=', '1');
                 })
@@ -110,8 +152,11 @@ class AssignmentsFrontController extends BaseFrontController
                 ->toArray();
             $lasUpdated = optional(AssignmentsModel::select(['updated_at'])
                 ->where('object_assignments.typology', 'liquidation')
-                ->where('object_assignments.dirigente', '!=', 1)
-                ->orWhereNull('object_assignments.dirigente')
+                ->where('object_assignments.liquidation_date', '<=', $liquidationDate)
+                ->where(function ($query) {
+                    $query->where('object_assignments.dirigente', '!=', 1)
+                        ->orWhereNull('object_assignments.dirigente');
+                })
                 ->whereHas('related_assignment', function ($query) {
                     $query->where('assignment_type', '!=', '1');
                 })
@@ -125,27 +170,170 @@ class AssignmentsFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}'
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome e nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'object',
+                    'id' => 'object',
+                    'value' => '{object}'
+                ],
+                'label' => [
+                    'for' => 'object',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group select-wrapper col-lg-4">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{year}',
+                'name' => 'year',
+                'extra' => 'id="year"',
+                'label' => [
+                    'for' => 'year',
+                    'text' => 'Anno',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'year' => Input::get('year'),
+            'object' => Input::get('object'),
+            'fn' => Input::get('fn'),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        // Anni per la ricerca
+        $resultYears = AssignmentsModel::select('liquidation_year')
+            ->where('typology', '=', 'liquidation')
+            ->orderBy('liquidation_year', 'ASC')
+            ->first();
+        $resultYears = !empty($resultYears) ? $resultYears->toArray() : ['liquidation_year' => date('Y')];
+        $years = [null => 'Seleziona un anno'];
+        for ($i = (int)$resultYears['liquidation_year']; $i <= (int)date('Y'); $i++) {
+            $years[$i] = $i;
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'object' => htmlEscape(Input::get('object', true)),
+            'year' => FormBuilder::parseOptions($years, htmlEscape(Input::get('year', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignmentsLiquidations, 'liquidation');
+        $table = $this->createTableRows($assignmentsLiquidations, 'liquidation', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignmentsLiquidations;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignmentsLiquidations;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
-
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
 
@@ -162,20 +350,51 @@ class AssignmentsFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione per i filtri di ricerca
+        $validation = new Validator();
+        if (Input::get('fn') != null ||
+            Input::get('ob') != null ||
+            Input::get('s') != null ||
+            Input::get('e') != null ||
+            Input::get('str') != null
+        ) {
+            $validation->verifyToken();
+        }
+        $validation->label('cognome nome')->value(Input::get('fn'))->maxLength(30)->end();
+        $validation->label('Oggetto')->value(Input::get('ob'))->maxLength(30)->end();
+        $validation->label('Ufficio')->value(Input::get('str'))->isInt()->end();
+        $validation->label('Inizio incarico - dal')->value(Input::get('s'))->isDate('Y-m-d')->end();
+        $validation->label('Inizio incarico - al')->value(Input::get('e'))->isDate('Y-m-d')->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+        }
+
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -192,13 +411,20 @@ class AssignmentsFrontController extends BaseFrontController
             )
             ->where(
                 function ($query) {
-                    $query->orWhere('assignment_end', '')
-                        ->orWhereNull('assignment_end')
+                    //$query->orWhere('assignment_end', '')
+                    $query->orWhereNull('assignment_end')
                         ->orWhere('assignment_end', '>=', date('Y-m-d H:i:s'));
                 }
             )
+            ->assignmentfilter(
+                Input::get('fn', true),
+                Input::get('ob', true),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
             ->orderBy('assignment_start', 'DESC')
-            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'sec_token']))
             ->setPath(currentUrl());
@@ -220,14 +446,15 @@ class AssignmentsFrontController extends BaseFrontController
                 )
                 ->where(
                     function ($query) {
-                        $query->orWhere('assignment_end', '')
-                            ->orWhereNull('assignment_end')
+                        //$query->orWhere('assignment_end', '')
+                        $query->orWhereNull('assignment_end')
                             ->orWhere('assignment_end', '>=', date('Y-m-d H:i:s'));
                     }
                 )
                 ->orderBy('created_at', 'ASC')
                 ->first())
                 ->toArray();
+
             $lasUpdated = optional(AssignmentsModel::select(['updated_at'])
                 ->where('typology', 'assignment')
                 ->where('assignment_type', '=', '1')
@@ -239,8 +466,8 @@ class AssignmentsFrontController extends BaseFrontController
                 )
                 ->where(
                     function ($query) {
-                        $query->orWhere('assignment_end', '')
-                            ->orWhereNull('assignment_end')
+                        // $query->orWhere('assignment_end', '')
+                        $query->orWhereNull('assignment_end')
                             ->orWhere('assignment_end', '>=', date('Y-m-d H:i:s'));
                     }
                 )
@@ -255,25 +482,219 @@ class AssignmentsFrontController extends BaseFrontController
         $contents = getPageContents($currentPageId);
 
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignments, 'assignment');
+        $table = $this->createTableRows($assignments, 'assignment', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignments;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}',
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'ob',
+                    'id' => 'ob',
+                    'value' => '{ob}',
+                ],
+                'label' => [
+                    'for' => 'ob',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{structures}',
+                'name' => 'str',
+                'extra' => 'id="office"',
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Ufficio',
+                ],
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'type' => 'date',
+                    'id' => 'start_date',
+                    'value' => '{start_date}',
+                ],
+                'label' => [
+                    'for' => 's',
+                    'text' => 'Inizio incarico - dal',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="col-lg-6 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'e',
+                    'type' => 'date',
+                    'id' => 'end_date',
+                    'value' => '{end_date}',
+                ],
+                'label' => [
+                    'for' => 'e',
+                    'text' => 'Inizio incarico - al',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'fn' => Input::get('fn', true),
+            'ob' => Input::get('ob', true),
+            's' => Input::get('s', true),
+            'e' => Input::get('e', true),
+            'str' => (int)Input::get('str', true)
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+        // Filtro per strutture
+        $structureIds = AssignmentsModel::select(['object_structures_id'])
+            ->where('typology', 'assignment')
+            ->where('assignment_type', '=', '1')
+            ->where(
+                function ($query) {
+                    $query->where('dirigente', '!=', 1)
+                        ->orWhereNull('dirigente');
+                }
+            )
+            ->where(
+                function ($query) {
+                    //$query->orWhere('assignment_end', '')
+                    $query->orWhereNull('assignment_end')
+                        ->orWhere('assignment_end', '>=', date('Y-m-d H:i:s'));
+                }
+            )
+            ->groupBy('object_structures_id')
+            ->get()
+            ->toArray();
+        $structures = [null => 'Seleziona una struttura'] +
+            optional(StructuresModel::whereIn('id', $structureIds)
+                ->where(function ($query) {
+                })
+                ->orderBy('structure_name', 'ASC')
+                ->pluck('structure_name', 'id'))
+                ->toArray();
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'ob' => htmlEscape(Input::get('ob', true)),
+            'start_date' => htmlEscape(Input::get('s', true)),
+            'end_date' => htmlEscape(Input::get('e', true)),
+            'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('str', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignments;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
@@ -291,20 +712,45 @@ class AssignmentsFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione filtri di ricerca
+        $validation = new Validator();
+
+        $validation->label('cognome nome')->value(Input::get('fn'))->maxLength(30)->end();
+        $validation->label('Oggetto')->value(Input::get('ob'))->maxLength(30)->end();
+        $validation->label('Ufficio')->value(Input::get('str'))->isInt()->end();
+        $validation->label('Inizio incarico - dal')->value(Input::get('s'))->isDate('Y-m-d')->end();
+        $validation->label('Inizio incarico - al')->value(Input::get('e'))->isDate('Y-m-d')->end();
+        $validation->label('Anno inizio incarico')->value(Input::get('asy'))->isInt()->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+        }
+
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'archive_name',
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'archive_name', 'rel_institution_type_sections_labeling.label',
             'section_fo.created_at', 'section_fo.updated_at', 'is_system', 'controller_open_data'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
 
@@ -319,9 +765,18 @@ class AssignmentsFrontController extends BaseFrontController
                     $query->where('dirigente', '!=', 1)->orWhereNull('dirigente');
                 }
             )
-            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', (int)Input::get('p'))
+            ->assignmentfilter(
+                Input::get('fn', true),
+                Input::get('ob', true),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
+            ->orderBy('assignment_start', 'DESC')
+            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
-            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e'], true))
+            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'asy'], true))
             ->setPath(currentUrl());
 
         $assignments = !empty($assignments) ? $assignments->toArray() : [];
@@ -360,24 +815,242 @@ class AssignmentsFrontController extends BaseFrontController
         $contents = getPageContents($currentPageId);
 
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignments);
+        $table = $this->createTableRows($assignments, 'assignments', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignments;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato. Questa pagina può
+        // nascondere tabella e paginazione finché non si effettua una ricerca (meta
+        // 'show_table_on_search' dell'ente, hook 's_t_o_s'): riprodotto qui solo per il
+        // frammento, perché altrimenti esporrebbe l'elenco completo anche quando la pagina
+        // intera lo nasconde (il rendering della pagina intera resta invariato, gestito dalla view).
+        if (isFrontFragmentRequest()) {
+            $showTableOnSearch = false;
+            $hasSearchFilter = Input::get('fn') != null || Input::get('ob') != null || Input::get('str') != null || Input::get('s') != null || Input::get('e') != null || Input::get('asy') != null;
+            if ($showTableOnSearch && !$hasSearchFilter) {
+                $data['table'] = null;
+                $data['instances'] = null;
+            }
+        }
+
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}',
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'ob',
+                    'id' => 'ob',
+                    'value' => '{ob}',
+                ],
+                'label' => [
+                    'for' => 'ob',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{structures}',
+                'name' => 'str',
+                'extra' => 'id="office"',
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Ufficio',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'type' => 'date',
+                    'id' => 'start_date',
+                    'value' => '{start_date}',
+                ],
+                'label' => [
+                    'for' => 's',
+                    'text' => 'Inizio incarico - dal',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'e',
+                    'type' => 'date',
+                    'id' => 'end_date',
+                    'value' => '{end_date}',
+                ],
+                'label' => [
+                    'for' => 'e',
+                    'text' => 'Inizio incarico - al',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{years}',
+                'name' => 'asy',
+                'extra' => 'id="asy"',
+                'label' => [
+                    'for' => 'asy',
+                    'text' => 'Anno inizio incarico',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'fn' => Input::get('fn', true),
+            'ob' => Input::get('ob', true),
+            'str' => Input::get('str', true),
+            's' => Input::get('s', true),
+            'e' => Input::get('e', true),
+            'asy' => Input::get('asy', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        // Filtro per strutture
+        $structureIds = AssignmentsModel::select(['object_structures_id'])
+            ->where('typology', 'assignment')
+            ->where('assignment_type', '!=', '1')
+            ->where(
+                function ($query) {
+                    $query->where('dirigente', '!=', 1)->orWhereNull('dirigente');
+                }
+            )
+            ->groupBy('object_structures_id')
+            ->get()
+            ->toArray();
+        $structures = [null => 'Seleziona una struttura'] +
+            optional(StructuresModel::whereIn('id', $structureIds)
+                ->where(function ($query) {
+                })
+                ->orderBy('structure_name', 'ASC')
+                ->pluck('structure_name', 'id'))
+                ->toArray();
+
+        $years = range((int)date("Y"), ((int)date("Y") - 5));
+        $assignmentYears = [null => "Seleziona un anno"] + array_combine($years, $years);
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'ob' => htmlEscape(Input::get('ob', true)),
+            'start_date' => htmlEscape(Input::get('s', true)),
+            'end_date' => htmlEscape(Input::get('e', true)),
+            'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('str', true))),
+            'years' => FormBuilder::parseOptions($assignmentYears, htmlEscape(Input::get('asy', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignments;
+        $data['showTableOnSearch'] = false;
         $data['instance'] = $currentPage;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
@@ -396,20 +1069,43 @@ class AssignmentsFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione filtri di ricerca
+        $validation = new Validator();
+        $validation->label('cognome nome')->value(Input::get('fn'))->maxLength(30)->end();
+        $validation->label('Oggetto')->value(Input::get('ob'))->maxLength(30)->end();
+        $validation->label('Ufficio')->value(Input::get('str'))->isInt()->end();
+        $validation->label('Inizio incarico - dal')->value(Input::get('s'))->isDate('Y-m-d')->end();
+        $validation->label('Inizio incarico - al')->value(Input::get('e'))->isDate('Y-m-d')->end();
+        $validation->label('Anno inizio incarico')->value(Input::get('asy'))->isInt()->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+        }
+
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'controller_open_data', 'archive_name', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -428,10 +1124,18 @@ class AssignmentsFrontController extends BaseFrontController
                     $query->where('assignment_end', '>=', date('Y-m-d H:i:s'))->orWhereNull('assignment_end');
                 }
             )
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
             ->orderBy('assignment_start', 'DESC')
-            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
-            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'sec_token']))
+            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'asy', 'sec_token']))
             ->setPath(currentUrl());
 
         $assignments = !empty($assignments) ? $assignments->toArray() : [];
@@ -480,24 +1184,234 @@ class AssignmentsFrontController extends BaseFrontController
         $contents = getPageContents($currentPageId);
 
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignments);
+        $table = $this->createTableRows($assignments, 'assignments', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignments;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}',
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'ob',
+                    'id' => 'ob',
+                    'value' => '{ob}',
+                ],
+                'label' => [
+                    'for' => 'ob',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{structures}',
+                'name' => 'str',
+                'extra' => 'id="office"',
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Ufficio',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'type' => 'date',
+                    'id' => 'start_date',
+                    'value' => '{start_date}',
+                ],
+                'label' => [
+                    'for' => 's',
+                    'text' => 'Inizio incarico - dal',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'e',
+                    'type' => 'date',
+                    'id' => 'end_date',
+                    'value' => '{end_date}',
+                ],
+                'label' => [
+                    'for' => 'e',
+                    'text' => 'Inizio incarico - al',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{years}',
+                'name' => 'asy',
+                'extra' => 'id="asy"',
+                'label' => [
+                    'for' => 'asy',
+                    'text' => 'Anno inizio incarico',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'fn' => Input::get('fn', true),
+            'ob' => Input::get('ob', true),
+            'str' => (int)Input::get('str', true),
+            's' => Input::get('s', true),
+            'e' => Input::get('e', true),
+            'asy' => Input::get('asy', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        // Filtro per strutture
+        $structureIds = AssignmentsModel::select(['object_structures_id'])
+            ->where('assignment_type', 2)
+            ->where('typology', 'assignment')
+            ->where(
+                function ($query) {
+                    $query->where('dirigente', '!=', 1)->orWhereNull('dirigente');
+                }
+            )
+            ->where(
+                function ($query) {
+                    $query->where('assignment_end', '>=', date('Y-m-d H:i:s'))->orWhereNull('assignment_end');
+                }
+            )
+            ->groupBy('object_structures_id')
+            ->get()
+            ->toArray();
+        $structures = [null => 'Seleziona una struttura'] +
+            optional(StructuresModel::whereIn('id', $structureIds)
+                ->where(function ($query) {
+                })
+                ->orderBy('structure_name', 'ASC')
+                ->pluck('structure_name', 'id'))
+                ->toArray();
+
+        $years = range((int)date("Y"), ((int)date("Y") - 5));
+        $assignmentYears = [null => "Seleziona un anno"] + array_combine($years, $years);
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'ob' => htmlEscape(Input::get('ob', true)),
+            'start_date' => htmlEscape(Input::get('s', true)),
+            'end_date' => htmlEscape(Input::get('e', true)),
+            'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('str', true))),
+            'years' => FormBuilder::parseOptions($assignmentYears, htmlEscape(Input::get('asy', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignments;
         $data['instance'] = $currentPage;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
+        $data = $data ?? null;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
@@ -516,20 +1430,44 @@ class AssignmentsFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione filtri di ricerca
+        $validation = new Validator();
+        $validation->label('cognome nome')->value(Input::get('fn'))->maxLength(30)->end();
+        $validation->label('Oggetto')->value(Input::get('ob'))->maxLength(30)->end();
+        $validation->label('Ufficio')->value(Input::get('str'))->isInt()->end();
+        $validation->label('Inizio incarico - dal')->value(Input::get('s'))->isDate('Y-m-d')->end();
+        $validation->label('Inizio incarico - al')->value(Input::get('e'))->isDate('Y-m-d')->end();
+        $validation->label('Anno inizio incarico')->value(Input::get('asy'))->isInt()->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+        }
+
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -539,10 +1477,18 @@ class AssignmentsFrontController extends BaseFrontController
         $assignments = AssignmentsModel::where('assignment_type', 2)
             ->where('typology', 'assignment')
             ->where('assignment_end', '<', date('Y-m-d H:i:s'))
-            ->orderBy('assignment_start', 'ASC')
-            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', (int)Input::get('p'))
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
+            ->orderBy('assignment_end', 'DESC')
+            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
-            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'sec_token']))
+            ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'asy', 'sec_token']))
             ->setPath(currentUrl());
 
         $assignments = !empty($assignments) ? $assignments->toArray() : [];
@@ -573,25 +1519,226 @@ class AssignmentsFrontController extends BaseFrontController
         $contents = getPageContents($currentPageId);
 
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignments);
+        $table = $this->createTableRows($assignments, 'assignments', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignments;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}',
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'ob',
+                    'id' => 'ob',
+                    'value' => '{ob}',
+                ],
+                'label' => [
+                    'for' => 'ob',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{structures}',
+                'name' => 'str',
+                'extra' => 'id="office"',
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Ufficio',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'type' => 'date',
+                    'id' => 'start_date',
+                    'value' => '{start_date}',
+                ],
+                'label' => [
+                    'for' => 's',
+                    'text' => 'Inizio incarico - dal',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'e',
+                    'type' => 'date',
+                    'id' => 'end_date',
+                    'value' => '{end_date}',
+                ],
+                'label' => [
+                    'for' => 'e',
+                    'text' => 'Inizio incarico - al',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{years}',
+                'name' => 'asy',
+                'extra' => 'id="asy"',
+                'label' => [
+                    'for' => 'asy',
+                    'text' => 'Anno inizio incarico',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'fn' => Input::get('fn', true),
+            'ob' => Input::get('ob', true),
+            'str' => (int)Input::get('str', true),
+            's' => Input::get('s', true),
+            'e' => Input::get('e', true),
+            'asy' => Input::get('asy', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        // Filtro per strutture
+        $structureIds = AssignmentsModel::select(['object_structures_id'])
+            ->where('assignment_type', 2)
+            ->where('typology', 'assignment')
+            ->where('assignment_end', '<', date('Y-m-d H:i:s'))
+            ->groupBy('object_structures_id')
+            ->get()
+            ->toArray();
+        $structures = [null => 'Seleziona una struttura'] +
+            optional(StructuresModel::whereIn('id', $structureIds)
+                ->where(function ($query) {
+                })
+                ->orderBy('structure_name', 'ASC')
+                ->pluck('structure_name', 'id'))
+                ->toArray();
+
+        $years = range((int)date("Y"), ((int)date("Y") - 5));
+        $assignmentYears = [null => "Seleziona un anno"] + array_combine($years, $years);
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'ob' => htmlEscape(Input::get('ob', true)),
+            'start_date' => htmlEscape(Input::get('s', true)),
+            'end_date' => htmlEscape(Input::get('e', true)),
+            'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('str', true))),
+            'years' => FormBuilder::parseOptions($assignmentYears, htmlEscape(Input::get('asy', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignments;
         $data['instance'] = $currentPage;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
-
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
 
@@ -609,20 +1756,44 @@ class AssignmentsFrontController extends BaseFrontController
     {
         $data = [];
 
+        // Validazione filtri di ricerca
+        $validation = new Validator();
+        $validation->label('cognome nome')->value(Input::get('fn'))->maxLength(30)->end();
+        $validation->label('Oggetto')->value(Input::get('ob'))->maxLength(30)->end();
+        $validation->label('Ufficio')->value(Input::get('str'))->isInt()->end();
+        $validation->label('Inizio incarico - dal')->value(Input::get('s'))->isDate('Y-m-d')->end();
+        $validation->label('Inizio incarico - al')->value(Input::get('e'))->isDate('Y-m-d')->end();
+        $validation->label('Anno inizio incarico')->value(Input::get('asy'))->isInt()->end();
+
+        if (!$validation->isSuccess()) {
+
+            echo showError('Attenzione', $validation->getErrorsHtml(), $validation->getErrorStatusCode());
+            die();
+        }
+
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -636,8 +1807,16 @@ class AssignmentsFrontController extends BaseFrontController
                 $query->where('dirigente', '!=', 1)
                     ->orWhereNull('dirigente');
             })
+            ->assignmentfilter(
+                (Input::get('fn', true)),
+                (Input::get('ob', true)),
+                (int)Input::get('str', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('asy', true),
+            )
             ->orderBy('assignment_start', 'ASC')
-            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', (int)Input::get('p'))
+            ->paginate(20, ['id', 'name', 'object', 'compensation', 'assignment_start', 'assignment_end'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             ->appends(Input::get(['fn', 'ob', 'str', 's', 'e', 'asy', 'sec_token']))
             ->setPath(currentUrl());
@@ -678,25 +1857,230 @@ class AssignmentsFrontController extends BaseFrontController
         $contents = getPageContents($currentPageId);
 
         // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($assignments);
+        $table = $this->createTableRows($assignments, 'assignments', $currentPageId);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $assignments;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto serve solo alla pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'fn',
+                    'id' => 'fn',
+                    'value' => '{fn}',
+                ],
+                'label' => [
+                    'for' => 'fn',
+                    'text' => 'Cognome nome',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'ob',
+                    'id' => 'ob',
+                    'value' => '{ob}',
+                ],
+                'label' => [
+                    'for' => 'ob',
+                    'text' => 'Oggetto',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{structures}',
+                'name' => 'str',
+                'extra' => 'id="office"',
+                'label' => [
+                    'for' => 'o',
+                    'text' => 'Ufficio',
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 's',
+                    'type' => 'date',
+                    'id' => 'start_date',
+                    'value' => '{start_date}',
+                ],
+                'label' => [
+                    'for' => 's',
+                    'text' => 'Inizio incarico - dal',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'e',
+                    'type' => 'date',
+                    'id' => 'end_date',
+                    'value' => '{end_date}',
+                ],
+                'label' => [
+                    'for' => 'e',
+                    'text' => 'Inizio incarico - al',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-4 mb-5">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{years}',
+                'name' => 'asy',
+                'extra' => 'id="asy"',
+                'label' => [
+                    'for' => 'asy',
+                    'text' => 'Anno inizio incarico',
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
+
+        $formFilterFields = [
+            'fn' => Input::get('fn', true),
+            'ob' => Input::get('ob', true),
+            'str' => (int)Input::get('str', true),
+            's' => Input::get('s', true),
+            'e' => Input::get('e', true),
+            'asy' => Input::get('asy', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
+
+        // Filtro per strutture
+        $structureIds = AssignmentsModel::select(['object_structures_id'])
+            ->where('assignment_type', 2)
+            ->where('typology', 'assignment')
+            ->where('assignment_end', '<', date('Y-m-d H:i:s'))
+            ->groupBy('object_structures_id')
+            ->get()
+            ->toArray();
+        $structures = [null => 'Seleziona una struttura'] +
+            optional(StructuresModel::whereIn('id', $structureIds)
+                ->where(function ($query) {
+                })
+                ->orderBy('structure_name', 'ASC')
+                ->pluck('structure_name', 'id'))
+                ->toArray();
+
+
+        // Anno anac
+        $years = [null => 'Seleziona un anno'];
+        for ((int)$i = date('Y'); $i >= 2017; $i--) {
+            $years [$i] = $i;
+        }
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            'redirect_url' => currentUrl(),
+            'fn' => htmlEscape(Input::get('fn', true)),
+            'ob' => htmlEscape(Input::get('ob', true)),
+            'start_date' => htmlEscape(Input::get('s', true)),
+            'end_date' => htmlEscape(Input::get('e', true)),
+            'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('str', true))),
+            'years' => FormBuilder::parseOptions($years, htmlEscape(Input::get('asy', true))),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $assignments;
         $data['instance'] = $currentPage;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
-
+        //Inclusione di eventuali librerie esterne
+        $currentPage = $currentPage ?? null;
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/assignments/assignments', $data, 'frontend');
     }
 
@@ -736,10 +2120,11 @@ class AssignmentsFrontController extends BaseFrontController
      *
      * @param null $assignments {dati da inserire nella tabella}
      * @param null $type Indica la tipologia (Incarico/Liquidazione)
+     * @param null $pageId ID della pagina che si sta navigando
      * @return Table|null
      * @throws Exception
      */
-    private function createTableRows($assignments = null, $type = null): ?Table
+    private function createTableRows($assignments = null, $type = null, $pageId = null): ?Table
     {
         $table = null;
 
@@ -769,14 +2154,14 @@ class AssignmentsFrontController extends BaseFrontController
                 // Se è una liquidazione prendo l'oggetto della sovvenzione associata,
                 // altrimenti prendo l'oggetto della sovvenzione stessa
                 $object = !empty($assignment['related_assignment']['object'])
-                    ? escapeXss($assignment['related_assignment']['object'], true, false)
-                    : escapeXss($assignment['object'], true, false);
+                    ? escapeXss(html_entity_decode($assignment['related_assignment']['object']), true, false)
+                    : escapeXss(html_entity_decode($assignment['object']), true, false);
 
                 $elementId = $assignment['id'];
 
                 $rows = [
                     $name,
-                    '<a href="' . siteUrl('page/46/details/' . $elementId . '/' . urlTitle($object)) . '" data-id="' . $elementId . ' ">' . escapeXss($object) . '</a>'
+                    '<a href="' . siteUrl('page/' . $pageId . '/details/' . $elementId . '/' . urlTitle($object)) . '" data-id="' . $elementId . ' ">' . escapeXss($object) . '</a>'
                 ];
 
                 // Setto le colonne da mostrare in base alla tipologia dell'incarico
@@ -786,17 +2171,16 @@ class AssignmentsFrontController extends BaseFrontController
                         : null;
                     $rows[] = escapeXss($assignment['liquidation_year']);
                 } else {
-                    $rows[] = !empty($assignment['compensation'])
+                    $rows[] = ['data' => !empty($assignment['compensation'])
                         ? '&euro; ' . escapeXss(S::currency($assignment['compensation'], 2, ',', '.'))
-                        : null;
+                        : null, 'style' => 'width: 10%;'];
+                    $rows[] = ['data' => !empty($assignment['assignment_start'])
+                        ? date('d/m/Y', (strtotime($assignment['assignment_start'])))
+                        : null, 'style' => 'width: 10%;'];
 
-                    $rows[] = !empty($assignment['assignment_start'])
-                        ? date('d-m-Y', (strtotime($assignment['assignment_start'])))
-                        : null;
-
-                    $rows[] = !empty($assignment['assignment_end'])
-                        ? date('d-m-Y', strtotime($assignment['assignment_end']))
-                        : null;
+                    $rows[] = ['data' => !empty($assignment['assignment_end'])
+                        ? date('d/m/Y', strtotime($assignment['assignment_end']))
+                        : null, 'style' => 'width: 10%;'];
                 }
 
                 $table->add_row(
@@ -838,8 +2222,12 @@ class AssignmentsFrontController extends BaseFrontController
             ->with('measures:id,object')
             ->with(['relative_liquidation' => function ($query) {
                 $query->select(['related_assignment_id', 'id', 'liquidation_year', 'liquidation_date', 'compensation_provided']);
-            }])
-            ->first();
+            }]);
+
+        $element = $element ?? null;
+        $element = $element ?? null;
+
+        $element = $element->first();
 
         // Se l'elemento non esiste oppure se non è piu pubblicato mostro la pagina di errore
         if (empty($element)) {
@@ -848,6 +2236,7 @@ class AssignmentsFrontController extends BaseFrontController
         }
 
         $element = $element->toArray();
+
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
@@ -868,8 +2257,7 @@ class AssignmentsFrontController extends BaseFrontController
             ? $element['related_assignment']['assignment_type']
             : $element['assignment_type'];
 
-        $assignmentTypology = config('assignmentTypologies', null, 'app');
-        $assignmentTypology = array_key_exists($assignmentType, $assignmentTypology) ? $assignmentTypology[$assignmentType] : '';
+        $assignmentTypologies = config('assignmentTypologies', [], 'app');
 
         $name = !empty($element['related_assignment']['name'])
             ? $element['related_assignment']['name']
@@ -888,7 +2276,7 @@ class AssignmentsFrontController extends BaseFrontController
         $data['bread'] = array();
         $data['bread'][] = array('name' => $pageName, 'link' => '/');
         $data['instance'] = $element;
-        $data['assignmentType'] = $assignmentTypology;
+        $data['assignmentType'] = $assignmentTypologies[$assignmentType] ?? '';
         $data['name'] = $name;
         $data['structure'] = $structure;
         $data['currentPageId'] = $currentPageId;
@@ -915,21 +2303,24 @@ class AssignmentsFrontController extends BaseFrontController
             'created_at',
             'updated_at'
         ];
+        // $showOnlyPublic = true;
+        $sectionId = (int)uri()->segment(2, 0);
+
+            // Allegati
+            $attach = new AttachmentArchive();
+            $data['listAttach'] = $attach->getAllByObject(
+                $label,
+                $elementId,
+                $selectFields,
+                true
+            );
 
 
-        // Allegati
-        $attach = new AttachmentArchive();
-        $data['listAttach'] = $attach->getAllByObject(
-            $label,
-            $elementId,
-            $selectFields,
-            true
-        );
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['object'])
-            ->toHtml();
+        //Inclusione del nodo JSON-LD della pagina
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/assignments/details', $data, 'frontend');
     }

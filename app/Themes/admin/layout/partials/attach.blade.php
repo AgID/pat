@@ -4,8 +4,22 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
+defined('_FRAMEWORK_') or exit('No direct script access allowed'); ?>
 
+@php
+    if (isset($attId)) {
+        $categories = null;
+    }
+
+    $allowedAttachTypes = array_values(array_unique(array_filter(explode('|', (string) config('allowed_types', null, 'perms_files')))));
+    $allowedAttachExtensions = '.' . implode(',.', $allowedAttachTypes);
+    $allowedAttachTypesLabel = strtoupper(implode(', ', $allowedAttachTypes));
+    $applicationAttachMaxSize = (int) config('max_size', 0, 'perms_files');
+    $applicationAttachMaxSize = $applicationAttachMaxSize > 0 ? $applicationAttachMaxSize * 1024 : null;
+    $maxAttachSize = \Helpers\Utility\FileUpload::maxSizeLabel($applicationAttachMaxSize);
+@endphp
+
+@php $categories = $categories ?? null; @endphp
 
 <script type="text/javascript">
 
@@ -44,20 +58,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         var tmpFiles = new DataTransfer();
     }
 
+
+
     $(document).ready(function () {
-        attId = '<?php echo $attId; ?>';
-        attachs[attId] = {{ !empty($listAttach) && is_array($listAttach) ? json_encode($listAttach) : json_encode([]) }};
+        const currentAttId = '<?php echo $attId; ?>';
+        attId = currentAttId;
+        attachs[currentAttId] = {{ !empty($listAttach) && is_array($listAttach) ? json_encode($listAttach) : json_encode([]) }};
+
+
 
         /**
          * Se siamo in update, controlliamo se sono già presenti degli allegati associati al record
          */
-        isUpdate[attId] = {{ !empty($listAttach) && is_array($listAttach) ? 'true' : 'false' }};
+        isUpdate[currentAttId] = {{ !empty($listAttach) && is_array($listAttach) ? 'true' : 'false' }};
 
         @if (!empty($listAttach))
         let _fileBuffer = new DataTransfer();
 
-        for (let i = 0; i < attachs[attId].length; ++i) {
-            let attach = attachs[attId][i].file;
+        for (let i = 0; i < attachs[currentAttId].length; ++i) {
+            let attach = attachs[currentAttId][i].file;
 
             let file = new File([''], attach.name, {
                 type: attach.type,
@@ -68,8 +87,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             _fileBuffer.items.add(file);
         }
 
-        document.getElementById(`attach_files${attId}`).files = _fileBuffer.files;
-        buildHtmlFiles(isUpdate[attId], attId);
+        document.getElementById(`attach_files${currentAttId}`).files = _fileBuffer.files;
+
+        //Fix per Firefox dentro iframe
+        requestAnimationFrame(() => {
+            buildHtmlFiles(isUpdate[currentAttId], currentAttId);
+        });
         @endif
 
         $(`#attach_files${attId}`).change(function () {
@@ -125,6 +148,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             if ($('body').find(`#list_file_info_attachs${modalId}`).length >= 1) {
                 $('body').find(`#list_file_info_attachs${modalId}`).remove();
             }
+
+
+
             $(`#modal_attach_file_layer${modalId}`).modal('show');
         });
 
@@ -136,6 +162,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             e.preventDefault();
             let attTabId = $(this).data('att_tab_id');
 
+
             if ($(`#attach_files${attTabId}`)[0].files.length == 0) {
 
                 alert('Non hai selezionato alcun file da allegare!')
@@ -146,9 +173,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let label = $(`#attach_name${attTabId}`).val();
                 let omissis = $(`#omissis_privacy${attTabId}`).val();
                 let public = $(`#active_attach${attTabId}`).val();
+
+
                 let files = $(`#attach_files${attTabId}`).get(0).files;
                 let fileBuffer = new DataTransfer();
                 let tempData = {};
+
 
                 //Per ogni file caricato, inserisco le relative informazioni in un array
                 $(files).each(function (index, value) {
@@ -157,7 +187,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         label,
                         omissis,
                         public,
-                        'file': value
+                        'file': value,
                     });
 
                 });
@@ -174,7 +204,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 $(`#clear_attach_name${attTabId}`).hide();
                 $(`#select_name${attTabId}`).show();
 
-                buildHtmlFiles(isUpdate[attId], attTabId);
+                buildHtmlFiles(isUpdate[attTabId], attTabId);
             }
         });
 
@@ -206,7 +236,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         $('.clear_attach_name').bind('click', function () {
             $(this).hide();
             let attId = $(this).data('attid');
-            $(`#attach_name${attId}`).prop('disabled', false).val('Allegato');
+
+
+            $(`#attach_name${attId}`).prop('readonly', false).val('Allegato');
+
         });
 
         $('[data-toggle="tooltip"]').tooltip({
@@ -246,7 +279,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Invoco la funzione per il cambio dello stato delle etichette
          */
-        changeLabel();
+        changeLabel<?php echo $attId; ?>();
     });
 
     /**
@@ -357,14 +390,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
      * Funzione che ha il compito di cambiare l'etichetta dell'allegato nel momento in si aggiunge
      * un nuovo file dalla finestra modale di aggiunta allegato.
      */
-    function changeLabel() {
-        $('.link-change-label').bind('click', function (e) {
+    function changeLabel<?php echo $attId; ?>() {
+        $(`.link-change-label<?php echo $attId; ?>`).bind('click', function (e) {
             e.preventDefault();
+
+            const attTabId = $(this).data('atttabid');
+
             let selectorText = '#label_attach_' + $('#sto_row_id').val();
             if ($(this).prev().text().length > 0) {
                 $(selectorText).val($(this).prev().text().trim());
             }
-            $('#modal_attach_label').modal('hide');
+            $(`#modal_attach_label${attTabId}`).modal('hide');
             $('#sto_row_id').val('');
         });
     }
@@ -390,15 +426,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             html += '<thead class="thead-dark">';
             html += '<tr>';
             html += '<th style="width: 3%;" scope="col" class="text-center">';
-            html += '#';
+            html += '<i class="fas fa-info-circle" data-toggle="tooltip" data-placement="top" data-original-title="Trascina gli allegati per cambiare ordine di visualizzazione"></i>';
             html += '</th>';
             html += '<th style="width: 35%;" scope="col">';
             html += 'File';
-            html += '</th>';
+
+
+                html += '</th>';
+
+
             html += '<th style="width: 35%;">';
             html += 'Etichetta';
             html += '</th>';
-            html += '<th style="width: 10%;">';
+
+
+                html += '<th style="width: 10%;">';
             html += 'Omissis';
             html += '</th>';
             html += '<th style="width: 10%;">';
@@ -436,10 +478,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let publishFalse = parseInt(item.public) == 0 ? ' selected="selected" ' : '';
 
                 /**
+                 * Prelevo l'Id di categoria
+                 */
+                let categoryId = parseInt(item?.category_id);
+
+
+                /**
                  * In fase di edit, assegnamo l'id del record dell'allegato
                  */
                 let id = (item.id != null) ? item.id : null;
+                const selectedFile = document.getElementById(`attach_files${attTabId}`).files[0];
 
+                const objectURL = window.URL.createObjectURL(selectedFile);
                 /**
                  * Creo la tabella degli allegati
                  */
@@ -447,19 +497,28 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 html += '<td class="tt text-center"><i class="fas fa-bars"></i></td>';
                 html += '<td>';
                 html += '<i class="fas fa-paperclip cursor-ns-resize "></i> &nbsp; ';
-                html += item.file.name.trim() + " <small> (" + getReadableFileSizeString(item.file.size, args[0]) +
-                    ") &nbsp; " + item.file.type.trim() + "</small>";
+                if (item.id) {
+                    html += `<a href="${APP_BASE_URL}admin/attach/download/${id}.html" target="_blank" title="Scarica allegato"> ${item.file.name.trim()}</a> <small> (${getReadableFileSizeString(item.file.size, args[0])}) &nbsp; ${item.file.type.trim()} </small>`;
+                } else {
+                    html += `<a href="#!" onclick="downloadFile(${i});"> ${item.file.name.trim()} </a> <small> ( ${getReadableFileSizeString(item.file.size, args[0])}
+                            ) &nbsp; ${item.file.type.trim()}</small>`;
+                }
                 html += '</td>';
+
+
                 html += '<td class="no-drag">';
                 html += '<div class="w-100" data-id="' + i + '">';
-                html += '<input style="width:90%" type="text" value="' + item.label.trim() +
-                    `" name="label_attach${attTabId}[]" id="label_attach_${i}" class="label_attach">`;
+
+                    html += '<input style="width:90%" type="text" value="' + item.label.trim() +
+                    `" name="label_attach${attTabId}[]" id="label_attach_${i}" class="label_attach"  >`;
                 html += `<input type="hidden" name="attach_id${attTabId}[]" value="${id}" id="attach_id_${i}">`;
                 html += `<input type="hidden" name="bdncp_cat${attTabId}[]" value="${attTabId}" id="attach_id_${i}">`;
                 html += '<button type="button" value="' + i +
-                    '" data-toggle="tooltip" data-placement="right" title="Cambia etichetta" class="btn change-label" style="width:10%"><i class="fas fa-tag"></i></button>';
+                    `" data-toggle="tooltip" data-placement="right" title="Cambia etichetta" class="btn change-label" data-attTabId="${attTabId}" style="width:10%"><i class="fas fa-tag"></i></button>`;
                 html += '</div>';
                 html += '</td>';
+
+
                 html += '<td class="no-drag">';
                 html += '<div class="" data-id="' + i + '">';
                 html += `<select class="omissis-select" name="omissis${attTabId}[]" id="omissis_${i}" class="w-100">`;
@@ -523,10 +582,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                 initFiles<?php echo $attId ?>(attTabId, removedIndex);
                 changeOmissisAndPublicAndKeyUp();
+
                 buildHtmlFiles(isUpdate[attTabId], attTabId);
 
             }
         });
+
+
 
         /**
          * Modale che si apre ad ogni singola riga nella tabella degli allegati al fine di cambiare
@@ -534,13 +596,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
          */
         $('.change-label').bind('click', function () {
             $('#sto_row_id').val($(this).val());
-            $('#modal_attach_label').modal('show');
+            $(`#modal_attach_label${attTabId}`).modal('show');
         });
-        changeLabel();
+
+        changeLabel<?php echo $attId; ?>();
 
         initFiles<?php echo $attId ?>(attTabId, removedIndex);
         changeOmissisAndPublicAndKeyUp();
     }
+
+
+
+
+
 
     function changeOmissisAndPublicAndKeyUp() {
         $('.omissis-select, .public-select').change(function () {
@@ -556,9 +624,43 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             attachs[attId][itemId].label = itemValue;
         });
     }
+
+    <?php // Funzione per il download dei file appena caricati nel form ?>
+    function downloadFile(index) {
+
+        const file = document.getElementById(`attach_files`).files[index];
+        const fileBlob = new Blob([file], {type: file.type});
+
+        //Creo il link per il download del file
+        const url = URL.createObjectURL(fileBlob);
+        const link = document.createElement('a')
+        link.setAttribute('href', url)
+        link.setAttribute('download', file.name)
+
+        if (MouseEvent) {
+            const event = new MouseEvent("click", {bubbles: true, cancelable: true});
+
+            link.dispatchEvent(event)
+        } else {
+            link.click()
+        }
+
+        // Rimuovo la risorsa allocata in precedenza
+        if (URL.revokeObjectURL) {
+            URL.revokeObjectURL(url)
+        }
+
+        return false;
+    }
 </script>
 
+
 {{-- Modale allegati --}}
+<?php
+if (empty($attId)) {
+    $attId = '';
+}
+?>
 <div class="modal fade" id="modal_attach_file_layer<?php echo $attId;?>" tabindex="-1" role="dialog"
      aria-labelledby="modal_attach_file_layer"
      aria-hidden="true">
@@ -596,6 +698,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <i class="fas fa-times"></i>
                         </a>
                     </div>
+
                     {{-- Campo nascosto a livello di CSS --}}
                     <div id="select_name<?php echo $attId;?>" class="select_name">
                         <ul>
@@ -620,6 +723,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @endif
                         </ul>
                     </div>
+
                     {{-- / Campo nascosto a livello di CSS --}}
                 </div>
 
@@ -634,12 +738,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 'placeholder' => 'Allegato',
                                 'id' => 'attach_files'.$attId,
                                 'class' => 'custom-file-input attach_files form-control-sm',
-                                'aria-describedby' => 'input_group_attach_files',
+                                'accept' => $allowedAttachExtensions,
+                                'aria-describedby' => 'attach_files_help'.$attId,
                                 'data-attId' => $attId
                             ]) }}
-                            <label class="custom-file-label" for="input_group_attach_files">Carica
+                            <label class="custom-file-label" for="attach_files<?php echo $attId;?>">Carica
                                 allegati</label>
                         </div>
+                    </div>
+                    <div id="attach_files_help<?php echo $attId;?>" class="attach-upload-requirements" role="note">
+                        <div class="attach-upload-requirements__header">
+                            <span class="attach-upload-requirements__icon" aria-hidden="true">
+                                <i class="fas fa-info"></i>
+                            </span>
+                            <span class="attach-upload-requirements__size">
+                                Dimensione massima per file: <strong>{{e: $maxAttachSize }}.</strong>
+                            </span>
+                        </div>
+                        <details>
+                            <summary>
+                                <span>Visualizza tutti i formati ammessi</span>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                            </summary>
+                            <span class="attach-upload-requirements__formats">
+                                <strong>Formati ammessi:</strong> {{e: $allowedAttachTypesLabel }}.
+                            </span>
+                        </details>
                     </div>
                 </div>
 
@@ -674,6 +798,10 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     ) }}
                 </div>
 
+
+                @if(!in_array(uri()->segment(2,0),['bdncp-procedure']) || (in_array(uri()->segment(2,0),['bdncp-procedure']) && uri()->segment(3,0) != 'create'))
+                @endif
+
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
@@ -690,7 +818,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {{-- /Modale allegati --}}
 
 {{-- Modale labeling --}}
-<div class="modal fade" id="modal_attach_label" tabindex="-1" role="dialog" aria-labelledby="modal_attach_label"
+<div class="modal fade" id="modal_attach_label<?php echo $attId;?>" tabindex="-1" role="dialog"
+     aria-labelledby="modal_attach_label"
      aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -707,20 +836,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <ul class="list-group">
                     @if (!empty($labels))
                         @foreach ($labels as $l)
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <li class="list-group-item d-flex justify-content-between align-items-center"
+                                style="word-break: unset!important;">
                                 <span>
                                     <i class="fas fa-caret-right"></i> {{ trim($l['label']['name']) }}
                                     {{ nbs(2) }}
                                 </span>
-                                <a class="btn btn-outline-primary btn-xs link-change-label" href="#!">Seleziona</a>
+                                <span class="btn btn-outline-primary btn-xs link-change-label<?php echo $attId;?>"
+                                      data-attTabId="<?php echo $attId;?>">Seleziona</span>
                             </li>
                         @endforeach
                     @else
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="list-group-item d-flex justify-content-between align-items-center"
+                            style="word-break: unset!important;">
                             <span>
                                 <i class="fas fa-caret-right"></i> Allegato {{ nbs(2) }}
                             </span>
-                            <a class="btn btn-outline-primary btn-xs link-change-label" href="#!">Seleziona</a>
+                            <span class="btn btn-outline-primary btn-xs link-change-label<?php echo $attId;?>"
+                                  data-attTabId="<?php echo $attId;?>">Seleziona</span>
                         </li>
                     @endif
                 </ul>

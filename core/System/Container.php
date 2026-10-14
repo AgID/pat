@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -11,7 +11,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 class Container
 {
     /**
-     * @var array
+      * @var
      */
     protected $services = [];
 
@@ -28,6 +28,7 @@ class Container
     /**
      * @return Container
      */
+
     public static function getInstance()
     {
         if (!self::$instance) {
@@ -43,7 +44,7 @@ class Container
     {
         $this->services[$name] = $resolver;
     }
-
+    
     /**
      * @param $name
      * @param callable $resolver

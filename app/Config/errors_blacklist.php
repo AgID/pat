@@ -17,7 +17,7 @@ return [
         '_COOKIE' => [
             'PHPSESSID'
         ],
-        '_SESSION' => [],
+        '_SESSION' => ['___FRAMEWORK___'],
         '_SERVER' => [
             'DB_USE',
             'DB_CONNECTION',
@@ -25,6 +25,12 @@ return [
             'DB_DATABASE',
             'DB_USERNAME',
             'DB_PASSWORD',
+            'DB_PATHUB_CONNECTION',
+            'DB_PATHUB_HOST',
+            'DB_PATHUB_DATABASE',
+            'DB_PATHUB_USERNAME',
+            'DB_PATHUB_PASSWORD',
+            'CHIAVE_SYNC_PAT',
             'TOKEN_JWT',
             'TOKEN_SESSION_KEY',
             'TOKEN_FRINGE_PRINT',
@@ -44,6 +50,9 @@ return [
             'REDIRECT_SSL_CIPHER',
             'PWD',
             'REMOTE_PORT',
+            'ENCRYPTION_KEY',
+            'ENCRYPTION_IV',
+            'CIPHER',
         ],
         '_ENV' => [
             'DB_USE',

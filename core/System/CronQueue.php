@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -279,36 +279,52 @@ class CronQueue
 
             foreach ($this->jobs as $job) {
                 if ($this->shouldRun($job['schedule'])) {
+
+                    //Log::print("ORA: ".date("Y-m-d H:i:s")." - CRON: ".get_class($job['class']).PHP_EOL, true, '_debug_cron.txt', false);
+
                     $className = get_class($job['class']);
 
                     if (array_key_exists($className, $childProcesses)) {
                         // La classe è già stata aggiunta come processo figlio, quindi continua con il prossimo job
+                        //Log::print("La classe è già stata aggiunta come processo figlio, quindi continua con il prossimo job".PHP_EOL, true, '_debug_cron.txt', false);
                         continue;
                     }
 
                     if (count($childProcesses) >= $this->maxChildren || $this->getFreeMemory() < $this->minFreeMemory) {
+                        // Aspetta che uno dei processi figli termini se il limite di memoria o il numero di processi è stato raggiunto
+                        //Log::print("Aspetta che uno dei processi figli termini se il limite di memoria o il numero di processi è stato raggiunto".PHP_EOL, true, '_debug_cron.txt', false);
                         $pid = pcntl_wait($status);
                         unset($childProcesses[array_search($pid, $childProcesses)]);
                     }
 
+                    //Log::print("PRE - FORK CRON: ".get_class($job['class']).PHP_EOL, true, '_debug_cron.txt', false);
+
                     $pid = pcntl_fork();
+
+                    //Log::print("POST - FORK CRON: ".get_class($job['class']).PHP_EOL." - PID: ".$pid.PHP_EOL, true, '_debug_cron.txt', false);
 
                     if ($pid == -1) {
                         throw new \RuntimeException('Impossibile eseguire il fork del processo.');
                     } elseif ($pid == 0) {
+                        // Questo è il processo figlio
                         $job['class']->handle();
                         exit(0);
                     } else {
+                        // Questo è il processo genitore, salva il PID del processo figlio
                         $childProcesses[$className] = $pid;
                     }
                 }
             }
 
+            // Attendi il termine di tutti i processi figli rimanenti
+            //Log::print("Attendi il termine di tutti i processi figli rimanenti CRON: ".get_class($job['class']).PHP_EOL, true, '_debug_cron.txt', false);
+
             foreach ($childProcesses as $pid) {
                 pcntl_waitpid($pid, $status);
             }
-        }
+            //Log::print("FINE CRON: ".get_class($job['class']).PHP_EOL, true, '_debug_cron.txt', false);
 
+        }
     }
 
     /**

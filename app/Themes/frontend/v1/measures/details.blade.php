@@ -21,20 +21,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
+                {{-- Index anchor --}}
+                {% include v1/layout/partials/anchor_index %}
                 <div class="col-lg-8">
                     <p id="generic-info" class="testo-blu anchor sr-only"
                        style="visibility: hidden; margin: unset;padding: unset;">Informazioni generali</p>
-                    <div class="titolo mb-4">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['object'] }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
 
                     @if(!empty($instance['type']))
-                        @php
-                        $measureTypologies = config('measureTypologies', null, 'app');
-                        @endphp
                         <h5 class="text-secondary page-subtitle">
                             <i class="fas fa-caret-right mr-1"></i>
-                            Tipologia: {{e: $measureTypologies[$instance['type']] ?? '' }}
+                            Tipologia: {{e: config('measureTypologies', [], 'app')[$instance['type']] ?? '' }}
                         </h5>
                     @endif
 
@@ -48,6 +50,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         @endif
 
+                        {{-- Inclusione di librerie esterne --}}
+
                         @if(!empty($instance['structures']))
                             @php
                                 $i = 0;
@@ -59,7 +63,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <a class="text-muted"
                                        href="{{ siteUrl('page/40/details/'. (int) $structure['id'].'/'.urlTitle($structure['structure_name'])) }}"
                                        class="ml-1">
-                                        {{e: $structure['structure_name'] }}
+                                        {{ ($structure['archived'] ? '<b>[Elemento archiviato]</b>' : '')  }} {{e: $structure['structure_name'] }}
                                     </a>
                                     {{ $i++ < $len ? ', ' : '' }}
                                 @endforeach
@@ -75,7 +79,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <span class="titolo">Responsabile del provvedimento:</span>
                                 @foreach($instance['personnel'] as $personnel)
                                     <a class="text-muted"
-                                       href="{{ siteUrl('page/58/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}"
+                                       href="{{ siteUrl('page/4/details/'.$personnel['id'].'/'.urlTitle($personnel['full_name'])) }}"
                                        class="ml-1">
                                         {{e: $personnel['full_name'] }}
                                     </a>
@@ -88,7 +92,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="attributo">
                                 <span class="titolo">Data del provvedimento:</span>
                                 <span class="text-muted">
-                                           {{ date('d-m-Y', strtotime($instance['date'])) }}
+                                           {{ date('d/m/Y', strtotime($instance['date'])) }}
                                         </span>
                             </div>
                         @endif
@@ -98,11 +102,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="information-charges" class="anchor testo-blu anchor mt-3 page-subtitle">Oneri informativi</h3>
+                        <h3 id="information-charges" class="anchor testo-blu anchor mt-3 page-subtitle">Oneri
+                            informativi</h3>
                         <ul>
                             @foreach($instance['charges'] as $charge)
                                 <li>
-                                    <a class="text-muted" href="{{ siteUrl('page/33/details/'.$charge['id'].'/'.urlTitle($charge['title'])) }}"
+                                    <a class="text-muted"
+                                       href="{{ siteUrl('page/33/details/'.$charge['id'].'/'.urlTitle($charge['title'])) }}"
                                        title="{{e: $charge['title'] }}">
                                         {{e: $charge['title'] }}
                                     </a>
@@ -111,21 +117,32 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </ul>
                     @endif
 
-                    @if(!empty($instance['relative_procedure_contraent']) || !empty($instance['relative_bdncp_procedure']))
+                    @if(!empty($instance['relative_procedure_contraent']) || !empty($instance['bdncp_procedures']))
                         @php
                             $anchorsNumber++;
                         @endphp
                         <h3 id="contraent" class="testo-blu anchor mt-3 page-subtitle">Scelta del contraente</h3>
+                        {{-- Vecchie procedure (fino al 31/12/2023) --}}
                         @if(!empty($instance['relative_procedure_contraent']))
-                            <a href="{{ siteUrl('page/110/details/'.$instance['relative_procedure_contraent']['id'].'/'.urlTitle($instance['relative_procedure_contraent']['object'])) }}"
-                               class="text-muted" style="font-size: 20px;">
-                                {{e: $instance['relative_procedure_contraent']['object'] }}
-                            </a>
-                        @elseif(!empty($instance['relative_bdncp_procedure']))
-                            <a href="{{ siteUrl('page/10/details/'.$instance['relative_bdncp_procedure']['id'].'/'.urlTitle($instance['relative_bdncp_procedure']['object'])) }}"
-                               class="text-muted" style="font-size: 20px;">
-                                {{e: $instance['relative_bdncp_procedure']['object'] }}
-                            </a>
+                            <div class="mb-2">
+                                <a href="{{ siteUrl('page/110/details/'.$instance['relative_procedure_contraent']['id'].'/'.urlTitle($instance['relative_procedure_contraent']['object'])) }}"
+                                   class="text-muted" style="font-size: 20px;">
+                                    {{e: $instance['relative_procedure_contraent']['object'] }}
+                                </a>
+                            </div>
+                        @endif
+                        {{-- Nuove procedure BDNCP (dal 01/01/2024) --}}
+                        @if(!empty($instance['bdncp_procedures']))
+                            <ul class="list-unstyled mb-0 pl-0">
+                                @foreach($instance['bdncp_procedures'] as $procedure)
+                                    <li class="mb-2">
+                                        <a href="{{ siteUrl('page/10/details/'.$procedure['id'].'/'.urlTitle($procedure['object'])) }}"
+                                           class="text-muted" style="font-size: 20px;">
+                                            {{e: $procedure['object'] }}
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
                         @endif
                     @endif
 
@@ -139,7 +156,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         @php
                             $anchorsNumber++;
                         @endphp
-                        <h3 id="notes" class="testo-blu anchor page-subtitle">Note</h3>
+                        <h3 id="notes" class="testo-blu anchor mt-3 page-subtitle">Note</h3>
                         {{xss: $instance['notes'] }}
                     @endif
 
@@ -149,27 +166,20 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
-                </div>
+                    {{-- Inclusione di librerie esterne --}}
 
-                @if($anchorsNumber > 4)
-                    {{-- Index anchor --}}
-                    {% include v1/layout/partials/anchor_index %}
-                @else
-                    {{-- Right Menu --}}
-                    {% include v1/layout/partials/right_menu %}
-                @endif
+                </div>
 
             </div>
         </div>
     </section>
 </main>
 
-@if($anchorsNumber > 4)
-    {{-- Bottom Menu --}}
-    {% include v1/layout/partials/bottom_menu %}
-@endif
+{{-- Bottom Menu --}}
+{% include v1/layout/partials/bottom_menu %}
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

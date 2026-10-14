@@ -4,12 +4,15 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUnused */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\ChargesModel;
 use Model\SectionsFoModel;
 use System\Input;
@@ -59,17 +62,26 @@ class ChargeFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -94,16 +106,18 @@ class ChargeFrontController extends BaseFrontController
         $data['instances'] = $charges;
         $data['instance'] = $currentPage;
         $data['paragraphs'] = $contents;
-        $data['noRequiredPublication'] = false;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
+        $data['normative_references'] = $currentPage['normatives'] ?? null;
         $data['allowSearch'] = false;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         // Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/charges/charges', $data, 'frontend');
     }
@@ -111,7 +125,7 @@ class ChargeFrontController extends BaseFrontController
     /**
      * Funzione che ritorna i dati da mostrare nella tabella
      *
-     * @param null $type {la tipologia per cui filtrare i dati}
+     * @param null  $type {la tipologia per cui filtrare i dati}
      * @param array $data Dati da passare alla vista
      * @return mixed
      * @throws Exception
@@ -119,23 +133,33 @@ class ChargeFrontController extends BaseFrontController
     private function getDataResults($type = null, array &$data = []): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        $charges = ChargesModel::where('type', $type)
-            ->paginate(20, ['id', 'title', 'citizen', 'companies', 'expiration_date'], 'p', (int)Input::get('p'))
+        $charges =  ChargesModel::where('type', $type)
+            ->paginate(20, ['id', 'title', 'citizen', 'companies', 'expiration_date'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             //->appends(Input::get(['operator', 'service', 'type', 'municipal', 'service', 'start', 'end', 'customer', 'per_page']))
             ->setPath(currentUrl());
+
+        // Richiesta del solo frammento (paginazione AJAX): essendo getDataResults() chiamato da
+        // tutte le pagine di questo controller prima del lavoro pesante (render completo), un
+        // solo controllo qui copre tutte quelle pagine.
+        if (isFrontFragmentRequest()) {
+            $resultsArray = $charges->toArray();
+            $table = $this->createTableRows($resultsArray);
+            renderFrontFragment(['table' => !empty($table) ? $table->generate() : null, 'instances' => $resultsArray]);
+            exit;
+        }
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($charges) && !empty($charges->toArray()['data'])) {
 
             //Prendo la data di creazione del primo elemento creato e di modifica dell'ultimo elemento modificato tra quelli
             //da pubblicare nella pagina
-            $firstCreated = optional(ChargesModel::select(['.created_at'])
+            $firstCreated = optional(ChargesModel::select(['created_at'])
                 ->where('type', $type)
                 ->orderBy('created_at', 'ASC')
                 ->first())
                 ->toArray();
-            $lasUpdated = optional(ChargesModel::select(['.updated_at'])
+            $lasUpdated = optional(ChargesModel::select(['updated_at'])
                 ->where('type', $type)
                 ->orderBy('updated_at', 'DESC')
                 ->first())
@@ -177,7 +201,7 @@ class ChargeFrontController extends BaseFrontController
                     '<a href="' . siteUrl('page/' . $currentPageId . '/details/' . $charge['id'] . '/' . urlTitle($charge['title'])) . '" data-id="' . $charge['id'] . ' " data-id="' . $charge['id'] . ' ">' . escapeXss($charge['title']) . '</a>',
                     (!empty($charge['citizen']) ? 'si' : 'no'),
                     (!empty($charge['companies']) ? 'si' : 'no'),
-                    !empty($charge['expiration_date']) ? date('d-m-Y', strtotime($charge['expiration_date'])) : null
+                    !empty($charge['expiration_date']) ? date('d/m/Y', strtotime($charge['expiration_date'])) : null
                 );
             }
         }
@@ -201,17 +225,26 @@ class ChargeFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data',
-            'archive_name', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            'archive_name', 'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
@@ -238,15 +271,16 @@ class ChargeFrontController extends BaseFrontController
         $data['paragraphs'] = $contents;
         $data['noRequiredPublication'] = true;
         $data['allowSearch'] = false;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
 
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/charges/charges', $data, 'frontend');
     }
 
@@ -258,6 +292,7 @@ class ChargeFrontController extends BaseFrontController
      */
     public function details(): void
     {
+
         $data = [];
 
         // Id della pagina corrente
@@ -268,22 +303,25 @@ class ChargeFrontController extends BaseFrontController
         $element = ChargesModel::where('id', $elementId)
             ->with(['proceedings' => function ($query) {
                 $query->select(['object_charges_id', 'object_proceedings_id', 'p.name']);
-            }])
-            ->with('proceedings:id,name')
+            }]);
+        $element = $element ?? null;
+        $element = $element->with('proceedings:id,name')
             ->with('measures:id,object,type')
             ->with('regulations:id,title')
             ->with(['normative' => function ($query) {
                 $query->select(['id', 'name']);
-            }])
-            ->first();
+            }]);
+
+
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
             echo show404('Ops..', 'record not found');
             exit();
         }
-
         $element = $element->toArray();
+
 
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
@@ -303,7 +341,7 @@ class ChargeFrontController extends BaseFrontController
         $data['bread'] = array();
         $data['bread'][] = array('name' => $element['title'], 'link' => '/');
         $data['instance'] = $element;
-        $data['noRequiredPublication'] = true;
+        $data['noRequiredPublication'] = $element['type'] != 'obbligo';
         $data['currentPageId'] = $currentPageId;
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
@@ -330,20 +368,17 @@ class ChargeFrontController extends BaseFrontController
         // $showOnlyPublic = true;
         $sectionId = (int)uri()->segment(2, 0);
 
+            // Allegati
+            $attach = new AttachmentArchive();
+            $data['listAttach'] = $attach->getAllByObject(
+                $label,
+                $elementId,
+                $selectFields,
+                true
+            );
 
-        // Allegati
-        $attach = new AttachmentArchive();
-        $data['listAttach'] = $attach->getAllByObject(
-            $label,
-            $elementId,
-            $selectFields,
-            true
-        );
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['title'])
-            ->toHtml();
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
 
         renderFront(config('vfo', null, 'app') . '/charges/details', $data, 'frontend');
     }

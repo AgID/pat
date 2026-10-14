@@ -45,8 +45,7 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
             die();
 
         } else {
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -70,13 +69,19 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
             ->first();
 
         // Recupero i bandi di concorso attivi
-        $queryContents = ProgrammingActsModel::orderBy('date', 'DESC')
+        $queryContents = ProgrammingActsModel::filter(
+            Input::get('obj', true),
+            Input::get('d', true),
+            Input::get('s', true),
+            Input::get('e', true),
+        )
+            ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -105,13 +110,19 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
 
         // Recupero i bandi di concorso attivi
         $queryContents = ProgrammingActsModel::where('act_type', $actType)
+            ->filter(
+                (Input::get('obj', true)),
+                (Input::get('d', true)),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
             ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -140,11 +151,17 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
 
         // Recupero i bandi di concorso attivi
         $queryContents = ProgrammingActsModel::where('public_in_public_works', 1)
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->filter(
+                Input::get('obj', true),
+                Input::get('d', true),
+                Input::get('s', true),
+                Input::get('e', true),
+            )
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -171,10 +188,11 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
         $sectionName = str_replace(',', '', $resultSection['name']);
 
         $fileName = 'Atti di Programmazione - ' . $sectionName. '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -206,7 +224,7 @@ class OpenDataProgrammingActFrontController extends BaseFrontController
                 // Oggetto
                 !empty($r['object']) ? $r['object'] : null,
                 // Data
-                !empty($r['date']) ? date('d-m-Y', strtotime($r['date'])) : null,
+                !empty($r['date']) ? date('d/m/Y', strtotime($r['date'])) : null,
                 // Tipo Atto
                 !empty($r['act_type']) ? $types[$r['act_type']] : null,
                 // Pubblica in "Opere Pubbliche"

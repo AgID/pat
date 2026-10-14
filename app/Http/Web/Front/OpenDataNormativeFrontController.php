@@ -11,7 +11,6 @@ use Helpers\S;
 use Helpers\Validators\OpenDataDate;
 use Model\NormativesModel;
 use Model\SectionsFoModel;
-use Model\SelectDataModel;
 use System\Input;
 use System\Response;
 
@@ -47,8 +46,7 @@ class OpenDataNormativeFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
 
@@ -72,9 +70,9 @@ class OpenDataNormativeFrontController extends BaseFrontController
             ->first();
 
         // Recupero i bandi di concorso attivi
-        $queryContents = $this->getData(2);
+        $queryContents = $this->getData([2]);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -102,9 +100,9 @@ class OpenDataNormativeFrontController extends BaseFrontController
             ->first();
 
         // Recupero i bandi di concorso attivi
-        $queryContents = $this->getData(1);
+        $queryContents = $this->getData([1,4,50,51,52]);
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -121,16 +119,24 @@ class OpenDataNormativeFrontController extends BaseFrontController
      * @return mixed
      * @throws Exception
      */
-    private function getData($topic = null): mixed
+    private function getData(array $topic = []): mixed
     {
         // Recupero i canoni di locazione percepiti da mostrare
-        return NormativesModel::where('normative_topic', $topic)
+        return NormativesModel::whereIn('normative_topic', $topic)
+            ->filter(
+                (Input::get('norm', true)),
+                (int)Input::get('t', true),
+                (int)Input::get('n', true),
+                Input::get('s', true),
+                Input::get('e', true),
+                (int)Input::get('u', true)
+            )
             ->with('attachs')
             ->with('structures:id,structure_name')
             ->orderBy('issue_date', 'DESC')
             ->orderBy('name', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
 
     }
@@ -147,10 +153,11 @@ class OpenDataNormativeFrontController extends BaseFrontController
     {
 
         $fileName = 'Normative - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -168,19 +175,11 @@ class OpenDataNormativeFrontController extends BaseFrontController
         );
         fputcsv($output, $headers, ';', '"');
 
-        $institutionTypeId = patOsInstituteInfo(['institution_type_id']);
-        $typology = [null => ''] + SelectDataModel::where('typology', '=', 'normative_act_type')
-                ->where('institution_type_id', '=', $institutionTypeId['institution_type_id'])
-                ->orWhere(function ($query) {
-                    $query->whereNull('institution_type_id')
-                        ->where('is_default', '=', 1);
-                })
-                ->orWhereNull('institution_type_id')
-                ->where('disabled', 0)
-                ->pluck('value', 'id')
-                ->all();
+        $typology = [null => ''] + config('normativeTypologies', [], 'app');
 
-        $topic = [1 => 'Organizzazione dell\'Ente', 2 => 'Sovvenzioni e contributi', 3 => 'Altro'];
+        $topic = [1 => 'Organizzazione dell\'Ente',
+            2 => 'Sovvenzioni e contributi', 3 => 'Altro', 4=> 'Attività'];
+        //Argomenti della normativa
 
         foreach ($resultContests as $r) {
             //Concateno gli allegati

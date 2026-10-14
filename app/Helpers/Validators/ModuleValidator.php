@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ModulesRegulationsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,24 +37,29 @@ class ModuleValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID modulo')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il modulo con l'id passato in input
-                $check = ModulesRegulationsModel::where('id', uri()->segment(4, 0))
+                $check = ModulesRegulationsModel::where('id', uri()->segment($uriSegment, 0))
                     ->with('proceedings:id')
-                    ->first();
+                    ->with('structure:id,structure_name')
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
                 if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
-
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id_2', null, 'patos'), 'modulistica ')
                     ];
@@ -65,7 +71,6 @@ class ModuleValidator
                 return null;
             })
             ->end();
-
 
         return [
             'is_success' => $this->validator->isSuccess(),
@@ -80,9 +85,9 @@ class ModuleValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -94,11 +99,12 @@ class ModuleValidator
      * @noinspection PhpInconsistentReturnPointsInspection
      * @noinspection DuplicatedCode
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
 
         $this->validator->verifyToken()
             ->end();
+
 
         $this->validator->label('Titolo')
             ->value(Input::post('title'))
@@ -124,7 +130,7 @@ class ModuleValidator
 
         $this->validator->label('Testo di descrizione')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 15000)
             ->end();
 
         $this->validator->label('Ordine di visualizzazione')
@@ -134,28 +140,39 @@ class ModuleValidator
             ->isNaturalNoZero()
             ->end();
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $regulation = ModulesRegulationsModel::where('id', Input::post('id'))->first();
-                    if (empty($regulation)) {
+                ->add(function () use ($id, $institutionId) {
+                    $query = ModulesRegulationsModel::where('id', $id);
+
+                    $result = $query->first();
+
+                    if (empty($result)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Modulo')];
                     }
+
                 })
                 ->end();
-        }
 
+        }
 
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 
     /**
      * Validatore dell'eliminazione multipla

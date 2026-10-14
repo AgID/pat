@@ -1,0 +1,73 @@
+<?php
+/**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+defined('_FRAMEWORK_') or exit('No direct script access allowed');
+
+return [
+    'fields' => [
+        3 => 'full_name',
+        25 => 'object',
+        13 => 'title',
+        19 => 'object',
+        2 => 'structure_name',
+        7 => 'name',
+        12 => 'title',
+        23 => 'object',
+        14 => 'name',
+        26 => 'object',
+        15 => 'name',
+        27 => 'title',
+        24 => 'object',
+        17 => 'name',
+        5 => 'name',
+        6 => 'company_name',
+        22 => 'object',
+        8 => 'name',
+        9 => 'beneficiary',
+        4 => 'structure_name',
+        20 => 'object',
+        10 => 'object',
+        49 => 'title',
+        28 => 'name',
+        91 => 'object',
+        92 => 'object',
+        44 => 'name',
+        110 => 'object',
+        111 => 'denomination',
+    ],
+    // Gli identificativi sono quelli registrati nei log degli archivi del back-office.
+    // I model sono espliciti per non dipendere da section_bo.model_class nei dati di installazione.
+    'archives' => [
+        3 => ['model' => '\\Model\\PersonnelModel', 'name' => 'Personale'],
+        25 => ['model' => '\\Model\\AssignmentsModel', 'name' => 'Incarichi e consulenze'],
+        13 => ['model' => '\\Model\\ModulesRegulationsModel', 'name' => 'Modulistica'],
+        19 => ['model' => '\\Model\\ContestsActsModel', 'name' => 'Bandi Gare e Contratti'],
+        2 => ['model' => '\\Model\\StructuresModel', 'name' => 'Strutture Organizzative'],
+        7 => ['model' => '\\Model\\ProceedingsModel', 'name' => 'Procedimenti'],
+        12 => ['model' => '\\Model\\RegulationsModel', 'name' => 'Regolamenti e documentazione'],
+        23 => ['model' => '\\Model\\ContestModel', 'name' => 'Bandi di Concorso'],
+        14 => ['model' => '\\Model\\NormativesModel', 'name' => 'Normativa'],
+        26 => ['model' => '\\Model\\MeasuresModel', 'name' => 'Provvedimenti Amministrativi'],
+        15 => ['model' => '\\Model\\BalanceSheetsModel', 'name' => 'Bilanci'],
+        27 => ['model' => '\\Model\\ChargesModel', 'name' => 'Oneri informativi e obblighi'],
+        24 => ['model' => '\\Model\\GrantsModel', 'name' => 'Sovvenzioni e vantaggi economici'],
+        17 => ['model' => '\\Model\\SupplieListModel', 'name' => 'Elenco partecipanti/aggiudicatari'],
+        5 => ['model' => '\\Model\\CommissionsModel', 'name' => 'Commissioni e gruppi consiliari'],
+        6 => ['model' => '\\Model\\CompanyModel', 'name' => 'Enti e società controllate'],
+        22 => ['model' => '\\Model\\ProgrammingActsModel', 'name' => 'Atti di programmazione'],
+        8 => ['model' => '\\Model\\RealEstateAssetModel', 'name' => 'Patrimonio immobiliare'],
+        9 => ['model' => '\\Model\\LeaseCanonsModel', 'name' => 'Canoni di locazione'],
+        4 => ['model' => '\\Model\\AbsenceRatesModel', 'name' => 'Tasso di assenza'],
+        20 => ['model' => '\\Model\\NoticesActsModel', 'name' => 'Atti delle amministrazioni'],
+        10 => ['model' => '\\Model\\ReliefChecksModel', 'name' => 'Controlli e rilievi'],
+        49 => ['model' => '\\Model\\NewsNoticesModel', 'name' => 'News ed avvisi'],
+        28 => ['model' => '\\Model\\InterventionsModel', 'name' => 'Interventi straordinari e di emergenza'],
+        91 => ['model' => '\\Model\\BdncpProcedureModel', 'name' => 'Bandi di gara e contratti (dal 1/1/2024)'],
+        92 => ['model' => '\\Model\\GeneralActsDocumentsModel', 'name' => 'Atti e Documenti di carattere generale'],
+        110 => ['model' => '\\Model\\PaymentModel', 'name' => 'Pagamento'],
+        111 => ['model' => '\\Model\\SectionFoPoliticOrganModel', 'name' => 'Dettaglio organi politici'],
+        44 => ['model' => '\\Model\\SectionsFoModel', 'name' => 'Pagine generiche'],
+    ],
+];

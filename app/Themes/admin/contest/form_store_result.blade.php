@@ -24,33 +24,38 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         Duplicazione Esito {{ $archiveName }}
                     @endif
                 </span>
-                <div class="card-tools">
-                    <ul class="nav nav-pills ml-auto">
-                        <li class="nav-item">
-                            <a href="{{ siteUrl('admin/contest') }}" title="Torna indietro"
-                               class="btn btn-default btn-sm btn-outline-primary">
-                                <i class="fas fa-caret-left"></i> Torna a elenco {{ $archiveName }}
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                @if(empty($is_box))
+                    <div class="card-tools">
+                        <ul class="nav nav-pills ml-auto">
+                            <li class="nav-item">
+                                <a href="{{ siteUrl('admin/contest') }}" title="Torna indietro"
+                                   class="btn btn-default btn-sm btn-outline-primary">
+                                    <i class="fas fa-caret-left"></i> Torna a elenco {{ $archiveName }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                @endif
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
-                            <div class="form-row d-flex align-items-end">
 
-                                {{-- Campo Data di pubblicazione --}}
-                                <div class="form-group col-md-6">
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
                                     <label for="activation_date">Data di pubblicazione *</label>
                                     <div class="input-group">
                                         <div class="input-group-prepend">
@@ -63,6 +68,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                id="activation_date">
                                     </div>
                                 </div>
+                            </div>
+                            <hr class="patos-hr">
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+                            </div>
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Campo Data di pubblicazione --}}
+                                @php $result = $result ?? null; @endphp
+
                             </div>
 
                             <div class="form-row d-flex align-items-end">
@@ -79,10 +95,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
                             </div>
 
+
+
+                            @php $s_c_t = $s_c_t ?? null; @endphp
+
                             {{-- Campo Concorso o Avviso relativo --}}
                             @php
                                 $label = 'Concorso o Avviso relativo';
                                 $selectedLabel = 'Concorso o Avviso relativo selezionato';
+                                $label = $label ?? null; $selectedLabel = $selectedLabel ?? null;
                             @endphp
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12">
@@ -90,8 +111,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         <label for="ajax_contest" id="ajax_contest_label"> {{ $label }} </label>
                                     </div>
                                     <div id="ajax_contest"></div>
-                                    <input type="hidden" value="" name="related_contest_id" id="input_related_contest"
+                                    <input type="hidden" value="" name="related_contest_id"
+                                           id="input_related_contest"
                                            class="related_contest_id">
+                                </div>
+                            </div>
+
+                            {{-- Campo Ufficio di riferimento --}}
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-12" id="object_structures_id">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label for="ajax_structure" id="c_ajax_structure_label">Ufficio di
+                                            riferimento </label>
+                                    </div>
+                                    <div id="ajax_structure"></div>
+                                    <input type="hidden" value="" name="object_structures_id"
+                                           id="input_object_structures_id"
+                                           class="object_structures_id">
                                 </div>
                             </div>
 
@@ -106,6 +142,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -113,11 +152,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -149,6 +191,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -159,8 +202,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
-{{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
 <style type="text/css">
     .ck-editor__editable_inline {
         min-height: 200px;
@@ -171,64 +212,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName !== 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
+
+    const institutionId = $('#institution_id').val();
+    let contest;
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
 
-        {{-- Begin Select2 campo "Concorso o Avviso relativo" --}}
         // Tabella per la selezione del Concorso relativo
-        let contest = $('#ajax_contest').patOsAjaxPagination({
-            url: config.contest.url,
-            textLoad: config.contest.textLoad,
-            selectedLabel: '<?php echo $selectedLabel; ?>',
-            footerTable: config.contest.footerTable,
-            classTable: config.contest.classTable,
-            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
-            hideTable: config.contest.hideTable,
-            showTable: config.contest.showTable,
-            search_placeholder: config.contest.search_placeholder,
-            setInputDataValue: '#input_related_contest',
-            dataParams: {
-                model: 34,
-                institution_id: institutionId,
-            },
-            dateFormat: config.contest.dateFormat,
-            columns: config.contest.columns,
-            action: {
-                type: 'radio',
-            },
-            dataSource: config.contest.dataSource,
-            addRecord: config.contest.addRecord,
-            label: '#ajax_contest_label'
-        });
-
-        // Setto il concorso relativo se sono in modifica o duplicazione
-        @if(in_array($_storageType,['update', 'duplicate']) && !empty($result['related_contest']))
-        @php
-            $tmpActivationDate = !empty($result['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($result['related_contest']['activation_date'])) : null;
-        @endphp
-        contest.patOsAjaxPagination.setValue('{{ $result['related_contest']['id'] }}', '{{htmlEscape($result['related_contest']['object']).' - '.$result['related_contest']['typology'].''.$tmpActivationDate }}', true);
-        @endif
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        contest = refreshContest(institutionId, null, false);
 
         {{-- Begin creazione campi CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -237,16 +239,52 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
         {{-- End creazione campi CKEDITOR --}}
 
         // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
         if ($('#_storage_type').val() === 'insert') {
             @if(empty($result['activation_date']))
-            $('#activation_date').attr('value', "<?= date('Y-m-d H:i') ?>");
+            $('#activation_date').attr('value', "<?= date('Y-m-d\TH:i') ?>");
             @endif
         }
         {{-- End creazione campi data --}}
+
+
+        // Tabella per la selezione della struttura
+        let structure = $('#ajax_structure').patOsAjaxPagination({
+            url: config.structure.url,
+            textLoad: config.structure.textLoad,
+            selectedLabel: 'Ufficio selezionato',
+            footerTable: config.structure.footerTable,
+            classTable: config.structure.classTable,
+            hideShowTable: Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.structure.hideTable,
+            showTable: config.structure.showTable,
+            institution_id: institutionId,
+            selectedIDs: '<?php echo !empty($result['office']) ? implode(",", array_column($result['office'], 'id')) : ''; ?>',
+            search_placeholder: config.structure.search_placeholder,
+            setInputDataValue: '#input_object_structures_id',
+            dataParams: {
+                model: 1,
+                institution_id: institutionId
+            },
+            columns: config.structure.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.structure.dataSource,
+            addRecord: config.structure.addRecord,
+            archived: config.structure.archived,
+            label: '#c_ajax_structure_label'
+        });
+
+        // Se sono in modifica o in duplicazione setto i valori il presidente della commissione gia selezionato
+        @if(!empty($result['office']))
+        structure.patOsAjaxPagination.setValue('{{ $result['office']['id'] }}', '{{ htmlEscape($result['office']['structure_name']).(!empty($result['office']['parent_name'])?' - '.htmlEscape($result['office']['parent_name']):'').(!empty($result['office']['reference_email'])?' - '.$result['office']['reference_email']:'') }}', true);
+        @endif
 
         /**
          * Metodo per il salvataggio
@@ -283,6 +321,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
             },
@@ -320,11 +359,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -338,7 +377,44 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
          */
         {{-- Vedere nel footer --}}
         checkIfRestore();
-
     });
+
+    function refreshContest(institutionId, tag, showTable) {
+        let c = $('#ajax_contest').patOsAjaxPagination({
+            url: config.contest.url,
+            textLoad: config.contest.textLoad,
+            selectedLabel: '<?php echo $selectedLabel; ?>',
+            footerTable: config.contest.footerTable,
+            classTable: config.contest.classTable,
+            hideShowTable: showTable ? showTable : Boolean(<?php echo ($_storageType == 'insert') ? 'true' : 'false' ?>),
+            hideTable: config.contest.hideTable,
+            showTable: config.contest.showTable,
+            search_placeholder: config.contest.search_placeholder,
+            setInputDataValue: '#input_related_contest',
+            dataParams: {
+                model: 34,
+                institution_id: institutionId,
+                tag: tag
+            },
+            dateFormat: config.contest.dateFormat,
+            columns: config.contest.columns,
+            action: {
+                type: 'radio',
+            },
+            dataSource: config.contest.dataSource,
+            addRecord: config.contest.addRecord,
+            label: '#ajax_contest_label'
+        });
+
+        // Setto il concorso relativo se sono in modifica o duplicazione
+        @if(in_array($_storageType,['update', 'duplicate']) && !empty($result['related_contest']))
+        @php
+            $tmpActivationDate = !empty($result['related_contest']['activation_date']) ? ' - '.date('d/m/Y', strtotime($result['related_contest']['activation_date'])) : null;
+        @endphp
+        c.patOsAjaxPagination.setValue('{{ $result['related_contest']['id'] }}', '{{htmlEscape($result['related_contest']['object']).' - '.$result['related_contest']['typology'].''.$tmpActivationDate }}', true);
+        @endif
+
+            return c;
+    }
 </script>
 {% endblock %}

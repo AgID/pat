@@ -221,7 +221,8 @@ class Curl
         $this->http_error = $this->isError();
         $this->error = $this->curl_error || $this->http_error;
         $this->error_code = $this->error ? ($this->curl_error ? $this->getErrorCode() : $this->getHttpStatus()) : 0;
-        $this->request_headers = preg_split('/\r\n/', curl_getinfo($this->curl, CURLINFO_HEADER_OUT), null, PREG_SPLIT_NO_EMPTY);
+        $request_headers = curl_getinfo($this->curl, CURLINFO_HEADER_OUT);
+        $this->request_headers = preg_split('/\r\n/', $request_headers, -1, PREG_SPLIT_NO_EMPTY);
         $this->http_error_message = $this->error ? (isset($this->response_headers['0']) ? $this->response_headers['0'] : '') : '';
         $this->error_message = $this->curl_error ? $this->getErrorMessage() : $this->http_error_message;
 
@@ -288,7 +289,6 @@ class Curl
     // public methods
 
     /**
-     * @deprecated calling exec() directly is discouraged
      */
     public function _exec()
     {
@@ -414,6 +414,12 @@ class Curl
         return $this;
     }
 
+    public function setDisableSSLVerifyPeer()
+    {
+        $this->setOpt(CURLOPT_SSL_VERIFYPEER, false);
+        return $this;
+    }
+
     // setters
 
     /**
@@ -483,7 +489,6 @@ class Curl
     /**
      * @param $referrer
      * @return self
-     * @deprecated Call setReferer() instead
      *
      */
     public function setReferrer($referrer)
@@ -714,7 +719,7 @@ class Curl
     public function getResponseHeaders($headerKey = null)
     {
         $headers = array();
-        $headerKey = strtolower($headerKey);
+        $headerKey = @strtolower($headerKey);
 
         foreach ($this->response_headers as $header) {
             $parts = explode(":", $header, 2);
@@ -722,7 +727,7 @@ class Curl
             $key = isset($parts[0]) ? $parts[0] : null;
             $value = isset($parts[1]) ? $parts[1] : null;
 
-            $headers[trim(strtolower($key))] = trim($value);
+            $headers[@trim(strtolower($key))] = @trim($value);
         }
 
         if ($headerKey) {

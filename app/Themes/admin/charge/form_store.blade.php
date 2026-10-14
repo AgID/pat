@@ -39,15 +39,30 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
+
+
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
 
                             <div class="form-group">
                                 {{-- Campo Denominazione o titolo --}}
@@ -65,12 +80,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Per cittadini --}}
                                 <div class="form-group col-md-6">
                                     <label for="citizen">Per Cittadini</label>
-                                    <div class="select2-blue" id="input_citizen">
+                                    <div id="input_citizen">
                                         {{ form_dropdown(
                                             'citizen',
                                             [''=>'',0=>'No',1=>'Si'],
                                             @$charge['citizen'],
-                                            'class="form-control select2-citizen" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-citizen" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -78,34 +93,39 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Per Imprese --}}
                                 <div class="form-group col-md-6">
                                     <label for="companies">Per Imprese</label>
-                                    <div class="select2-blue" id="input_companies">
+                                    <div id="input_companies">
                                         {{ form_dropdown(
                                             'companies',
                                             [''=>'',0=>'No',1=>'Si'],
                                             @$charge['companies'],
-                                            'class="form-control select2-companies" data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-companies" style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
                             </div>
 
+
                             <div class="form-row d-flex align-items-end">
-                                {{-- Campo Tipologia --}}
-                                <div class="form-group col-md-6">
-                                    <label for="type">Tipologia *</label>
-                                    <div class="select2-blue" id="input_type">
-                                        {{ form_dropdown(
-                                            'type',
-                                            [
-                                                ''=>'',
-                                                'onere'=>'Pubblica in Oneri informativi per cittadini ed imprese',
-                                                'obbligo'=>'Pubblica in Scadenzario obblighi amministrativi'
-                                            ],
-                                            @$charge['type'],
-                                            'class="form-control select2-type" data-dropdown-css-class="select2-blue" style="width: 100%;"'
-                                        ) }}
+                                @if($_storageType == 'update' && strtotime($charge['created_at']) < '1687277700')
+                                    {{-- Campo Tipologia --}}
+                                    <div class="form-group col-md-6">
+                                        <label for="type">Tipologia *</label>
+                                        <div id="input_type">
+                                            {{ form_dropdown(
+                                                'type',
+                                                [
+                                                    ''=>'',
+                                                    'onere'=>'Pubblica in Oneri informativi per cittadini ed imprese',
+                                                    'obbligo'=>'Pubblica in Scadenzario obblighi amministrativi'
+                                                ],
+                                                @$charge['type'],
+                                                'class="ts-type" style="width: 100%;"'
+                                            ) }}
+                                        </div>
                                     </div>
-                                </div>
+                                @else
+                                    <input type="hidden" id="input_type" name="type" value="obbligo" />
+                                @endif
 
                                 {{-- Campo Data di scadenza --}}
                                 <div class="form-group col-md-6">
@@ -129,12 +149,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="proceedings">Procedimenti associati</label>
-                                    <div class="select2-blue" id="input_proceedings">
+                                    <div id="input_proceedings">
                                         {{ form_dropdown(
                                             'proceedings[]',
                                             '',
                                             '',
-                                            'class="form-control select2-proceedings" multiple="multiple" data-placeholder="Seleziona o cerca procedimenti..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-proceedings" multiple="multiple" data-placeholder="Seleziona o cerca procedimenti..." style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -166,12 +186,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-9">
                                     <label for="regulations">Regolamenti associati</label>
-                                    <div class="select2-blue" id="input_regulations">
+                                    <div id="input_regulations">
                                         {{ form_dropdown(
                                             'regulations[]',
                                             '',
                                             '',
-                                            'class="form-control select2-regulations" multiple="multiple" data-placeholder="Seleziona o cerca regolamento..." data-dropdown-css-class="select2-blue" style="width: 100%;"'
+                                            'class="ts-regulations" multiple="multiple" data-placeholder="Seleziona o cerca regolamento..." style="width: 100%;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -191,12 +211,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 {{-- Campo Riferimenti normativi --}}
                                 <div class="form-group col-md-9">
                                     <label for="normative_id">Riferimenti normativi</label>
-                                    <div class="select2-blue" id="input_normative_id">
+                                    <div id="input_normative_id">
                                         {{ form_dropdown(
                                             'normative_id',
                                             ['' => ''],
                                             @$charge['normative_id'],
-                                            'class="select2-normative_id" data-dropdown-css-class="select2-blue" style="width: 100%; height: unset;"'
+                                            'class="ts-normative_id" style="width: 100%; height: unset;"'
                                         ) }}
                                     </div>
                                 </div>
@@ -243,6 +263,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             </div>
                         </div>
 
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
 
@@ -250,11 +272,16 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
 
+
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -316,6 +343,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -326,8 +354,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}
 {% block css %}
-{{ css('select2/css/select2.min.css','common') }}
-{{ css('select2-bootstrap4-theme/select2-bootstrap4.min.css','common') }}
 <style type="text/css">
     .ck-editor__editable_inline {
         min-height: 200px;
@@ -338,93 +364,50 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
-        {{-- Campo select per tipo Onere --}}
-        let $dropdownType = $('.select2-type');
-        $dropdownType.select2({
-            placeholder: 'Seleziona il tipo....',
-            minimumResultsForSearch: -1,
-            allowClear: true
-        });
+        {{-- Campo TomSelect per tipo Onere --}}
+        if (document.querySelector('.ts-type')) {
+            new TomSelect('.ts-type', {
+                ...TS_SINGLE_CLEAR,
+                placeholder: 'Seleziona il tipo....'
+            });
+        }
 
-        {{-- Begin campi select --}}
-        {{-- Begin Select2 campo "Procedimenti associati" --}}
-        let $dropdownProceedings = $('.select2-proceedings');
-        $dropdownProceedings.select2({
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 6,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            },
-            escapeMarkup: function (text) {
-                return text;
-            },
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_proceedingIds').val(),
-                model: 6,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
+        {{-- Begin campi TomSelect --}}
+        {{-- Begin TomSelect campo "Procedimenti associati" --}}
+        createAjaxTomSelect({
+            selector: '.ts-proceedings',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_proceedingIds',
+            model: 6,
+            institutionId,
+            placeholder: 'Seleziona o cerca procedimenti...',
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+            onError: function () {
                 createValidatorFormErrorToast(
                     'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
                     5000,
                     'Validatore select'
                 );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownProceedings.append(option).trigger('change');
             }
         });
-        @endif
-        {{-- End Select2 campo "Procedimenti associati" --}}
+        {{-- End TomSelect campo "Procedimenti associati" --}}
 
         // Tabella per la selezione dei Provvedimenti associati
         let measures = $('#ajax_measures').patOsAjaxPagination({
@@ -458,171 +441,72 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         @php
             $tmpStartDate = !empty($measure['date']) ? ' - '.date('d/m/Y', strtotime($measure['date'])) : null;
         @endphp
-        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).' - '.$measure['number'].''.$tmpStartDate }}', true);
+        measures.patOsAjaxPagination.setValue('{{ $measure['id'] }}', '{{ htmlEscape($measure['object']).' - '.htmlEscape($measure['number']).''.$tmpStartDate }}', true);
         @endforeach
         @endif
 
-        {{-- Begin Select2 campo "Regolamenti associati" --}}
-        let $dropdownRegulation = $('.select2-regulations');
-        $dropdownRegulation.select2({
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 10,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_regulationIds').val(),
-                model: 10,
-                institution_id: institutionId,
-            },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
+        {{-- Begin TomSelect campo "Regolamenti associati" --}}
+        createAjaxTomSelect({
+            selector: '.ts-regulations',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_regulationIds',
+            model: 10,
+            institutionId,
+            placeholder: 'Seleziona o cerca regolamento...',
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+            onError: function () {
                 createValidatorFormErrorToast(
                     'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
                     5000,
                     'Validatore select'
                 );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownRegulation.append(option).trigger('change');
             }
         });
-        @endif
-        {{-- End Select2 campo "Regolamenti associati" --}}
+        {{-- End TomSelect campo "Regolamenti associati" --}}
 
-        {{-- Begin Select2 campo "Riferimenti normativi" --}}
-        let $dropdownNormative = $('.select2-normative_id');
-        $dropdownNormative.select2({
+        {{-- Begin TomSelect campo "Riferimenti normativi" --}}
+        createAjaxTomSelect({
+            selector: '.ts-normative_id',
+            searchUrl: '{{ siteUrl("/admin/asyncData") }}',
+            selectedUrl: '{{ siteUrl("/admin/asyncSelectedData") }}',
+            selectedIdsSelector: '#_normative_id',
+            model: 12,
+            institutionId,
+            maxItems: 1,
             placeholder: 'Seleziona o cerca normativa....',
-            allowClear: true,
-            //Recupero i dati per le options della select
-            ajax: {
-                url: '{{siteUrl("/admin/asyncData")}}',
-                type: "get",
-                dataType: 'json',
-                delay: 250,
-                data: function (data) {
-                    return {
-                        model: 12,
-                        institution_id: institutionId,
-                        searchTerm: data.term
-                    };
-                },
-                error: function (jqXHR, status) {
-                    let response = parseJson(jqXHR.responseText);
-                },
-                processResults: function (response) {
-                    return {
-                        results: response.data.options
-                    };
-                },
-                cache: true
-            }
-        });
-        @if(in_array($_storageType,['update', 'duplicate']))
-        // Recupero gli elementi gia selezionati e li setto nella select
-        $.ajax({
-            type: 'GET',
-            url: '{{siteUrl("/admin/asyncSelectedData")}}',
-            data: {
-                id: $('#_normative_id').val(),
-                model: 12,
-                institution_id: institutionId,
+            loadSelected: {{ in_array($_storageType, ['update', 'duplicate']) ? 'true' : 'false' }},
+            onChange(value) {
+                if (value) {
+                    $('#btn_addNormative').attr('data-url', '{{ baseUrl('admin/normative/edit-box/') }}' + value);
+                    $('#btn_addNormative').empty().append('Modifica &nbsp; <i class="far fa-edit"></i>');
+                } else {
+                    $('#btn_addNormative').attr('data-url', '{{ siteUrl('admin/normative/create-box') }}');
+                    $('#btn_addNormative').empty().append('Aggiungi nuovo &nbsp; <i class="fas fa-plus-circle"></i>');
+                }
             },
-            error: function (jqXHR, status) {
-                let response = parseJson(jqXHR.responseText);
-
-                // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
+            onError: function () {
                 createValidatorFormErrorToast(
                     'Ops c\'è un problema.Si prega di contattare l\'assistenza clienti.',
                     5000,
                     'Validatore select'
                 );
-            },
-        }).then(function (data) {
-            let item = data.data.selected;
-            // Creo l'opzione e l'appendo alla select
-            for (const el of item) {
-                var option = new Option(String(el.text), el.id, true, true);
-                $dropdownNormative.append(option).trigger('change');
             }
         });
-        @endif
+        {{-- End TomSelect campo "Riferimenti normativi" --}}
 
-        /**
-         * Metodo che viene chiamato quando si pulisce la select2.
-         * Cambia il testo e l'azione del pulsante, settandoli per l'aggiunta di un nuovo elemento
-         */
-        $dropdownNormative.on('select2:clearing', function (e) {
-            $('#btn_addNormative').attr('data-url', '{{ siteUrl('admin/normative/create-box') }}')
-            $('#btn_addNormative').empty().append('Aggiungi nuovo &nbsp; <i class="fas fa-plus-circle"></i>');
+        {{-- Campo TomSelect Per i cittadini --}}
+        new TomSelect('.ts-citizen', {
+            ...TS_SINGLE_CLEAR,
+            placeholder: 'Seleziona'
         });
 
-        /**
-         * Metodo che viene chiamato quando si seleziona una voce nella select2.
-         * Cambia il testo e l'azione del pulsante, settandoli per la modifica dell'elemento selezionato
-         */
-        $dropdownNormative.on('select2:selecting', function (e) {
-            $('#btn_addNormative').attr('data-url', '{{ baseUrl('admin/normative/edit-box/') }}' + e.params.args.data.id);
-            $('#btn_addNormative').empty().append('Modifica &nbsp; <i class="far fa-edit"></i>');
+        {{-- Campo TomSelect per le società --}}
+        new TomSelect('.ts-companies', {
+            ...TS_SINGLE_CLEAR,
+            placeholder: 'Seleziona'
         });
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
-        {{-- End Select2 campo "Riferimenti normativi" --}}
-
-        {{-- Campo select Per i cittadini --}}
-        let $dropdownCitizen = $('.select2-citizen');
-        $dropdownCitizen.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-
-        {{-- Campo select per le società --}}
-        let $dropdownCompanies = $('.select2-companies');
-        $dropdownCompanies.select2({
-            placeholder: 'Seleziona',
-            allowClear: true,
-            minimumResultsForSearch: -1
-        });
-        {{-- End campi select --}}
+        {{-- End campi TomSelect --}}
 
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -631,7 +515,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
+        CKEDITOR.replace('input_description', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
 
         {{-- Begin salvataggio --}}
         /**
@@ -667,6 +553,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -705,11 +592,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {

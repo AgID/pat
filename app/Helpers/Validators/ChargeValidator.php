@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ChargesModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -33,28 +34,40 @@ class ChargeValidator
      * Controlla la validità dell'ID nell'URI segment e se esiste un onere/obbligo con quell'ID per l'ente
      *
      * @param null $checkOwner Indica se controllare il proprietario del record
+     * @param int $uriSegment Segmento dell'URI da controllare
+     * @param int|null $institutionId ID dell'ente
+     * @param int|null $userId ID dell'utente
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID onere')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero l'onere con l'id passato in input
-                $check = ChargesModel::where('id', uri()->segment(4, 0))
-                    ->with('proceedings:id,name')
+                $check = ChargesModel::where('id', uri()->segment($uriSegment, 0));
+
+                if ($institutionId) {
+                    $check->where('institution_id', '=', $institutionId);
+                }
+
+                $check->with('proceedings:id,name')
                     ->with('measures:id,object,date,number')
                     ->with('regulations:id,title')
-                    ->first();
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
 
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
 
                     return [
                         'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'onere o obbligo ')
@@ -75,27 +88,30 @@ class ChargeValidator
         ];
     }
 
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|null $institutionId ID dell'ente
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', $institutionId = null): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
      * Metodo per la validazione dei campi del form
      *
      * @param string $mode Indica l'operazione che si sta eseguendo (Insert/Update)
+     * @param int|null $institutionId ID dell'ente
      * @return array
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', $institutionId = null): array
     {
 
         $this->validator->verifyToken()
@@ -127,6 +143,10 @@ class ChargeValidator
             ->value(Input::post('expiration_date'))
             ->isDate('Y-m-d')
             ->end();
+
+
+
+        
 
         if (Input::post('proceedings')) {
             foreach (Input::post('proceedings') as $proceeding) {
@@ -166,7 +186,7 @@ class ChargeValidator
 
         $this->validator->label('Contenuto')
             ->value(Input::post('description'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 15000)
             ->end();
 
         $this->validator->label('URL per maggiori informazioni')
@@ -177,18 +197,22 @@ class ChargeValidator
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $measure = ChargesModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($id, $institutionId) {
+                    $query = ChargesModel::where('id', $id);
+                    $measure = $query->first();
                     if (empty($measure)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Onere/Obbligo')];
                     }
                 })
                 ->end();
+
         }
 
         return [

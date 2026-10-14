@@ -17,11 +17,12 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
-                <div class="col-lg-8">
-                    <div class="titolo">
+                <div class="col-lg-12">
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : $instance['name'] }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
-
                     @if(!empty($instance['address']))
                         <div class="attributi">
                             <div class="attributo">
@@ -119,12 +120,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                             </a>
                                         </td>
                                         <td>&euro; {{currency('filter=xss decimal_separator=, thousands_separator=.'): $amount }}</td>
-                                        @if(!empty($canon['start_date']))
-                                        <td>{{date('d-m-Y|date'): $canon['start_date'] }}</td>
-                                        @endif
-                                        @if(!empty($canon['end_date']))
-                                        <td>{{date('d-m-Y|date'): $canon['end_date'] }}</td>
-                                        @endif
+                                        <td>{{ (empty($canon['start_date']) ? '' : date("d-m-Y", strtotime($canon['start_date']))) }}</td>
+                                        <td>{{ (empty($canon['end_date']) ? '' : date("d-m-Y", strtotime($canon['end_date']))) }}</td>
                                     </tr>
                                 @endforeach
                                 </tbody>
@@ -138,17 +135,18 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
                 </div>
-
-                {{-- Right Menu --}}
-                {% include v1/layout/partials/right_menu %}
-
             </div>
         </div>
     </section>
 </main>
 
+{% include v1/layout/partials/bottom_menu %}
 
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

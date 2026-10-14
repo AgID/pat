@@ -8,7 +8,6 @@ Il modello `PersonnelModel` rappresenta la tabella `object_personnel` e fornisce
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'personnel'`).
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaPersonnelModel'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Personale'`).
 * `$objectId`: L'ID dell'oggetto (default: `3`).
 
@@ -31,12 +30,6 @@ role(): BelongsTo
 ```
 
 Il metodo `role` definisce la relazione con il modello `RoleModel` rappresentante il ruolo del personale.
-
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaPersonnelModel` rappresentante i metadati associati al personale.
 
 ```
 referent_structures(): BelongsToMany

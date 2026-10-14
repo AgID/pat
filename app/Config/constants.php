@@ -10,7 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 define('VERSION', '1.0.2');
 
 // Verisone Pat OS
-define('VERSION_PATOS', '1.0.1');
+define('VERSION_PATOS', '1.1.1');
 
 // Versione custom CSS
 define('VERSION_CUSTOM_CSS', '1.1');
@@ -18,11 +18,7 @@ define('VERSION_CUSTOM_CSS', '1.1');
 // Versione style CSS
 define('VERSION_STYLE_CSS', '11');
 
-// Modules
-define('MODULES', true);
-
 // Extra
 define('EXTRA', true);
 
-// Prefisso per le chiamate REST
-define('API', 'api');
+define('NOME_PIATTAFORMA', 'PAT OS');

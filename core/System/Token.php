@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -28,18 +28,28 @@ class Token
      * @return mixed|string
      * @throws \Exception
      */
-    public static function generate($expire = 7200, $name = null)
+        public static function generate($expire = 7200, $name = null)
     {
-        $session = new Session();
+        // session() invece di "new Session()": l'helper e' memoizzato (core/Common.php) e
+        // Token usa solo getTemp/setTemp/setFlash/getFlash, operazioni pure su $_SESSION.
+        // Questo e' il primo costruttore di Session del processo (Bootstrap.php:351), quindi
+        // e' anche il punto in cui l'istanza condivisa viene creata e la sessione avviata.
+        $session = session();
         $name = (string)($name === null) ? static::getName() : $name;
+
+        // Controlla se esiste già un token valido
+        $existingToken = $session->getTemp(self::PREFIX . $name);
+        if ($existingToken !== null) {
+            return $existingToken;
+        }
+
+        // Se non esiste, genera un nuovo token
         $token = sha1(uniqid(mt_rand() . time(), true));
 
         if ($expire === 0 || $expire === false) {
             $session->setFlash(self::PREFIX . $name, $token);
         } else {
-
             $session->setTemp(self::PREFIX . $name, $token, $expire);
-
         }
 
         return $token;
@@ -58,14 +68,14 @@ class Token
                 ? static::getName()
                 : $name;
 
-            $session = new Session();
+            $session = session();
 
-            if(!empty( $_SESSION['temp'][self::PREFIX . $name]['value'])) {
+            if (!empty($_SESSION['temp'][self::PREFIX . $name]['value'])) {
                 $_SESSION['temp'][self::PREFIX . $name]['value'] = null;
                 unset($_SESSION['temp'][self::PREFIX . $name]['value']);
             }
 
-            if(!empty($_SESSION['temp'][self::PREFIX . $name]['expire'])){
+            if (!empty($_SESSION['temp'][self::PREFIX . $name]['expire'])) {
                 $_SESSION['temp'][self::PREFIX . $name]['expire'] = null;
                 unset($_SESSION['temp'][self::PREFIX . $name]['expire']);
             }
@@ -86,7 +96,7 @@ class Token
 
     public static function getToken($name = null)
     {
-        $session = new Session();
+        $session = session();
         $name = (string)($name === null)
             ? static::getName()
             : $name;
@@ -117,14 +127,14 @@ class Token
      * @return bool
      * @throws \Exception
      */
-    public static function verify($index=null)
+    public static function verify($index = null)
     {
-        $session = new Session();
+        $session = session();
         $check = false;
         $name = ($index === null)
             ? static::getName()
             : $index;
-        
+
         $getToken = (string)Input::postGet($name, true);
         $token = (string)$session->getTemp(self::PREFIX . $name);
 
@@ -132,25 +142,6 @@ class Token
             $check = true;
         }
 
-        if (!$check) {
-
-            $token = (string)$session->getFlash(self::PREFIX . $name);
-   
-            if (
-                    !empty($getToken) && 
-                    !empty($token) && 
-                    str_len($getToken)>=30 && 
-                    str_len($getToken)<=33 && 
-                    str_len($token)>=30 && 
-                    str_len($token)<=33 && 
-                    $getToken === $token
-                ) 
-            {
-
-                $check = true;
-            }
-        }
-      
         return $check;
     }
 }

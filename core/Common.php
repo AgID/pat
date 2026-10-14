@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 use System\Cache;
@@ -22,13 +22,10 @@ if (!function_exists('isHttps')) {
     function isHttps(): bool
     {
         if (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off') {
-
             return true;
         } elseif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https') {
-
             return true;
         } elseif (!empty($_SERVER['HTTP_FRONT_END_HTTPS']) && strtolower($_SERVER['HTTP_FRONT_END_HTTPS']) !== 'off') {
-
             return true;
         }
 
@@ -48,6 +45,15 @@ if (!function_exists('removeInvisibleCharacters')) {
      */
     function removeInvisibleCharacters(string|array|null $str = '', bool $url_encoded = true): array|string|null
     {
+        // Se l'input è null o una stringa vuota, ritorna immediatamente
+        if ($str === null) {
+            return $str;
+        }
+
+        if ($str === '') {
+            return $str;
+        }
+
         $nonDisplayables = [];
 
         if ($url_encoded) {
@@ -59,7 +65,6 @@ if (!function_exists('removeInvisibleCharacters')) {
         $nonDisplayables[] = '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]+/S';    // 00-08, 11, 12, 14-31, 127
 
         do {
-
             $str = @preg_replace($nonDisplayables, '', $str, -1, $count);
         } while ($count);
 
@@ -83,9 +88,7 @@ if (!function_exists('htmlEscape')) {
         }
 
         if (is_array($var)) {
-
             foreach (array_keys($var) as $key) {
-
                 $var[$key] = htmlEscape($var[$key], $double_encode);
             }
 
@@ -114,35 +117,27 @@ if (!function_exists('getallheaders')) {
         ];
 
         foreach ($_SERVER as $key => $value) {
-
             if (str_starts_with($key, 'HTTP_')) {
-
                 $key = substr($key, 5);
 
                 if (!isset($copyServer[$key]) || !isset($_SERVER[$key])) {
-
                     $key = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', $key))));
 
                     $headers[$key] = $value;
                 }
             } elseif (isset($copyServer[$key])) {
-
                 $headers[$copyServer[$key]] = $value;
             }
         }
 
         if (!isset($headers['Authorization'])) {
-
             if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
-
                 $headers['Authorization'] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
             } elseif (isset($_SERVER['PHP_AUTH_USER'])) {
-
                 $basicPass = $_SERVER['PHP_AUTH_PW'] ?? '';
 
                 $headers['Authorization'] = 'Basic ' . base64_encode($_SERVER['PHP_AUTH_USER'] . ':' . $basicPass);
             } elseif (isset($_SERVER['PHP_AUTH_DIGEST'])) {
-
                 $headers['Authorization'] = $_SERVER['PHP_AUTH_DIGEST'];
             }
         }
@@ -164,7 +159,6 @@ if (!function_exists('isPhp')) {
         static $isPhp;
 
         if (!isset($isPhp[$version])) {
-
             $isPhp[$version] = version_compare(PHP_VERSION, $version, '>=');
         }
 
@@ -181,15 +175,21 @@ if (!function_exists('helper')) {
      *
      * @param $helpers
      */
-    function helper($helpers = null): void
+    function helper($helpers = null, $useHelpersDir = true): void
     {
-
-        if ($helpers !== null || is_array($helpers) || $helpers !== '') {
-
+        if ($helpers !== null && ($helpers !== '' || is_array($helpers))) {
             if (!is_array($helpers)) {
+                // Sostituisco i punti e gli slash con DIRECTORY_SEPARATOR
+                $helperPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $helpers);
 
-                $pathFileCore = CORE_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helpers) . '.php';
-                $pathFileApp = APP_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helpers) . '.php';
+                // Determino i percorsi base
+                if ($useHelpersDir) {
+                    $pathFileCore = CORE_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helperPath) . '.php';
+                    $pathFileApp = APP_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helperPath) . '.php';
+                } else {
+                    $pathFileCore = CORE_PATH . slashUpperCaseFirst($helperPath) . '.php';
+                    $pathFileApp = APP_PATH . slashUpperCaseFirst($helperPath) . '.php';
+                }
 
                 if (file_exists($pathFileCore) || file_exists($pathFileApp)) {
 
@@ -201,19 +201,25 @@ if (!function_exists('helper')) {
                         require_once($pathFileApp);
                     }
                 } else {
-
                     echo showError('Attenzione', 'Il seguente helper non è stato trovato: ' . $helpers);
                     exit();
                 }
+                
             } else {
-
                 foreach ($helpers as $helper) {
+                    // Sostituisco i punti e gli slash con DIRECTORY_SEPARATOR
+                    $helperPath = str_replace(['.', '/'], DIRECTORY_SEPARATOR, $helper);
 
-                    $pathFileCore = CORE_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helper) . '.php';
-                    $pathFileApp = APP_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helper) . '.php';
+                    // Determino i percorsi base
+                    if ($useHelpersDir) {
+                        $pathFileCore = CORE_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helperPath) . '.php';
+                        $pathFileApp = APP_PATH . 'Helpers' . DIRECTORY_SEPARATOR . slashUpperCaseFirst($helperPath) . '.php';
+                    } else {
+                        $pathFileCore = CORE_PATH . slashUpperCaseFirst($helperPath) . '.php';
+                        $pathFileApp = APP_PATH . slashUpperCaseFirst($helperPath) . '.php';
+                    }
 
                     if (file_exists($pathFileCore) || file_exists($pathFileApp)) {
-
                         if (file_exists($pathFileCore)) {
                             require_once($pathFileCore);
                         }
@@ -222,14 +228,12 @@ if (!function_exists('helper')) {
                             require_once($pathFileApp);
                         }
                     } else {
-
-                        echo showError('Attenzione', 'Il seguente helper non è stato trovato: ' . $helpers);
+                        echo showError('Attenzione', 'Il seguente helper non è stato trovato: ' . $helper);
                         exit();
                     }
                 }
             }
         } else {
-
             echo showError('Attenzione', 'Nessun argomento passato per il caricamento dell\'helper');
             exit();
         }
@@ -244,7 +248,6 @@ if (!function_exists('slashUpperCaseFirst')) {
         $segments = explode('/', $string);
 
         foreach ($segments as $segment) {
-
             $data[] = ucfirst($segment);
         }
 
@@ -276,13 +279,15 @@ if (!function_exists('baseUrl')) {
      *
      * @param string $uri
      * @param null $protocol
+     * @param null $addPrefix
      * @return string
      * @throws Exception
      */
-    function baseUrl(string $uri = '', $protocol = null): string
+    function baseUrl(string $uri = '', $protocol = null, $addPrefix = null): string
     {
         $base = new \System\Base();
-        return $base->baseUrl($uri, $protocol);
+        $baseUrl = $base->baseUrl($uri, $protocol);
+        return $baseUrl . ($addPrefix !== null ? $addPrefix : '');
     }
 }
 
@@ -328,7 +333,7 @@ if (!function_exists('currentQueryStringUrl')) {
         $config->load(APP_PATH . 'Config/app.php');
 
         $urlSuffix = $config->get('url_suffix');
-        return $base->siteUrl(preg_replace('/' . $urlSuffix . '/', '', (string)$uri->fullUrl($xss, $htmlEntities)));
+        return $base->siteUrl(preg_replace('/' . $urlSuffix . '/', '', (string) $uri->fullUrl($xss, $htmlEntities)));
     }
 }
 
@@ -364,10 +369,61 @@ if (!function_exists('show404')) {
 
         $d = DIRECTORY_SEPARATOR;
 
-        $filePath = APP_PATH . 'Themes' . $d . $pathTheme . $d . 'errors' . $d . '404.php';
+        $institutionInfo = patOsInstituteInfo();
+
+        if (file_exists(MEDIA_PATH . ($institutionInfo['short_institution_name'] ?? '') . $d . 'assets' . $d . 'html' . $d . '404.php')) {
+            $filePath = MEDIA_PATH . ($institutionInfo['short_institution_name'] ?? '') . $d . 'assets' . $d . 'html' . $d . '404.php';
+        } else {
+            $filePath = APP_PATH . 'Themes' . $d . $pathTheme . $d . 'errors' . $d . '404.php';
+        }
 
         if (ob_get_level() > 1) {
+            ob_end_flush();
+        }
 
+        ob_start();
+        include($filePath);
+        $buffer = ob_get_contents();
+        ob_end_clean();
+
+        return $buffer;
+    }
+}
+
+
+if (!function_exists('show410')) {
+
+    /**
+     * Pagina 410.
+     * @throws Exception
+     */
+    function show410($heading = null, $message = null)
+    {
+
+        setStatusHeader(410);
+
+        $config = new \Maer\Config\Config();
+        $config->load(APP_PATH . 'Config/app.php');
+
+        $pathTheme = $config->get('theme', 'default');
+
+        $heading = ($heading === null) ? 'Risorsa non disponibile' : $heading;
+        $message = ($message === null) ?
+            "La risorsa web alla quale ha tentato di accedere non è più disponibile poiché sono decorsi i termini di pubblicazione previsti dalla normativa.
+             </br>Decorsi detti termini, la trasparenza è assicurata mediante la possibilità di presentare un’istanza di accesso civico ai sensi dell’art. 5 del d.lgs. 33/2013." :
+            $message;
+
+        $d = DIRECTORY_SEPARATOR;
+
+        $institutionInfo = patOsInstituteInfo();
+
+        if (file_exists(MEDIA_PATH . $institutionInfo['short_institution_name'] . $d . 'assets' . $d . 'html' . $d . '410.php')) {
+            $filePath = MEDIA_PATH . $institutionInfo['short_institution_name'] . $d . 'assets' . $d . 'html' . $d . '410.php';
+        } else {
+            $filePath = APP_PATH . 'Themes' . $d . $pathTheme . $d . 'errors' . $d . '410.php';
+        }
+
+        if (ob_get_level() > 1) {
             ob_end_flush();
         }
 
@@ -411,7 +467,7 @@ if (!function_exists('htmlEscape')) {
 
 if (!function_exists('convertEncodeQuotes')) {
 
-    function convertEncodeQuotes(string $input = '', string $charset = CHARSET, string $htmlEntities = "HTML-ENTITIES"): string
+    function convertEncodeQuotes(string|null $input = '', string $charset = CHARSET, string $htmlEntities = "HTML-ENTITIES"): string
     {
         return \System\Formatting::convertEncodeQuotes($input, $charset, $htmlEntities);
     }
@@ -423,21 +479,19 @@ if (!function_exists('showError')) {
      * Pagina di errore generico.
      * @throws Exception
      */
-    function showError($heading = null, $message = null, $statusCode = 500, $print = false)
+    function showError($heading = null, $message = null, $statusCode = 500, $print = false, $text = null)
     {
 
         if (is_cli()) {
-
             $message = "\t" . (is_array($message) ? implode("\n\t", $message) : $message);
 
             echo "\nERROR: ", $heading, "\n\n", $message, "\n\n";
         } else {
-
-
             setStatusHeader($statusCode);
 
             $heading = ($heading === null) ? 'Error' : $heading;
             $message = ($message === null) ? 'General error.' : $message;
+            $text = ($text === null) ? 'Oops' : $text;
 
             $config = new \Maer\Config\Config();
             $config->load(APP_PATH . 'Config/app.php');
@@ -449,7 +503,6 @@ if (!function_exists('showError')) {
             $filePath = APP_PATH . 'Themes' . $d . $pathTheme . $d . 'errors' . $d . 'general_error.php';
 
             if (ob_get_level() > 1) {
-
                 ob_end_flush();
             }
 
@@ -459,11 +512,9 @@ if (!function_exists('showError')) {
             ob_end_clean();
 
             if ($print === true) {
-
                 echo $buffer;
                 die();
             } else {
-
                 return $buffer;
             }
         }
@@ -489,14 +540,12 @@ if (!function_exists('setStatusHeader')) {
         }
 
         if (empty($code) or !is_numeric($code)) {
-
             echo showError('Il codice di stato deve essere un numero', 500);
             exit();
         }
 
         if (empty($text)) {
-
-            is_int($code) or $code = (int)$code;
+            is_int($code) or $code = (int) $code;
 
             $stati = [
                 100 => 'Continue',
@@ -552,10 +601,8 @@ if (!function_exists('setStatusHeader')) {
             ];
 
             if (isset($stati[$code])) {
-
                 $text = $stati[$code];
             } else {
-
                 throw new \Exception('Nessuno codice dello stato trovare. Inserisci uno codice valido.');
             }
         }
@@ -570,12 +617,10 @@ if (!function_exists('setStatusHeader')) {
         header($server_protocol . ' ' . $code . ' ' . $text, true, $code);
 
         if (!empty($stati[$code]) && $text === '') {
-
             return $stati[$code];
         }
 
         if ($text !== '') {
-
             return [
                 $code => $text
             ];
@@ -614,19 +659,16 @@ if (!function_exists('stringifyAttributes')) {
         $atts = null;
 
         if (empty($attributes)) {
-
             return null;
         }
 
         if (is_string($attributes)) {
-
             return ' ' . $attributes;
         }
 
-        $attributes = (array)$attributes;
+        $attributes = (array) $attributes;
 
         foreach ($attributes as $key => $val) {
-
             $atts .= ($js) ? $key . '=' . $val . ',' : ' ' . $key . '="' . $val . '"';
         }
 
@@ -658,9 +700,7 @@ if (!function_exists('__')) {
         $pathDefaultLang = 'Langs' . DIRECTORY_SEPARATOR . $defaultLang . DIRECTORY_SEPARATOR . $fileName . '.php';
 
         if (file_exists(APP_PATH . $pathDefaultLang)) {
-
             if ($key !== null) {
-
                 $lang = new \Maer\Config\Config();
                 $lang->load(APP_PATH . $pathDefaultLang);
 
@@ -669,7 +709,6 @@ if (!function_exists('__')) {
 
             return null;
         } else {
-
             throw new \Exception("Errore caricamento lingua: la lingua che stai provando a caricare non esiste. '{$pathDefaultLang}' ");
         }
     }
@@ -690,16 +729,13 @@ if (!function_exists('isReallyWritable')) {
     function isReallyWritable(string $file = ''): bool
     {
         if (DIRECTORY_SEPARATOR === '/' && (isPhp('5.4') or !ini_get('safe_mode'))) {
-
             return is_writable($file);
         }
 
         if (is_dir($file)) {
-
             $file = rtrim($file, '/') . '/' . md5(mt_rand());
 
             if (($fp = @fopen($file, 'ab')) === false) {
-
                 return false;
             }
 
@@ -708,7 +744,6 @@ if (!function_exists('isReallyWritable')) {
             @unlink($file);
             return true;
         } elseif (!is_file($file) or ($fp = @fopen($file, 'ab')) === false) {
-
             return false;
         }
 
@@ -767,11 +802,12 @@ if (!function_exists('config')) {
     function config($key = null, $default = null, $file = null): mixed
     {
         if ($key !== null && $file !== null) {
-
             $config = new \Maer\Config\Config();
             $config->load(APP_PATH . 'Config/' . $file . '.php');
 
-            return $config->get($key, $default);
+            $value = $config->get($key, $default);
+
+            return $value;
         }
 
         return null;
@@ -787,11 +823,9 @@ if (!function_exists('objectToArray')) {
     function objectToArray(string|array|null|object $data = ''): array|string|null
     {
         if (is_array($data) || is_object($data)) {
-
             $result = array();
 
             foreach ($data as $key => $value) {
-
                 $result[$key] = objectToArray($value);
             }
 
@@ -821,35 +855,103 @@ if (!function_exists('render')) {
 
 if (!function_exists('trace')) {
     /**
-     * @param string|array|object $var
+     * @param string|array|object|null|bool $var
      * @param bool $exit
      * @param bool $v_dump
      * @param bool $label
      */
-    function trace(string|array|object $var = '', bool $exit = false, bool $v_dump = true, bool $label = false): void
+    function trace(string|array|object|null|bool $var = '', bool $exit = false, bool $v_dump = true, bool $label = false): void
     {
 
         if ($label !== false) {
             echo "<div style='display: block;'><h2 style='color: red;'>" . $label . '</h2></div>';
         }
 
-        echo('<pre>');
+        echo ('<pre>');
 
 
         echo "<hr />";
         if ($v_dump === true) {
-
             var_dump($var);
         } else {
-
             print_r($var);
         }
         echo "<hr />";
 
-        echo('</pre>');
+        echo ('</pre>');
 
         if ($exit) {
+            exit();
+        }
+    }
+}
 
+if (!function_exists('traceJson')) {
+    /**
+     * Funzione di debug che restituisce i dati in formato JSON
+     * 
+     * @param mixed $var Variabile da convertire in JSON
+     * @param int $statusCode Codice di stato HTTP da impostare (es. 200, 404, 500)
+     * @param bool $exit Se true termina l'esecuzione dopo l'output
+     * @param bool $prettyPrint Se true formatta il JSON in modo leggibile
+     * @param string|bool $label Etichetta opzionale da includere nel JSON
+     * @param bool $setHeader Se true imposta l'header Content-Type application/json
+     * @return void
+     */
+    function traceJson(mixed $var = '', int $statusCode = 200, bool $exit = false, bool $prettyPrint = true, string|bool $label = false, bool $setHeader = true): void
+    {
+        // Imposto il codice di stato HTTP
+        if (!headers_sent()) {
+            try {
+                setStatusHeader($statusCode);
+            } catch (\Exception $e) {
+                // Se il codice di stato non è valido, uso 200 come fallback
+                setStatusHeader(200);
+            }
+        }
+
+        // Imposto l'header se richiesto
+        if ($setHeader && !headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
+        // Preparo i dati da serializzare
+        $data = [
+            'status' => $statusCode,
+            'data' => $var,
+            'type' => gettype($var),
+            'timestamp' => date('Y-m-d H:i:s')
+        ];
+
+        // Aggiungo l'etichetta se presente
+        if ($label !== false) {
+            $data['label'] = $label;
+        }
+
+        // Opzioni per json_encode
+        $options = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+
+        if ($prettyPrint) {
+            $options |= JSON_PRETTY_PRINT;
+        }
+
+        // Converto in JSON e gestisco eventuali errori
+        $json = json_encode($data, $options);
+
+        if ($json === false) {
+            // In caso di errore nella serializzazione
+            $error = [
+                'status' => 500,
+                'error' => 'Errore nella serializzazione JSON',
+                'json_error' => json_last_error_msg(),
+                'original_type' => gettype($var)
+            ];
+            $json = json_encode($error, JSON_PRETTY_PRINT);
+        }
+
+        echo $json;
+
+        if ($exit) {
             exit();
         }
     }
@@ -919,9 +1021,19 @@ if (!function_exists('session')) {
      * @return Session
      * @throws Exception
      */
-    function session($adaptor = null, string $registry = ''): Session
+    function session($adaptor = []): Session
     {
-        return new System\Session($adaptor, $registry);
+        if (!empty($adaptor)) {
+            return new System\Session($adaptor);
+        }
+
+        static $session = null;
+
+        if ($session === null) {
+            $session = new System\Session();
+        }
+
+        return $session;
     }
 }
 
@@ -991,15 +1103,12 @@ if (!function_exists('_env')) {
     {
 
         $env = null;
-        $sanitize = new \System\SanitizeRequest();
+        $sanitize = \System\SanitizeRequest::instance();
 
         if (array_key_exists($string, $_ENV)) {
-
             $env = $sanitize->fetchFromArray($_ENV, $string, $xssClean, $sanitizeKey, $sanitizeData);
         } else {
-
             if ($default != null) {
-
                 $env = $sanitize->fetchFromArray($_ENV, $default, $xssClean, $sanitizeKey, $sanitizeData);
             }
         }
@@ -1060,7 +1169,7 @@ if (!function_exists('escapeXss')) {
      * @param bool $htmlEscape
      * @return array|string
      */
-    function escapeXss(string|array|null $string = '', bool $xss = true, bool $htmlEscape = true): array|string
+    function escapeXss($string = '', $xss = true, $htmlEscape = true)
     {
 
         if ($xss) {
@@ -1074,3 +1183,26 @@ if (!function_exists('escapeXss')) {
         return $string;
     }
 }
+
+if (!function_exists('now')) {
+
+    /**
+     * Restituisce la data/ora corrente in base al formato richiesto.
+     *
+     * @param string $format Formato desiderato: 'unix' per timestamp UNIX (default), 'timestamp' per 'Y-m-d H:i:s', 'date' per 'Y-m-d'.
+     * @return int|string
+     */
+    function now(string $format = 'unix'): int|string
+    {
+        switch (strtolower($format)) {
+            case 'timestamp':
+                return date('Y-m-d H:i:s');
+            case 'date':
+                return date('Y-m-d');
+            case 'unix':
+            default:
+                return time();
+        }
+    }
+}
+

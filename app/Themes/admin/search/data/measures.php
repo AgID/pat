@@ -8,7 +8,6 @@ use System\Arr;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 ?>
-
 <div class="row">
     <?php if (!empty($results['data'])): ?>
         <div class="col-12 col-sm-12 col-md-12 d-flex align-items-stretch flex-column">
@@ -73,7 +72,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
                                     <?php echo !empty($r['number']) ? escapeXss(ucfirst($r['number'])) : 'N.D.' ?>
                                 </td>
                                 <td>
-                                    <?php echo !empty($r['type']['value']) ? $r['type']['value'] : 'N.D.'; ?>
+                                    <?php echo escapeXss(config('measureTypologies', [], 'app')[$r['type']] ?? 'N.D.'); ?>
                                 </td>
                                 <td>
                                     <?php echo $structures; ?>

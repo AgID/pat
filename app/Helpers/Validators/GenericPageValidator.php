@@ -32,27 +32,33 @@ class GenericPageValidator
 
     /**
      * @description Funzione per la validazione dei dati nell'operazione di ordinamento delle pagine e/o paragrafi
-     * @param string   $type          Indica se si sta ordinando un paragrafo o una sezione
+     * @param string $type Indica se si sta ordinando un paragrafo o una sezione
      * @param int|null $institutionId ID dell'ente
      * @return array
      * @throws Exception
      */
     public function validateSort(string $type = 'section', int $institutionId = null): array
     {
+
+        $id = Input::get('id');
+        $dir = Input::get('dir');
+        $institutionId = Input::get('institution_id');
         if ($type === 'section') {
 
             $this->validator->label('identificativo')
-                ->value(Input::get('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
-                ->add(function () use ($institutionId) {
-                    $query = SectionsFoModel::select(['id'])
-                        ->institution()
-                        ->where('id', Input::get('id'))
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = SectionsFoModel::select(['id']);
+
+                    $result = $query->institution()
+                        ->where('id', $id)
                         ->where('is_system', 0)
                         ->first();
 
-                    if (empty($query)) {
+                    if (empty($result)) {
                         return [
                             'error' => 1
                         ];
@@ -61,19 +67,22 @@ class GenericPageValidator
                     return null;
                 }, 'Non hai i permessi per operare su questa voce')
                 ->end();
+
         } elseif ($type == 'paragraph') {
 
             $this->validator->label('Identificativo')
-                ->value(Input::get('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
-                ->add(function () use ($institutionId) {
-                    $query = ContentSectionFoModel::select(['id'])
-                        ->institution()
-                        ->where('id', Input::get('id'))
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = ContentSectionFoModel::select(['id']);
+
+                    $result = $query->institution()
+                        ->where('id', $id)
                         ->first();
 
-                    if (empty($query)) {
+                    if (empty($result)) {
                         return [
                             'error' => 1
                         ];
@@ -85,14 +94,16 @@ class GenericPageValidator
         }
 
         $this->validator->label('Identificativo Ente')
-            ->value(Input::get('institution_id'))
+            ->value($institutionId)
             ->required()
             ->isInt()
-            ->add(function () {
-                $query = InstitutionsModel::where('id', Input::get('institution_id'))
-                    ->first();
+            ->add(function () use ($institutionId, $id) {
 
-                if (empty($query)) {
+                $query = InstitutionsModel::where('id', $institutionId);
+
+                $result = $query->first();
+
+                if (empty($result)) {
                     return [
                         'error' => 1
                     ];
@@ -104,7 +115,7 @@ class GenericPageValidator
 
 
         $this->validator->label('Direzione Ordinamento')
-            ->value(Input::get('dir'))
+            ->value($dir)
             ->required()
             ->in('up,down')
             ->end();
@@ -113,6 +124,7 @@ class GenericPageValidator
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
         ];
+
     }
 
     /**
@@ -120,18 +132,21 @@ class GenericPageValidator
      * @return array
      * @throws Exception
      */
-    public function validateContentsPageBySectionFoId(): array
+    public function validateContentsPageBySectionFoId(int $institutionId = null): array
     {
+        $id = Input::get('id', true, true, ['int']);
+
         $this->validator->label('Identificativo pagina')
-            ->value(Input::get('id'))
+            ->value($id)
             ->required()
             ->isInt()
-            ->add(function () {
-                $query = SectionsFoModel::select(['id'])
-                    ->institution()
+            ->add(function () use ($institutionId) {
+
+                $query = SectionsFoModel::select(['id']);
+                $result = $query->institution()
                     ->first();
 
-                if (empty($query)) {
+                if (empty($result)) {
                     return [
                         'error' => 1
                     ];
@@ -154,15 +169,12 @@ class GenericPageValidator
      * @return array
      * @throws Exception
      */
-    public function validateStorageSection(bool $isSystem = false): array
+    public function validateStorageSection(bool $isSystem = false, $mode = 'insert'): array
     {
 
-        $this->validator->verifyToken()
-            ->end();
-
+        $mode = Input::post('mode');
 
         if (!$isSystem) {
-
 
             $this->validator->label('nome sezione')
                 ->value(Input::post('name'))
@@ -180,16 +192,20 @@ class GenericPageValidator
                 ->value(Input::post('meta_descriptions'))
                 ->maxLength(255)
                 ->end();
+
         }
 
 
         $this->validator->label('tipologia di storage')
-            ->value(Input::post('mode'))
+            ->value($mode)
             ->required()
             ->in('insert,update,duplicate')
             ->end();
 
-        if (Input::post('mode') === 'insert') {
+
+
+
+        if ($mode === 'insert') {
 
             $this->validator->label('parent di riferimento')
                 ->value(Input::post('parent_id'))
@@ -215,7 +231,7 @@ class GenericPageValidator
                 ->end();*/
         }
 
-        if (Input::post('mode') === 'duplicate') {
+        if ($mode === 'duplicate') {
 
             $this->validator->label('parent di riferimento')
                 ->value(Input::post('select_tree'))
@@ -226,9 +242,10 @@ class GenericPageValidator
 
         $this->validator->label('identificativo sezione')
             ->value(Input::post('section_id'))
-            ->add(function () {
+            ->add(function () use ($mode) {
 
-                if (Input::post('mode') === 'update' &&
+                if (
+                    $mode === 'update' &&
                     Input::post('section_id') === null
                 ) {
                     return ['error' => 1];
@@ -272,7 +289,7 @@ class GenericPageValidator
                 }
 
                 return null;
-            }, 'Non hai i permessi per operare su questa voce')
+            }, 'Non hai i permessi per operare su questa voce, oppure il record non è più disponibile.')
             ->end();
 
         return [
@@ -286,30 +303,32 @@ class GenericPageValidator
      * @return array
      * @throws Exception
      */
-    public function validateParagraphId(): array
+    public function validateParagraphId(int|null $institutionId = null, int $id = null): array
     {
+        $id = Input::get('id');
 
         $this->validator->label('Identificativo paragrafo')
-            ->value(Input::get('id'))
+            ->value($id)
             ->required()
             ->isInt()
-            ->add(function () {
+            ->add(function () use ($institutionId, $id) {
 
-                $query = ContentSectionFoModel::where('id', Input::get('id'))
-                    ->institution()
+                $query = ContentSectionFoModel::where('id', $id);
+
+                $result = $query->institution()
                     ->first();
 
-                if (empty($query)) {
+                if (empty($result)) {
                     return [
                         'error' => 1
                     ];
                 }
 
                 //Se esiste il tasso di assenza, lo salvo nel registro
-                Registry::set('paragraph', $query);
+                Registry::set('paragraph', $result);
 
                 return null;
-            }, 'Non hai i permessi per operare su questa voce')
+            }, 'Non hai i permessi per operare su questa voce oppure il record non è più disponibile')
             ->end();
 
         return [
@@ -324,8 +343,10 @@ class GenericPageValidator
      * @return array
      * @throws Exception
      */
-    public function validateParagraph(bool $update = false): array
+    public function validateParagraph(bool $update = false, int|null $institutionId = null): array
     {
+        $institutionId = Input::get('institution_id');
+
         $this->validator->label('sezione')
             ->value(Input::post('section_id'))
             ->required()
@@ -369,14 +390,15 @@ class GenericPageValidator
             ->value(Input::post('content'))
             ->required()
             ->minLength(1)
-            ->maxLength(100000)
+            ->maxLength(3500000)
             ->end();
 
         $this->validator->label('Identificativo Ente')
-            ->value(Input::get('institution_id'))
+            ->value($institutionId)
             ->isInt()
-            ->add(function () {
-                $query = InstitutionsModel::where('id', Input::get('institution_id'))
+            ->add(function () use ($institutionId) {
+
+                $query = InstitutionsModel::where('id', $institutionId)
                     ->first();
 
                 if (empty($query)) {
@@ -412,24 +434,28 @@ class GenericPageValidator
         // Update
         if ($update) {
 
+            $paragraphId = Input::get('paragraph_id');
+
             $this->validator->label('Id paragrafo')
-                ->value(Input::post('paragraph_id'))
+                ->value($paragraphId)
                 ->required()
                 ->isInt()
-                ->add(function () {
-                    ContentSectionFoModel::select(['id'])
-                        ->institution()
-                        ->where('id', Input::post('paragraph_id'))
+                ->add(function () use ($paragraphId, $institutionId) {
+
+                    $query = ContentSectionFoModel::select(['id']);
+
+                    $result = $query->institution()
+                        ->where('id', $paragraphId)
                         ->first();
 
-                    if (empty($query)) {
+                    if (empty($result)) {
                         return [
                             'error' => 1
                         ];
                     }
 
                     return null;
-                }, 'Non hai i permessi per operare su questo paragrafo')
+                }, 'Non hai i permessi per operare su questo paragrafo oppure questa voce non è più disponibile')
                 ->end();
         }
 

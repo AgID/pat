@@ -1,7 +1,7 @@
 <?php
 /**
- *  Nome applicativo: PAT
- *  Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
 namespace System;
@@ -127,9 +127,9 @@ class Uri
 
         if (isset($_SERVER['SCRIPT_NAME'][0])) {
             if (strpos($uri, $_SERVER['SCRIPT_NAME']) === 0) {
-                $uri = (string)substr($uri, strlen($_SERVER['SCRIPT_NAME']));
+                $uri = (string) substr($uri, strlen($_SERVER['SCRIPT_NAME']));
             } elseif (strpos($uri, dirname($_SERVER['SCRIPT_NAME'])) === 0) {
-                $uri = (string)substr($uri, strlen(dirname($_SERVER['SCRIPT_NAME'])));
+                $uri = (string) substr($uri, strlen(dirname($_SERVER['SCRIPT_NAME'])));
             }
         }
 
@@ -204,12 +204,15 @@ class Uri
      */
     public function filterUri(&$str)
     {
-        $utf8Enabled = strtoupper(CHARSET) == 'UTF-8' ? true : false;
-        if (!empty($str) && !empty($this->permittedUriChars) && !preg_match('/^[' . $this->permittedUriChars . ']+$/i' . ($utf8Enabled ? 'u' : ''), $str)) {
-            http_response_code(400);
-            echo "Caratteri non premessi";
-            exit();
+        if(!defined('FILE_ARCHIVE_GUARD')){
+            $utf8Enabled = strtoupper(CHARSET) == 'UTF-8' ? true : false;
+            if (!empty($str) && !empty($this->permittedUriChars) && !preg_match('/^[' . $this->permittedUriChars . ']+$/i' . ($utf8Enabled ? 'u' : ''), $str)) {
+                http_response_code(400);
+                echo "Caratteri non premessi";
+                exit();
+            }
         }
+
     }
 
     /**
@@ -236,9 +239,8 @@ class Uri
 
     protected function getSegments($n): int
     {
-        if (defined('CUSTOM_PATH') && CUSTOM_PATH !== '/') {
-            $s = explode('/', CUSTOM_PATH);
-            $n = (int)(count($s) - 1) + $n;
+        if (defined('START_SEGMENTS')) {
+            $n = START_SEGMENTS + $n;
         }
 
         return $n;
@@ -328,7 +330,7 @@ class Uri
     public function assocToUri($array)
     {
         $temp = array();
-        foreach ((array)$array as $key => $val) {
+        foreach ((array) $array as $key => $val) {
             $temp[] = $key;
             $temp[] = $val;
         }

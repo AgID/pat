@@ -31,6 +31,7 @@ return [
     'not_exist_obj' => '%s non esistente!',
 
     'no_permits' => 'Non hai i permessi per compiere quest\'azione',
+    'no_permits_2' => 'Non hai i permessi necessari per accedere a questa funzionalità',
 
     //Struttura di appartenenza
     'belong_to_himself' => 'La struttura di appartenenza deve essere diversa dalla struttura stessa',
@@ -43,7 +44,9 @@ return [
     'foreign_tax_identification_exist' => 'Identificativo fiscale estero inserito già esistente',
 
     //VAt errors
-    'vat_error' => 'Partita IVA non valida',
+    'vat_error' => 'Codice fiscale/Partita iva non valida',
+    'vat_exist' => 'Il codice fiscale/Partita iva inserita è già esistente',
+
 
     //Phone number errors
     'phone_error' => 'Formato numero telefonico non valido',
@@ -95,20 +98,17 @@ return [
     'invalid_guue_date' => 'Non è possibile inserire una DATA DI PUBBLICAZIONE SULLA GUUE che sia precedente alla data dell\'atto!',
     'invalid_work_date' => 'Non è possibile inserire una DATA DI FINE LAVORI che sia precedente alla data di inizio lavori!',
     'invalid_contracting_stations_date' => 'Non è possibile inserire una DATA DI PUBBLICAZIONE STAZIONE APPALTANTE che sia precedente alla data dell\'atto!',
+    'invalid_publishing_diff' => 'La data di fine pubblicazione non rispetta i tempi minimi di pubblicazione',
 
     //Errori date archivio
     'invalid_archive_date' => 'Non è possibile inserire una data di FINE PUBBLICAZIONE che sia precedente o uguale a quella di fine attività!',
     'invalid_archive_ending_date' => 'Non è possibile inserire una data di FINE ATTIVITÀ che sia precedente o uguale a quella di inizio attività!',
 
     'success_cancel_operation' => 'Atto annullato con successo',
+    'success_extension_operation' => 'Atto prorogato con successo',
 
     //Errore numero minimo di componenti per un raggruppamento
     'few_components' => 'Non è possibile creare un raggruppamento senza aver selezionato almeno due componenti',
-
-
-    //Errori date albo
-    'albo_end_date' => 'Non è possibile inserire una data di FINE PUBBLICAZIONE che sia precedente o uguale a quella di inizio!',
-    'albo_start_date' => 'Non è possibile inserire una data di INIZIO PUBBLICAZIONE che sia precedente alla data dell\'atto!',
 
     //Errori scp
     'scp_no_notice' => 'Nessuna procedura relativa di tipo "Bando di Gara"',
@@ -123,4 +123,24 @@ return [
     'scp_awardee_error' => 'Errore nel recupero delle informazioni "Aggiudicatari"',
     'scp_no_info' => 'Errore nel recupero delle informazioni',
     'scp_awardee_group_error' => 'Tipologia del raggruppamento aggiudicatore non selezionata',
+
+    //ICE
+    'not_exist_code' => '%s non presente!',
+
+    //Errori perlapa
+    'assignment_data_check' => 'La data di inizio incarico deve essere antecedente al 01/01/2018',
+
+    //Workflow
+    'btn_save_next' => 'Salva e passa allo stato successivo&nbsp; <i class="fas fa-arrow-right"></i>',
+    'btn_save_previous' => '<i class="fas fa-arrow-left"></i>&nbsp; Salva e torna allo stato precedente',
+    'btn_force_save' => '<i class="far fa-save"></i>&nbsp; Salva e forza la pubblicazione',
+
+    //Validazione
+    'btn_save_next_p' => 'Pubblica',
+    'btn_save_previous_np' => 'Non pubblicare',
+    'btn_save_previous_pp' => 'Pubblica provvisoriamente',
+
+    // Pitre
+    'success_observations_operation' => 'Osservazioni inserite con successo',
+
 ];

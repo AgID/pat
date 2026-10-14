@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -48,8 +52,7 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
 
         } else {
 
-            header('Cache-Control: max-age=60, must-revalidate');
-            header('Set-Cookie: fileDownload=true; path=/');
+            setFileDownloadCookie();
 
         }
     }
@@ -73,12 +76,12 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getDataFromPageId((int)uri()->segment(3, 0));
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
-            $this->generateCsv($resultContests, $resultSection);
+            $this->generateCsv($resultContests,$resultSection);
 
         }
 
@@ -103,10 +106,10 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
 
         $contest = Input::get('issueType') == 'contest-act';
 
-        if ($contest) {
+        if($contest){
 
             //Resoconti della gestione finanziaria dei contratti al termine della loro esecuzione
-            if ((int)uri()->segment(3, 0) == 117) {
+            if((int)uri()->segment(3, 0) == 117){
                 $queryContents = ContestsActsModel::select(['object_contests_acts.*'])
                     ->whereIn('object_contests_acts.typology', ['result', 'foster'])
                     ->where(
@@ -114,7 +117,7 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
                             $query->where('object_contests_acts.expiration_date', '<=', date("Y-m-d H:i:s"))
                                 ->orWhereNull('object_contests_acts.expiration_date');
                         });
-            } else {
+            }else{
                 //Fase esecutiva 527
                 $queryContents = ContestsActsModel::select(['object_contests_acts.*'])
                     ->where('object_contests_acts.typology', 'foster')
@@ -140,7 +143,15 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
 
             }
 
-            $queryContents = $queryContents->with('structure:id,structure_name')
+            $queryContents = $queryContents->financialmanagementreports(
+                (Input::get('o', true)),
+                (Input::get('cig', true)),
+                Input::get('wss', true),
+                Input::get('wse', true),
+                Input::get('cdws', true),
+                Input::get('cdwe', true)
+            )
+                ->with('structure:id,structure_name')
                 ->with('contraent_choice:id,name')
                 ->with(['relative_notice' => function ($query) {
                     $query->select(['object_contests_acts.id', 'object', 'cig', 'adjudicator_name', 'adjudicator_data', 'expiration_date', 'relative_notice_id', 'contraent_choice', 'object_structures_id']);
@@ -155,24 +166,24 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
                 ->with('awardees:id,name')
                 ->with('attachs')
                 ->orderBy('expiration_date', 'DESC')
-                ->skip(Input::get('skip'))
-                ->take(Input::get('take'))
+                ->skip(boundedQueryInt('skip', 1000000))
+                ->take(boundedQueryInt('take', 100000, 100000))
                 ->get();
 
-        } else {
+        }else{
             //notice-act
             $queryContents = $this->getDataFromPageId((int)uri()->segment(3, 0));
         }
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
 
-            if ($contest) {
-                $this->generateCsvContest($resultContests, $resultSection);
-            } else {
-                $this->generateCsv($resultContests, $resultSection);
+            if($contest){
+                $this->generateCsvContest($resultContests,$resultSection);
+            }else {
+                $this->generateCsv($resultContests,$resultSection);
             }
 
         }
@@ -193,13 +204,18 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
         return NoticesActsModel::whereHas('public_in_section', function ($query) use ($sectionId) {
             $query->where('public_in_id', $sectionId);
         })
+            ->filter(
+                (Input::get('o', true)),
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->with('assignments:id,object')
             ->with('relative_contest_act:id,type,object')
             ->with('attachs')
             ->orderBy('date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 
@@ -207,7 +223,7 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
     /**
      * Metodo che genera il csv con gli open data
      * @param $resultContests {Dati pubblicati nella sezione}
-     * @param $resultSection {Dati sulla sezione corrente}
+     * @param $resultSection  {Dati sulla sezione corrente}
      * @return Void
      * @throws Exception
      */
@@ -215,10 +231,11 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
     {
 
         $fileName = 'Bandi di gara e contratti - atti delle amministrazioni - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -252,7 +269,7 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
             $relativeProcedures = '';
             if (!empty($r['relative_contest_act'])) {
                 foreach ($r['relative_contest_act'] as $procedure) {
-                    $relativeProcedures .= $procedure['object'] . "\n";
+                    $relativeProcedures .= $procedure['object']  . "\n";
                 }
             }
 
@@ -299,7 +316,7 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
     /**
      * Metodo che genera il csv con gli open data
      * @param $resultContests {Dati pubblicati nella sezione}
-     * @param $resultSection {Dati sulla sezione corrente}
+     * @param $resultSection  {Dati sulla sezione corrente}
      * @return Void
      * @throws Exception
      */
@@ -307,10 +324,11 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
     {
 
         $fileName = 'Bandi di gara e contratti - ' . $resultSection['name'] . '.csv';
-        header('Set-Cookie: fileDownload=true; path=/');
-        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
-        header('Content-Type: text/csv; charset= utf-8');
-        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+//        header('Set-Cookie: fileDownload=true; path=/; SameSite=None; Secure');
+//        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+//        header('Content-Type: text/csv; charset= utf-8');
+//        header('Content-Disposition: attachment; filename="' . $fileName.'"');
+        setFileDownloadCookieCSV($fileName);
         $output = fopen("php://output", 'w');
 
         $headers = array(
@@ -392,9 +410,9 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
 
                 foreach ($r['awardees'] as $awardee) {
 
-                    if (!empty($awardee['name'])) {
+                    if(!empty($awardee['name'])){
                         $awardeesLists .= $awardee['name'] . "\n";
-                    } else {
+                    }else{
                         $awardeesLists .= 'N.D.' . "\n";
                     }
 
@@ -407,9 +425,9 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
 
                 foreach ($r['participants'] as $participant) {
 
-                    if (!empty($participant['name'])) {
+                    if(!empty($participant['name'])){
                         $participantsList .= $participant['name'] . "\n";
-                    } else {
+                    }else{
                         $participantsList .= 'N.D.' . "\n";
                     }
                 }
@@ -445,9 +463,9 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
                     ->map(function ($items) {
                         return (float)S::currency($items, 2, null, null, false);
                     })->sum();
-                if (!empty($liquidationValueSum)) {
+                if(!empty($liquidationValueSum)){
                     $liquidationValueSum = S::currency((string)$liquidationValueSum, 2, ',', '.');
-                } else {
+                }else{
                     $liquidationValueSum = null;
                 }
             }
@@ -458,9 +476,9 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
                     ->map(function ($items) {
                         return (float)S::currency($items, 2, null, null, false);
                     })->sum();
-                if (!empty($astaValueSum)) {
+                if(!empty($astaValueSum)){
                     $astaValueSum = S::currency((string)$astaValueSum, 2, ',', '.');
-                } else {
+                }else{
                     $astaValueSum = null;
                 }
             } else {
@@ -524,19 +542,19 @@ class OpenDataNoticesActsFrontController extends BaseFrontController
                 // Bando di gara relativo (se il presente è avviso o esito)
                 !empty($tmpRelativeProcedure) ? $tmpRelativeProcedure : null,
                 // Altre procedure
-                !empty($otherProceduresList) ? trim($otherProceduresList) : null,
+                !empty($otherProceduresList)  ? trim($otherProceduresList) : null,
                 // Maggiori Dettagli
                 !empty($r['details']) ? S::chartsEntityDecode(S::stripTags($r['details'])) : null,
                 // Scelta del contraente
-                !empty($contraentChoice) ? trim($contraentChoice) : null,
+                !empty($contraentChoice)  ? trim($contraentChoice) : null,
                 // Partecipanti alla gara
-                !empty($participantsList) ? trim($participantsList) : null,
+                !empty($participantsList)  ? trim($participantsList) : null,
                 // Aggiudicatari
-                !empty($awardeesLists) ? trim($awardeesLists) : null,
+                !empty($awardeesLists)  ? trim($awardeesLists) : null,
                 // Url origine dato
                 siteUrl('page/' . $resultSection['id'] . '/details/' . $r['id'] . '/' . urlTitle($r['object'])),
                 // Allegati
-                !empty($attachLists) ? trim($attachLists) : null
+                !empty($attachLists)  ? trim($attachLists) : null
             ];
             fputcsv($output, $data, ';', '"');
         }

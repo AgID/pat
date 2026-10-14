@@ -9,11 +9,14 @@ namespace Http\Web\Admin;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Helpers\ActivityLog;
+use Helpers\S;
 use Helpers\Utility\AttachmentArchive;
 use Helpers\Utility\ButtonAction;
 use Helpers\Validators\ContestValidator;
 use Helpers\Validators\DatatableValidator;
 use Model\ContestModel;
+use Model\UsersModel;
 use Scope\DeletedScope;
 use System\Arr;
 use System\Input;
@@ -103,6 +106,7 @@ class ContestAdminController extends BaseAuthController
                 'esito' => 'result',
             ];
 
+
             $data = [];
 
             //Colonne su cui poter effettuare l'ordinamento
@@ -115,14 +119,11 @@ class ContestAdminController extends BaseAuthController
                 6 => 'object_contest.updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[7] = 'i.full_name_institution';
-            }
 
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'object');
+
 
             //Query per i dati da mostrare nel datatable
             $totalRecords = ContestModel::select('count(id) as allcount')
@@ -135,15 +136,17 @@ class ContestAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_contest.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
 
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object');
 
             $records = ContestModel::search($dataTable['searchValue'])
-                ->select(['object_contest.id', 'owner_id', 'object_contest.institution_id', 'typology', 'object', 'publishing_status',
+                ->select(['object_contest.id', 'owner_id', 'object_contest.institution_id', 'typology', 'object',
                     'object_contest.updated_at', 'users.name', 'i.full_name_institution', 'object_contest.activation_date',
                     'object_contest.expiration_date'])
+                ->filter()
                 ->join('users', 'users.id', '=', 'object_contest.owner_id', 'left outer')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
@@ -151,11 +154,14 @@ class ContestAdminController extends BaseAuthController
                 }])
                 ->with(['institution' => function ($query) {
                     $query->select(['id', 'full_name_institution']);
-                }]);
+                }])
+                ->with('all_attachs:id,archive_id');;
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_contest.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
+            $records = $records ?? null;
 
             $records = $records->join('institutions as i', 'object_contest.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
@@ -170,6 +176,10 @@ class ContestAdminController extends BaseAuthController
             $response['aaData'] = [];
 
             if (!empty($records)) {
+
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
 
                 foreach ($records as $record) {
 
@@ -195,27 +205,45 @@ class ContestAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate(),
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                        'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                         'versioning' => getAclVersioning(),
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/contest/edit-' . $typologyMap[$record['typology']] . '/' . $record['id'], $record['id'])
+                        ->addEdit('admin/contest/edit-' . $typologyMap[$record['typology']] . '/' . $record['id'], $record['id'],'',true)
                         ->addDuplicate('admin/contest/duplicate-' . $typologyMap[$record['typology']] . '/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/contest/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/contest/show-record-log/'.$record['id']), $record['id'], '23', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
+                        ->addCustomButton(
+                                's_no_app_io',
+                            '#!', 
+                            $record['id'], 
+                            'contest', 
+                            'Invia notifica App IO', 
+                            'view'
+                         )
                         ->addDelete('admin/contest/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
                     $icon = null;
 
+                    //Inclusione librerie esterne
+
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = $icon . (!empty($record['object'])
                             ? '<a href="' . siteUrl('/page/5/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
                             : 'N.D.');
@@ -224,13 +252,12 @@ class ContestAdminController extends BaseAuthController
                     $setTempData[] = $expirationDate;
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    //Ente
+                    $record = $record ?? null;
 
                     $setTempData[] = $buttonAction;
 
@@ -239,8 +266,7 @@ class ContestAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -259,7 +285,7 @@ class ContestAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contest/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contest/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -274,7 +300,10 @@ class ContestAdminController extends BaseAuthController
             $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
         }
 
-        $data['provinceShort'] = [null => 'Seleziona'] + config('province_short', null, 'locations');
+        $provinceShort = config('province_short', null, 'locations');
+        asort($provinceShort);
+        $data['provinceShort'] = [null => 'Seleziona'] + $provinceShort;
+
         $data['formAction'] = '/admin/contest/store-contest';
         $data['formSettings'] = [
             'name' => 'form_contest',
@@ -283,11 +312,13 @@ class ContestAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
+
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('contest/form_store_contest', $data, 'admin');
     }
@@ -309,7 +340,7 @@ class ContestAdminController extends BaseAuthController
         $archiveName = 'Bandi di Concorso';
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/contest/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contest-alert/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -334,11 +365,12 @@ class ContestAdminController extends BaseAuthController
 
         $data['archiveName'] = $archiveName;
 
+
         // Labels
         $data['labels'] = [];
-
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('contest/form_store_alert', $data, 'admin');
     }
@@ -359,14 +391,21 @@ class ContestAdminController extends BaseAuthController
 
         $archiveName = 'Bandi di Concorso';
 
-        $this->breadcrumb->push($archiveName, 'admin/contest');
-        $this->breadcrumb->push('Nuovo Esito', '/');
-        $data['breadcrumbs'] = $this->breadcrumb->show();
+        //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/contest-result/create-box', true);
 
-        //Dati header della sezione
-        $data['titleSection'] = $archiveName;
-        $data['subTitleSection'] = 'GESTIONE DELLE PUBBLICAZIONI DI ' . strtoupper($archiveName);
-        $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
+        //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
+        if (!$data['is_box']) {
+
+            $this->breadcrumb->push($archiveName, 'admin/contest');
+            $this->breadcrumb->push('Nuovo Esito', '/');
+            $data['breadcrumbs'] = $this->breadcrumb->show();
+
+            //Dati header della sezione
+            $data['titleSection'] = $archiveName;
+            $data['subTitleSection'] = 'GESTIONE DELLE PUBBLICAZIONI DI ' . strtoupper($archiveName);
+            $data['sectionIcon'] = '<i class="fas fa-gavel fa-3x"></i>';
+        }
 
         $data['formAction'] = '/admin/contest/store-result';
         $data['formSettings'] = [
@@ -378,11 +417,13 @@ class ContestAdminController extends BaseAuthController
 
         $data['archiveName'] = $archiveName;
 
+
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
 
         render('contest/form_store_result', $data, 'admin');
     }
@@ -397,8 +438,8 @@ class ContestAdminController extends BaseAuthController
      */
     public function storeContest(): void
     {
-        //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        // Setto il metodo della rotta per i permessi
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -439,15 +480,17 @@ class ContestAdminController extends BaseAuthController
                     'evaluation_criteria' => Input::post('evaluation_criteria', true),
                     'traces_written_tests' => Input::post('traces_written_tests', true),
                     'related_contest_id' => setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']),
-                    'activation_date' => !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null,
+                    'activation_date' => !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null,
                     'expiration_date' => !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date'))) : null,
                     'expiration_contest_date' => !empty(Input::post('expiration_contest_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_contest_date'))) : null,
                     'expiration_time' => strip_tags(Input::post('expiration_time', true)),
                     'hired_employees' => setDefaultData(strip_tags((int)Input::post('hired_employees')), null, ['']),
                     'expected_expenditure' => !empty(Input::post('expected_expenditure')) ? toFloat(strip_tags(Input::post('expected_expenditure'))) : null,
                     'expenditures_made' => !empty(Input::post('expenditures_made')) ? toFloat(strip_tags(Input::post('expenditures_made'))) : null,
-                    'description' => Input::post('description', true)
+                    'description' => Input::post('description', true),
+                    'external_assignment' => Input::post('external_assignment', true)
                 ];
+
 
                 // Storage nuovo Bando di concorso
                 $insert = ContestModel::createWithLogs($arrayValues);
@@ -461,10 +504,11 @@ class ContestAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest', $insert->id, $arrayValues['object']);
 
+
                 // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
+//                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
+//                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+//                }
 
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
@@ -489,7 +533,7 @@ class ContestAdminController extends BaseAuthController
     public function storeAlert(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -523,16 +567,18 @@ class ContestAdminController extends BaseAuthController
                     'object' => strip_tags(Input::post('object', true)),
                     'object_structures_id' => setDefaultData(strip_tags((int)Input::post('object_structures_id')), null, ['']),
                     'related_contest_id' => setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']),
-                    'activation_date' => !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null,
+                    'activation_date' => !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null,
                     'expiration_date' => !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date'))) : null,
                     'description' => Input::post('description', true)
                 ];
+
 
                 // Storage nuovo Bando di concorso
                 $insert = ContestModel::createWithLogs($arrayValues);
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest', $insert->id, $arrayValues['object']);
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -562,7 +608,7 @@ class ContestAdminController extends BaseAuthController
     public function storeResult(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -595,15 +641,18 @@ class ContestAdminController extends BaseAuthController
                     'typology' => 'esito',
                     'object' => strip_tags(Input::post('object', true)),
                     'related_contest_id' => setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']),
-                    'activation_date' => !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null,
+                    'activation_date' => !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null,
+                    'object_structures_id' => setDefaultData(strip_tags((int)Input::post('object_structures_id')), null, ['']),
                     'description' => Input::post('description', true)
                 ];
+
 
                 // Storage nuovo Bando di concorso
                 $insert = ContestModel::createWithLogs($arrayValues);
 
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'contest', $insert->id, $arrayValues['object']);
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'create-box')) {
@@ -633,7 +682,7 @@ class ContestAdminController extends BaseAuthController
     public function editContest(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('update');
+        $this->acl->setRoute(['update', 'create']);
 
         //Validatore che verifica se l'elemento da modificare esiste
         $validator = new ContestValidator();
@@ -662,6 +711,7 @@ class ContestAdminController extends BaseAuthController
         // Se la validazione va a buon fine recupero l'elemento da modificare dal registro
         $contest = Registry::get('contest');
         $contest = !empty($contest) ? $contest->toArray() : [];
+
 
         // Vedo in sessione se sono arrivato qui da un operazione di ripristino dal versioning
         $session = new Session();
@@ -700,7 +750,7 @@ class ContestAdminController extends BaseAuthController
         $expirationTime = convertDateToForm($contest['expiration_date']);
         $expirationContestDate = convertDateToForm($contest['expiration_contest_date']);
 
-        $contest['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];
+        $contest['activation_date'] = $activationDate['date'] . 'T' . $activationDate['hours'];
         $contest['expiration_date'] = $expirationDate['date'];
         $data['contest'] = $contest;
 
@@ -713,15 +763,19 @@ class ContestAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $contest['institution_id'];
 
         $data['expiration_contest_date'] = $expirationContestDate['date'];
         $data['expiration_time'] = $expirationTime['date'];
-        $data['provinceShort'] = [null => 'Seleziona'] + config('province_short', null, 'locations');
+
+        $provinceShort = config('province_short', null, 'locations');
+        asort($provinceShort);
+        $data['provinceShort'] = [null => 'Seleziona'] + $provinceShort;
 
         $data['commissionIds'] = Arr::pluck($contest['assignments'], 'id');
         $data['seo'] = $contest['p_s_d_r'] ?? null;
+
 
         render('contest/form_store_contest', $data, 'admin');
     }
@@ -737,7 +791,7 @@ class ContestAdminController extends BaseAuthController
     public function editAlert(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('update');
+        $this->acl->setRoute(['update', 'create']);
 
         //Validatore che verifica se l'elemento da modificare esiste
         $validator = new ContestValidator();
@@ -757,7 +811,14 @@ class ContestAdminController extends BaseAuthController
         $alert = Registry::get('contest');
         $alert = !empty($alert) ? $alert->toArray() : [];
 
+
         $data = [];
+
+        $segments = uri()->segmentArray();
+        array_pop($segments);
+
+        //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
+        $data['is_box'] = false;
 
         // Vedo in sessione se sono arrivato qui da un operazione di ripristino dal versioning
         $session = new Session();
@@ -793,7 +854,7 @@ class ContestAdminController extends BaseAuthController
         $activationDate = convertDateToForm($alert['activation_date']);
         $expirationDate = convertDateToForm($alert['expiration_date']);
 
-        $alert['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];
+        $alert['activation_date'] = $activationDate['date'] . 'T' . $activationDate['hours'];
         $alert['expiration_date'] = $expirationDate['date'];
         $data['alert'] = $alert;
 
@@ -805,10 +866,10 @@ class ContestAdminController extends BaseAuthController
 
         // Labels
         $data['labels'] = [];
-
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $alert['institution_id'];
         $data['seo'] = $alert['p_s_d_r'] ?? null;
+
 
         render('contest/form_store_alert', $data, 'admin');
     }
@@ -824,7 +885,7 @@ class ContestAdminController extends BaseAuthController
     public function editResult(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('update');
+        $this->acl->setRoute(['update', 'create']);
 
         //Validatore che verifica se l'elemento da modificare esiste
         $validator = new ContestValidator();
@@ -842,6 +903,7 @@ class ContestAdminController extends BaseAuthController
         // Se la validazione va a buon fine recupero l'elemento da modificare dal registro
         $result = Registry::get('contest');
         $result = !empty($result) ? $result->toArray() : [];
+
 
         $data = [];
 
@@ -878,7 +940,7 @@ class ContestAdminController extends BaseAuthController
 
         $activationDate = convertDateToForm($result['activation_date']);
 
-        $result['activation_date'] = $activationDate['date'].' '.$activationDate['hours'];
+        $result['activation_date'] = $activationDate['date'] . 'T' . $activationDate['hours'];
         $data['result'] = $result;
 
         // Lista degli allegati
@@ -889,10 +951,10 @@ class ContestAdminController extends BaseAuthController
 
         // Labels
         $data['labels'] = [];
-
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $result['institution_id'];
         $data['seo'] = $result['p_s_d_r'] ?? null;
+
 
         render('contest/form_store_result', $data, 'admin');
     }
@@ -907,7 +969,6 @@ class ContestAdminController extends BaseAuthController
      */
     public function updateContest(): void
     {
-
         $json = new JsonResponse();
         $code = $json->success();
 
@@ -928,10 +989,11 @@ class ContestAdminController extends BaseAuthController
                 }])
                 ->with('all_attachs');
 
+
             $contest = $contest->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($contest['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($contest['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -959,7 +1021,7 @@ class ContestAdminController extends BaseAuthController
                 $data['evaluation_criteria'] = Input::post('evaluation_criteria', true);
                 $data['traces_written_tests'] = Input::post('traces_written_tests', true);
                 $data['related_contest_id'] = setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']);
-                $data['activation_date'] = !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null;
+                $data['activation_date'] = !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null;
                 $data['expiration_date'] = !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date'))) : null;
                 $data['expiration_contest_date'] = !empty(Input::post('expiration_contest_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_contest_date'))) : null;
                 $data['expiration_time'] = strip_tags(Input::post('expiration_time', true));
@@ -967,9 +1029,13 @@ class ContestAdminController extends BaseAuthController
                 $data['expected_expenditure'] = !empty(Input::post('expected_expenditure')) ? toFloat(strip_tags(Input::post('expected_expenditure'))) : null;
                 $data['expenditures_made'] = !empty(Input::post('expenditures_made')) ? toFloat(strip_tags(Input::post('expenditures_made'))) : null;
                 $data['description'] = Input::post('description', true);
+                $data['external_assignment'] = Input::post('external_assignment', true);
+
+
 
                 // Update Bando di concorso
                 ContestModel::where('id', $contestId)->updateWithLogs($contest, $data);
+
 
                 // Svuoto le tabelle di relazione e le aggiorno
                 $this->clear(
@@ -985,6 +1051,7 @@ class ContestAdminController extends BaseAuthController
                     $contest['institution_id'],
                     $contest['object']
                 );
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
@@ -1032,10 +1099,11 @@ class ContestAdminController extends BaseAuthController
                 }])
                 ->with('all_attachs');
 
+
             $alert = $alert->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($alert['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($alert['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -1055,12 +1123,15 @@ class ContestAdminController extends BaseAuthController
                 $data['object'] = strip_tags(Input::post('object', true));
                 $data['object_structures_id'] = setDefaultData(strip_tags((int)Input::post('object_structures_id')), null, ['']);
                 $data['related_contest_id'] = setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']);
-                $data['activation_date'] = !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null;
+                $data['activation_date'] = !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null;
                 $data['expiration_date'] = !empty(Input::post('expiration_date')) ? convertDateToDatabase(strip_tags(Input::post('expiration_date'))) : null;
                 $data['description'] = Input::post('description', true);
 
+
+
                 // Update Bando di concorso
                 ContestModel::where('id', $alertId)->updateWithLogs($alert, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -1070,6 +1141,7 @@ class ContestAdminController extends BaseAuthController
                     $alert['institution_id'],
                     $alert['object']
                 );
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
@@ -1117,10 +1189,11 @@ class ContestAdminController extends BaseAuthController
                 }])
                 ->with('all_attachs');
 
+
             $result = $result->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($result['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($result['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -1139,11 +1212,14 @@ class ContestAdminController extends BaseAuthController
                 $data = [];
                 $data['object'] = strip_tags(Input::post('object', true));
                 $data['related_contest_id'] = setDefaultData(strip_tags((int)Input::post('related_contest_id')), null, ['']);
-                $data['activation_date'] = !empty(Input::post('activation_date')) ? strip_tags(Input::post('activation_date')) : null;
+                $data['activation_date'] = !empty(Input::post('activation_date')) ? str_replace('T', ' ', strip_tags(Input::post('activation_date', true))) : null;
                 $data['description'] = Input::post('description', true);
+                $data['object_structures_id'] = setDefaultData(strip_tags((int)Input::post('object_structures_id')), null, ['']);
+
 
                 // Update Bando di concorso
                 ContestModel::where('id', $resultId)->updateWithLogs($result, $data);
+
 
                 // Upload allegati associati al personale.
                 $attach->update(
@@ -1153,6 +1229,7 @@ class ContestAdminController extends BaseAuthController
                     $result['institution_id'],
                     $result['object']
                 );
+
 
                 // Generazione nuovo token
                 if (!referenceOriginForRegenerateToken(3, 'edit-box')) {
@@ -1187,7 +1264,7 @@ class ContestAdminController extends BaseAuthController
             }
         }
         //Insert/Update nella tabella di relazione
-        $contest->assignments()->sync($dataAssignments);
+        $contest->assignments()->syncWithPivotValues($dataAssignments, ['typology' => 'commission']);
     }
 
     /**
@@ -1220,6 +1297,7 @@ class ContestAdminController extends BaseAuthController
         //Elimino il bando do concorso settando deleted = 1
         $contest->deleteWithLogs($contest);
 
+
         sessionSetNotify(__('success_delete_operation', null, 'patos'));
 
         // Generazione nuovo token
@@ -1239,7 +1317,7 @@ class ContestAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new ContestValidator();
         $validate = $validator->multipleSelection();
@@ -1259,6 +1337,7 @@ class ContestAdminController extends BaseAuthController
                 $contest->deleteWithLogs($contest);
             }
 
+
             // Generazione nuovo token
             Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
         } else {
@@ -1268,4 +1347,5 @@ class ContestAdminController extends BaseAuthController
 
         redirect('/admin/contest');
     }
+
 }

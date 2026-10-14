@@ -9,10 +9,11 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +28,7 @@ class ModulesRegulationsModel extends Model
     protected $table = 'object_modules_regulations';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaModulesRegulationsModel';
     protected string $archiveName = 'modules_regulations';
 
     protected string $objectName = 'Modulistica';
@@ -40,6 +42,7 @@ class ModulesRegulationsModel extends Model
         'workflow_state',
         'typology',
         'title',
+        'object_structures_id',
         'description',
         'publishing_status',
         'o_id',
@@ -47,6 +50,9 @@ class ModulesRegulationsModel extends Model
         'number_readings',
         'order',
         'last_update_date',
+        'publishing_start',
+        'publishing_end',
+        'unfixed',
         'created_at',
         'updated_at',
         'publishing_responsable'
@@ -67,7 +73,15 @@ class ModulesRegulationsModel extends Model
     protected $searchable = [
         'title',
         'description',
-        'userName'
+        'users.name'
+    ];
+
+    /**
+     * Campi con cui deve essere applicata la crittografia nella ricerca
+     * @var string[]
+     */
+    protected array $encrypted = [
+        'users.name'
     ];
 
     /**
@@ -90,19 +104,13 @@ class ModulesRegulationsModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Parametri costruttore
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -113,7 +121,7 @@ class ModulesRegulationsModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -137,6 +145,15 @@ class ModulesRegulationsModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con Procedimenti
      * Procedimenti per cui è valido il modulo
      * @return BelongsToMany
@@ -147,6 +164,7 @@ class ModulesRegulationsModel extends Model
             ->withTimestamps();
         return $proceedings;
     }
+
 
     /**
      * Relazione con gli allegati
@@ -175,5 +193,40 @@ class ModulesRegulationsModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'modules_regulations');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query Query
+     * @param string|null $text  Titolo modulistica
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $text = null
+    ): void
+    {
+        if (!empty($text)) {
+            $query->where('object_modules_regulations.title', 'LIKE', '%' . $text . '%');
+        }
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+    /**
+     * Relazione con Strutture Organizzative (tabella object_structures)
+     * Rappresenta la struttura di appartenenza
+     */
+    public function structure(): belongsTo
+    {
+        return $this->belongsTo(StructuresModel::class, 'object_structures_id');
     }
 }

@@ -1,3 +1,9 @@
+<?php
+/**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +12,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404</title>
     <link href="/assets/frontend/v1/css/titillium_web.css?v=11" rel="stylesheet">
-    <link href="/assets/admin/css/custom.css" rel="stylesheet">
 </head>
 <style>
     * {
@@ -15,7 +20,7 @@
         box-sizing: border-box;
     }
     body {
-        background: var(--colore1);
+        background:#06c;
         color:#fff;
         font-family: 'Titillium Web', sans-serif;
     }
@@ -47,6 +52,7 @@
     }
     .box {
         text-align: center;
+        padding: 1rem;
     }
     .logo {
         width:10rem;

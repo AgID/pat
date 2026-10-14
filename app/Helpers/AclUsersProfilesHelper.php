@@ -36,7 +36,7 @@ if (!function_exists('badgeAclUserProfile')) {
                 }
 
                 $object->addRow([
-                    str_repeat(' ', $d['deep'] * 3) . $d['text'],
+                    str_repeat(' ', $d['deep'] * 3) . $d['name'],
                     'Modifica (' . $modify . ')',
                     null,
                     null,

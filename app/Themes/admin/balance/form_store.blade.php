@@ -39,27 +39,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
-                            {{-- Campo Tipologia bilancio --}}
-                            <div class="form-group">
-                                <label for="typology">Tipologia *</label>
-                                <div class="select2-blue" id="input_typology">
-                                    {{ form_dropdown(
-                                        'typology',
-                                        @$typologies,
-                                        @$balance['typology'],
-                                        'class="form-control select2-typology" style="width: 100%;"'
-                                    ) }}
-                                </div>
+                            <div class="form-row d-flex align-items-end">
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
                             </div>
 
                             <div class="form-row d-flex align-items-end">
@@ -76,7 +76,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 </div>
 
                                 {{-- Campo Anno--}}
-                                <div class="form-group col-md-6">
+                                <div class="form-group col-md-2">
                                     <label for="year">Anno *</label>
                                     {{ form_input([
                                         'name' => 'year',
@@ -86,13 +86,27 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'class' => 'form-control input_year',
                                     ]) }}
                                 </div>
+
+                                <div class="form-group col-md-4">
+                                    <label for="typology">Tipologia *</label>
+                                    <div id="input_typology">
+                                        {{ form_dropdown(
+                                            'typology',
+                                            @$typologies,
+                                            @$balance['typology'],
+                                            'class="ts-typology" style="width: 100%;"'
+                                        ) }}
+                                    </div>
+                                </div>
+
                             </div>
 
-                            {{-- Campo Provvedimento --}}
-                            <div class="form-row d-flex align-items-end">
+
+                            <div class="form-row align-items-end"
+                                 style="display: <?php echo (@$socTrasp ? 'none;' : 'block;'); ?>">
                                 <div class="form-group col-md-12" id="measure">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label for="ajax_measure" id="b_measure_label">Provvedimento</label>
+                                        <label for="ajax_measure" id="b_measure_label">Provvedimento</label>
                                     </div>
                                     <div id="ajax_measure"></div>
                                     <input type="hidden" value="" name="object_measure_id" id="input_measure_id"
@@ -111,17 +125,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
+
                         {{-- END: Form --}}
                     </div>
 
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -143,6 +165,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             ]) }}
         @endif
 
+        @if(!empty($institution_id))
+            {{ form_input([
+                'type' => 'hidden',
+                'name' => 'institution_id',
+                'value' => $institution_id,
+                'id' => 'institution_id',
+                'class' => 'institution_id',
+            ]) }}
+        @endif
+
+
         {{ form_hidden('institute_id',checkAlternativeInstitutionId()) }}
         {{ form_close() }}
     </div>
@@ -163,22 +196,21 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js?') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         {{-- Campo CKEDITOR --}}
         // Cattura eventuali modifiche fatte sui campi CKEDITOR
@@ -187,14 +219,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_description');
-
-        {{-- Select2 per campo "Tipologia" --}}
-        let $dropdownTypology = $('.select2-typology');
-        $dropdownTypology.select2({
-            placeholder: 'Seleziona il tipo di documento',
-            minimumResultsForSearch: -1
+        CKEDITOR.replace('input_description', {
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
         });
+
+        new TomSelect(".ts-typology", {...TS_SINGLE, placeholder: "Seleziona il tipo di documento"});
+
+        @if(empty($socTrasp))
 
         //Tabella per la selezione del provvedimento
         let measure = $('#ajax_measure').patOsAjaxPagination({
@@ -222,20 +253,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             label: '#b_measure_label'
         });
 
-        // Setto il bando relativo se sono in modifica o duplicazione
+
         @if(in_array($_storageType,['update', 'duplicate']) && !empty($balance['related_measure']))
         @php
             $tmpStartDate = (!empty($balance['related_measure']) && !empty($balance['related_measure']['date']) ) ? ' - '.date('d/m/Y', strtotime($balance['related_measure']['date'])) : null;
         @endphp
-        measure.patOsAjaxPagination.setValue('{{ $balance['object_measure_id'] }}', '{{ htmlEscape($balance['related_measure']['object']).' - '.$balance['related_measure']['number'].''.$tmpStartDate }}', true);
+        measure.patOsAjaxPagination.setValue('{{ $balance['object_measure_id'] }}', '{{ htmlEscape($balance['related_measure']['object']).' - '.htmlEscape($balance['related_measure']['number']).''.$tmpStartDate }}', true);
         @endif
-
-        {{-- Select2 campo "Stato pubblicazione" --}}
-        let $dropdownPublishingStatus = $('.select2-publishing_status');
-        $dropdownPublishingStatus.select2({
-            placeholder: 'Seleziona',
-            minimumResultsForSearch: -1
-        });
+        @endif
 
         /**
          * Metodo per il salvataggio
@@ -260,10 +285,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = false;
 
                 // Funzione che genera il toast con il messaggio di successo
-                {{-- (vedere nel footer) --}}
                 createValidatorFormSuccessToast(response.data.message, 'Bilancio');
 
-                {{-- Controllo se non sono all'interno di un modale --}}
                 @if(empty($is_box))
                 setTimeout(function () {
                     window.location.href = '{{ siteUrl('admin/balance') }}';
@@ -271,6 +294,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 @else
                 setTimeout(function () {
                     window.parent.$('#formModal').modal('hide');
+
                 }, 800);
                 @endif
 
@@ -285,7 +309,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 let msg = [response.data.error_partial_attach, response.errors.error].filter(Boolean).join(", ");
 
                 // Funzione che genera il toast con gli errori
-                {{-- (vedere nel footer) --}}
                 createValidatorFormErrorToast(msg, 6000, '', false);
 
                 btnSend.empty().append('{{ __('brn_save',null,'patos') }}').attr("disabled", false);
@@ -296,11 +319,11 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Controllo per l'uscita dal form se i campi di input sono stati toccati
          */
-        $(document).on('focus',
-            '.select2-selection.select2-selection--single, .select2-selection.select2-selection--multiple, input',
-            function (e) {
+        document.addEventListener("focusin", function (event) {
+            if (event.target.matches(".ts-control, input")) {
                 formModified = true;
-            });
+            }
+        });
 
         {{-- Messaggio di uscita senza salvare dal form --}}
         window.addEventListener('beforeunload', (event) => {
@@ -312,20 +335,17 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         /**
          * Funzione che controlla se sono arrivato in questa pagina dal versioning
          */
-        {{-- Vedere nel footer --}}
         checkIfRestore();
 
         /**
          * Funzione che apre il modale per l'aggiunta di nuovi elementi direttamente all'interno del form
          */
-        {{-- Vedere nel footer --}}
         openModalForm();
 
         /**
          * Funzione che viene eseguita alla chiusura del modale di aggiunta di nuovi elementi direttamente dal form.
          * Pulisce l'iframe.
          */
-        {{-- Vedere nel footer --}}
         closeModalForm();
 
     });

@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * Fuel is a fast, lightweight, community driven PHP 5.4+ framework.
  *
  * @package    Fuel
@@ -368,7 +373,7 @@ class Arr
     public static function insert(array &$original, $value, $pos)
     {
         if (count($original) < abs($pos)) {
-            \Errorhandler::notice('Position larger than number of elements in array in which to insert.');
+            trigger_error('Position larger than number of elements in array in which to insert.', E_USER_NOTICE);
             return false;
         }
 
@@ -393,7 +398,7 @@ class Arr
         $pos = array_search($key, array_keys($original));
 
         if ($pos === false) {
-            \Errorhandler::notice('Unknown key before which to insert the new value into the array.');
+            trigger_error('Unknown key before which to insert the new value into the array.', E_USER_NOTICE);
             return false;
         }
 
@@ -405,7 +410,7 @@ class Arr
         $pos = array_search($key, array_keys($original));
 
         if ($pos === false) {
-            \Errorhandler::notice('Unknown key after which to insert the new value into the array.');
+            trigger_error('Unknown key after which to insert the new value into the array.', E_USER_NOTICE);
             return false;
         }
 
@@ -417,7 +422,7 @@ class Arr
         $key = array_search($search, $original);
 
         if ($key === false) {
-            \Errorhandler::notice('Unknown value after which to insert the new value into the array.');
+            trigger_error('Unknown value after which to insert the new value into the array.', E_USER_NOTICE);
             return false;
         }
 
@@ -429,7 +434,7 @@ class Arr
         $key = array_search($search, $original);
 
         if ($key === false) {
-            \Errorhandler::notice('Unknown value before which to insert the new value into the array.');
+            trigger_error('Unknown value before which to insert the new value into the array.', E_USER_NOTICE);
             return false;
         }
 

@@ -11,6 +11,7 @@ use Helpers\Validators\SearchValidator;
 use Model\SectionsBoModel;
 use System\Input;
 use System\JsonResponse;
+use System\Log;
 use System\Token;
 use System\Validator;
 use System\View;
@@ -33,7 +34,7 @@ class SearchFrontController extends BaseFrontController
         helper(['url', 'form']);
 
         if (!empty(Input::get('sec_token')) && !Token::verify('sec_token')) {
-            echo showError('Attenzione', 'Richiesta non valida.<br />Si prega di tornare indietro e ricaricare la pagina');
+            echo showError('Attenzione','Richiesta non valida.<br />Si prega di tornare indietro e ricaricare la pagina');
             exit();
         }
 
@@ -54,16 +55,17 @@ class SearchFrontController extends BaseFrontController
         $sections = null;
 
         $validation = new Validator();
-        if (Input::get('s') != null) {
+        if(Input::get('s')!=null) {
             // $validation->verifyToken();
         }
 
         $validation->label('Frase da ricercare')
             ->value(trim(Input::get('s')))
-            ->betweenString('3', '255')
+            ->betweenString('4', '255')
             ->required()
             ->end();
 
+        $exactSearch = (int)!empty(Input::get('exact_search',true));
 
         if (!$validation->isSuccess()) {
 
@@ -74,9 +76,12 @@ class SearchFrontController extends BaseFrontController
 
         if ($successValidate) {
 
+            $excludedModel = [17];
+
             $sections = SectionsBoModel::select(['id', 'name', 'model'])
                 ->whereNotNull('model')
                 ->where('searchable', 1)
+                ->whereNotIn('id', [$excludedModel])
                 ->orderBy('search_sort')
                 ->get()
                 ->toArray();
@@ -86,15 +91,16 @@ class SearchFrontController extends BaseFrontController
         $data['errorHtml'] = $errorHtml;
         $data['sections'] = $sections;
         $data['keyword'] = Input::get('s', true);
-        $data['token'] = Input::get(config('csrf_token_name', null, 'app'));
-        $data['keyToken'] = config('csrf_token_name', null, 'app');
+        $data['token'] = Input::get(config('csrf_token_name',null,'app'));
+        $data['exact_search'] = $exactSearch;
+        $data['keyToken'] = config('csrf_token_name',null,'app');
         $data['notEditable'] = true;
 
         renderFront(config('vfo', null, 'app') . '/search/index', $data, 'frontend');
     }
 
     /**
-     * Numero di occorrenze trovate nelle sezioni
+     * Verifica la presenza di occorrenze nelle sezioni
      *
      * @url /search/nums
      * @return void
@@ -102,94 +108,106 @@ class SearchFrontController extends BaseFrontController
      */
     public function resultSearchNums(): void
     {
+        if (!Input::isAjax()) {
+
+            echo show404();
+            die();
+
+        } else {
 
 
-        $json = new JsonResponse();
-        $code = $json->success();
-        $validator = new SearchValidator();
+            $json = new JsonResponse();
+            $code = $json->success();
+            $validator = new SearchValidator();
 
-        // Validatore input motore di ricerca
-        $check = $validator->validateInputSearchNumb(false);
+            // Validatore input motore di ricerca
+            $check = $validator->validateInputSearchNumb(false);
 
-        if ($check['is_success']) {
+            if ($check['is_success']) {
 
-            $config = config(Input::get('model'), null, 'modelFrontConfigs');
+                $config = config(Input::get('model'), null, 'modelFrontConfigs');
 
-            if (!empty($config)) {
-                $classNameModel = $config['model'];
-                $className = '\\Model\\' . $classNameModel;
+                if (!empty($config)) {
+                    $classNameModel = $config['model'];
+                    $className = '\\Model\\' . $classNameModel;
+                    $tb = (new $className())->getTable();
 
-                $selectField = !empty($config['select_field']) ? $config['select_field'] : ['id'];
+                    $selectField = !empty($config['select_field']) ? $config['select_field'] : ['id'];
 
-                $field = $config['field'];
-                $fieldWhereHas = $config['fieldWhereHas'] ?? null;
-                $fieldDate = $config['date_field'] ?? null;
-                $modelScope = $config['modelScope'] ?? [];
+                    $field = $config['field'];
+                    $fieldWhereHas = $config['fieldWhereHas'] ?? null;
+                    $fieldDate = $config['date_field'] ?? null;
+                    $modelScope = $config['modelScope'] ?? [];
 
-                $query = $className::search($this->getKeyword, $field, $fieldWhereHas, true, $fieldDate, $modelScope);
-                $query = $query->select($selectField);
+                    $query = $className::search($this->getKeyword, $field, $fieldWhereHas, true, $fieldDate, $modelScope, (int)Input::get('exact_search', true));
+//                    $query = $query->select($selectField);
+//                    $query = $query->distinct($tb.'.id');
 
-                // Set Join
-                if (!empty($config['join'])) {
-                    foreach ($config['join'] as $value) {
-                        $table = $value[0];
-                        $foreignKey = $value[1];
-                        $operator = $value[2];
-                        $localKey = $value[3];
-                        $typeJoin = !empty($value[4]) ? $value[4] : null;
-                        $query->join($table, $foreignKey, $operator, $localKey, $typeJoin);
+                    // Set Join
+                    if (!empty($config['join'])) {
+                        foreach ($config['join'] as $value) {
+                            $table = $value[0];
+                            $foreignKey = $value[1];
+                            $operator = $value[2];
+                            $localKey = $value[3];
+                            $typeJoin = !empty($value[4]) ? $value[4] : null;
+                            $query->join($table, $foreignKey, $operator, $localKey, $typeJoin);
+                        }
                     }
-                }
 
-                // Set Where
-                if (!empty($config['where'])) {
-                    foreach ($config['where'] as $value) {
-                        $field = $value[0];
-                        $operator = $value[1];
-                        $value = $value[2];
-                        $otherCondition = !empty($value[3]) ? $value[3] : 'and';
-                        $query->where($field, $operator, $value);
+                    // Set Where
+                    if (!empty($config['where'])) {
+                        foreach ($config['where'] as $value) {
+                            $field = $value[0];
+                            $operator = $value[1];
+                            $value = $value[2];
+                            $otherCondition = !empty($value[3]) ? $value[3] : 'and';
+                            $query->where($field, $operator, $value);
+                        }
                     }
-                }
 
-                // Set Where
-                if (!empty($config['whereIn'])) {
-                    foreach ($config['whereIn'] as $value) {
-                        $field = $value[0];
-                        $value = $value[1];
-                        $otherCondition = !empty($value[3]) ? $value[3] : 'and';
-                        $query->whereIn($field, $value);
+                    // Set Where
+                    if (!empty($config['whereIn'])) {
+                        foreach ($config['whereIn'] as $value) {
+                            $field = $value[0];
+                            $value = $value[1];
+                            $otherCondition = !empty($value[3]) ? $value[3] : 'and';
+                            $query->whereIn($field, $value);
+                        }
                     }
-                }
 
-                // Setto eventuali scope per filtri specifici
-                if (!empty($config['scope'])) {
-                    foreach ($config['scope'] as $scope) {
-                        $query->$scope();
+                    // Setto eventuali scope per filtri specifici
+                    if (!empty($config['scope'])) {
+                        foreach ($config['scope'] as $scope) {
+                            $query->$scope();
+                        }
                     }
-                }
 
-                // Setto eventuali group by
-                if (!empty($config['groupBy'])) {
-                    foreach ($config['groupBy'] as $value) {
-                        $query->groupBy($value);
+                    // Setto eventuali group by
+                    if (!empty($config['groupBy'])) {
+                        foreach ($config['groupBy'] as $value) {
+                            $query->groupBy($value);
+                        }
                     }
+
+                    $institutionId = (checkAlternativeInstitutionId() != 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
+                    //Per le pagine generiche inserisco anche il controllo sull'id dell'ente dato che non hanno lo scope
+                    if(Input::get('model') == 23) {
+                        //$tableName = new $className();
+                        $query->where(function ($query) use( $institutionId){
+                            $query->where('section_fo.institution_id', $institutionId);
+                            $query->orWhereNull('section_fo.institution_id');
+                        });
+                    }
+//                    $start = microtime(true);
+
+                    $hasResults = $query->exists();
+//                    $end = microtime(true);
+//                    Log::print("$classNameModel :" . $end - $start, false, "testricerca.txt");
+
+                    $json->set('has_results', $hasResults);
                 }
-
-                $institutionId = (checkAlternativeInstitutionId() != 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
-
-                //Per le pagine generiche inserisco anche il controllo sull'id dell'ente dato che non hanno lo scope
-                if (Input::get('model') == 23) {
-                    $tableName = new $className();
-                    $query->where(function ($query) use ($tableName, $institutionId) {
-                        $query->where($tableName->getTable() . '.institution_id', $institutionId);
-                        $query->orWhereNull($tableName->getTable() . '.institution_id');
-                    });
-                }
-
-                $numRows = $query->get()->count();
-
-                $json->set('num', $numRows);
             }
         }
 
@@ -220,6 +238,12 @@ class SearchFrontController extends BaseFrontController
 
             // Calcolo Paginazione risultati di ricerca,
             $config = config(Input::get('model'), null, 'modelFrontConfigs');
+
+            if (empty($config)) {
+                echo "Parametro non permesso";
+                die();
+            }
+
             $classNameModel = $config['model'];
             $className = '\\Model\\' . $classNameModel;
             $perPage = !empty($config['per_page']) ? $config['per_page'] : 30;
@@ -229,7 +253,7 @@ class SearchFrontController extends BaseFrontController
             $modelScope = $config['modelScope'] ?? [];
 
             // Ricerca
-            $query = $className::search($this->getKeyword, $field, $fieldWhereHas, true, $fieldDate, $modelScope);
+            $query = $className::search($this->getKeyword, $field, $fieldWhereHas, true, $fieldDate, $modelScope, (int)Input::get('exact_search', true));
             $query = $query->select($config['search_result_field']);
 
             // Relazione (With)
@@ -239,7 +263,7 @@ class SearchFrontController extends BaseFrontController
                         $relation = $with['relation'];
                         $fields = !empty($with['select']) ? $with['select'] : false;
                         if ($fields) {
-                            $query->with([$relation => function ($query) use ($fields) {
+                            $query->with([$relation => function ($query) use ($fields, $with) {
                                 $query->select($fields);
                                 if (!empty($with['join'])) {
                                     $withJoin = $with['join'];
@@ -300,16 +324,16 @@ class SearchFrontController extends BaseFrontController
             $institutionId = (checkAlternativeInstitutionId() != 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
             //Per le pagine generiche inserisco anche il controllo sull'id dell'ente dato che non hanno lo scope
-            if (Input::get('model') == 23) {
+            if(Input::get('model') == 23) {
                 $tableName = new $className();
-                $query->where(function ($query) use ($tableName, $institutionId) {
-                    $query->where($tableName->getTable() . '.institution_id', $institutionId);
-                    $query->orWhereNull($tableName->getTable() . '.institution_id');
+                $query->where(function ($query) use($tableName, $institutionId){
+                    $query->where($tableName->getTable().'.institution_id', $institutionId);
+                    $query->orWhereNull($tableName->getTable().'.institution_id');
                 });
             }
 
             // Paginazione
-            $querySQL = $query->paginate($perPage, null, 'p', (int)Input::get('p'));
+            $querySQL = $query->paginate($perPage, null, 'p', boundedQueryInt('p', 10000));
             $querySQL->appends(Input::get(['sid', 'type', 'model', 's', 'per_page', 'page']))
                 ->setPath(currentUrl());
 

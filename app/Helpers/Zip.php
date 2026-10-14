@@ -6,6 +6,8 @@
 
 namespace Helpers;
 
+use ZipArchive;
+
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 //// Comprimi un file

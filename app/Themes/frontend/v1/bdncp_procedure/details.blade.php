@@ -17,10 +17,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
     <section class="my-5">
         <div class="container">
             <div class="row variable-gutters _reverse">
-                <div class="col-lg-8">
-                    <div class="titolo mb-4">
+                <div class="col-lg-12">
+
+                    <div class="div-title">
                         <h1 class="page-title">{{e: !empty($h1) ? $h1 : (!empty($instance['object']) ? $instance['object'] : '') }}</h1>
+                        <div class="button-normative">
+                        </div>
                     </div>
+
 
                     <div class="attributi mb-3">
                         @if(!empty($instance))
@@ -35,10 +39,48 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 <div class="attributo" style="border: none;">
                                     <span class="titolo"><!--<i class="fas fa-link"></i>--> Link BDNCP:</span>
                                     <span class="mr-2">
-                                        <a class="mt-2 text-muted" href="{{$instance['bdncp_link']}}" target="_blank" aria-label="Link BDNCP (Apri in una nuova finestra)">
+                                        <a class="mt-2 text-muted" href="{{$instance['bdncp_link']}}" target="_blank"
+                                           aria-label="Link BDNCP (Apri in una nuova finestra)">
                                             {{$instance['bdncp_link']}}
                                         </a>
                                     </span>
+                                </div>
+                            @endif
+
+                            @if(!empty($instance['eproc_url']))
+                                <div class="attributo" style="border: none;">
+                                    <span class="titolo"><!--<i class="fas fa-link"></i>--> Link piattaforma di e-procurement:</span>
+                                    <span class="mr-2">
+
+                                    <a class="mt-2 text-muted" href="{{$instance['eproc_url']}}" target="_blank"
+                                       aria-label="Link piattaforma di e-procurement (Apri in una nuova finestra)">
+                                        {{$instance['eproc_url']}}
+                                    </a>
+                                </span>
+                                </div>
+                            @endif
+
+
+
+
+
+                            @if(!empty($instance['ac_extra_info']))
+                                <span class="mr-2 text-muted">{{xss: $instance['ac_extra_info'] }}</span>
+                            @endif
+
+                            @if(!empty($instance['variations']))
+                                <div class="mt-2">
+                                    <span style="font-weight: 600;">Varianti in corso d'opera:</span>
+                                    <ul>
+                                        @foreach($instance['variations'] as $variation)
+                                            <li>
+                                                <a class="mr-2 text-muted"
+                                                   href="{{ siteUrl('page/603/details/'. (int)$variation['id'].'/'.urlTitle($variation['object'])) }}">
+                                                    {{e: $variation['object'] }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
                                 </div>
                             @endif
 
@@ -48,8 +90,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     <ul>
                                         @foreach($instance['measures'] as $measure)
                                             <li>
+                                                @php
+                                                    $link = "";
+                                                    if(!empty($measure['type'])) {
+
+                                                        if($measure['type'] == 13) {
+                                                            $link = siteUrl('page/106/details/'. (int)$measure['id'].'/'.urlTitle($measure['object']));
+                                                        } else if($measure['type'] == 14) {
+                                                            $link = siteUrl('page/103/details/'. (int)$measure['id'].'/'.urlTitle($measure['object']));
+                                                        }
+                                                    } else {
+                                                        $link = siteUrl('page/9/details/'. (int)$measure['id'].'/'.urlTitle($measure['object']));
+                                                    }
+
+                                                @endphp
                                                 <a class="mr-2 text-muted"
-                                                   href="{{ siteUrl('page/9/details/'. (int)$measure['id'].'/'.urlTitle($measure['object'])) }}">
+                                                   href="{{ $link }}">
                                                     {{e: $measure['object'] }}
                                                 </a>
                                             </li>
@@ -59,6 +115,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @endif
                         @endif
                     </div>
+
+
 
 
                     @if(!empty($procedureCat['publication']))
@@ -94,22 +152,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <div>
                             <div class="custom-separator"><h3 id="publication">FASE AFFIDAMENTO</h3></div>
 
-                            @if(!empty($instance['commission']))
+                            @if(!empty($instance['commission']) || !empty($instance['judging_commission_notes']))
                                 <h4 class="testo-blu anchor page-subtitle mt-3">Composizione delle commissioni
                                     giudicatrice</h4>
 
-
-                                <h3 id="anchor5" class="testo-blu anchor page-subtitle mt-2">Incarichi:</h3>
-                                <ul>
-                                    @foreach($instance['commission'] as $commission)
-                                        <li>
-                                            <a class="mr-2 text-muted"
-                                               href="{{ siteUrl('page/67/details/'.$commission['id'].'/'.urlTitle($commission['name'])) }}">
-                                                {{e: $commission['object'] }}
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
+                                @if(!empty($instance['commission']))
+                                    <h3 id="anchor5" class="testo-blu anchor page-subtitle mt-2">Incarichi:</h3>
+                                    <ul>
+                                        @foreach($instance['commission'] as $commission)
+                                            <li>
+                                                <a class="mr-2 text-muted"
+                                                   href="{{ siteUrl('page/67/details/'.$commission['id'].'/'.urlTitle($commission['name'])) }}">
+                                                    {{e: $commission['name'] }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
 
                                 @if(!empty($instance['judging_commission_notes']))
                                     <h5 class="testo-blu anchor page-subtitle mt-3">Note</h5>
@@ -150,21 +209,23 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <div>
                             <div class="custom-separator"><h3>FASE ESECUTIVA</h3></div>
 
-                            @if(!empty($instance['board']))
+                            @if(!empty($instance['board']) || !empty($instance['advisory_board_technical_notes']))
                                 <h4 class="testo-blu anchor page-subtitle mt-3">Composizione del Collegio consultivo
                                     tecnico</h4>
 
-                                <h3 id="anchor5" class="testo-blu anchor page-subtitle mt-2">Incarichi:</h3>
-                                <ul>
-                                    @foreach($instance['board'] as $board)
-                                        <li>
-                                            <a class="mr-2 text-muted"
-                                               href="{{ siteUrl('page/67/details/'.$board['id'].'/'.urlTitle($board['name'])) }}">
-                                                {{e: $board['object'] }}
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
+                                @if(!empty($instance['board']))
+                                    <h3 id="anchor5" class="testo-blu anchor page-subtitle mt-2">Incarichi:</h3>
+                                    <ul>
+                                        @foreach($instance['board'] as $board)
+                                            <li>
+                                                <a class="mr-2 text-muted"
+                                                   href="{{ siteUrl('page/67/details/'.$board['id'].'/'.urlTitle($board['name'])) }}">
+                                                    {{e: $board['name'] }}
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
 
                                 @if(!empty($instance['advisory_board_technical_notes']))
                                     <h5 class="testo-blu anchor page-subtitle mt-3">Note</h5>
@@ -203,7 +264,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     @if(!empty($procedureCat['sponsorship']))
                         <div>
-                            <div class="custom-separator"><h3 id="sponsorship">FASE SPONSORIZZAZIONI</h3></div>
+                            <div class="custom-separator"><h3 id="sponsorship">SPONSORIZZAZIONI</h3></div>
 
                             @php
                                 $i = 0;
@@ -232,7 +293,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     @if(!empty($procedureCat['emergency_procedure']))
                         <div>
-                            <div class="custom-separator"><h3 id="emergency_procedure">FASE PROCEDURE DI SOMMA URGENZA E
+                            <div class="custom-separator"><h3 id="emergency_procedure">PROCEDURE DI SOMMA URGENZA E
                                     DI PROTEZIONE
                                     CIVILE</h3>
                             </div>
@@ -264,7 +325,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
                     @if(!empty($procedureCat['project_finance']))
                         <div>
-                            <div class="custom-separator"><h3 id="project_finance">FASE FINANZA DI PROGETTO</h3></div>
+                            <div class="custom-separator"><h3 id="project_finance">FINANZA DI PROGETTO</h3></div>
 
                             @php
                                 $i = 0;
@@ -291,7 +352,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                     @endif
 
-                    @if(!empty($procedureCat['notes']) || !empty($attachs['_generalInfo']))
+                    @if(!empty($instance['notes']) || !empty($attachs['_generalInfo']))
                         <div>
                             <div class="custom-separator"><h3>INFORMAZIONI GENERALI</h3></div>
 
@@ -308,18 +369,24 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         </div>
                     @endif
 
+
                     {{--  Created/Update Info --}}
                     {% include v1/layout/partials/created_updated_info %}
 
+                    {{-- Inclusione di librerie esterne --}}
+
                 </div>
 
-                {{-- Indice della pagina --}}
-                {% include v1/layout/partials/right_menu %}
 
             </div>
         </div>
     </section>
 </main>
+
+{% include v1/layout/partials/bottom_menu %}
+
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

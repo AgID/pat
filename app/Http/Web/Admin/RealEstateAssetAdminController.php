@@ -20,7 +20,6 @@ use System\Input;
 use System\JsonResponse;
 use System\Registry;
 use System\Session;
-use System\Token;
 
 /**
  *
@@ -36,7 +35,6 @@ class RealEstateAssetAdminController extends BaseAuthController
     public function __construct()
     {
         parent::__construct(__CLASS__);
-
     }
 
     /**
@@ -106,11 +104,6 @@ class RealEstateAssetAdminController extends BaseAuthController
                 4 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[5] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'name');
@@ -126,19 +119,28 @@ class RealEstateAssetAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_real_estate_asset.id', '=', $dataTable['searchValue']);
             }
-
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'name');
 
             $records = RealEstateAssetModel::search($dataTable['searchValue'])
-                ->select(['object_real_estate_asset.id', 'object_real_estate_asset.updated_at', 'object_real_estate_asset.owner_id', 'object_real_estate_asset.institution_id',
-                    'object_real_estate_asset.name', 'address', 'publishing_status', 'archived', 'users.name  as userName'])
+                ->select([
+                    'object_real_estate_asset.id',
+                    'object_real_estate_asset.updated_at',
+                    'object_real_estate_asset.owner_id',
+                    'object_real_estate_asset.institution_id',
+                    'object_real_estate_asset.name',
+                    'address',
+                    'archived',
+                    'users.name  as userName'
+                ])
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
                 ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id')
                 ->join('institutions as i', 'object_real_estate_asset.institution_id', '=', 'i.id', 'left outer')
                 ->join('users', 'users.id', '=', 'object_real_estate_asset.owner_id', 'left outer');
 
@@ -159,6 +161,10 @@ class RealEstateAssetAdminController extends BaseAuthController
 
             if (!empty($records)) {
 
+                $checkWf = false;
+                $manageableStates = [];
+                $getIdentity = authPatOs()->getIdentity(['id']);
+
                 foreach ($records as $record) {
 
                     if (!empty($record['updated_at'])) {
@@ -170,18 +176,27 @@ class RealEstateAssetAdminController extends BaseAuthController
                         $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                     }
 
-                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                    // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                    $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'], $getIdentity['id']));
+                    $wfPermits = false;
+                    $workflowState = $record['workflow_state'] ?? 'finale';
+                    $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                     //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                     $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                        'edit' => $this->acl->getUpdate() || $permits,
-                        'duplicate' => $this->acl->getCreate() && !$record['archived'],
-                        'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                        'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
+                        'versioning' => getAclVersioning() && !$record['archived'],
+                        'archiving' => getAclArchiving() && !$record['archived'] && $workflowState == 'finale',
+                        'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                     ])
-                        ->addEdit('admin/real-estate-asset/edit/' . $record['id'], $record['id'])
+                        ->addEdit('admin/real-estate-asset/edit/' . $record['id'], $record['id'], '', true)
                         ->addDuplicate('admin/real-estate-asset/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/real-estate-asset/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('b_a_a', siteUrl('admin/real-estate-asset/archive'), $record['id'], 'real-estate-asset', escapeXss($record['name']), 'archiving')
+                        ->addCustomButton('s_r_l', siteUrl('admin/real-estate-asset/show-record-log/' . $record['id']), $record['id'], '8', 'show-record-log', 'view')
+                        ->addCustomButton('wf_a_f_e', "", $record['id'], $workflowState, '', 'view')
                         ->addDelete('admin/real-estate-asset/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -189,20 +204,19 @@ class RealEstateAssetAdminController extends BaseAuthController
 
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
-                    $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                    $setTempData[] = $checkBox;
                     $setTempData[] = !empty($record['name'])
                         ? $icon . '<a href="' . siteUrl('/page/133/details/' . $record['id'] . '/' . urlTitle($record['name'])) . '" target="_blank">' . escapeXss($record['name']) . '</a>'
                         : 'N.D.';
                     $setTempData[] = !empty($record['address']) ? escapeXss($record['address']) : 'N.D.';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
+                    $setTempData[] = !empty($record['all_attachs'])
+                        ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                        : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                     $setTempData[] = $buttonAction;
 
@@ -211,11 +225,8 @@ class RealEstateAssetAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
-
-            echo json_encode($response);
-
+            jsonOut($response);
         }
-
     }
 
     /**
@@ -234,7 +245,7 @@ class RealEstateAssetAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/real-estate-asset/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/real-estate-asset/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -248,7 +259,6 @@ class RealEstateAssetAdminController extends BaseAuthController
             $data['titleSection'] = 'Patrimonio immobiliare';
             $data['subTitleSection'] = 'GESTIONE DEL PATRIMONIO IMMOBILIARE';
             $data['sectionIcon'] = '<i class="fas fa-briefcase fa-3x"></i>';
-
         }
 
         //Setto dati del form
@@ -263,7 +273,7 @@ class RealEstateAssetAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('real_estate_asset/form_store', $data, 'admin');
@@ -280,7 +290,7 @@ class RealEstateAssetAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -332,19 +342,12 @@ class RealEstateAssetAdminController extends BaseAuthController
                 // Storage allegati associati al personale.
                 $attach->storage('attach_files', 'real_estate_asset', $insert->id, $insert['name']);
 
-                // Generazione nuovo token
-                if (!referenceOriginForRegenerateToken(3, 'create-box')) {
-                    Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
-                }
-
                 $json->set('message', __('success_save_operation', null, 'patos'));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
@@ -372,7 +375,6 @@ class RealEstateAssetAdminController extends BaseAuthController
 
             redirect('admin/real-estate-asset', sessionSetNotify($validate['errors'], 'danger'));
             exit();
-
         }
 
         // Allegati
@@ -438,7 +440,7 @@ class RealEstateAssetAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $asset['institution_id'];
 
         $data['userOfficeIds'] = Arr::pluck($asset['offices'], 'id');
@@ -478,10 +480,11 @@ class RealEstateAssetAdminController extends BaseAuthController
                 ->with('offices:id,structure_name')
                 ->with('all_attachs');
 
+
             $realEstateAsset = $realEstateAsset->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($realEstateAsset['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($realEstateAsset['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -526,16 +529,15 @@ class RealEstateAssetAdminController extends BaseAuthController
                     $realEstateAsset['name']
                 );
 
+
                 // Generazione nuovo token
-                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+                //                Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
                 $json->set('message', __('success_update_operation', null, 'patos'));
             }
-
         } else {
 
             $code = $json->bad();
             $json->error('error', $check['errors']);
-
         }
 
         $json->setStatusCode($code);
@@ -607,7 +609,7 @@ class RealEstateAssetAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new RealEstateAssetValidator();
         $validate = $validator->multipleSelection();
@@ -623,13 +625,12 @@ class RealEstateAssetAdminController extends BaseAuthController
             foreach ($realEstateAssets as $realEstateAsset) {
                 $realEstateAsset->deleteWithLogs($realEstateAsset);
             }
-
         } else {
 
             sessionSetNotify($validate['errors'], 'danger');
-
         }
 
         redirect('/admin/real-estate-asset');
     }
+
 }

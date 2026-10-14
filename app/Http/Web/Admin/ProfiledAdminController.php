@@ -13,6 +13,7 @@ use Helpers\ActivityLog;
 use Helpers\FileSystem\File;
 use Helpers\Security\Acl;
 use Helpers\Validators\UserValidator;
+use Model\AclProfilesModel;
 use Model\PasswordHistoryModel;
 use Model\RelUsersAclProfilesModel;
 use Model\UsersModel;
@@ -57,17 +58,17 @@ class ProfiledAdminController extends BaseAuthController
         $validate = $validator->validateUriSegmentId('profile');
 
         if (!$validate['is_success']) {
-
             redirect('admin/dashboard', sessionSetNotify($validate['errors'], 'danger'));
             exit();
         }
 
-        $user = UsersModel::where('id', authPatOs()->id())
-            ->with('profiles:id');
+        $user = UsersModel::where('id', authPatOs()->id());
+        $user->with('profiles:id');
+
 
         $user = $user->first();
-
         $user = $user->toArray();
+
 
         $this->breadcrumb->push('Profilo', 'admin/user');
         // $this->breadcrumb->push('Modifica', '/');
@@ -93,6 +94,19 @@ class ProfiledAdminController extends BaseAuthController
 
         $data['profilesIds'] = Arr::pluck($user['profiles'], 'id');
 
+        $institutionId = (checkAlternativeInstitutionId() ? checkAlternativeInstitutionId() : PatOsInstituteId());
+
+        //Recupero i profili ACL
+        $acl = AclProfilesModel::select(['id', 'name'])
+            ->where(function ($query) use ($institutionId) {
+                $query->where('acl_profiles.institution_id', '=', $institutionId);
+                $query->orWhereNull('institution_id');
+            });
+        $acl = $acl->get()->toArray();
+
+        $data['acl'] = Arr::pluck($acl, 'name', 'id');
+        $data['institution_id'] = $institutionId;
+
         if (isset($user['scp'])) {
             $data['scp'] = $user['scp'];
         }
@@ -110,9 +124,15 @@ class ProfiledAdminController extends BaseAuthController
      */
     public function forcePassword(): void
     {
-        $user = UsersModel::where('id', authPatOs()->id())
-            ->with('profiles:id')
-            ->first();
+
+        $query = UsersModel::where('id', authPatOs()->id());
+        $query->with('profiles:id');
+        $user = $query->first();
+
+        if ($user === null) {
+            echo showError('', 'Utente non trovato', 403, true);
+            die();
+        }
 
         $user = $user->toArray();
 
@@ -161,11 +181,14 @@ class ProfiledAdminController extends BaseAuthController
         if ($check['is_success']) {
 
             // Recupero il profilo utente attuale prima di modificarlo e lo salvo nel versioning
-            $user = UsersModel::find(authPatOs()->id());
+            
+            $query = UsersModel::query();
+            $user = $query->find(authPatOs()->id());
 
             //Controllo se è stata modificata o meno la password
             if (!empty(Input::post('password'))) {
-                $data['password'] = Password::hash(strip_tags((string)Input::post('password', true)));
+                $data['password'] = Password::hash(Input::post('password', true, true, ['strip']));
+                $data['force_change_password'] = 0;
             }
 
             // Update del profilo utente
@@ -179,7 +202,8 @@ class ProfiledAdminController extends BaseAuthController
 
             // Regenerate Session. La modifica è avvenuta tramite il profilo utente.
             // Rigenero la sessione.
-            $userAfterUpdate = UsersModel::find(authPatOs()->id());
+            $query = UsersModel::query();
+            $userAfterUpdate = $query->find(authPatOs()->id());
             authPatOs()->regenerateSession($userAfterUpdate->toArray());
             authPatOs()->addStorage(authPatOs()->getStorage());
 
@@ -200,14 +224,9 @@ class ProfiledAdminController extends BaseAuthController
                 'user_id' => $getIdentity['id'],
                 'action' => 'Modifica profilo utente',
                 'description' => 'Modifica profilo utente con ID (' . authPatOs()->id() . ')',
-                'request_post' => [
-                    'post' => @$_POST,
-                    'get' => Input::get(),
-                    'server' => Input::server(),
-                ],
             ]);
             // Generazione nuovo token
-            Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
+            // Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
             $json->set('message', sprintf(__('success_edit', null, 'patos'), 'Profilo '));
         } else {
             $code = $json->bad();
@@ -228,6 +247,7 @@ class ProfiledAdminController extends BaseAuthController
      */
     public function update(): void
     {
+        
         $hasError = false;
         $doUpload = null;
         $json = new JsonResponse();
@@ -261,13 +281,14 @@ class ProfiledAdminController extends BaseAuthController
             if ($hasError === false) {
 
                 $data['name'] = checkEncrypt(strip_tags((string)Input::post('name', true)));
+                //                $data['username'] = checkEncrypt(strip_tags((string)Input::post('username', true)));
                 $data['email'] = checkEncrypt(strip_tags((string)Input::post('email', true)));
                 $data['fiscal_code'] = checkEncrypt(strip_tags((string)Input::post('fiscal_code', true)));
                 $data['phone'] = checkEncrypt(strip_tags((string)Input::post('phone', true)));
                 $data['profile_image'] = !empty($doUpload['data']['file_name']) ? $doUpload['data']['file_name'] : $user->profile_image;
 
-                // Verifico se l'utente è superAdmin o se ha i permessi di modifica avanzata del profilo
-                if (isSuperAdmin(true) || $this->acl->getModifyProfile()) {
+                // Verifico se l'utente ha i permessi di modifica avanzata del profilo
+                if ($this->acl->getModifyProfile()) {
 
                     $data['registration_type'] = strip_tags((string)Input::post('registration_type', true));
                     $data['password_expiration_days'] = strip_tags((string)Input::post('password_expiration_days', true));
@@ -288,7 +309,7 @@ class ProfiledAdminController extends BaseAuthController
                 //Update del profilo utente
                 UsersModel::where('id', '=', authPatOs()->id())->update($data);
 
-                if (isSuperAdmin(true) || $this->acl->getModifyProfile()) {
+                if ($this->acl->getModifyProfile()) {
 
                     //Elimino i dati nelle tabelle di relazione prima di reinserirli aggiornati
                     RelUsersAclProfilesModel::where('user_id', authPatOs()->id())
@@ -311,6 +332,7 @@ class ProfiledAdminController extends BaseAuthController
                         RelUsersAclProfilesModel::insert($dataProfiles);
                     }
                 }
+
 
                 // Salvo la vecchia password
                 PasswordHistoryModel::create([
@@ -341,11 +363,6 @@ class ProfiledAdminController extends BaseAuthController
                     'user_id' => $getIdentity['id'],
                     'action' => 'Modifica profilo utente',
                     'description' => 'Modifica profilo utente con ID (' . authPatOs()->id() . ')',
-                    'request_post' => [
-                        'post' => @$_POST,
-                        'get' => Input::get(),
-                        'server' => Input::server(),
-                    ],
                     'action_type' => 'updateUserInstance',
                     'object_id' => 54,
                     'record_id' => authPatOs()->id(),

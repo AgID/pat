@@ -4,15 +4,19 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+/** @noinspection PhpUnused */
+
+
 namespace Http\Web\Front;
 
 use Exception;
+use Helpers\FormBuilder;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\AbsenceRatesModel;
 use Model\SectionsFoModel;
 use System\Input;
+use System\Validator;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
@@ -46,33 +50,177 @@ class AbsenceRatesFrontController extends BaseFrontController
 
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
+
+        // Validatore dei filtri di ricerca
+        $validator = new Validator();
+        if (
+            //Input::get('structures') != null ||
+            Input::get('start') != null ||
+            Input::get('structure_name') != null ||
+            Input::get('months') != null
+        ) {
+            $validator->verifyToken();
+        }
+        //$validator->label('struttura')->value(Input::get('structures'))->isInt()->end();
+        $validator->label('Nome struttura')->value(Input::get('structure_name'))->maxLength(30)->end();
+        $validator->label('anno')->value(Input::get('start'))->isDate('Y')->end();
+        $validator->label('mese')->value(Input::get('months'))->in(
+            '01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16'
+        )->end();
+
+        if (!$validator->isSuccess()) {
+            echo showError('Errore nella validazione dei dati', $validator->getErrorsHtml(), $validator->getErrorStatusCode());
+            die();
+        }
+
+        // Recupero i procedimenti(con campo Pubblica automaticamente i dati sul monitoraggio = 1) da mostrare
+        $absenceRates = AbsenceRatesModel::filter(
+            null,
+            (int)Input::get('start', true),
+            Input::get('months', true),
+            Input::get('structure_name', true),
+        )
+            ->with('structure:id,structure_name')
+            ->orderBy('year', 'DESC')
+            ->orderBy('month', 'DESC')
+            ->orderBy('structure_name')
+            ->paginate(20, ['id', 'year', 'month', 'presence_percentage', 'total_absence', 'object_structures_id', 'structure_name'], 'p', boundedQueryInt('p', 10000))
+            ->onEachSide(2)
+            //->appends(Input::get(['structures','structure_name', 'start', 'months', 'sec_token']))
+            ->appends(Input::get(['structure_name', 'start', 'months', 'sec_token']))
+            ->setPath(currentUrl());
+
+        $absenceRates = !empty($absenceRates) ? $absenceRates->toArray() : [];
+
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($absenceRates);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $absenceRates;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, filtri, contenuti, layout) serve solo alla
+        // pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
 
         // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
             ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
             ->toArray();
 
         // Recupero le voci per costruire il menu dei contenuti
         $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
-        // Recupero i procedimenti(con campo Pubblica automaticamente i dati sul monitoraggio = 1) da mostrare
-        $absenceRates = AbsenceRatesModel::with('structure:id,structure_name')
-            ->orderBy('year', 'DESC')
-            ->orderBy('month', 'DESC')
-            ->paginate(20, ['id', 'year', 'month', 'presence_percentage', 'total_absence', 'object_structures_id', 'structure_name'], 'p', (int)Input::get('p'))
-            ->onEachSide(2)
-            ->appends(Input::get(['structures', 'start', 'months', 'sec_token']))
-            ->setPath(currentUrl());
+        // Form per i filtri di ricerca
+        $form = json_encode([
+            [
+                'type' => 'form_open',
+                'name' => 'absence_rates',
+                'action' => '{current_url}',
+                'attributes' => [
+                    'method' => 'get',
+                    'class' => 'set-active-label',
+                ]
+            ],
+            [
+                'type' => 'tag',
+                'content' => '<div class="row mb-4">',
+            ],
+            [
+                'prefix' => '<div class="form-group col-lg-6 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_input',
+                'attributes' => [
+                    'name' => 'structure_name',
+                    'id' => 'structure_name',
 
-        $absenceRates = !empty($absenceRates) ? $absenceRates->toArray() : [];
+                    'value' => '{structure_name}'
+                ],
+                'label' => [
+                    'for' => 'structure_name',
+                    'text' => 'Nome struttura',
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-3 mb-4">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{years}',
+                'name' => 'start',
+                'extra' => 'id="start"',
+                'label' => [
+                    'for' => 'start',
+                    'text' => 'Anno',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'prefix' => '<div class="select-wrapper col-lg-3">',
+                'suffix' => '</div>',
+                'type' => 'form_dropdown',
+                'options' => '{months}',
+                'name' => 'months',
+                'extra' => 'id="months"',
+                'label' => [
+                    'for' => 'months',
+                    'text' => 'Mese',
+                    'class' => 'active'
+                ],
+            ],
+            [
+                'type' => 'tag',
+                'content' => '</div>',
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-primary',
+                    'name' => 'search',
+                    'type' => 'submit',
+                    'content' => '<span class="fas fa-search"></span> Cerca'
+                ]
+            ],
+            [
+                'type' => 'form_button',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__reset_form',
+                    'name' => 'reset',
+                    'type' => 'button',
+                    'content' => '<span class="far fa-times-circle"></span> Reset'
+                ]
+            ],
+            [
+                'type' => 'form_hidden',
+                'attributes' => [
+                    'class' => 'btn btn-secondary',
+                    'id' => '__redirect_url',
+                    'value' => '{redirect_url}',
+                ]
+            ],
+            [
+                'type' => 'form_close',
+            ],
+        ]);
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle date di creazione e di aggiornamento
         if (!empty($absenceRates['data'])) {
@@ -93,29 +241,80 @@ class AbsenceRatesFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
-        // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($absenceRates);
+        $formFilterFields = [
+            //'structures' => Input::get('structures'),
+            'start' => Input::get('start'),
+            'months' => Input::get('months'),
+            'structure_name' => Input::get('structure_name', true),
+        ];
+
+        $countFilterFields = 0;
+        foreach ($formFilterFields as $value) {
+            if (!empty($value)) {
+                $countFilterFields += 1;
+            }
+        }
 
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $absenceRates;
         $data['instance'] = $currentPage;
-        $data['noRequiredPublication'] = true;
+        $data['allowSearch'] = true;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
+        $data['noRequiredPublication'] = !empty($currentPage['no_required']);
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         $data['normative_references'] = $currentPage['normatives'] ?? null;
-
+        //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
+        $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
+        $data['searchFieldsOpenData'] = $formFilterFields;
+        $data['filterUsed'] = $countFilterFields;
         $data['rangeOpenData'] = 2000;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
+        // Filtro per strutture
+//        $structureIds = AbsenceRatesModel::select(['object_structures_id'])
+//            ->groupBy('object_structures_id')
+//            ->get()
+//            ->toArray();
+//        $structures = [null => 'Seleziona una struttura'] + StructuresModel::whereIn('id', $structureIds)
+//                ->where(function ($query) {
+//                    $query->where('archived', 0)
+//                        ->orWhereNull('archived');
+//                })
+//                ->orderBy('structure_name', 'ASC')
+//                ->pluck('structure_name', 'id')
+//                ->toArray();
 
+        $resultYears = AbsenceRatesModel::select('year')
+            ->orderBy('year', 'ASC')
+            ->first();
+
+        $resultYears = !empty($resultYears) ? $resultYears->toArray() : ['year' => date('Y')];
+        $years = [null => 'Seleziona un anno'];
+        for ($i = (int)$resultYears['year']; $i <= (int)date('Y'); $i++) {
+            $years[$i] = $i;
+        }
+
+        $months = [null => 'Seleziona'] + config('absenceRatesPeriod', null, 'app');
+
+        $formBuilder = new FormBuilder([
+            'current_url' => currentUrl(),
+            //'structures' => FormBuilder::parseOptions($structures, htmlEscape(Input::get('structures', true))),
+            'years' => FormBuilder::parseOptions($years, htmlEscape(Input::get('start', true))),
+            'months' => FormBuilder::parseOptions($months, htmlEscape(Input::get('months', true))),
+            'structure_name' => htmlEscape(Input::get('structure_name', true)),
+        ]);
+
+        $formBuilder->loadJsonFromVar($form);
+        $data['formFilter'] = $formBuilder->render();
+
+
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/absence_rates/absence_rates', $data, 'frontend');
     }
 
@@ -151,7 +350,7 @@ class AbsenceRatesFrontController extends BaseFrontController
                     $tmpMonth [] = $periods[$month] ?? $periods['0' . $month];
                 }
 
-                $months = implode(',', $tmpMonth);
+                $months = implode(', ', $tmpMonth);
 
                 $name = !empty($absenceRate['structure_name']) ? escapeXss($absenceRate['structure_name']) : 'tasso di assenza';
 
@@ -241,6 +440,9 @@ class AbsenceRatesFrontController extends BaseFrontController
             'updated_at'
         ];
 
+        // $showOnlyPublic = true;
+        $sectionId = (int)uri()->segment(2, 0);
+
         // Allegati
         $attach = new AttachmentArchive();
         $data['listAttach'] = $attach->getAllByObject(
@@ -249,11 +451,6 @@ class AbsenceRatesFrontController extends BaseFrontController
             $selectFields,
             true
         );
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - Tasso di assenza')
-            ->toHtml();
 
         renderFront(config('vfo', null, 'app') . '/absence_rates/details', $data, 'frontend');
     }

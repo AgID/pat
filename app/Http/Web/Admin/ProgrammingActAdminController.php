@@ -104,11 +104,6 @@ class ProgrammingActAdminController extends BaseAuthController
                 5 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[6] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'object');
@@ -123,24 +118,27 @@ class ProgrammingActAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $totalRecordsWithFilter->orWhere('object_programming_acts.id', '=', $dataTable['searchValue']);
             }
+            // Inclusione di librerie esterne
             $totalRecordsWithFilter = $totalRecordsWithFilter->count();
 
             $order = setOrderDatatable($dataTable['columnName'], $orderable, 'object');
 
             $records = ProgrammingActsModel::search($dataTable['searchValue'])
                 ->select(['object_programming_acts.id', 'object_programming_acts.owner_id', 'object_programming_acts.institution_id',
-                    'object', 'date', 'public_in_public_works', 'publishing_status', 'object_programming_acts.updated_at', 'users.name',
+                    'object', 'date', 'public_in_public_works', 'object_programming_acts.updated_at', 'users.name',
                     'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_programming_acts.owner_id', 'left outer')
                 ->with(['created_by' => function ($query) {
                     $query->withoutGlobalScopes([DeletedScope::class]);
                     $query->select(['id', 'name', 'deleted']);
                 }])
-                ->with('institution:id,full_name_institution');
+                ->with('institution:id,full_name_institution')
+                ->with('all_attachs:id,archive_id');
 
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_programming_acts.id', '=', $dataTable['searchValue']);
             }
+
 
             $records = $records->join('institutions as i', 'object_programming_acts.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
@@ -148,6 +146,10 @@ class ProgrammingActAdminController extends BaseAuthController
                 ->limit($dataTable['rowPerPage'])
                 ->get()
                 ->toArray();
+
+            $checkWf = false;
+            $manageableStates = [];
+            $getIdentity = authPatOs()->getIdentity(['id']);
 
             foreach ($records as $record) {
 
@@ -166,19 +168,25 @@ class ProgrammingActAdminController extends BaseAuthController
                     $updateAt = '<small class="badge badge-danger" data-toggle="tooltip" data-placement="top" data-original-title="Non Definita">N.D.</small>';
                 }
 
-                // Controllo se l'utente ha i permessi di modifica dei record o di scrittura(e quindi di modifica dei propri record)
-                $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id']));
-                $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id']));
+                // Controllo se l'utente ha i permessi di modifica dei record o di scrittura (e quindi di modifica dei propri record)
+                $permits = ($this->acl->getCreate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                $updatePermits = ($this->acl->getUpdate() && checkRecordOwner($record['owner_id'],$getIdentity['id']));
+                $wfPermits = false;
+                $workflowState = $record['workflow_state'] ?? 'finale';
+                $wfOwnerPermits = $permits && $workflowState == 'iniziale';
 
                 //Setto i pulsanti delle actions da mostrare in base ai permessi dell'utente
                 $buttonAction = ($this->acl->getUpdate() || $this->acl->getDelete() || $permits) ? ButtonAction::create([
-                    'edit' => $this->acl->getUpdate() || $permits,
-                    'duplicate' => $this->acl->getCreate(),
+                    'edit' => $checkWf ? (($this->acl->getUpdate() && $wfPermits) || $wfOwnerPermits) : $this->acl->getUpdate() || $permits,
+                    'duplicate' => $this->acl->getCreate() && $workflowState == 'finale',
                     'versioning' => getAclVersioning(),
-                    'delete' => $this->acl->getDelete() || $updatePermits || $permits,
+                    'delete' => $checkWf ? (($this->acl->getDelete() && $wfPermits) || $wfOwnerPermits) : $this->acl->getDelete() || $updatePermits || $permits,
                 ])
-                    ->addEdit('admin/programming-act/edit/' . $record['id'], $record['id'])
+                    ->addEdit('admin/programming-act/edit/' . $record['id'], $record['id'],'',true)
                     ->addDuplicate('admin/programming-act/duplicate/' . $record['id'], $record['id'])
+                    ->addCustomButton('b_a_v', siteUrl('admin/programming-act/versioning'), $record['id'], '', '', 'versioning')
+                    ->addCustomButton('s_r_l',siteUrl('admin/programming-act/show-record-log/'.$record['id']), $record['id'], '22', 'show-record-log', 'view')
+                    ->addCustomButton('wf_a_f_e',"", $record['id'], $workflowState, '', 'view')
                     ->addDelete('admin/programming-act/delete/' . $record['id'], $record['id'])
                     ->render() : '';
 
@@ -186,7 +194,10 @@ class ProgrammingActAdminController extends BaseAuthController
 
                 //Setto i dati da mostrare nelle colonne del datatable
                 $setTempData = [];
-                $setTempData[] = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                $checkBox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
+                $setTempData[] = $checkBox;
                 $setTempData[] = $icon . (!empty($record['object'])
                         ? '<a href="' . siteUrl('/page/113/details/' . $record['id'] . '/' . urlTitle($record['object'])) . '" target="_blank">' . escapeXss($record['object']) . '</a>'
                         : 'N.D.');
@@ -194,13 +205,9 @@ class ProgrammingActAdminController extends BaseAuthController
                 $setTempData[] = ($record['public_in_public_works'] === 0) ? 'No' : 'Si';
                 $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                 $setTempData[] = $updateAt;
-
-                //Se è un SuperAdmin mostro la colonna dell'Ente
-                if (isSuperAdmin(true)) {
-                    $setTempData[] = !empty($record['institution']['full_name_institution'])
-                        ? escapeXss($record['institution']['full_name_institution'])
-                        : 'N.D.';
-                }
+                $setTempData[] = !empty($record['all_attachs'])
+                    ? '<small class="badge badge-success" style="background-color:#28a745;color:#fff; width: 60px;" data-toggle="tooltip" title="Sono presenti allegati">Si</small>'
+                    : '<small class="badge badge-danger"  style="background-color:#dc3545;color:#fff; width: 60px;" data-toggle="tooltip" title="Non sono presenti allegati">No</small>';
 
                 $setTempData[] = $buttonAction;
 
@@ -213,8 +220,7 @@ class ProgrammingActAdminController extends BaseAuthController
                 "iTotalDisplayRecords" => $totalRecordsWithFilter,
                 "aaData" => $data,
             ];
-
-            echo json_encode($response);
+            jsonOut($response);
         }
     }
 
@@ -234,7 +240,7 @@ class ProgrammingActAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/programming-act/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/programming-act/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -256,6 +262,9 @@ class ProgrammingActAdminController extends BaseAuthController
         ];
         $data['_storageType'] = 'insert';
 
+        // ID dell'ente corrente.
+        $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
+
         // Labels
         $data['labels'] = [];
 
@@ -273,7 +282,7 @@ class ProgrammingActAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -404,8 +413,12 @@ class ProgrammingActAdminController extends BaseAuthController
             $programmingAct['id']
         );
 
+        $data['institution_id'] = $programmingAct['institution_id'];
+
         // Labels
         $data['labels'] = [];
+
+        $data['seo'] = $programmingAct['p_s_d_r'] ?? null;
 
         render('programming_act/form_store', $data, 'admin');
     }
@@ -436,10 +449,11 @@ class ProgrammingActAdminController extends BaseAuthController
             $programmingAct = ProgrammingActsModel::where('id', $programmingActId)
                 ->with('all_attachs');
 
+
             $programmingAct = $programmingAct->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($programmingAct['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($programmingAct['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -473,6 +487,7 @@ class ProgrammingActAdminController extends BaseAuthController
                     $programmingAct['institution_id'],
                     $programmingAct['object']
                 );
+
 
                 // Generazione nuovo token
                 Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
@@ -535,7 +550,7 @@ class ProgrammingActAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new ProgrammingActValidator();
         $validate = $validator->multipleSelection();
@@ -553,7 +568,9 @@ class ProgrammingActAdminController extends BaseAuthController
             //Elimino gli elementi
             foreach ($programmingActs as $programmingAct) {
                 $programmingAct->deleteWithLogs($programmingAct);
+
             }
+
 
             // Generazione nuovo token
             Token::forceRegenerate((int)config('csrf_expire', null, 'app'));
@@ -564,4 +581,5 @@ class ProgrammingActAdminController extends BaseAuthController
 
         redirect('/admin/programming-act');
     }
+
 }

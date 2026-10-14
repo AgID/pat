@@ -48,9 +48,6 @@ Questo metodo definisce la relazione "belongsTo" con il modello `StructuresModel
 
 Questo metodo definisce la relazione "hasMany" con il modello `StructuresModel`, che rappresenta le strutture che appartengono alla struttura corrente.
 
-#### `meta()`
-
-Questo metodo definisce la relazione "hasMany" con il modello `MetaStructuresModel`, che rappresenta i dati meta associati alla struttura.
 
 #### `created_by()`
 

@@ -9,7 +9,6 @@ namespace Http\Web\Front;
 use Exception;
 use Helpers\Table;
 use Helpers\Utility\AttachmentArchive;
-use Helpers\Utility\Meta;
 use Model\InterventionsModel;
 use Model\SectionsFoModel;
 use System\Input;
@@ -46,31 +45,62 @@ class InterventionFrontController extends BaseFrontController
         // Id della pagina corrente
         $currentPageId = (int)uri()->segment(2, 0);
 
-        // Recupero le informazioni della pagina corrente
-        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
-            'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
-            ->where('section_fo.id', $currentPageId)
-            ->with(['contents' => function ($query) {
-                $query->select(['id', 'created_at', 'updated_at', 'section_fo_id'])
-                    ->orderBy('updated_at', 'DESC')
-                    ->orderBy('created_at', 'DESC')
-                    ->first();
-            }])
-            ->first()
-            ->toArray();
+        //Id tipo ente
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
-        // Recupero le voci per costruire il menu dei contenuti
-        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
+        // Recupero gli interventi da mostrare
+        $interventions = InterventionsModel::query();
+        $customOrderApplied = false;
 
-        // Recupero gli incarichi da mostrare
-        $interventions = InterventionsModel::orderBy('created_at', 'DESC')
-            ->orderBY('updated_at', 'DESC')
-            ->paginate(20, ['id', 'name', 'time_limits', 'estimated_cost', 'effective_cost'], 'p', (int)Input::get('p'))
+
+        if (!$customOrderApplied) {
+            $interventions->orderBy('created_at', 'DESC');
+        }
+
+        $interventions = $interventions->orderBy('name', 'ASC')
+            ->paginate(20, ['id', 'name', 'time_limits', 'estimated_cost', 'effective_cost'], 'p', boundedQueryInt('p', 10000))
             ->onEachSide(2)
             //->appends(Input::get(['operator', 'service', 'type', 'municipal', 'service', 'start', 'end', 'customer', 'per_page']))
             ->setPath(currentUrl());
 
         $interventions = !empty($interventions) ? $interventions->toArray() : [];
+
+        // Creo le righe della tabella settando i dati
+        $table = $this->createTableRows($interventions);
+
+        $data['table'] = !empty($table) ? $table->generate() : $table;
+        $data['instances'] = $interventions;
+
+        // Richiesta del solo frammento (paginazione AJAX): tabella e paginazione sono pronte,
+        // tutto il resto (pagina corrente, menu, contenuti, layout) serve solo alla
+        // pagina completa e viene saltato.
+        if (renderFrontFragment($data)) {
+
+            return;
+
+        }
+
+        // Recupero le informazioni della pagina corrente
+        $currentPage = SectionsFoModel::select(['name', 'section_fo.id', 'parent_id', 'form_filter', 'controller_open_data', 'archive_name',
+            'rel_institution_type_sections_labeling.label', 'section_fo.created_at', 'section_fo.updated_at', 'is_system'])
+            ->where('section_fo.id', $currentPageId)
+            ->with([
+                'contents' => function ($query) {
+                    $query->select(['id', 'created_at', 'updated_at', 'section_fo_id', 'last_update_date'])
+                        ->orderBy('last_update_date', 'DESC')
+                        ->orderBy('updated_at', 'DESC')
+                        ->orderBy('created_at', 'DESC')
+                        ->first();
+                }
+            ])
+            ->labelfilter((int)$institutionTypeId);
+
+
+        $currentPage = $currentPage->first()
+            ->toArray();
+
+        // Recupero le voci per costruire il menu dei contenuti
+        $sectionFO = getRightOrBottomMenu($currentPageId, $currentPage['parent_id']);
 
         //Se ci sono elementi da pubblicare allora eseguo la query per le informazioni sulle dati di creazione e di aggiornamento
         if (!empty($interventions['data'])) {
@@ -91,27 +121,22 @@ class InterventionFrontController extends BaseFrontController
         // Recupero il contenuto della pagina e i relativi richiami
         $contents = getPageContents($currentPageId);
 
-        // Creo le righe della tabella settando i dati
-        $table = $this->createTableRows($interventions);
-
         // Dati passati alla vista
         $data['currentPageId'] = $currentPageId;
         $data['pageName'] = !empty($currentPage['label']) ? $currentPage['label'] : $currentPage['name'];
         $data['menuPages'] = $sectionFO;
         $data['paragraphs'] = $contents;
-        $data['table'] = !empty($table) ? $table->generate() : $table;
-        $data['instances'] = $interventions;
         $data['instance'] = $currentPage;
+        //Abilita la paginazione AJAX della tabella dei risultati (vedi renderFrontFragment)
+        $data['ajaxPagination'] = true;
         $data['linkDownloadOpenData'] = !empty($currentPage['controller_open_data']) ? $currentPage['id'] : null;
         //Mostra il link alla gestione degli elementi di quest'archivio nel front-office se si è loggati
         $data['archive'] = !empty($currentPage['archive_name']) ? $currentPage['archive_name'] : null;
         $data['latsUpdatedElement'] = $createdUpdatedInfo ?? [];
 
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $currentPage['name'])
-            ->toHtml();
-
+        //Inclusione di eventuali librerie esterne
+        $data = $data ?? null;
+        $data = $data ?? null;
         renderFront(config('vfo', null, 'app') . '/interventions/interventions', $data, 'frontend');
     }
 
@@ -136,11 +161,22 @@ class InterventionFrontController extends BaseFrontController
             // Creo le riche della tabella settando i dati da mostrare
             foreach ($interventions['data'] as $intervention) {
 
+                $estimated_cost = match (true) {
+                        is_null($intervention['estimated_cost']) => null,
+                        default => $intervention['estimated_cost'] . ' &euro;',
+                };
+
+                $effective_cost = match (true) {
+                     is_null($intervention['effective_cost']) => null,
+                     default => $intervention['effective_cost'] . ' &euro;',
+                };
+
                 $table->add_row(
                     '<a href="' . siteUrl('page/' . $currentPageId . '/details/' . $intervention['id'] . '/' . urlTitle($intervention['name'])) . '" data-id="' . $intervention['id'] . ' ">' . escapeXss($intervention['name']) . '</a>',
-                    !empty($intervention['time_limits']) ? date('d-m-Y', strtotime($intervention['time_limits'])) : null,
-                    !empty($intervention['estimated_cost']) ? $intervention['estimated_cost'] . ' &euro;' : null,
-                    !empty($intervention['effective_cost']) ? $intervention['effective_cost'] . ' &euro;' : null
+                    !empty($intervention['time_limits']) ? date('d/m/Y', strtotime($intervention['time_limits'])) : null,
+                    $estimated_cost,
+                    $effective_cost,
+
                 );
             }
 
@@ -166,8 +202,8 @@ class InterventionFrontController extends BaseFrontController
         // Recupero l'elemento da mostrare
         $element = InterventionsModel::where('id', $elementId)
             ->with('measures:id,object')
-            ->with('regulations:id,title')
-            ->first();
+            ->with('regulations:id,title');
+        $element = $element->first();
 
         // Se l'elemento non esiste mostro la pagina di errore
         if (empty($element)) {
@@ -176,7 +212,6 @@ class InterventionFrontController extends BaseFrontController
         }
 
         $element = $element->toArray();
-
         // Recupero le informazioni della pagina corrente
         $currentPage = SectionsFoModel::select(['name', 'id', 'parent_id', 'archive_name'])
             ->where('id', $currentPageId)
@@ -222,20 +257,17 @@ class InterventionFrontController extends BaseFrontController
             'created_at',
             'updated_at'
         ];
+        // $showOnlyPublic = true;
+        $sectionId = (int)uri()->segment(2, 0);
 
-        // Allegati
-        $attach = new AttachmentArchive();
-        $data['listAttach'] = $attach->getAllByObject(
-            $label,
-            $elementId,
-            $selectFields,
-            true
-        );
-
-        $data['_meta_page'] = Meta::getInstance()
-            ->setDcterms(Meta::dctermsTitle, $currentPage['name'])
-            ->tagTitle('Portale Trasparenza ' . patOsInstituteInfo(['full_name_institution'])['full_name_institution'] . ' - ' . $element['name'])
-            ->toHtml();
+            // Allegati
+            $attach = new AttachmentArchive();
+            $data['listAttach'] = $attach->getAllByObject(
+                $label,
+                $elementId,
+                $selectFields,
+                true
+            );
 
         renderFront(config('vfo', null, 'app') . '/interventions/details', $data, 'frontend');
     }

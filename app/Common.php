@@ -4,11 +4,11 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-use Helpers\FileSystem\Dir;
 use Helpers\FileSystem\File;
+use Helpers\OS;
 use Helpers\Security\Acl;
+use System\Email;
 use System\Input;
-use System\Log;
 use System\Registry;
 use System\Security;
 use System\Utf8;
@@ -25,7 +25,7 @@ if (!function_exists('verifyFirstOrLastSlash')) {
      * @return string
      * @throws Exception
      */
-    function verifyFirstOrLastSlash($uri = null): string
+    function verifyFirstOrLastSlash($uri = null, $ltrim = false): string
     {
         $segments = defined('CUSTOM_PATH') ? CUSTOM_PATH : '';
         $uri = trim($uri, '/');
@@ -34,6 +34,14 @@ if (!function_exists('verifyFirstOrLastSlash')) {
             $uri = (substr($segments, -1) !== '/' && $uri[0] !== '/')
                 ? $segments . '/' . $uri
                 : $segments . $uri;
+        } else {
+            if (strlen($segments) >= 1 && substr($segments, -1) !== '/') {
+                $uri = $segments;
+            }
+        }
+
+        if ($ltrim) {
+            $uri = ltrim($uri, '/');
         }
 
         return $uri;
@@ -123,19 +131,40 @@ if (!function_exists('getDynamicController')) {
     function getDynamicController()
     {
         $controller = null;
-        $uri = uri()->segment(2, 0);
-        $institutionId = checkAlternativeInstitutionId();
+        $uri = (int) uri()->segment(2, 0);
+
+        $institutionTypeId = patOsInstituteInfo()['institution_type_id'];
 
         $result = \System\Database::table('section_fo')
             ->select(['section_fo.id', 'name', 'controller'])
-            ->where('section_fo.id', $uri)
-            ->first();
+            //->where('section_fo.hide', 0)
+            ->where('section_fo.id', $uri);
+
+        $result = $result ?? null;
+
+        $result = $result->first();
+
+        // Mantiene raggiungibile la pagina di servizio anche nei database Open
+        // precedenti che non contengono ancora la relativa sezione.
+        if (empty($result) && $uri === 256) {
+            return '\\Http\\Web\\Front\\OtherSectionsFrontController@accessibility';
+        }
 
         if (!empty($result)) {
 
+            /*
+             * La pagina Accessibilita e richiamata dal footer con un identificativo
+             * stabile e deve sempre usare il controller applicativo dedicato. In
+             * questo modo restano funzionanti anche le installazioni Open precedenti
+             * che hanno creato la sezione senza valorizzarne il controller.
+             */
+            if ($uri === 256) {
+                $result->controller = '\\Http\\Web\\Front\\OtherSectionsFrontController@accessibility';
+            }
+
             $section = new \Helpers\Utility\SectionFrontOffice();
 
-            $ancestors = $section->getAncestors($result->id, false, true, null);
+            $ancestors = $section->getAncestors($result->id, false, true, null, $institutionTypeId);
 
             // In caso una pagina dovesse avere più traduzioni(una per il tipo ente e una per Ente), allora si da
             //precedenza a quelle per l'Ente
@@ -148,10 +177,9 @@ if (!function_exists('getDynamicController')) {
 
             $ancestors = [];
             $ancestorsBreadcrumb = [];
-
             foreach ($pagine as $p) {
                 $ancestors[] = $p;
-                $ancestorsBreadcrumb[] = (object)['id' => $p->id, 'name' => $p->name];
+                $ancestorsBreadcrumb[] = (object) ['id' => $p->id, 'name' => $p->name, 'label' => $p->label];
             }
 
             Registry::set('__breadcrumbs_front_office', $ancestorsBreadcrumb);
@@ -159,7 +187,7 @@ if (!function_exists('getDynamicController')) {
             $controller = "";
 
             $arrayController = explode('@', $result->controller);
-//            \System\Registry::set('__controller_detail', "\Http\Web\Front\\" . $arrayController[0] . '@details');
+            //            \System\Registry::set('__controller_detail', "\Http\Web\Front\\" . $arrayController[0] . '@details');
             Registry::set('__controller_detail', $arrayController[0] . '@details');
 
             if (count($arrayController) > 1) {
@@ -188,11 +216,14 @@ if (!function_exists('getDynamicControllerOpendata')) {
         $result = \System\Database::table('section_fo')
             ->select(['id', 'controller_open_data'])
             ->where('id', $uriSegmentId)
+            ->whereNotNull('controller_open_data')
+            ->where('controller_open_data', '!=', '')
             ->first();
 
         if (!empty($result)) {
 
             $controller = "\Http\Web\Front\\";
+
             $arrayController = explode('@', $result->controller_open_data);
 
             if (count($arrayController) > 1) {
@@ -237,23 +268,13 @@ if (!function_exists('checkAlternativeInstitutionId')) {
     /**
      * Ritorna l'ID dell'ente che si sta gestendo.
      *
-     * Se l'utente è super admin ritorna 0 se si stanno gestendo tutti gli enti oppure l'id dell'ente che ha selezionato
-     * per la gestione.
-     *
-     * Se l'utente non è super admin, ritorna l'id dell'ente di appartenenza del dominio in cui si è loggato.
+     * L'ente è determinato dal dominio corrente.
      *
      * @return Mix bool|int
      */
     function checkAlternativeInstitutionId()
     {
-        // Prendo l'ID dell'ente che sto gestendo(Importante se si è super Admin)
-        $getIdentity = authPatOs()->getIdentity();
-
-        $institutionId = (isSuperAdmin() && (array_key_exists('options', $getIdentity) && array_key_exists('alternative_pat_os_id', $getIdentity['options']) /*&& (int)$getIdentity['options']['alternative_pat_os_id'] !== 0*/))
-            ? (int)$getIdentity['options']['alternative_pat_os_id']
-            : PatOsInstituteId();
-
-        return $institutionId;
+        return PatOsInstituteId();
     }
 }
 
@@ -275,20 +296,10 @@ if (!function_exists('instituteDir')) {
             $pathName = $shortName;
         } else {
 
-            $getIdentity = authPatOs()->getIdentity();
-
-            // Controllo se l'utente è super admin e ha selezionato un'ente da gestire e non è su tutti gli enti
-            if ((isSuperAdmin() && (array_key_exists('options', $getIdentity) && array_key_exists('alternative_pat_os_id', $getIdentity['options']) && (int)$getIdentity['options']['alternative_pat_os_id'] !== 0))) {
-
-                // Recupero il nome breve dell'ente selezionato dal super admin per la gestione
-                $pathName = $getIdentity['options']['alternative_pat_os_short_name'];
-            } else {
-
-                // Se l'utente non è super admin recupero il nome breve dell'ente in cui è loggato
-                if (Registry::exist('pat_os_info_domain')) {
-                    $patOS_InfoDomain = Registry::get('pat_os_info_domain');
-                    $pathName = $patOS_InfoDomain['short_institution_name'];
-                }
+            // Recupero il nome breve dell'ente associato al dominio corrente.
+            if (Registry::exist('pat_os_info_domain')) {
+                $patOS_InfoDomain = Registry::get('pat_os_info_domain');
+                $pathName = $patOS_InfoDomain['short_institution_name'];
             }
         }
 
@@ -296,81 +307,6 @@ if (!function_exists('instituteDir')) {
 
             //Ritorna il nome della cartella dei media dell'Ente
             return $pathName;
-        }
-
-        return null;
-    }
-}
-
-if (!function_exists('createInstituteDirectory')) {
-
-    /**
-     * Funzione che crea le cartelle per l'Ente appena creato
-     * Cartelle create: cartella_nome_ente
-     * Sotto cartelle: assets, object_attachs, file_archive
-     * Sotto cartelle della cartella assets: js, css, images
-     *
-     * Per ogni cartella crea i file: .htaccess e index.html
-     *
-     * @param null $shortName {nome breve dell'ente}
-     * @return bool|null
-     * @throws Exception
-     */
-    function createInstituteDirectory($shortName = null): ?bool
-    {
-        //Controlla se sono stati passati nei parametri il nome e l'id dell'Ente
-        if (empty($shortName)) {
-
-            return false;
-        } else {
-
-            //Array con i path delle cartelle da creare per l'Ente appena creato
-            $dirs = [
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR, $shortName],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR, 'assets'],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'object_attachs' . DIRECTORY_SEPARATOR, 'object_attachs'],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'file_archive' . DIRECTORY_SEPARATOR, 'flie_archive'],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'js' . DIRECTORY_SEPARATOR, 'js'],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR, 'css'],
-                [MEDIA_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR, 'images'],
-                [TEMP_PATH . DIRECTORY_SEPARATOR . '{institution_dir}' . DIRECTORY_SEPARATOR, $shortName],
-            ];
-
-            //Array dei files da creare in tutte le cartelle appena create
-            $files = [
-                'index.html' => config('tpl_index_html', null, 'app'),
-                '.htaccess' => config('tpl_htacces', null, 'app')
-            ];
-
-            foreach ($dirs as $dir) {
-                //Path della cartella da creare
-                $tmpDir = str_replace('{institution_dir}', $shortName, $dir[0]);
-                $isCreatedDir = Dir::create($tmpDir, 0777);
-
-                if ($isCreatedDir) {
-
-                    // Cartelle per File manager
-                    Helpers\FileSystem\Dir::create($tmpDir . DIRECTORY_SEPARATOR . '.trash');
-                    Helpers\FileSystem\Dir::create($tmpDir . DIRECTORY_SEPARATOR . '.trash' . DIRECTORY_SEPARATOR . '.tmb');
-
-                    // Se la cartella è stata creata con successo, creo i file al suo interno
-                    foreach ($files as $k => $v) {
-                        // Creo il file all'interno della cartella
-                        $isCreatedFile = File::writeFile(
-                            $tmpDir . $k,
-                            $v
-                        );
-
-                        //Controllo se il file è stato creato con successo, altrimenti registro l'errore nei log
-                        if (!$isCreatedFile) {
-                            Log::danger('Attenzione: non è stato possibile creare il file "' . $k . '" nella cartella "' . $dir[1] . '".');
-                        }
-                    }
-                } else {
-                    //Controllo se la cartella non è stata creata con successo registro l'errore nei log
-                    Log::danger('Attenzione: non è stato possibile creare la cartella "' . $dir[1] . '".');
-                }
-            }
         }
 
         return null;
@@ -435,77 +371,528 @@ if (!function_exists('patOsInstituteInfo')) {
     }
 }
 
-
-if (!function_exists('patOsConfigMail')) {
+if (!function_exists('normalizeSmtpValue')) {
 
     /**
-     * Paramentri di configurazione per invio email
+     * Normalizza un valore di configurazione mail rimuovendo spazi e caratteri
+     * invisibili ai bordi. I parametri SMTP/PEC possono essere copiati da email,
+     * documenti o password manager con spazi non visibili: lasciarli nel valore
+     * salvato o risolto puo causare errori DNS o autenticazioni fallite difficili
+     * da ricondurre alla configurazione inserita.
      *
-     * @param bool $merge
-     * @return array
+     * @param mixed $value Valore di configurazione da normalizzare.
+     *
+     * @return string
      */
-    function patOsConfigMail($merge = false, $configMail = null)
-    {
+    function normalizeSmtpValue($value) {
+        $value = strip_tags((string)$value);
+        $value = html_entity_decode($value, ENT_QUOTES, 'UTF-8');
+        $value = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $value);
 
-        // Invio Email
-        $customInstitution = patOsInstituteInfo([
-            'smtp_username',
-            'smtp_password',
-            'smtp_host',
-            'smtp_port',
-            'smtp_security',
-            'smtp_auth'
+        return trim($value, " \t\n\r\0\x0B\xC2\xA0");
+    }
+}
+
+if (!function_exists('normalizeSmtpHost')) {
+
+    /**
+     * Normalizza l'host SMTP usando la stessa pulizia applicata agli altri campi
+     * mail. L'host viene tenuto separato per rendere esplicito il punto che puo
+     * generare errori di risoluzione come "Name or service not known".
+     *
+     * @param mixed $value Host SMTP da normalizzare.
+     *
+     * @return string
+     */
+    function normalizeSmtpHost($value) {
+        return normalizeSmtpValue($value);
+    }
+}
+
+if (!function_exists('loadConfigPecMail')) {
+
+    // Configurazione P.E.C. per invio Email
+    function loadConfigPecMail()
+    {
+        $configs = patOsInstituteInfo([
+            'pec_smtp_user',
+            'pec_smtp_from',
+            'pec_smtp_pass',
+            'pec_smtp_host',
+            'pec_smtp_port',
+            'pec_smtp_security',
+            'pec_show_smtp_auth',
         ]);
 
-        if ($merge === true && $configMail === null) {
+        $mailConfig = [];
+        $mailConfig['protocol'] = 'smtp';
 
-            if (isset($customInstitution['smtp_username']) && strlen((string)$customInstitution['smtp_username']) < 1) {
-                unset($customInstitution['smtp_username']);
-            }
+        // Mappatura delle chiavi PEC sulle proprietà standard della classe Email
+        $mailConfig['smtp_user'] = !empty($configs['pec_smtp_user']) ? normalizeSmtpValue(checkDecrypt($configs['pec_smtp_user'])) : '';
+        $mailConfig['smtp_from'] = !empty($configs['pec_smtp_from']) ? normalizeSmtpValue(checkDecrypt($configs['pec_smtp_from'])) : '';
+        $mailConfig['smtp_pass'] = !empty($configs['pec_smtp_pass']) ? normalizeSmtpValue(checkDecrypt($configs['pec_smtp_pass'])) : '';
+        $mailConfig['smtp_host'] = !empty($configs['pec_smtp_host']) ? normalizeSmtpHost(checkDecrypt($configs['pec_smtp_host'])) : '';
+        $mailConfig['smtp_port'] = !empty($configs['pec_smtp_port']) ? normalizeSmtpValue($configs['pec_smtp_port']) : '';
+        $mailConfig['smtp_crypto'] = !empty($configs['pec_smtp_security']) ? strtolower(normalizeSmtpValue($configs['pec_smtp_security'])) : '';
+        /*
+         * Quando il flag non e' impostato l'autenticazione viene dedotta dalla presenza delle
+         * credenziali: un Ente che ha salvato username e password si aspetta che vengano usate,
+         * e senza questa deduzione il mailer dialogherebbe in chiaro con un server che le
+         * richiede, fallendo con "Relay access denied". La deduzione appartiene alla
+         * configurazione risolta, quindi vale anche per i controlli che la leggono.
+         */
+        $mailConfig['smtp_auth'] = isset($configs['pec_show_smtp_auth'])
+            ? (int)normalizeSmtpValue($configs['pec_show_smtp_auth']) === 1
+            : (!empty($mailConfig['smtp_user']) && !empty($mailConfig['smtp_pass']));
 
-            if (isset($customInstitution['smtp_password']) && strlen((string)$customInstitution['smtp_password']) < 1) {
-                unset($customInstitution['smtp_password']);
-            }
+        $mailConfig['crlf'] = "\r\n";
+        $mailConfig['newline'] = "\r\n";
+        $mailConfig['wordwrap'] = true;
+        $mailConfig['mailtype'] = "html";
+        $mailConfig['priority'] = 3;
+        $mailConfig['wrapchars'] = 76;
 
-            if (isset($customInstitution['smtp_port']) && strlen((string)$customInstitution['smtp_port']) < 1) {
-                unset($customInstitution['smtp_port']);
-            }
+        return $mailConfig;
+    }
+}
 
-            if (isset($customInstitution['smtp_security']) && strlen((string)$customInstitution['smtp_security']) < 1) {
-                unset($customInstitution['smtp_security']);
-            }
+if (!function_exists('mailSenderAddress')) {
 
-            if (isset($customInstitution['smtp_host']) && strlen((string)$customInstitution['smtp_host']) < 1) {
-                unset($customInstitution['smtp_host']);
-            }
+    /**
+     * Restituisce l'indirizzo mittente da usare con una configurazione mail già risolta,
+     * oppure una stringa vuota quando nessun indirizzo utilizzabile è disponibile.
+     *
+     * Il mittente non coincide necessariamente con lo username: diversi gestori rilasciano
+     * credenziali di accesso che non sono indirizzi email, e per questo i form dell'Ente
+     * espongono il campo "From" accanto allo username. La precedenza applicata qui è la
+     * stessa di System\Email in from(), che sostituisce il mittente indicato dal chiamante
+     * con smtp_from ogni volta che è configurato: per questo un smtp_from presente ma non
+     * utilizzabile come indirizzo non viene sostituito dallo username, che il mailer
+     * scarterebbe comunque.
+     *
+     * La stringa vuota indica che l'invio non è tentabile: i chiamanti devono trattarla
+     * come configurazione incompleta, invece di lasciare che l'errore emerga dalla
+     * validazione interna del mailer, dove la causa non sarebbe riconoscibile.
+     *
+     * @param array $configs Configurazione email già risolta e decifrata.
+     * @return string Indirizzo mittente utilizzabile, stringa vuota se non disponibile.
+     */
+    function mailSenderAddress(array $configs = []): string
+    {
+        $smtpFrom = normalizeSmtpValue((string)($configs['smtp_from'] ?? ''));
 
-            $configs = arrayMergeRecursiveDistinct(loadConfigMail(), $customInstitution);
-        } elseif ($merge === true && is_array($configMail) && count($configMail) >= 1) {
+        if ($smtpFrom !== '') {
+            return filter_var($smtpFrom, FILTER_VALIDATE_EMAIL) ? $smtpFrom : '';
+        }
 
-            $configs = arrayMergeRecursiveDistinct(loadConfigMail(), [
-                'smtp_host' => $configMail['smtp_host'],
-                'smtp_user' => $configMail['smtp_user'],
-                'smtp_pass' => $configMail['smtp_pass'],
-                'smtp_port' => $configMail['smtp_port'],
-                'smtp_crypto' => $configMail['smtp_security']
-            ]);
-        } else {
+        $smtpUser = normalizeSmtpValue((string)($configs['smtp_user'] ?? ''));
 
-            if (!empty($customInstitution)) {
+        return filter_var($smtpUser, FILTER_VALIDATE_EMAIL) ? $smtpUser : '';
+    }
+}
 
-                $configs['protocol'] = 'smtp';
-                $configs['smtp_host'] = !empty($customInstitution['smtp_host']) ? $customInstitution['smtp_host'] : null;
-                $configs['smtp_user'] = !empty($customInstitution['smtp_username']) ? $customInstitution['smtp_username'] : null;
-                $configs['smtp_pass'] = !empty($customInstitution['smtp_password']) ? $customInstitution['smtp_password'] : null;
-                $configs['smtp_port'] = !empty($customInstitution['smtp_port']) ? $customInstitution['smtp_port'] : null;
-                $configs['smtp_crypto'] = !empty($customInstitution['smtp_security']) ? $customInstitution['smtp_security'] : null;
-            } else {
+if (!function_exists('isPecMailTransportValid')) {
+    /**
+     * Verifica il solo trasporto della configurazione PEC dell'Ente, senza il mittente.
+     *
+     * Il servizio PEC usa il trasporto SMTP: host e porta devono essere validi, le
+     * modalità di sicurezza ammesse sono quelle esposte dal form dell'Ente e le
+     * credenziali sono obbligatorie soltanto quando è abilitata l'autenticazione.
+     *
+     * Sullo username non viene verificato alcun formato: diversi gestori PEC rilasciano
+     * credenziali di accesso che non sono indirizzi email, e pretendere qui un indirizzo
+     * renderebbe privi di configurazione PEC valida Enti che inviano regolarmente.
+     *
+     * La separazione dal mittente serve a distinguere le due cause di una configurazione
+     * incompleta: gli avvisi possono così indicare il campo effettivamente mancante,
+     * invece di segnalare genericamente la sezione.
+     *
+     * @param array $configs Configurazione PEC già risolta e decifrata
+     * @return bool
+     */
+    function isPecMailTransportValid(array $configs = []): bool
+    {
+        $protocol = strtolower(trim((string)($configs['protocol'] ?? '')));
+        $smtpCrypto = strtolower(trim((string)($configs['smtp_crypto'] ?? '')));
 
-                $configs = loadConfigMail();
+        if (
+            $protocol !== 'smtp'
+            || !in_array($smtpCrypto, ['', 'no', 'ssl', 'tls'], true)
+        ) {
+            return false;
+        }
+
+        return isMailConfigValid($configs);
+    }
+}
+
+if (!function_exists('isMailSenderRequirementMet')) {
+    /**
+     * Verifica il requisito sul mittente di una configurazione mail dell'Ente.
+     *
+     * Il mittente serve sempre, indipendentemente dall'autenticazione: quest'ultima riguarda
+     * l'accesso al server SMTP, mentre il mittente è un'intestazione del messaggio, che la
+     * classe System\Email valida a ogni invio. Un server che accetta posta senza credenziali
+     * pretende comunque un indirizzo mittente.
+     *
+     * L'indirizzo è il campo "From" quando valorizzato, altrimenti lo username, che deve
+     * allora essere un indirizzo email: le utenze di alcuni gestori non lo sono, e in quel
+     * caso è il "From" a doverlo fornire. Lo username invece è obbligatorio soltanto quando
+     * è abilitata l'autenticazione, condizione già verificata dal trasporto: senza
+     * autenticazione può mancare, purché il "From" sia compilato.
+     *
+     * Il requisito riguarda le sole configurazioni dell'Ente: in quella di piattaforma il
+     * mittente è indicato dai chiamanti, che passano indirizzi di servizio propri.
+     *
+     * @param array $configs Configurazione mail già risolta e decifrata.
+     * @return bool
+     */
+    function isMailSenderRequirementMet(array $configs = []): bool
+    {
+        return mailSenderAddress($configs) !== '';
+    }
+}
+
+if (!function_exists('isMailConfigEnteValid')) {
+    /**
+     * Verifica una configurazione mail dell'Ente: trasporto valido e requisito sul mittente.
+     *
+     * A differenza di isMailConfigValid(), che valida il solo trasporto ed è usata anche per
+     * la configurazione di piattaforma, qui si aggiunge il mittente alle condizioni descritte
+     * da isMailSenderRequirementMet().
+     *
+     * @param array $configs Configurazione mail dell'Ente già risolta e decifrata.
+     * @return bool
+     */
+    function isMailConfigEnteValid(array $configs = []): bool
+    {
+        return isMailConfigValid($configs) && isMailSenderRequirementMet($configs);
+    }
+}
+
+if (!function_exists('isPecMailConfigValid')) {
+    /**
+     * Verifica i parametri minimi della configurazione PEC dell'Ente corrente.
+     *
+     * Al trasporto verificato da isPecMailTransportValid() aggiunge il requisito sul
+     * mittente descritto da isMailSenderRequirementMet(): una casella PEC che non espone
+     * un indirizzo mittente utilizzabile non puo' recapitare nulla.
+     *
+     * @param array $configs Configurazione PEC già risolta e decifrata
+     * @return bool
+     */
+    function isPecMailConfigValid(array $configs = []): bool
+    {
+        return isPecMailTransportValid($configs) && isMailSenderRequirementMet($configs);
+    }
+}
+
+if (!function_exists('mailFromRichiesto')) {
+    /**
+     * Verifica se il campo "From" è necessario per la configurazione indicata.
+     *
+     * Vale per entrambe le sezioni del form dell'Ente, SMTP ordinaria e PEC: il mittente è
+     * il campo "From" quando valorizzato, altrimenti lo username. Le utenze di alcuni
+     * gestori non sono indirizzi email, e senza autenticazione lo username può mancare del
+     * tutto: in entrambi i casi il "From" è l'unico indirizzo disponibile e la sua assenza
+     * rende impossibile l'invio, che fallirebbe nella validazione del mittente eseguita
+     * dal mailer.
+     *
+     * Il campo non viene richiesto a chi non sta configurando quella sezione: almeno un
+     * parametro compilato è la condizione che rende sensata la richiesta.
+     *
+     * @param string|null $username Username inserito o già salvato, in chiaro.
+     * @param string|null $from Indirizzo "From" inserito o già salvato, in chiaro.
+     * @param bool $sezioneCompilata Se la sezione contiene almeno un parametro.
+     * @return bool
+     */
+    function mailFromRichiesto($username = null, $from = null, bool $sezioneCompilata = true): bool
+    {
+        if (!$sezioneCompilata) {
+            return false;
+        }
+
+        $username = normalizeSmtpValue((string)($username ?? ''));
+        $from = normalizeSmtpValue((string)($from ?? ''));
+
+        if (filter_var($from, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        return !filter_var($username, FILTER_VALIDATE_EMAIL);
+    }
+}
+
+if (!function_exists('institutionMailSender')) {
+
+    /**
+     * Istanzia il mailer System\Email con la configurazione risolta dell'ente.
+     *
+     * @param array $configs Configurazione email gia risolta.
+     * @param int|null $senderType Tipologia di invio, se gia nota al chiamante.
+     * @return Email
+     */
+    function institutionMailSender(array $configs = [], $senderType = null) {
+        if ($senderType === null) {
+            $senderType = 0;
+        }
+
+        $normalizedConfigKeys = [
+            'smtp_user',
+            'smtp_from',
+            'smtp_pass',
+            'smtp_port',
+            'smtp_crypto',
+            'smtp_security',
+            'oauth2_username',
+            'oauth2_password',
+            'oauth2_tenant_id',
+            'oauth2_client_id',
+            'oauth2_client_secret',
+            'acs_sender_email',
+            'acs_endpoint',
+            'acs_access_key',
+            'graph_email',
+        ];
+
+        foreach ($normalizedConfigKeys as $normalizedConfigKey) {
+            if (isset($configs[$normalizedConfigKey]) && is_scalar($configs[$normalizedConfigKey])) {
+                $configs[$normalizedConfigKey] = normalizeSmtpValue((string)$configs[$normalizedConfigKey]);
             }
         }
 
+        if (isset($configs['smtp_host']) && is_scalar($configs['smtp_host'])) {
+            $configs['smtp_host'] = normalizeSmtpHost((string)$configs['smtp_host']);
+        }
+
+        $mailSenderClass = Email::class;
+
+        /*
+         * Le configurazioni Ente, PEC e quelle costruite direttamente dai form non ereditano
+         * automaticamente i parametri tecnici definiti in app/Config/email.php. Il timeout viene
+         * applicato qui, nel punto comune in cui viene creata ogni istanza del mailer, soltanto
+         * quando il chiamante non ne ha gia specificato uno. Non viene effettuato alcun merge della
+         * configurazione: host, mittente e credenziali restano quelli del canale selezionato.
+         */
+        if (!isset($configs['smtp_timeout'])) {
+            $defaultMailConfig = loadConfigMail();
+            if (isset($defaultMailConfig['smtp_timeout'])) {
+                $configs['smtp_timeout'] = (int)$defaultMailConfig['smtp_timeout'];
+            }
+        }
+
+        return new $mailSenderClass($configs);
+    }
+}
+
+if (!function_exists('sendEmailGuaranteed')) {
+
+    /**
+     * Invia il messaggio gia' costruito su $email e restituisce l'esito del mailer.
+     * La configurazione viene scelta dal chiamante prima di costruire il messaggio;
+     * questa funzione non la sostituisce e non ritenta l'invio con altri account.
+     *
+     * @param \System\Email $email Istanza gia' configurata con from/to/subject/message.
+     * @return bool
+     */
+    function sendEmailGuaranteed(\System\Email $email): bool
+    {
+        return $email->send();
+    }
+}
+
+if (!function_exists('getMailConfig')) {
+
+    /**
+     * Restituisce la configurazione di invio email per l'Ente corrente oppure per la piattaforma.
+     *
+     * Le due configurazioni non vengono mai unite tra loro (nessun merge campo-per-campo):
+     * un invio deve usare o interamente quella dell'Ente o interamente quella di piattaforma,
+     * per evitare configurazioni ibride (es. host dell'Ente con credenziali di piattaforma)
+     * che non corrispondono a nessun account SMTP realmente funzionante.
+     *
+     * Per lo scope 'institution' viene letta la configurazione dell'Ente e costruita direttamente
+     * la sola configurazione SMTP classica, l'unico trasporto gestito qui. Se l'Ente non ha alcun
+     * campo SMTP valorizzato viene restituito un array vuoto: la decisione se ricadere sulla
+     * configurazione di piattaforma (garanzia di consegna) spetta al chiamante.
+     *
+     * @param string $scope 'institution' (default) per la config SMTP dell'Ente corrente, 'platform' per quella di piattaforma
+     * @return array
+     */
+    function getMailConfig(string $scope = 'institution', int $institutionId = 0): array
+    {
+        if ($scope === 'platform') {
+            $platformConfig = loadConfigMail();
+
+            /*
+             * La configurazione di piattaforma arriva da .env e non passa dai form Ente,
+             * dove il valore della sicurezza SMTP viene gia normalizzato. Il mailer del
+             * core verifica STARTTLS con confronto stretto su "tls", quindi normalizziamo
+             * qui per evitare che valori come "TLS" saltino la negoziazione TLS.
+             */
+            if (isset($platformConfig['smtp_crypto'])) {
+                $platformConfig['smtp_crypto'] = strtolower($platformConfig['smtp_crypto']);
+            }
+
+            /*
+             * In app/Config/email.php questi valori storicamente sono dichiarati tra
+             * apici singoli ('\r\n'), quindi arrivano come testo letterale e non come
+             * caratteri CRLF reali. Le configurazioni Ente e i test SMTP usano invece
+             * "\r\n": riallineiamo la piattaforma allo stesso formato prima di creare
+             * il mailer, evitando differenze nel dialogo SMTP del fallback.
+             */
+            $platformConfig['crlf'] = "\r\n";
+            $platformConfig['newline'] = "\r\n";
+
+            /*
+             * Per la configurazione di piattaforma non esiste un flag separato "usa
+             * autenticazione" come nelle impostazioni Ente: se .env espone username e
+             * password, il server SMTP va usato autenticandosi. Senza questa assegnazione
+             * un valore vuoto di smtp_auth puo sovrascrivere l'inferenza automatica del
+             * mailer e causare invii non autenticati con errore "Relay access denied".
+             */
+            $platformConfig['smtp_auth'] = !empty($platformConfig['smtp_user'])
+                && !empty($platformConfig['smtp_pass']);
+
+            return $platformConfig;
+        }
+
+        // Invio Email
+        $mailConfigKeys = [
+            'smtp_user',
+            'smtp_from',
+            'smtp_pass',
+            'smtp_host',
+            'smtp_port',
+            'smtp_security',
+            'smtp_auth',
+        ];
+
+        $trasparenzaUrl = null;
+
+        if ($institutionId > 0) {
+
+            $institution = \Model\InstitutionsModel::withoutGlobalScopes()
+                ->select(array_values(array_unique(array_merge(
+                    ['id', 'trasparenza_urls'],
+                    $mailConfigKeys
+                ))))
+                ->where('id', $institutionId)
+                ->first();
+
+            if (empty($institution)) {
+                return [];
+            }
+
+            $customInstitution = [];
+
+            foreach ($mailConfigKeys as $mailConfigKey) {
+                $customInstitution[$mailConfigKey] = $institution->$mailConfigKey ?? null;
+            }
+
+            $trasparenzaUrl = $institution->trasparenza_urls ?? null;
+        } else {
+            $customInstitution = patOsInstituteInfo($mailConfigKeys);
+            $institutionInfo = patOsInstituteInfo(['trasparenza_urls']);
+            $trasparenzaUrl = $institutionInfo['trasparenza_urls'] ?? null;
+        }
+
+        if (empty($customInstitution) || !array_filter($customInstitution)) {
+
+            // Nessun campo SMTP valorizzato per l'Ente: nessun fallback automatico su
+            // piattaforma in questa funzione, la decisione spetta al chiamante.
+            return [];
+        }
+
+        $senderType = isset($customInstitution['sender_type_mailer']) ? (int) $customInstitution['sender_type_mailer'] : 0;
+        $configs = [];
+
+        switch ($senderType) {
+            case 0: // SMTP Classico
+                $configs['protocol'] = 'smtp';
+                $configs['smtp_host'] = !empty($customInstitution['smtp_host']) ? normalizeSmtpHost(checkDecrypt($customInstitution['smtp_host'])) : null;
+                $configs['smtp_user'] = !empty($customInstitution['smtp_user']) ? normalizeSmtpValue(checkDecrypt($customInstitution['smtp_user'])) : '';
+                $configs['smtp_from'] = !empty($customInstitution['smtp_from']) ? normalizeSmtpValue(checkDecrypt($customInstitution['smtp_from'])) : '';
+                $configs['smtp_pass'] = !empty($customInstitution['smtp_pass']) ? normalizeSmtpValue(checkDecrypt($customInstitution['smtp_pass'])) : null;
+                $configs['smtp_port'] = !empty($customInstitution['smtp_port']) ? normalizeSmtpValue($customInstitution['smtp_port']) : null;
+                $configs['smtp_crypto'] = !empty($customInstitution['smtp_security']) ? strtolower(normalizeSmtpValue($customInstitution['smtp_security'])) : '';
+                $configs['smtp_auth'] = !empty(normalizeSmtpValue($customInstitution['smtp_auth'] ?? ''));
+                break;
+
+            default:
+                break;
+        }
+
+        $configs['crlf'] = "\r\n";
+        $configs['newline'] = "\r\n";
+        $configs['wordwrap'] = true;
+        $configs['mailtype'] = "html";
+        $configs['priority'] = 3;
+        $configs['wrapchars'] = 76;
+
+        if (
+            isset($configs['smtp_host']) &&
+            in_array($configs['smtp_host'], ['smtp.gmail.com', 'smtp-relay.gmail.com'])
+        ) {
+            $urlParts = !empty($trasparenzaUrl) ? parse_url($trasparenzaUrl) : [];
+
+            if (!empty($urlParts['host'])) {
+                $configs['smtp_helo'] = $urlParts['host'];
+            }
+        }
+
+        if (isset($configs['smtp_security'])) {
+            unset($configs['smtp_security']);
+        }
+
+        if (isset($configs['smtp_crypto'])) {
+            $configs['smtp_crypto'] = strtolower($configs['smtp_crypto']);
+        }
+
         return $configs;
+    }
+}
+
+
+if (!function_exists('isMailConfigValid')) {
+
+    /**
+     * Verifica che la configurazione email risolta contenga i parametri minimi richiesti dal
+     * protocollo di invio, prima di tentare l'invio vero e proprio.
+     *
+     * Viene applicata la validazione SMTP classica: host e porta sempre obbligatori,
+     * credenziali obbligatorie solo
+     * quando l'Ente ha abilitato l'autenticazione.
+     *
+     * @param array $configs Configurazione email gia' risolta e decifrata (es. da getMailConfig())
+     * @return bool
+     */
+    function isMailConfigValid(array $configs = []): bool
+    {
+        $protocol = strtolower(trim((string)($configs['protocol'] ?? '')));
+
+        if ($protocol === 'smtp') {
+            $smtpPort = filter_var(
+                $configs['smtp_port'] ?? null,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1, 'max_range' => 65535]]
+            );
+
+            if (empty($configs['smtp_host']) || $smtpPort === false) {
+                return false;
+            }
+
+            if (
+                !empty($configs['smtp_auth']) &&
+                (empty($configs['smtp_user']) || empty($configs['smtp_pass']))
+            ) {
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 }
 
@@ -563,19 +950,48 @@ if (!function_exists('authPatOs')) {
      */
     function authPatOs()
     {
-        $auth = new \System\Auth(\Helpers\AuthPatOS::class);
+        // Memoizzata: il costruttore di AuthPatOS ([app/Helpers/AuthPatOS.php:163]) costa ~4.7ms
+        // (Config::load, Encryption, new Session, new Database con bootEloquent + setAsGlobal, piu'
+        // un register_shutdown_function), e questo helper veniva chiamato 34 volte per richiesta
+        // front-office: ~160ms, circa un terzo del tempo totale.
+        //
+        // Perche' e' sicuro restituire sempre la stessa istanza:
+        // - l'unico stato mutabile di AuthPatOS e' $isValid e $error, scritti solo da
+        //   authenticate()/setErrorAuth(). Nessun chiamante di questo helper li usa: attraverso
+        //   authPatOs() passano solo getIdentity, id, hasIdentity, getStorage, addStorage,
+        //   clearIdentity e regenerateSession. I percorsi di login costruiscono la propria istanza
+        //   con "new Auth(AuthPatOS::class)" (AuthAdminController,
+        //   AuthCinecaController) e restano quindi non memoizzati, con $isValid pulito;
+        // - AuthPatOS non mette in cache nulla: $this->session opera su $_SESSION live
+        //   (System\Session non tiene snapshot), quindi getIdentity() vede sempre lo stato corrente,
+        //   compresa l'impersonificazione scritta da UtilityController::changeInstitution();
+        // - $this->encryption usa la chiave da config, deterministica;
+        // - SPID, CIE, Cineca e Microsoft/LDAP usano adattatori propri (AuthSPID, AuthCIE, ...),
+        //   istanziati direttamente e non da qui.
+        //
+        // Effetto collaterale voluto: un solo setAsGlobal() sul Capsule di Eloquent per richiesta
+        // invece di 34, e un solo shutdown handler invece di 34.
+        //
+        // La static vale per la durata del processo-richiesta (PHP-FPM / mod_php). Su un runtime
+        // persistente (Swoole, RoadRunner) andrebbe rivista, perche' vivrebbe fra piu' richieste.
+        static $auth = null;
+
+        if ($auth === null) {
+            $auth = new \System\Auth(\Helpers\AuthPatOS::class);
+        }
+
         return $auth;
     }
 }
 
-if (!function_exists('isSuperAdmin')) {
+if (!function_exists('isTechnicalUser')) {
     /**
-     * Funzione che verifica se l'utente in sessione e' un super admin (Amministratore della piattaforma)
+     * Funzione che verifica se l'utente in sessione e' un'utenza tecnica
      *
      * @param $alsoCheckAdmin
      * @return bool
      */
-    function isSuperAdmin($alsoCheckAdmin = false)
+    function isTechnicalUser($alsoCheckAdmin = false)
     {
         if (!is_cli()) {
             $auth = authPatOs();
@@ -584,14 +1000,8 @@ if (!function_exists('isSuperAdmin')) {
 
                 $userInfo = $auth->getIdentity();
 
-                if (!empty($alsoCheckAdmin)) {
-                    return ((int)$userInfo['super_admin'] !== 0) || !empty($userInfo['admin']) ? true : false;
-                } else {
-                    return ((int)$userInfo['super_admin'] !== 0) ? true : false;
-                }
-
+                return ($userInfo['technical_user'] != 0) ? true : false;
             }
-
         }
 
         return false;
@@ -613,28 +1023,10 @@ if (!function_exists('isAdmin')) {
 
             $userInfo = $auth->getIdentity();
 
-            return (in_array((int)$userInfo['super_admin'], [0, 1])) && ((int)$userInfo['admin'] !== 0) ? true : false;
+            return (int) $userInfo['admin'] !== 0;
         }
 
         return false;
-    }
-}
-
-if (!function_exists('allowCORS')) {
-
-    /**
-     * Abilitazione CORS
-     *
-     * @return null
-     */
-    function allowCORS()
-    {
-        //        header("Access-Control-Allow-Origin: *");
-        //        header("Access-Control-Expose-Headers: *");
-        //        header("Access-Control-Allow-Headers: *");
-        //        header("Access-Control-Request-Headers: Content-Type, x-requested-with");
-        //        header("Access-Control-Allow-Credentials: true");
-        //        header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS');
     }
 }
 
@@ -664,40 +1056,29 @@ if (!function_exists('toFloat')) {
      */
     function toFloat($num)
     {
+        // Verifica se il numero è negativo
+        $isNegative = strpos($num, '-') === 0;
+
+        // Trova la posizione dell'ultimo punto (.) o della virgola (,)
         $dotPos = strrpos($num, '.');
         $commaPos = strrpos($num, ',');
         $sep = (($dotPos > $commaPos) && $dotPos) ? $dotPos : ((($commaPos > $dotPos) && $commaPos) ? $commaPos : false);
 
+        // Rimuovi tutti i caratteri non numerici tranne il punto o la virgola
         if (!$sep) {
-            return floatval(preg_replace("/[^0-9]/", '', $num));
+            // Gestione caso senza separatore decimale
+            $num = preg_replace("/[^0-9]/", '', $num);
+        } else {
+            // Gestione caso con separatore decimale
+            $num = preg_replace("/[^0-9]/", '', substr((string) $num, 0, $sep)) . '.' .
+                preg_replace("/[^0-9]/", '', substr((string) $num, $sep + 1));
         }
 
-        return floatval(
-            preg_replace("/[^0-9]/", '', substr((string)$num, 0, $sep)) . '.' .
-            preg_replace("/[^0-9]/", '', substr((string)$num, $sep + 1, strlen($num)))
-        );
+        // Ritorna il numero come float, mantenendo il segno negativo se presente
+        return $isNegative ? -floatval($num) : floatval($num);
     }
 }
 
-
-if (!function_exists('resolveStringBearer')) {
-
-    /**
-     * Nell'autenticazione con JWT ritorna il token dagli headers
-     *
-     * @param $bearer
-     * @return null|string
-     */
-    function resolveStringBearer($bearer)
-    {
-        if (!empty($bearer) && strlen((string)$bearer) >= 6) {
-
-            return trim(preg_replace('/Bearer|Basic/', '', $bearer));
-        }
-
-        return null;
-    }
-}
 
 if (!function_exists('translateMonth')) {
 
@@ -716,7 +1097,7 @@ if (!function_exists('translateMonth')) {
 
             if (is_numeric($month)) {
 
-                if ((int)strlen((string)$month) === 1) {
+                if ((int) strlen((string) $month) === 1) {
 
                     $month = '0' . $month;
                 }
@@ -787,8 +1168,8 @@ if (!function_exists('iconBtn')) {
      * Funzione per la creazione dell'icona di un pulsante
      *
      * @param string $name Testo da visualizzare nel pulsante
-     * @param string $id   id dell'icona da mostrare nel bottone
-     * @param string $ico  icona da mostrare nel bottone
+     * @param string $id id dell'icona da mostrare nel bottone
+     * @param string $ico icona da mostrare nel bottone
      * @return string
      */
     function iconBtn($name = 'Salva', $id = "icon-save", $ico = 'fa-save')
@@ -810,12 +1191,62 @@ if (!function_exists('endKeyOnlyPagination')) {
     }
 }
 
+if (!function_exists('boundedQueryInt')) {
+
+    /**
+     * Legge un intero dalla query string limitandolo a un massimo.
+     *
+     * Serve ai parametri che il client puo' gonfiare a piacere - `take` e `skip` degli export
+     * OpenData, `p` degli elenchi paginati - dove un singolo valore fuori scala costa quanto
+     * migliaia di richieste normali.
+     *
+     * Retro-compatibilita': il comportamento e' identico a quello precedente per ogni valore
+     * che oggi funziona.
+     *  - assente, vuoto, non numerico, zero o negativo => $default, cioe' lo stesso valore che
+     *    dava il ternario `!empty(...) ? (int)... : $default` che questa funzione sostituisce;
+     *  - valore positivo <= $max => restituito invariato;
+     *  - valore positivo > $max => limitato a $max. E' l'unico caso che cambia, ed e' quello
+     *    dell'abuso: nessuna richiesta legittima supera i massimi impostati ai punti d'uso.
+     *
+     * Due casi limite, entrambi coperti dal check:
+     *  - non numerico (`?take=abc`): `(int)` da' 0 e il valore 0 viene restituito tale e quale,
+     *    esattamente come prima. Farlo ricadere nel default significherebbe rispondere a una
+     *    stringa spazzatura con l'export completo, cioe' il contrario di quello che serve;
+     *  - negativo (`?take=-1`): non veniva ignorato da Eloquent ma toglieva del tutto il LIMIT
+     *    (`Builder::limit()` assegna solo se `$value >= 0`), quindi scaricava l'intera tabella,
+     *    piu' di quanto facesse `?take=999999`. Ricade nel default - non in zero - perche' chi
+     *    lo usasse come "dammi tutto" continua a ricevere l'export completo, ora pero' limitato.
+     *    Su `skip` e `p` il default e' 0, che e' gia' l'offset effettivo che Eloquent calcolava
+     *    da un negativo (`offset()` fa `max(0, ...)`): li' non cambia nulla.
+     *
+     * @param string $name Nome del parametro in query string
+     * @param int $max Valore massimo accettato
+     * @param int $default Valore usato quando il parametro e' assente o non positivo
+     * @return int
+     */
+    function boundedQueryInt(string $name, int $max, int $default = 0): int
+    {
+        $raw = Input::get($name);
+
+        // Stessa porta d'ingresso del ternario `!empty(...)` che questa funzione sostituisce:
+        // assente, stringa vuota e '0' ricadono tutti nel default, come prima.
+        if (empty($raw)) {
+            return $default;
+        }
+
+        $value = (int)$raw;
+
+        return $value < 0 ? $default : min($value, $max);
+    }
+}
+
 if (!function_exists('paginateBootstrap')) {
 
     /**
      * Paginazione Bootstrap 4
      *
      * @param $elements
+     * @param string $rendering
      * @return string
      * @throws Exception
      */
@@ -850,7 +1281,7 @@ if (!function_exists('form_editor')) {
             unset($data['value']);
         }
 
-        return '<textarea ' . _parse_form_attributes($data, $defaults) . stringifyAttributes($extra) . " >" . $val . "</textarea>\n";
+        return '<textarea ' . _parse_form_attributes($data, $defaults) . stringifyAttributes($extra) . " >" . htmlEscape($val) . "</textarea>\n";
     }
 }
 
@@ -860,7 +1291,7 @@ if (!function_exists('sessionSetNotify')) {
      * Funzione che permette di settare una notifica con il messaggio
      *
      * @param string|null $message
-     * @param string      $type    success | warning | info | danger
+     * @param string $type success | warning | info | danger
      */
     function sessionSetNotify(string $message = null, string $type = 'success'): void
     {
@@ -931,6 +1362,7 @@ if (!function_exists('filesUploaded')) {
      */
     function filesUploaded($field = 'userfile'): bool
     {
+
         if (empty($_FILES)) {
             return false;
         }
@@ -946,7 +1378,6 @@ if (!function_exists('filesUploaded')) {
                 return true;
             }
         } else {
-
             foreach ($files as $field_title => $temp_name) {
                 if (!empty($temp_name) && (is_uploaded_file($temp_name) == true || file_exists($temp_name) == true)) {
                     return true;
@@ -955,30 +1386,6 @@ if (!function_exists('filesUploaded')) {
         }
 
         return false;
-    }
-}
-
-if (!function_exists('getIdentity')) {
-
-    /**
-     * Funzione che restituisce tutte le informazioni dell'utente in sessione, oppure solo i campi passati nel parametro
-     *
-     * @param null $data
-     * @return array|null
-     */
-    function getIdentity($data = null)
-    {
-        $identity = authPatOs()->getIdentity();
-
-        if (!empty($identity[$data])) {
-
-            return $identity[$data];
-        } else if (!empty($identity['options'][$data])) {
-
-            return $identity['options'][$data];
-        }
-
-        return null;
     }
 }
 
@@ -1061,20 +1468,6 @@ if (!function_exists('guard')) {
     }
 }
 
-if (!function_exists('getSectionPagesBackOffice')) {
-
-    /**
-     * Funzione che restituisce il menù laterale di sinistra e la sua alberatura
-     *
-     * @return array
-     */
-    function getSectionPagesBackOffice()
-    {
-        $sections = new \System\Hierarchy();
-        return $sections->getGroupedChildren();
-    }
-}
-
 if (!function_exists('removeDotHtml')) {
 
     /**
@@ -1115,7 +1508,7 @@ if (!function_exists('btnSave')) {
      * Funzione che crea un pulsante per il salvataggio dei dati
      *
      * @param string $id
-     * @param bool   $title
+     * @param bool $title
      * @return string
      * @throws Exception
      */
@@ -1137,8 +1530,8 @@ if (!function_exists('searchArrayByField')) {
     /**
      * Funzione che cerca un riga all'interno di un array multidimensionale
      *
-     * @param null   $value
-     * @param array  $data
+     * @param null $value
+     * @param array $data
      * @param string $field
      * @return array|null
      */
@@ -1256,8 +1649,8 @@ if (!function_exists('setDefaultData')) {
     /**
      * Funzione che ritorna un parametro predefinito in base al valore passato
      *
-     * @param null   $data
-     * @param null   $default
+     * @param null $data
+     * @param null $default
      * @param string $expected
      * @return mixed|null
      */
@@ -1278,8 +1671,8 @@ if (!function_exists('setOrderDatatable')) {
     /**
      * Funzione che imposta la colonna su cui effettuare l'ordinamento nel datatable
      *
-     * @param null   $columnName
-     * @param array  $orderable
+     * @param null $columnName
+     * @param array $orderable
      * @param string $default
      * @return mixed|null
      */
@@ -1368,7 +1761,7 @@ if (!function_exists('getAclDelete')) {
         if (Registry::exist('___patos___profiles___')) {
 
             $keys = Registry::get('___patos___profiles___');
-            return (bool)$keys['delete'];
+            return (bool) $keys['delete'];
         }
 
         return false;
@@ -1387,51 +1780,10 @@ if (!function_exists('getAclAdd')) {
         if (Registry::exist('___patos___profiles___')) {
 
             $keys = Registry::get('___patos___profiles___');
-            return (bool)$keys['create'];
+            return (bool) $keys['create'];
         }
 
         return false;
-    }
-}
-
-if (!function_exists('createdByCheckDeleted')) {
-
-    /**
-     * Funzione che mostra nel datatable se un utente è stato cancellato
-     *
-     * @param string|null $name    Nome dell'utente cifrato
-     * @param int|null    $deleted Indica se l'utente è stato eliminato
-     *                             o meno
-     * @return string
-     */
-    function createdByCheckDeleted(string|null $name = null, int|null $deleted = 0): string
-    {
-        $html = '';
-
-        if ($deleted === 1) {
-
-            $html .= '<span class="badge badge-danger" aria-label="' . checkDecrypt($name) . ': Utente eliminato" data-toggle="tooltip" data-placement="top" data-original-title="Utente Eliminato">';
-        } else {
-
-            $html .= '<span class="badge badge-success">';
-        }
-
-        if ($name !== null) {
-
-            $html .= escapeXss(checkDecrypt($name));
-        } else {
-            $html .= 'Utente non presente';
-        }
-
-        if ($deleted === 1) {
-
-            $html .= nbs(2) . '<i class="fas fa-user-times"></i></span>';
-        } else {
-
-            $html .= nbs(2) . '</span>';
-        }
-
-        return $html;
     }
 }
 
@@ -1445,7 +1797,7 @@ if (!function_exists('instituteNameSelected')) {
     {
         $fullName = patOsInstituteInfo(['full_name_institution']);
         $patSsFullName = session()->has('alternative_pat_os_full_name') ? session()->get('alternative_pat_os_full_name') : $fullName['full_name_institution'];
-        return 'data-placeholder="' . $patSsFullName . '" placeholder="' . $patSsFullName . '" class="form-control form-control-sm select2-_cinst _cinst" id="_cinst" style="width:200px; font-size:90%"';
+        return 'data-placeholder="' . $patSsFullName . '" placeholder="' . $patSsFullName . '" class="form-control form-control-sm select2-_cinst _cinst" id="_cinst" style="width:15rem !important; font-size:90%"';
     }
 }
 
@@ -1454,7 +1806,7 @@ if (!function_exists('wordLimiter')) {
      * Limits a string to X number of words.
      *
      * @param string $str
-     * @param int    $limit
+     * @param int $limit
      * @param string $end_char the end character
      * @return string
      */
@@ -1465,9 +1817,9 @@ if (!function_exists('wordLimiter')) {
             return $str;
         }
 
-        preg_match('/^\s*+(?:\S++\s*+){1,' . (int)$limit . '}/', $str, $matches);
+        preg_match('/^\s*+(?:\S++\s*+){1,' . (int) $limit . '}/', $str, $matches);
 
-        if (strlen((string)$str) === strlen((string)$matches[0])) {
+        if (strlen((string) $str) === strlen((string) $matches[0])) {
 
             $end_char = '';
         }
@@ -1487,13 +1839,13 @@ if (!function_exists('characterLimiter')) {
      */
     function characterLimiter($str, $n = 500, $endChar = '&#8230;')
     {
-        if (mb_strlen((string)$str) < $n) {
+        if (mb_strlen((string) $str) < $n) {
             return $str;
         }
 
         $str = preg_replace('/ {2,}/', ' ', str_replace(array("\r", "\n", "\t", "\v", "\f"), ' ', $str));
 
-        if (mb_strlen((string)$str) <= $n) {
+        if (mb_strlen((string) $str) <= $n) {
             return $str;
         }
 
@@ -1503,7 +1855,7 @@ if (!function_exists('characterLimiter')) {
 
             if (mb_strlen($out) >= $n) {
                 $out = trim($out);
-                return (mb_strlen($out) === mb_strlen((string)$str)) ? $out : $out . $endChar;
+                return (mb_strlen($out) === mb_strlen((string) $str)) ? $out : $out . $endChar;
             }
         }
     }
@@ -1530,7 +1882,7 @@ if (!function_exists('moveFileInDirMedia')) {
     /**
      * Funzione che sposta il file nella cartella media dell'Ente quando viene creato
      *
-     * @param string $fileName     Nome del file da spostare
+     * @param string $fileName Nome del file da spostare
      * @param string $instituteDir Nome della cartella media dell'ente
      * @return void
      */
@@ -1562,8 +1914,8 @@ if (!function_exists('write_file')) {
 
         flock($fp, LOCK_EX);
 
-        for ($result = $written = 0, $length = strlen((string)$data); $written < $length; $written += $result) {
-            if (($result = fwrite($fp, substr((string)$data, $written))) === false) {
+        for ($result = $written = 0, $length = strlen((string) $data); $written < $length; $written += $result) {
+            if (($result = fwrite($fp, substr((string) $data, $written))) === false) {
                 break;
             }
         }
@@ -1588,9 +1940,10 @@ if (!function_exists('loadElfinderJs')) {
 
         // header("X-Frame-Options: sameorigin");
         $data[] = $elements;
-        $data['isCkEditor'] = (bool)empty($elements['isCkEditor']) ? false : true;
-        $data['base_url'] = baseUrl('admin/sys/filemanager');
-        $data['my_folder'] = isSuperAdmin()
+        $data['isCkEditor'] = (bool) empty($elements['isCkEditor']) ? false : true;
+
+        $data['base_url'] = baseUrl(verifyFirstOrLastSlash('admin/sys/filemanager'));
+        $data['my_folder'] = false
             ? MEDIA_PATH . instituteDir() . '/' . authPatOs()->id()
             : MEDIA_PATH;
 
@@ -1612,13 +1965,13 @@ if (!function_exists('treeSelectOptionValue')) {
         $html = '';
         foreach ($tree as $item) {
 
-            if ((int)$item['is_system'] === 1 || (int)$eId == (int)$item['institution_id']) {
+            if ((int) $item['is_system'] === 1 || (int) $eId == (int) $item['institution_id']) {
 
                 $customPage = ($item['is_system'] === 0 && $eId === $item['institution_id'])
                     ? '[p] '
                     : '';
 
-                $selected = (int)$item['id'] === (int)$parentId ? ' selected ' : '';
+                $selected = (int) $item['id'] === (int) $parentId ? ' selected ' : '';
 
                 $html .= '<option value="' . $item['id'] . '" ' . $selected . '>';
 
@@ -1669,8 +2022,8 @@ if (!function_exists('getLasHistoryUrl')) {
     /**
      * Funzione che cerca un riga all'interno di un array multidimensionale
      *
-     * @param null   $value
-     * @param array  $data
+     * @param null $value
+     * @param array $data
      * @param string $field
      * @return array|null
      */
@@ -1728,7 +2081,7 @@ if (!function_exists('forceDownloadDynamic')) {
         header("Content-Type: application/force-download");
         header("Content-Type: application/download");
         header('Content-Type: ' . $contentType);
-        header('Content-Length: ' . strlen((string)$templateString));
+        header('Content-Length: ' . strlen((string) $templateString));
         header('Connection: close');
 
         echo $templateString;
@@ -1768,7 +2121,7 @@ if (!function_exists('downloader')) {
             }
         } else {
 
-            $filesize = strlen((string)$data);
+            $filesize = strlen((string) $data);
         }
 
         if ($filesize == 0) {
@@ -1897,7 +2250,7 @@ if (!function_exists('checkRecordOwner')) {
     /**
      * Metodo che controlla se l'utente loggato è il creatore del record con l'id passato nel parametro
      * @param int|null $recordOwnerId Id utente
-     * @param int|null $userId        identificativo dell'utente da prendere come riferimento
+     * @param int|null $userId identificativo dell'utente da prendere come riferimento
      * @return bool
      */
     function checkRecordOwner(int $recordOwnerId = null, int $userId = null): bool
@@ -1951,9 +2304,9 @@ if (!function_exists('checkEncrypt')) {
     function checkEncrypt($data = '')
     {
 
-        if (strlen((string)$data) >= 1) {
+        if (strlen((string) $data) >= 1) {
 
-            return (!empty(_env('ENCRYPTION_DB_DATA')) ? \Helpers\Security\Crypto::encrypt((string)$data) : (string)$data);
+            return (!empty(_env('ENCRYPTION_DB_DATA')) ? \Helpers\Security\Crypto::encrypt((string) $data) : (string) $data);
         }
 
         return null;
@@ -1967,12 +2320,18 @@ if (!function_exists('checkDecrypt')) {
      * @param string $data campo avviare il controllo della decrittografia
      * @return string|null
      */
-    function checkDecrypt(string $data = ''): ?string
+    function checkDecrypt(string|null $data = ''): ?string
     {
 
-        if (strlen($data) >= 1) {
+        static $encryptionDbData = null;
 
-            return (!empty(_env('ENCRYPTION_DB_DATA')) ? \Helpers\Security\Crypto::verify($data) : $data);
+        if ($encryptionDbData === null) {
+            $encryptionDbData = !empty(_env('ENCRYPTION_DB_DATA'));
+        }
+
+        if ($data != null && strlen($data) >= 1) {
+
+            return ($encryptionDbData ? \Helpers\Security\Crypto::verify($data) : $data);
         }
 
         return null;
@@ -2013,7 +2372,7 @@ if (!function_exists('insertMeta')) {
 if (!function_exists('referenceOriginForRegenerateToken')) {
     /**
      * Funzione che verifica e
-     * @param int    $num         Numero di segmento
+     * @param int $num Numero di segmento
      * @param string $segmentName Segment name
      * @return bool
      * @throws Exception
@@ -2059,7 +2418,7 @@ if (!function_exists('setDataTableData')) {
     function setDataTableData(array &$data, string $columnName): void
     {
         $data['draw'] = !empty(Input::get('draw')) ? Input::get('draw', true) : 1;
-        $data['start'] = !empty(Input::get("start")) ? (int)Input::get("start", true) : 0;
+        $data['start'] = !empty(Input::get("start")) ? (int) Input::get("start", true) : 0;
         $data['rowPerPage'] = !empty(Input::get("length")) ? Input::get("length", true) : 25;
 
         $security = new Security();
@@ -2070,7 +2429,7 @@ if (!function_exists('setDataTableData')) {
         $searchArr = !empty($_GET['search']) ? $security->xssClean(removeInvisibleCharacters($_GET['search'])) : null;
 
         $columnIndex = !empty($columnIndexArr[0]['column']) ? $columnIndexArr[0]['column'] : null;
-        $data['columnName'] = !empty($columnNameArr[$columnIndex]['data']) ? (int)$columnNameArr[$columnIndex]['data'] : $columnName;
+        $data['columnName'] = !empty($columnNameArr[$columnIndex]['data']) ? (int) $columnNameArr[$columnIndex]['data'] : $columnName;
         $data['columnSortOrder'] = !empty($orderArr[0]['dir']) ? $orderArr[0]['dir'] : 'ASC';
         $data['searchValue'] = !empty($searchArr['value']) ? trim($searchArr['value']) : null;
     }
@@ -2127,11 +2486,12 @@ if (!function_exists('addWwwToUrl')) {
 if (!function_exists('duplicateAttach')) {
     /**
      * @description Funzione che duplica gli allegati dopo la duplicazione di un oggetto
-     * @param int|null  $id          Id dell'elemento appena inserito di cui duplicare gli allegati
-     * @param string    $archiveName Nome dell'archivio dell'elemento duplicato
-     * @param int|null  $originId    Id dell'allegato che si deve duplicare
-     * @param int       $sort        Ordinamento dell'allegato
-     * @param Utf8|null $utf8        Classe per la pulizia del nome dell'allegato
+     * @param int|null $id Id dell'elemento appena inserito di cui duplicare gli allegati
+     * @param string $archiveName Nome dell'archivio dell'elemento duplicato
+     * @param int|null $originId Id dell'allegato che si deve duplicare
+     * @param int $sort Ordinamento dell'allegato
+     * @param Utf8|null $utf8 Classe per la pulizia del nome dell'allegato
+     * @param string|null $bdncpCat Categoria per gli allegati delle procedure BDNCP
      * @return void
      */
     function duplicateAttach(int $id = null, string $archiveName = '', int $originId = null, int $sort = 1, Utf8 $utf8 = null, null|string $bdncpCat = ''): void
@@ -2191,7 +2551,7 @@ if (!function_exists('duplicateAttach')) {
                         'archive_name' => $archiveName,
                         'sort' => $sort + 1,
                         'institution_id' => checkAlternativeInstitutionId(),
-                        'cat_id' => (int)Input::post('temp_category'),
+                        'cat_id' => (int) Input::post('temp_category'),
                         'file_type' => $originAttach['file_type'],
                         'orig_name' => $utf8->cleanString(urlTitle($originAttach['orig_name'])),
                         'client_name' => $originAttach['client_name'],
@@ -2203,11 +2563,10 @@ if (!function_exists('duplicateAttach')) {
                         'image_size_str' => $originAttach['image_size_str'],
                         'label' => strip_tags(Input::post('temp_label_attach', true)),
                         'bdncp_cat' => strip_tags(Input::post('temp_bdncp_cat', true)),
-                        'active' => (int)strip_tags((string)Input::post('temp_publish', true)),
-                        'indexable' => (int)strip_tags((string)Input::post('temp_omissis', true)),
+                        'active' => (int) strip_tags((string) Input::post('temp_publish', true)),
+                        'indexable' => (int) strip_tags((string) Input::post('temp_omissis', true)),
                     ]);
                 }
-
             }
         }
     }
@@ -2217,17 +2576,68 @@ if (!function_exists('toSql')) {
     /**
      * Ritorna la query SQL costruita (utile solo per scopi di debug)
      * @param string $sql
-     * @param array  $bindings
+     * @param array $bindings
      * @return string
+     * @description Valori da passate sono i seguenti: primo valore $query->toSql() - Secondo valore $bindings = $query->getBindings();
      */
     function toSql(string $sql = '', array $bindings = []): string
     {
         $data = '';
         if (strlen($sql) >= 1 && count($bindings) >= 1) {
-            $data = vsprintf(str_replace('?', '%s', $sql), $bindings);;
+            // Itera sugli elementi dell'array $bindings
+            foreach ($bindings as $key => $value) {
+                // Verifica se l'elemento è una stringa e aggiungi gli apici
+                if (is_string($value)) {
+                    $bindings[$key] = "'" . $value . "'";
+                }
+            }
+
+            // Costruisco la query SQL utilizzando gli elementi modificati dell'array $bindings
+            $data = vsprintf(str_replace('?', '%s', $sql), $bindings);
         }
 
         return $data;
+    }
+}
+
+if (!function_exists('toSqlEloquent')) {
+    /**
+     * Ritorna la query SQL costruita (utile solo per scopi di debug)
+     * @param object $eloquent
+     * @return string
+     */
+    function toSqlEloquent($eloquent): string
+    {
+        $sql = $eloquent->toSql();
+        $bindings = $eloquent->getBindings();
+
+        $data = '';
+        if (strlen($sql) >= 1 && count($bindings) >= 1) {
+            // Itera sugli elementi dell'array $bindings
+            foreach ($bindings as $key => $value) {
+                // Verifica se l'elemento è una stringa e aggiungi gli apici
+                if (is_string($value)) {
+                    $bindings[$key] = "'" . $value . "'";
+                }
+            }
+
+            // Costruisco la query SQL utilizzando gli elementi modificati dell'array $bindings
+            $data = vsprintf(str_replace('?', '%s', $sql), $bindings);
+        }
+
+        return $data;
+    }
+}
+
+if (!function_exists('toSqlEloquent')) {
+    /**
+     * Ritorna la query SQL costruita (utile solo per scopi di debug)
+     * @param mixed $query
+     * @return string
+     */
+    function toSqlEloquent(mixed $query): string
+    {
+        return toSql($query->toSql(), $query->getBindings());
     }
 }
 
@@ -2260,7 +2670,6 @@ if (!function_exists('removePhoto')) {
         if (!empty($fileName) && File::exists($path . $fileName)) {
             File::delete($path . $fileName);
         }
-
     }
 }
 if (!function_exists('isSerialized')) {
@@ -2270,8 +2679,7 @@ if (!function_exists('isSerialized')) {
             return false;
         }
 
-        set_error_handler(function () {
-        }, E_NOTICE);
+        set_error_handler(function () {}, E_NOTICE);
 
         $result = unserialize($value);
         restore_error_handler();
@@ -2285,7 +2693,7 @@ if (!function_exists('convertDateForCsv')) {
     /**
      * Funzione che converte una data nel formato datetime per essere salvata sul database
      *
-     * @param $date  {data da convertire}
+     * @param $date {data da convertire}
      * @param bool $hours {true se si vuole restituire anche ora:minuti:secondi}
      * @return null|string
      */
@@ -2322,5 +2730,380 @@ if (!function_exists('generateSeparator')) {
         } else {
             return '<div class="custom-separator"><h5>' . $name . '</h5></div>';
         }
+    }
+}
+
+if (!function_exists('extractIntegersFromString')) {
+
+    /**
+     * @param string $input
+     * @return array
+     */
+    function extractIntegersFromString(string $input): array
+    {
+        $result = [];
+
+        if (is_numeric($input)) {
+            $result[] = intval($input);
+            return $result;
+        }
+
+        $split = explode(',', $input);
+
+        foreach ($split as $item) {
+            if (is_numeric($item)) {
+                $result[] = intval($item);
+            }
+        }
+
+        return $result;
+    }
+}
+
+if (!function_exists('mapMetaKeyToValue')) {
+    function mapMetaKeyToValue(array|null $data): array
+    {
+        $result = [];
+
+        if (!empty($data) && is_array($data)) {
+            foreach ($data as $item) {
+                if (isset($item['meta_key']) && isset($item['meta_value'])) {
+                    if ($item['meta_key'] == 'avcp_error') {
+
+                        preg_match('/data-original-title="(.*?)"/', $item['meta_label'], $matches);
+                        $originalTitle = $matches[1] ?? '';
+
+                        $dom = new \DOMDocument;
+                        libxml_use_internal_errors(true);  // Ignora gli errori di HTML malformato
+                        $dom->loadHTML($originalTitle);
+                        libxml_clear_errors();  // Pulisci gli errori dopo il caricamento
+                        $xpath = new \DOMXPath($dom);
+
+                        // Trova tutti i tag <li>
+                        $liNodes = $xpath->query('//li');
+
+                        // Trasforma i nodi in un array
+                        $liArray = [];
+                        foreach ($liNodes as $li) {
+
+                            // elimina il tag li e lo appende in un array
+                            $liArray[] = strip_tags($dom->saveHTML($li));
+                        }
+
+                        $result[$item['meta_key']] = $liArray;
+                    } else {
+
+                        $result[$item['meta_key']] = $item['meta_value'];
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+}
+
+
+if (!function_exists('convertAccentedCharacters')) {
+    function convertAccentedCharacters($str)
+    {
+        static $arrayFrom, $arrayTo;
+
+        if (!is_array($arrayFrom)) {
+            $foreignCharacters = array(
+                '/ä|æ|ǽ/' => 'ae',
+                '/ö|œ/' => 'oe',
+                '/ü/' => 'ue',
+                '/Ä/' => 'Ae',
+                '/Ü/' => 'Ue',
+                '/Ö/' => 'Oe',
+                '/À|Á|Â|Ã|Ä|Å|Ǻ|Ā|Ă|Ą|Ǎ|Α|Ά|Ả|Ạ|Ầ|Ẫ|Ẩ|Ậ|Ằ|Ắ|Ẵ|Ẳ|Ặ|А/' => 'A',
+                '/à|á|â|ã|å|ǻ|ā|ă|ą|ǎ|ª|α|ά|ả|ạ|ầ|ấ|ẫ|ẩ|ậ|ằ|ắ|ẵ|ẳ|ặ|а/' => 'a',
+                '/Б/' => 'B',
+                '/б/' => 'b',
+                '/Ç|Ć|Ĉ|Ċ|Č/' => 'C',
+                '/ç|ć|ĉ|ċ|č/' => 'c',
+                '/Д|Δ/' => 'D',
+                '/д|δ/' => 'd',
+                '/Ð|Ď|Đ/' => 'Dj',
+                '/ð|ď|đ/' => 'dj',
+                '/È|É|Ê|Ë|Ē|Ĕ|Ė|Ę|Ě|Ε|Έ|Ẽ|Ẻ|Ẹ|Ề|Ế|Ễ|Ể|Ệ|Е|Э/' => 'E',
+                '/è|é|ê|ë|ē|ĕ|ė|ę|ě|έ|ε|ẽ|ẻ|ẹ|ề|ế|ễ|ể|ệ|е|э/' => 'e',
+                '/Ф/' => 'F',
+                '/ф/' => 'f',
+                '/Ĝ|Ğ|Ġ|Ģ|Γ|Г|Ґ/' => 'G',
+                '/ĝ|ğ|ġ|ģ|γ|г|ґ/' => 'g',
+                '/Ĥ|Ħ/' => 'H',
+                '/ĥ|ħ/' => 'h',
+                '/Ì|Í|Î|Ï|Ĩ|Ī|Ĭ|Ǐ|Į|İ|Η|Ή|Ί|Ι|Ϊ|Ỉ|Ị|И|Ы/' => 'I',
+                '/ì|í|î|ï|ĩ|ī|ĭ|ǐ|į|ı|η|ή|ί|ι|ϊ|ỉ|ị|и|ы|ї/' => 'i',
+                '/Ĵ/' => 'J',
+                '/ĵ/' => 'j',
+                '/Θ/' => 'TH',
+                '/θ/' => 'th',
+                '/Ķ|Κ|К/' => 'K',
+                '/ķ|κ|к/' => 'k',
+                '/Ĺ|Ļ|Ľ|Ŀ|Ł|Λ|Л/' => 'L',
+                '/ĺ|ļ|ľ|ŀ|ł|λ|л/' => 'l',
+                '/М/' => 'M',
+                '/м/' => 'm',
+                '/Ñ|Ń|Ņ|Ň|Ν|Н/' => 'N',
+                '/ñ|ń|ņ|ň|ŉ|ν|н/' => 'n',
+                '/Ò|Ó|Ô|Õ|Ō|Ŏ|Ǒ|Ő|Ơ|Ø|Ǿ|Ο|Ό|Ω|Ώ|Ỏ|Ọ|Ồ|Ố|Ỗ|Ổ|Ộ|Ờ|Ớ|Ỡ|Ở|Ợ|О/' => 'O',
+                '/ò|ó|ô|õ|ō|ŏ|ǒ|ő|ơ|ø|ǿ|º|ο|ό|ω|ώ|ỏ|ọ|ồ|ố|ỗ|ổ|ộ|ờ|ớ|ỡ|ở|ợ|о/' => 'o',
+                '/П/' => 'P',
+                '/п/' => 'p',
+                '/Ŕ|Ŗ|Ř|Ρ|Р/' => 'R',
+                '/ŕ|ŗ|ř|ρ|р/' => 'r',
+                '/Ś|Ŝ|Ş|Ș|Š|Σ|С/' => 'S',
+                '/ś|ŝ|ş|ș|š|ſ|σ|ς|с/' => 's',
+                '/Ț|Ţ|Ť|Ŧ|Τ|Т/' => 'T',
+                '/ț|ţ|ť|ŧ|τ|т/' => 't',
+                '/Þ|þ/' => 'th',
+                '/Ù|Ú|Û|Ũ|Ū|Ŭ|Ů|Ű|Ų|Ư|Ǔ|Ǖ|Ǘ|Ǚ|Ǜ|Ũ|Ủ|Ụ|Ừ|Ứ|Ữ|Ử|Ự|У/' => 'U',
+                '/ù|ú|û|ũ|ū|ŭ|ů|ű|ų|ư|ǔ|ǖ|ǘ|ǚ|ǜ|υ|ύ|ϋ|ủ|ụ|ừ|ứ|ữ|ử|ự|у/' => 'u',
+                '/Ƴ|Ɏ|Ỵ|Ẏ|Ӳ|Ӯ|Ў|Ý|Ÿ|Ŷ|Υ|Ύ|Ϋ|Ỳ|Ỹ|Ỷ|Ỵ|Й/' => 'Y',
+                '/ẙ|ʏ|ƴ|ɏ|ỵ|ẏ|ӳ|ӯ|ў|ý|ÿ|ŷ|ỳ|ỹ|ỷ|ỵ|й/' => 'y',
+                '/В/' => 'V',
+                '/в/' => 'v',
+                '/Ŵ/' => 'W',
+                '/ŵ/' => 'w',
+                '/Φ/' => 'F',
+                '/φ/' => 'f',
+                '/Χ/' => 'CH',
+                '/χ/' => 'ch',
+                '/Ź|Ż|Ž|Ζ|З/' => 'Z',
+                '/ź|ż|ž|ζ|з/' => 'z',
+                '/Æ|Ǽ/' => 'AE',
+                '/ß/' => 'ss',
+                '/Ĳ/' => 'IJ',
+                '/ĳ/' => 'ij',
+                '/Œ/' => 'OE',
+                '/ƒ/' => 'f',
+                '/Ξ/' => 'KS',
+                '/ξ/' => 'ks',
+                '/Π/' => 'P',
+                '/π/' => 'p',
+                '/Β/' => 'V',
+                '/β/' => 'v',
+                '/Μ/' => 'M',
+                '/μ/' => 'm',
+                '/Ψ/' => 'PS',
+                '/ψ/' => 'ps',
+                '/Ё/' => 'Yo',
+                '/ё/' => 'yo',
+                '/Є/' => 'Ye',
+                '/є/' => 'ye',
+                '/Ї/' => 'Yi',
+                '/Ж/' => 'Zh',
+                '/ж/' => 'zh',
+                '/Х/' => 'Kh',
+                '/х/' => 'kh',
+                '/Ц/' => 'Ts',
+                '/ц/' => 'ts',
+                '/Ч/' => 'Ch',
+                '/ч/' => 'ch',
+                '/Ш/' => 'Sh',
+                '/ш/' => 'sh',
+                '/Щ/' => 'Shch',
+                '/щ/' => 'shch',
+                '/Ъ|ъ|Ь|ь/' => '',
+                '/Ю/' => 'Yu',
+                '/ю/' => 'yu',
+                '/Я/' => 'Ya',
+                '/я/' => 'ya'
+            );
+
+            if (empty($foreignCharacters) or !is_array($foreignCharacters)) {
+                $arrayFrom = array();
+                $arrayTo = array();
+
+                return $str;
+            }
+
+            $arrayFrom = array_keys($foreignCharacters);
+            $arrayTo = array_values($foreignCharacters);
+        }
+
+        return preg_replace($arrayFrom, $arrayTo, $str);
+    }
+}
+
+if (!function_exists('convertAccentsEncode')) {
+    function convertAccentsEncode($string = null)
+    {
+
+        if ($string !== null) {
+            $pattern = [
+                '/[à]/ui',
+                '/[èé]/ui',
+                '/[ì]/ui',
+                '/[ò]/ui',
+                '/[ù]/ui',
+            ];
+
+            $replacement = [
+                '&agrave;',
+                '&egrave;',
+                '&igrave;',
+                '&ugrave;'
+            ];
+
+            return preg_replace($pattern, $replacement, $string);
+        }
+    }
+}
+
+if (!function_exists('setFileDownloadCookie')) {
+    function setFileDownloadCookie(): void
+    {
+        header('Cache-Control: max-age=60, must-revalidate');
+        $sameSiteAttributes = isHttps() ? 'SameSite=None; Secure' : 'SameSite=Lax';
+        header('Set-Cookie: fileDownload=true; path=/; ' . $sameSiteAttributes);
+    }
+}
+
+
+if (!function_exists('setFileDownloadCookieCSV')) {
+    function setFileDownloadCookieCSV(string $fileName = 'download.csv'): void
+    {
+        $sameSiteAttributes = isHttps() ? 'SameSite=None; Secure' : 'SameSite=Lax';
+        header('Set-Cookie: fileDownload=true; path=/; ' . $sameSiteAttributes);
+        header('Cache-Control: max-age=60, must-revalidate, no-store, no-cache');
+        header('Content-Type: text/csv; charset= utf-8');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+    }
+}
+
+
+if (!function_exists('toJson')) {
+    function toJson($array, $printAndExit = false, $options = JSON_PRETTY_PRINT, $depth = 512)
+    {
+        $json = json_encode($array, $options, $depth);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception('JSON encode error: ' . json_last_error_msg());
+        }
+
+        if ($printAndExit) {
+            echo $json;
+            die();
+        }
+
+        return $json;
+    }
+}
+
+if (!function_exists('lognascosto')) {
+    function lognascosto($s, $par = array())
+    {
+
+        $style = "display:none;";
+        echo "<pre style='$style'><br/>Log: ";
+        echo $s . "<br/>";
+        if (!empty($par)) {
+            print_r($par);
+        }
+        echo "</pre>";
+    }
+}
+
+if (!function_exists('_log')) {
+
+    /**
+     * Funzione LOG
+     *
+     * @param $notify
+     * @param $log
+     * @param $exit
+     * @return void
+     */
+    function _log($notify = 'INFO', $log = '', $exit = false): void
+    {
+        \Helpers\CustomLog::write($notify, $log, $exit);
+    }
+}
+
+if (!function_exists('execInBackground')) {
+    /**
+     * Funzione che permette di eseguire in background un processo CLI
+     * @param string $cmd Comando da eseguire
+     * @param array $args args da passare al comando
+     * @param string $mode r -> lettura, w -> scrittura
+     * @return mixed
+     */
+    function execInBackground($cmd, $args = [], $mode = "r"): mixed
+    {
+        if (!empty($args)) {
+            $cmd .= ' ' . implode(' ', $args);
+        }
+
+        $pid = 0;
+        if (OS::isWin()) {
+            $r = popen("start /B " . $cmd, $mode);
+            // echo "'$r'; " . gettype($r) . "\n";
+            pclose($r);
+        } else {
+            $pid = exec($cmd . " > /dev/null &");
+
+            /*
+            //stampa l'ouput
+            ob_start();
+            $pid = exec($cmd . " 2>&1", $output);
+            $result = ob_get_contents();
+            ob_end_clean();
+            // var_dump($output); die();
+            */
+        }
+
+        return $pid;
+    }
+}
+
+if (!function_exists('guardZone')) {
+    /**
+     * Funzione che permette di proteggere una zona di codice da accessi non autorizzati
+     * @return void
+     */
+    function guardZone(mixed $data = null): void
+    {
+        if ($data !== null && !guard()) {
+            Registry::set('___patos___profiles___method__', $data);
+            $json = new \System\JsonResponse();
+            if (Input::isAjax()) {
+                $json->error('error', ['Non hai i permessi necessari']);
+                $json->setStatusCode($json->bad());
+                $json->response();
+            } else {
+                echo showError('Ops', 'Non hai i permessi necessari.', $json->bad(), true);
+            }
+            die();
+        }
+    }
+}
+
+if (!function_exists('jsonOut')) {
+
+    /**
+     * Emette una risposta JSON dichiarandone il Content-Type.
+     *
+     * Da usare al posto di "echo json_encode(...)" negli endpoint che restituiscono JSON.
+     * Senza il tipo corretto la risposta viaggia come text/html e, se contiene valori
+     * provenienti dalla richiesta, puo' essere interpretata dal browser come documento.
+     *
+     * Il corpo prodotto e' identico a json_encode(): la funzione non incapsula i dati,
+     * quindi e' compatibile con i formati attesi dai datatable.
+     *
+     * @param mixed $data Dati da serializzare
+     * @param int $flags Flag da passare a json_encode (es. JSON_INVALID_UTF8_SUBSTITUTE)
+     * @return void
+     */
+    function jsonOut(mixed $data, int $flags = 0): void
+    {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+
+        echo json_encode($data, $flags);
     }
 }

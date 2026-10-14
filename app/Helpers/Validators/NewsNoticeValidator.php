@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\NewsNoticesModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -36,18 +37,23 @@ class NewsNoticeValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null): array
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID news')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero la news con l'id passato in input
-                $check = NewsNoticesModel::where('id', uri()->segment(4, 0))
-                    ->first();
+                $check = NewsNoticesModel::where('id', uri()->segment($uriSegment, 0))
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
+
+                $check = $check->first();
 
                 //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
                 //mostro un messaggio di errore
@@ -65,7 +71,6 @@ class NewsNoticeValidator
             })
             ->end();
 
-
         return [
             'is_success' => $this->validator->isSuccess(),
             'errors' => $this->validator->getErrorsHtml()
@@ -79,9 +84,9 @@ class NewsNoticeValidator
      * @return array
      * @throws Exception
      */
-    public function check(string $mode = 'insert'): array
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
-        return $this->validate($mode);
+        return $this->validate($mode, $institutionId);
     }
 
     /**
@@ -92,16 +97,17 @@ class NewsNoticeValidator
      * @throws Exception
      * @noinspection PhpInconsistentReturnPointsInspection
      */
-    protected function validate(string $mode = 'insert'): array
+    protected function validate(string $mode = 'insert', int|bool $institutionId = false): array
     {
 
         $this->validator->verifyToken()
             ->end();
 
+
         $this->validator->label('Titolo notizia')
             ->value(Input::post('title'))
             ->required()
-            ->betweenString(4, 120)
+            ->betweenString(4, 250)
             ->end();
 
         $this->validator->label('Tipologia')
@@ -109,6 +115,7 @@ class NewsNoticeValidator
             ->required()
             ->in('avviso,news')
             ->end();
+
 
         $this->validator->label('Data notizia')
             ->value(Input::post('news_date'))
@@ -130,7 +137,6 @@ class NewsNoticeValidator
                 if (Input::post('end_date') < Input::post('start_date')) {
 
                     return ['error' => __('invalid_end_date_publication_3', null, 'patos')];
-
                 }
                 return null;
             })
@@ -138,23 +144,33 @@ class NewsNoticeValidator
 
         $this->validator->label('Contenuto')
             ->value(Input::post('content'))
-            ->betweenString(4, 1000)
+            ->betweenString(4, 3000)
             ->end();
+
+
+
 
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $measure = NewsNoticesModel::where('id', Input::post('id'))->first();
+                ->add(function () use ($institutionId, $id) {
+
+                    $query = NewsNoticesModel::where('id', $id)->first();
+
+                    $measure = $query->first();
+
                     if (empty($measure)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Onere/Obbligo')];
                     }
                 })
                 ->end();
+
         }
 
         return [
@@ -162,6 +178,7 @@ class NewsNoticeValidator
             'errors' => $this->validator->getErrorsHtml()
         ];
     }
+
 
     /**
      * Validatore dell'eliminazione multipla

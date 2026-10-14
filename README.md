@@ -1,5 +1,5 @@
 <div align="center">
- <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="https://github.com/AgID/pat/blob/master/pat_logoyml.png"></a>
+ <a href="https://developers.italia.it/it/software/agid-agid-pat.html"><img src="pat_logoyml.png"></a>
 </div>
 
 
@@ -70,7 +70,7 @@ Per capire la struttura dei dati utilizzata dal sistema **PAT** è possibile con
 
 #### Licenza software di terze parti
 
-La piattaforma PAT fa uso di alcune librerie di terze parti per fornire alcune specifiche funzionalità, E' possibile consultare <a href="https://github.com/AgID/pat/blob/master/documentazione/Third-party-libraries/third-party-apps.md">l'elenco delle librerie incluse</a> nella release.
+La piattaforma PAT fa uso di alcune librerie di terze parti per fornire alcune specifiche funzionalità, E' possibile consultare [l'elenco delle librerie incluse](documentazione/Third-party-libraries/third-party-apps.md) nella release.
 
 ## Licenza
 

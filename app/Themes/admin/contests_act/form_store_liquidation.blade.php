@@ -37,17 +37,46 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </h4>
 
             <div class="card-body card-primary">
+
+
+
                 <div class="row">
                     <div class="text-muted col-md-9 mb-4">
                         <i class="fas fa-exclamation-circle"></i> {{ nbs(1) }} I Campi contrassegnati dal
                         simbolo asterisco (*) sono obbligatori.
                     </div>
 
+
                     <div class="col-md-12 mb-3">
                         {{-- BEGIN: Form --}}
                         <div>
 
+
+                            <div class="form-row d-flex align-items-end">
+                                <div class="form-group col-md-3">
+                                    <label for="activation_date">Data della liquidazione *</label>
+                                    <div class="input-group">
+                                        <div class="input-group-prepend">
+                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                                        </div>
+                                        <input type="date" name="activation_date"
+                                               placeholder="GG/MM/AAAA"
+                                               autocomplete="off" class="form-control"
+                                               value="{{ @$activation_date }}"
+                                               id="input_activation_date">
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="patos-hr">
+
+
+                            <div class="form-row d-flex align-items-end">
+                                {{-- Inclusione di librerie esterne --}}
+
+                            </div>
+
                             {{-- Campo Procedura relativa --}}
+                            {{-- Campo Bando di gara relativo --}}
                             <div class="form-row d-flex align-items-end">
                                 <div class="form-group col-md-12" id="input_procedure">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -71,6 +100,15 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         'id' => 'input_object',
                                         'class' => 'form-control input_object'
                                     ]) }}
+                                </div>
+
+                                <div class="form-group col-md-3">
+                                    {{ form_button([
+                                        'name' => 'copy',
+                                        'id' => 'btn_copy_obj',
+                                        'class' => 'btn btn-outline-primary',
+                                        'style' => 'width:100%;'
+                                    ],'<i class="far fa-copy"></i> &nbsp; <small>Copia Oggetto della procedura</small>') }}
                                 </div>
                             </div>
 
@@ -106,22 +144,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         ) }}
                                     </div>
                                 </div>
-
-                                {{-- Campo Data della liquidazione --}}
-                                <div class="form-group col-md-4">
-                                    <label for="activation_date">Data della liquidazione *</label>
-                                    <div class="input-group">
-                                        <div class="input-group-prepend">
-                                            <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
-                                        </div>
-                                        <input type="date" name="activation_date"
-                                               placeholder="GG/MM/AAAA"
-                                               autocomplete="off" class="form-control"
-                                               value="{{ @$activation_date }}"
-                                               id="input_activation_date">
-                                    </div>
-                                </div>
                             </div>
+
 
                             <div class="form-group">
                                 {{-- Campo Note --}}
@@ -134,16 +158,25 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                 ]) }}
                             </div>
                         </div>
+
+                        {{-- Inclusione di librerie esterne --}}
+
                         {{-- END: Form --}}
                     </div>
+
+
                     {{-- ***** BEGIN: include attach**** --}}
                     {% include layout/partials/attach %}
                     {{-- ***** END: include attach**** --}}
+
+
                 </div>
             </div>
             {{-- Card Footer --}}
             <div class="card-footer">
-                {{ btnSave() }}
+
+                    {{ btnSave() }}
+
             </div>
         </div>
 
@@ -196,23 +229,22 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 {% block javascript %}
 {{ js('ckeditor4/ckeditor.js', 'common') }}
 {{ js('patos/jquery.patOsAjaxPagination.js', 'common') }}
-{{ js('admin/get/config.js') }}
+
+{{ js(verifyFirstOrLastSlash('admin/get/config.js')) }}
 
 <script type="text/javascript">
 
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName!='TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 
     $(document).ready(function () {
 
         let formModified = false;
-        let institutionId = $('#institution_id').val();
+       let institutionId = document.getElementById('institution_id').value ?? '';
 
         // Per il tooltip di info nel form
         let infoSpan = '<span class="far fa-question-circle fa-xs" data-toggle="tooltip" data-placement="right" ';
@@ -220,6 +252,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         $('#obj-label').append(infoSpan);
         $('#anac-year-label').append(infoSpan);
         $('#amount-liquidated-label').append(infoSpan);
+
 
         // Se si sta creando un nuovo bando, inizializzo la data di pubblicazione con la data odierna
         if ($('#_storage_type').val() == 'insert') {
@@ -279,7 +312,51 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 formModified = true;
             });
         });
-        CKEDITOR.replace('input_details');
+        CKEDITOR.replace('input_details',{
+            customConfig: '{{ verifyFirstOrLastSlash('assets/common/ckeditor4/config.js')}}',
+        });
+
+        {{-- Copia oggetto bando --}}
+        /**
+         * Funzione che copia l'oggetto della procedura relativa
+         */
+        $('#btn_copy_obj').on('click', function () {
+            let procedure = $('#relative_procedure_id').val();
+
+            if (procedure > 0) {
+                $.ajax({
+                    type: 'GET',
+                    url: '{{siteUrl("/admin/asyncSelectedData")}}',
+                    data: {
+                        id: procedure,
+                        model: 15,
+                        institution_id: institutionId,
+                    },
+                    error: function (jqXHR, status) {
+                        let response = parseJson(jqXHR.responseText);
+
+                        // Funzione che genera il toast con gli errori
+                        {{-- (vedere nel footer) --}}
+                        createValidatorFormErrorToast(
+                            'Impossibile copiare l\'oggetto della Procedura relativa Selezionata',
+                            5000
+                        );
+                    }
+                }).then(function (data) {
+                    let item = data.data.selected;
+                    $('#input_object').val(item[0].text);
+                });
+            } else {
+                $(document).Toasts('create', {
+                    class: 'bg-warning',
+                    title: 'Attenzione',
+                    subtitle: '',
+                    autohide: true,
+                    delay: 5000,
+                    body: 'Nessuna procedura selezionata!'
+                });
+            }
+        });
 
         /**
          * Metodo per il salvataggio

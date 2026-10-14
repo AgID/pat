@@ -9,7 +9,8 @@ namespace Model;
 use Exception;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -23,9 +24,14 @@ class ContentSectionFoModel extends Model
     protected $primaryKey = 'id';
     protected $fillable = [
         'owner_id',
+        'workflow_state',
+        'publishing_status',
+        'publishing_responsable',
+        'unfixed', //colonna fittizia, non viene utilizzata, ma è necessaria per evitare errori nelle query
         'section_fo_id',
         'section_fo_parent_id',
         'institution_id',
+        'source_id',
         'user_id',
         'name',
         'sort',
@@ -45,7 +51,7 @@ class ContentSectionFoModel extends Model
     ];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes Array di valori
      * @throws Exception
      */
@@ -62,7 +68,6 @@ class ContentSectionFoModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
 
     }
 
@@ -76,6 +81,37 @@ class ContentSectionFoModel extends Model
 
         return $this->belongsTo(InstitutionsModel::class, 'institution_id');
     }
+
+
+    /**
+     * @return HasMany
+     * Relazione
+     */
+//    public function profiles()
+//    {
+//        return $this->hasMany(, '', '');
+//    }
+
+    /**
+     * Relazione con Personale (Tabella rel_personnel_for_structures)
+     * Rappresenta il personale responsabile per la struttura
+     * @return HasMany
+     */
+    public function recalls(): HasMany
+    {
+        return $this->hasMany(RecallsModel::class, 'paragraph_id', 'id');
+    }
+
+    /**
+     * Relazione con Personale (Tabella rel_personnel_for_structures)
+     * Rappresenta il personale responsabile per la struttura
+     * @return HasMany
+     */
+    public function recallsConfig(): HasMany
+    {
+        return $this->hasMany(RecallsConfigurationModel::class, 'section_fo_id', 'section_fo_parent_id');
+    }
+
 
     /**
      * Scope locale per il filtraggio in base all'ente
@@ -103,5 +139,14 @@ class ContentSectionFoModel extends Model
     public function created_by(): BelongsTo
     {
         return $this->belongsTo(UsersModel::class, 'user_id');
+    }
+
+    /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
     }
 }

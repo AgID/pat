@@ -4,6 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
+ /** @noinspection PhpUndefinedVariableInspection */
+
+
+
 namespace Http\Web\Front;
 
 use Exception;
@@ -70,7 +74,7 @@ class OpenDataCommissionsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('commissione');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -101,7 +105,7 @@ class OpenDataCommissionsFrontController extends BaseFrontController
         // Recupero i bandi di concorso attivi
         $queryContents = $this->getData('gruppo consiliare');
 
-        if (!empty($querySection) && !empty($queryContents)) {
+        if (!empty($querySection) && $queryContents->isNotEmpty() ) {
 
             $resultSection = $querySection->toArray();
             $resultContests = $queryContents->toArray();
@@ -123,10 +127,13 @@ class OpenDataCommissionsFrontController extends BaseFrontController
     {
         // Recupero le commissioni da scaricare come OpenData
         return CommissionsModel::where('typology', $type)
-            ->where('archived', '!=', 1)
+            ->where(function ($query) {
+            })
             ->with('president:id,full_name')
             ->with('secretaries:id,full_name,archived')
             ->with('members:id,full_name,archived')
+            ->with('management_structure:id,structure_name,archived')
+            ->with('non_management_structure:id,structure_name,archived')
             ->with('attachs')
             ->get();
     }
@@ -156,6 +163,9 @@ class OpenDataCommissionsFrontController extends BaseFrontController
             'Presidente o capogruppo',
             'Segretari',
             'Descrizione',
+            'Competenze',
+            'Uffici dirigenziali',
+            'Uffici non dirigenziali',
             'Membri',
             'Immagine associata',
             'Telefono',
@@ -187,13 +197,33 @@ class OpenDataCommissionsFrontController extends BaseFrontController
                 }
             }
 
-            // Concateno le strutture
             $membersLists = '';
             if (!empty($r['members'])) {
                 foreach ($r['members'] as $member) {
 
                     $membersLists .= $member['full_name'] . ' - [Url]: '
                         . siteUrl('page/4/details/' . $member['id'] . '/' . urlTitle($member['full_name'])) . "\n";
+
+                }
+            }
+
+            // Concateno le strutture
+            $managementStructure = '';
+            if (!empty($r['management_structure'])) {
+                foreach ($r['management_structure'] as $str) {
+
+                    $managementStructure .= $str['structure_name'] . ' - [Url]: '
+                        . siteUrl('page/40/details/' . $str['id'] . '/' . urlTitle($str['structure_name'])) . "\n";
+
+                }
+            }
+            // Concateno le strutture
+            $nonManagementStructure = '';
+            if (!empty($r['non_management_structure'])) {
+                foreach ($r['non_management_structure'] as $str) {
+
+                    $nonManagementStructure .= $str['structure_name'] . ' - [Url]: '
+                        . siteUrl('page/40/details/' . $str['id'] . '/' . urlTitle($str['structure_name'])) . "\n";
 
                 }
             }
@@ -221,6 +251,12 @@ class OpenDataCommissionsFrontController extends BaseFrontController
                 trim($secretariesLists),
                 // Descrizione
                 !empty($r['description']) ? S::chartsEntityDecode(S::stripTags($r['description'])) : null,
+                // Competenze
+                !empty($r['skills']) ? S::chartsEntityDecode(S::stripTags($r['skills'])) : null,
+                // Uffici dirigenziali
+                trim($managementStructure),
+                // Uffici non dirigenziali
+                trim($nonManagementStructure),
                 // Membri
                 trim($membersLists),
                 //  Immagine associata

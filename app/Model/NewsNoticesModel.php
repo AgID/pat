@@ -9,9 +9,10 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Scope\InstitutionScope;
+
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -27,6 +28,7 @@ class NewsNoticesModel extends Model
     protected $table = 'object_news_notices';
     protected $primaryKey = 'id';
 
+    protected string $metaModel = 'MetaNewsNoticeModel';
     protected string $archiveName = 'news_notices';
 
     protected string $objectName = 'News ed avvisi';
@@ -40,6 +42,7 @@ class NewsNoticesModel extends Model
         'workflow_state',
         'news_date',
         'start_date',
+        'expiration_date',
         'end_date',
         'title',
         'typology',
@@ -81,19 +84,13 @@ class NewsNoticesModel extends Model
     protected $searchableWhereHas = [];
 
     /**
-     * Costruttore, viene aggiunta la ricerca per Ente se l'utente è SuperAdmin
+     * Costruttore del modello.
      * @param array $attributes
      * @throws Exception
      */
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        if (isSuperAdmin()) {
-            $this->searchableWhereHas['institution'] = [
-                'field' => ['full_name_institution'],
-                'as' => 'i'
-            ];
-        }
     }
 
     /**
@@ -104,7 +101,7 @@ class NewsNoticesModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**
@@ -128,6 +125,15 @@ class NewsNoticesModel extends Model
     }
 
     /**
+     * @return HasMany
+     */
+    public function user_last_update(): HasMany
+    {
+        return $this->hasMany(ActivityLogModel::class, 'record_id', 'id')
+            ->where('activity_log.object_id', '=', $this->objectId);
+    }
+
+    /**
      * Relazione con gli allegati
      * Restituisce tutti gli allegati non nascosti, per il front-office
      * @return HasMany
@@ -142,6 +148,20 @@ class NewsNoticesModel extends Model
             ->where('archive_name', '=', 'news_notices');
     }
 
+
+
+
+    /**
+     * @return HasMany
+     */
+    public function meta(): HasMany
+    {
+        return $this->relationFromAction('r_d_o', [
+            'n' => __FUNCTION__
+        ]);
+    }
+
+
     /**
      * Relazione con gli allegati
      * Restituisce tutti gli allegati, per il back-office
@@ -154,5 +174,34 @@ class NewsNoticesModel extends Model
             ->orderBy('sort', 'ASC')
             ->where('deleted', '=', '0')
             ->where('archive_name', '=', 'news_notices');
+    }
+
+    /**
+     * Scope locale per il filtraggio dei dati delle liquidazioni relative agli incarichi
+     * @param Builder     $query     Query
+     * @param string|null $title     Titolo notizia
+     * @param string|null $startDate Data inizio
+     * @param string|null $endDate   Data fine
+     * @return void
+     */
+    public function scopeFilter(
+        Builder $query,
+        string  $title = null,
+        string  $startDate = null,
+        string  $endDate = null
+    ): void
+    {
+        if (!empty($title)) {
+            $query->where('object_news_notices.title', 'LIKE', '%' . $title . '%');
+        }
+
+        if (!empty($startDate)) {
+            $query->where('object_news_notices.news_date', '>=', date('Y-m-d H:i:s', strtotime($startDate)));
+        }
+
+        if (!empty($endDate)) {
+            $query->where('object_news_notices.news_date', '<=', date('Y-m-d 23:59:59', strtotime($endDate)));
+        }
+
     }
 }

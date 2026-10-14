@@ -87,6 +87,9 @@ class DomainInfo
         // SET HOST
         define('HOST', $domain['host']);
 
+        // Punto di ingresso usato per generare percorsi assoluti dalla radice del dominio.
+        define('CUSTOM_PATH', '/');
+
         // Query Result
         $institutionInfo = $getInstitution->toArray();
 

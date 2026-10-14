@@ -13,6 +13,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 <div class="row">
     <div class="col-md-12">
+
         <div class="card">
             <div class="card-header">
                 <div class="row">
@@ -33,7 +34,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                     @php
                                         $class = checkAlternativeInstitutionId() == 0 ? 'select-institution' : null;
                                     @endphp
-                                    <li>
+                                    <li class="check-users-num">
                                         <a href="{{ empty($class) ? siteUrl('admin/user/create') : '#!' }}"
                                            title="Aggiungi un nuovo Utente"
                                            id="add-users" class="dropdown-item {{ $class }}" type="button">
@@ -56,6 +57,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                         </a>
                                     </li>
                                 @endif
+
+
+
                             </ul>
                         </div>
                     </div>
@@ -63,6 +67,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             </div>
 
             <div class="card-body">
+
                 <table id="users_list" class="table table-bordered table-striped table-hover">
                     <thead class="bg-table-accessibility">
                     <tr>
@@ -73,10 +78,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                         <th>USERNAME</th>
                         <th>PROFILI ACL</th>
                         <th>INDIRIZZO EMAIL</th>
-                        {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                            <th>ENTE</th>
-                        @endif
+
+
+
                         <th>AZIONI</th>
                     </tr>
                     </thead>
@@ -102,7 +106,6 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
     $(document).ready(function () {
 
-        {{-- Paginazione records datatable--}}
         let dtable = $("#users_list").DataTable({
             sPaginationType: "full_numbers",
             lengthMenu: [25, 50, 75, 100, 150],
@@ -112,9 +115,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             processing: true,
             searchDelay: 800,
             bProcessing: true,
-            bServerSide: false,
+            bServerSide: true,
             bDeferRender: true,
-            ajax: "{{siteUrl('admin/user/list')}}",
+            order: [],
+            ajax: {
+                url: "{{siteUrl('admin/user/list')}}",
+                type: "GET",
+            },
             columns: [
                 {
                     orderable: false,
@@ -125,11 +132,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 {
                     orderable: false
                 },
-                {{-- Ente di appartenenza --}}
-                        @if(isSuperAdmin(true))
-                    null,
-                @endif
-                    null,
+                null,
                 {
                     orderable: false,
                     width: "5%"
@@ -138,16 +141,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             language: {
                 url: '{{ baseUrl('assets/common/datatables/it.json') }}'
             },
-            fnDrawCallback: function (oSettings) {
-
-            }
         });
 
         $.fn.DataTable.ext.pager.numbers_length = 5;
         {{-- End Paginazione records datatable --}}
 
         {{-- Metodo chiamato ogni volta che viene ricaricato il datatable --}}
-        dtable.on('draw', function () {
+        dtable.on('draw responsive-display', function () {
+
             /**
              * Metodo che apre il form per la modifica dell'elemento selezionato
              */
@@ -160,6 +161,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             {{-- Vedere nel footer --}}
             viewRecord();
 
+
             /**
              * Metodo che per l'eliminazione dell'elemento selezionato
              */
@@ -170,17 +172,19 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
              */
             {{-- Vedere nel footer --}}
             deleteRecord();
+
         });
 
-        {{-- Seleziona deseleziona tutti i records nella tabella --}}
-        $('.checkbox_all').bind('click', function () {
-            $isChecked = $(this).is(':checked');
-            if (parseBool($isChecked) === true) {
-                $('.checkbox_item').prop('checked', true);
-            } else {
-                $('.checkbox_item').prop('checked', false);
-            }
+        //Seleziona deseleziona tutti i records nella tabella
+        document.querySelectorAll('.checkbox_all').forEach(checkbox => {
+            checkbox.addEventListener('click', function () {
+                const isChecked = this.checked;
+                document.querySelectorAll('.checkbox_item').forEach(item => {item.checked = isChecked;});
+            });
         });
+
     });
+
 </script>
+
 {% endblock %}

@@ -6,6 +6,7 @@
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
+
 return [
     'balance_sheets' => [
         'name' => 'Bilanci',
@@ -110,5 +111,13 @@ return [
     'bdncp_procedure' => [
         'name' => 'Procedure Banca Dati Nazionale Contratti Pubblici',
         'model' => '\\Model\\'.'BdncpProcedureModel'
+    ],
+    'payment' => [
+        'name' => 'Dati sui pagamenti',
+        'model' => '\\Model\\'.'PaymentModel'
+    ],
+    'politic-organ' => [
+        'name' => 'Organi politici',
+        'model' => '\\Model\\'.'SectionFoPoliticOrganModel'
     ]
 ];

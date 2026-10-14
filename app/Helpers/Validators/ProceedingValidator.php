@@ -10,6 +10,7 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Exception;
 use Model\ProceedingsModel;
+use Scope\DeletedScope;
 use System\Input;
 use System\Registry;
 use System\Validator;
@@ -33,21 +34,22 @@ class ProceedingValidator
      * @return array
      * @throws Exception
      */
-    public function validateUriSegmentId($checkOwner = null)
+    public function validateUriSegmentId($checkOwner = null, $uriSegment = 4, $institutionId = null, $userId = null): array
     {
         $this->validator->label('ID procedimento')
-            ->value(uri()->segment(4, 0))
+            ->value(uri()->segment($uriSegment, 0))
             ->required()
             ->isNaturalNoZero()
             ->isInt()
-            ->add(function () use ($checkOwner) {
+            ->add(function () use ($checkOwner, $uriSegment, $institutionId, $userId) {
 
                 //Recupero il procedimento con l'id passato in input
-                $check = ProceedingsModel::where('id', uri()->segment(4, 0))
-                    ->with(['responsibles' => function ($query) {
-                        $query->select(['object_personnel.id', 'full_name', 'title', 'email', 'role_id', 'role.name']);
-                        $query->join('role', 'role.id', '=', 'role_id');
-                    }])
+                $check = ProceedingsModel::where('id', uri()->segment(4, 0));
+
+                $check = $check->with(['responsibles' => function ($query) {
+                    $query->select(['object_personnel.id', 'full_name', 'title', 'email', 'role_id', 'role.name']);
+                    $query->join('role', 'role.id', '=', 'role_id');
+                }])
                     ->with(['measure_responsibles' => function ($query) {
                         $query->select(['object_personnel.id', 'full_name', 'email', 'title', 'role_id', 'role.name']);
                         $query->join('role', 'role.id', '=', 'role_id');
@@ -61,26 +63,50 @@ class ProceedingValidator
                         $query->join('role', 'role.id', '=', 'role_id');
                     }])
                     ->with(['offices_responsibles' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id',
-                            'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
+                            ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
+                    }])
+                    ->with(['final_measure_office' => function ($query) {
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
                     }])
                     ->with(['other_structures' => function ($query) {
-                        $query->select(['object_structures.id', 'object_structures.structure_name', 'object_structures.structure_of_belonging_id',
-                            'object_structures.reference_email', 'parent.structure_name as parent_name'])
+                        $query->select([
+                            'object_structures.id',
+                            'object_structures.structure_name',
+                            'object_structures.structure_of_belonging_id',
+                            'object_structures.reference_email',
+                            'parent.structure_name as parent_name'
+                        ])
                             ->join('object_structures as parent', 'parent.id', '=', 'object_structures.structure_of_belonging_id', 'left outer');
                     }])
                     ->with('normatives:id')
                     ->with(['monitoring_datas' => function ($query) {
                         $query->select(['*']);
                     }])
-                    ->first();
-                //Se non esiste l'esito con questo id, oppure l'utente non può modificare i record non creati da lui
-                //mostro un messaggio di errore
-                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id))) {
+                    ->with(['created_by' => function ($query) {
+                        $query->withoutGlobalScopes([DeletedScope::class]);
+                        $query->select(['id', 'name', 'deleted']);
+                    }]);
 
+
+                $check = $check->first();
+
+                if ($check == null || (!empty($checkOwner) && !checkRecordOwner(@$check->owner_id, $userId))) {
                     return [
-                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'procedimento ')
+                        'error' => sprintf(__('error_validate_uri_segment_id', null, 'patos'), 'bando di concorso ')
                     ];
                 }
 
@@ -98,18 +124,19 @@ class ProceedingValidator
         ];
     }
 
+
     /**
      * Metodo che esegue la validazione dei campi del form
      *
      * @return array
      * @throws Exception
      */
-    public function check($mode = 'insert')
+    public function check(string $mode = 'insert', int|bool $institutionId = false): array
     {
         if ($mode == 'archiving') {
             return $this->archivingValidate();
         } else {
-            return $this->validate($mode);
+            return $this->validate($mode, $institutionId);
         }
     }
 
@@ -119,15 +146,16 @@ class ProceedingValidator
      * @return array
      * @throws Exception
      */
-    protected function validate($mode = 'insert')
+    protected function validate(string $mode, int $institutionId): array
     {
         $this->validator->verifyToken()
             ->end();
 
+
         $this->validator->label('Nome del procedimento')
             ->value(Input::post('name'))
             ->required()
-            ->betweenString(5, 255)
+            ->betweenString(5, 600)
             ->end();
 
         if (Input::post('responsibles')) {
@@ -150,8 +178,7 @@ class ProceedingValidator
             }
         }
 
-
-        if(Input::post('substitute_responsibles')) {
+        if (Input::post('substitute_responsibles')) {
             foreach (explode(',', (string)Input::post('substitute_responsibles')) as $substituteResponsible) {
                 $this->validator->label('Responsabile sostitutivo' . $substituteResponsible)
                     ->value($substituteResponsible)
@@ -159,6 +186,7 @@ class ProceedingValidator
                     ->isNaturalNoZero()
                     ->end();
             }
+
         }
 
         if (Input::post('offices_responsibles')) {
@@ -175,6 +203,14 @@ class ProceedingValidator
             $this->validator->label('Ufficio responsabile')
                 ->value(Input::post('offices_responsibles'))
                 ->required()
+                ->end();
+        }
+
+        if (Input::post('final_measure_office')) {
+            $this->validator->label('Ufficio competente all\'adozione del provvedimento finale')
+                ->value(Input::post('final_measure_office'))
+                ->isInt()
+                ->isNaturalNoZero()
                 ->end();
         }
 
@@ -208,9 +244,14 @@ class ProceedingValidator
             ->betweenString(5, 10000)
             ->end();
 
+        $this->validator->label('Documenti da allegare all\'istanza e modulistica necessaria')
+            ->value(Input::post('instance_documents'))
+            ->betweenString(5, 10000)
+            ->end();
+
         $this->validator->label('Costi e modalità di pagamento')
             ->value(Input::post('costs'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 10000)
             ->end();
 
         $this->validator->label('Conclusione tramite silenzio assenso')
@@ -235,17 +276,27 @@ class ProceedingValidator
 
         $this->validator->label('Riferimenti normativi (altro)')
             ->value(Input::post('regulation'))
-            ->betweenString(5, 1000)
+            ->betweenString(5, 10000)
+            ->end();
+        
+        $this->validator->label('Modalità con le quali gli interessati possono ottenere le informazioni relative al procedimento')
+            ->value(Input::post('obtaining_info'))
+            ->betweenString(5, 10000)
+            ->end();
+
+        $this->validator->label('Note')
+            ->value(Input::post('notes'))
+            ->betweenString(5, 10000)
             ->end();
 
         $this->validator->label('Termine di conclusione')
             ->value(Input::post('deadline'))
-            ->betweenString(5, 150)
+            ->maxLength(250)
             ->end();
 
         $this->validator->label('Strumenti di tutela')
             ->value(Input::post('protection_instruments'))
-            ->betweenString(5, 150)
+            ->betweenString(5, 500)
             ->end();
 
         $this->validator->label('Disponibilità del servizio online')
@@ -256,34 +307,59 @@ class ProceedingValidator
         if (Input::post('service_available') === '1') {
 
             $this->validator->label('Url per il servizio online relativo')
-                ->value(Input::post('url_service'))
-                ->required()
-                ->isUrl(null, true)
+                ->value(Input::post('url_service'));
+
+            $isRequired = true;
+
+            if ($isRequired !== false) {
+                $this->validator->required();
+            }
+
+            $this->validator->isUrl(null, true)
                 ->betweenString(4, 191)
                 ->end();
         } else {
 
             $this->validator->label('Tempi previsti per attivazione del servizio online')
-                ->value(Input::post('service_time'))
-                ->required()
-                ->betweenString(2, 150)
+                ->value(Input::post('service_time'));
+
+            $isRequired = true;
+
+            if ($isRequired !== false) {
+                $this->validator->required();
+            }
+
+            $this->validator->betweenString(2, 150)
                 ->end();
         }
 
+
+
+
+
         if ($mode === 'update') {
 
+            $id = Input::post('id');
+
             $this->validator->label('id')
-                ->value(Input::post('id'))
+                ->value($id)
                 ->required()
                 ->isInt()
                 ->isNaturalNoZero()
-                ->add(function () {
-                    $user = ProceedingsModel::where('id', Input::post('id'))->first();
-                    if (empty($user)) {
+                ->add(function () use ($id, $institutionId) {
+
+                    $query = ProceedingsModel::where('id', $id);
+
+                    $res = $query->first();
+
+                    if (empty($res)) {
                         return ['error' => sprintf(__('not_exist_obj', null, 'patos'), 'Procedimento')];
                     }
+
+                    return null;
                 })
                 ->end();
+
         }
 
         $this->validateMonitoring();

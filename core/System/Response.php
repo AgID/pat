@@ -1,5 +1,10 @@
 <?php
 /**
+ * Nome applicativo: PAT
+ * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
+ */
+
+/**
  * Fuel is a fast, lightweight, community driven PHP 5.4+ framework.
  *
  * @package    Fuel
@@ -103,6 +108,7 @@ class Response
     public function setStatus($status = 200)
     {
         $this->status = $status;
+
         return $this;
     }
 
@@ -172,32 +178,18 @@ class Response
     public function sendHeaders()
     {
         if (!headers_sent()) {
-
-            if (!empty($_SERVER['FCGI_SERVER_VERSION'])) {
-
-                header('Status: ' . $this->status . ' ' . static::$statuses[$this->status]);
-
-            } else {
-
-                $protocol = Input::server('SERVER_PROTOCOL') ? Input::server('SERVER_PROTOCOL', true) : 'HTTP/1.1';
-                header($protocol . ' ' . $this->status . ' ' . static::$statuses[$this->status]);
-
-            }
-
+            http_response_code($this->status);
             foreach ($this->headers as $name => $value) {
-
                 if (is_int($name) and is_array($value)) {
-
                     isset($value[0]) and $name = $value[0];
                     isset($value[1]) and $value = $value[1];
-
                 }
 
                 is_string($name) and $value = "{$name}: {$value}";
-
                 header($value, true);
-
             }
+            // Stampa tutti gli headers inviati
+            // error_log(print_r(headers_list(), true)); 
             return true;
 
         }
@@ -227,7 +219,7 @@ class Response
 
             } else {
 
-                return $body;
+                return $this->body;
 
             }
 

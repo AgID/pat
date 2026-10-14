@@ -1,9 +1,4 @@
 /**
- * Nome applicativo: PAT
- * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
- */
-
-/**
  * AJAX Pagination Data
  * usage:
  *         -- Paginazione per le select singole --
@@ -125,6 +120,18 @@
              * Eventuali campi di tipo data da formattare
              */
             'dateFormat': [],
+
+            /**
+             * Per gli elementi archiviabili, indica la colonna in cui far comparire l'icona che indica che
+             * il record è stato archiviato.
+             */
+            'archived': 1,
+
+            /**
+             * Per gli elementi non pubblicati, indica la colonna in cui far comparire l'icona che indica che
+             * il record è pubblicato.
+             */
+            'published': 1,
 
             /**
              * Indica se sono in un form di sola lettura, quindi mostro solo gli elementi selezionati e nascondo la tabella
@@ -315,6 +322,7 @@
 
                 // Per ogni record creo una riga nella tabella
                 $.each(response, function (key, value) {
+                    var isArchived = false;
 
                     if (parseInt(config.dataParams['exclude_id'] ?? 0) !== parseInt(value['id'])) {
 
@@ -342,6 +350,8 @@
 
                                 var isChecked = (getValue[value[currentValue]] !== undefined) ? ' checked ' : ' ';
 
+                                isArchived = (value['archived'] && value['archived'] == 1) ? true : false;
+
                                 // Campo di input per la selezione(radio o checkbox)
                                 if (_inArray(getAction, ['radio', 'checkbox']) && config.unique_id == currentValue) {
                                     current = value[currentValue];
@@ -362,9 +372,17 @@
                                         // value[currentValue] = new Date(value[currentValue]).toLocaleDateString('it-IT');
                                     }
 
+                                    archived = (index == config.archived && isArchived)
+                                        ? '<i class="fas fa-folder" data-toggle="tooltip" data-placement="top" data-original-title="Questo elemento è stato archiviato" style="color: #8E2558"></i> '
+                                        : '';
+
+                                    let published = (value['publishing_status'] == 0 && index == config.published)
+                                        ? '<i class="fas fa-eye-slash" data-toggle="tooltip" data-placement="top" data-original-title="Elemento non pubblicato" style="color: #8E2558"></i> '
+                                        : '';
+
                                     // Creo la colonna con il valore da mostrare
                                     html += '<td>';
-                                    html += (value[currentValue] != null && value[currentValue] != '') ? value[currentValue] : 'N.D';
+                                    html += (value[currentValue] != null && value[currentValue] != '') ? archived + published + value[currentValue] : 'N.D';
                                     html += '</td>';
 
                                 }
@@ -373,7 +391,7 @@
 
                         // Colonna delle action
                         if (config.addRecord.show_action) {
-                            html += '<td class="text-center"><a type="button" class="patos_edit_item open-modal" href="#!" data-url="' + config.addRecord.editUrl + current + '" title="Edita elemento"><i class="far fa-edit fa-xs"></i></a></td>';
+                            html += (isArchived) ? '<td class="text-center"></td>' : '<td class="text-center"><a type="button" class="patos_edit_item open-modal" href="#!" data-url="' + config.addRecord.editUrl + current + '" title="Edita elemento"><i class="far fa-edit fa-xs"></i></a></td>';
                         }
                         html += '</tr>';
                     }
@@ -431,8 +449,22 @@
                 'placeholder="' + config.search_placeholder + '" id="' + _textSearchId + '" class="' + _textSearchId + '">';
             // pulsante per l'aggiunta di un nuovo record nella tabella direttamente dal form, se presente nella configurazione
             // della tabella
+            // Pulsante ricerca esatta
+            if(config.showExactSearch){
+                html += '<div class="custom-control custom-switch ml-2 d-inline-block">';
+                html += '  <input type="checkbox" class="exact_search_switch custom-control-input" id="exact_search_' + uuid + '">';
+                html += '  <label class="custom-control-label" for="exact_search_' + uuid + '">Ricerca esatta</label>';
+                html += '</div>';
+            }
+
             if (config.addRecord.show_action) {
-                html += '<button name="add" type="button" id="btn_add_' + uuid + '" style="padding:0.1rem .75rem; margin-bottom: .2rem;" class="btn btn-outline-primary open-modal ml-2" data-url="' + config.addRecord.url + '">' + config.addRecord.label + '&nbsp; <i class="fas fa-plus-circle"></i></button>';
+                if(config.addRecord.perlapa !== undefined && config.addRecord.perlapa === 1){
+                    html += '<button name="add" type="button" id="btn_add_' + uuid + '" style="padding:0.1rem .75rem; margin-bottom: .2rem;" class="btn btn-outline-primary open-modal ml-2" data-url="' + window.location.origin + '/admin/assignment/create-employee-assignment/create-box">Aggiungi nuovo incarico a dipendente &nbsp; <i class="fas fa-plus-circle"></i></button>';
+                    html += '<button name="add" type="button" id="btn_add_' + uuid + '" style="padding:0.1rem .75rem; margin-bottom: .2rem;" class="btn btn-outline-primary open-modal ml-2" data-url="' + window.location.origin + '/admin/assignment/create-consultant-assignment/create-box">Aggiungi nuovo incarico a consulente &nbsp; <i class="fas fa-plus-circle"></i></button>';
+                }else{
+                    html += '<button name="add" type="button" id="btn_add_' + uuid + '" style="padding:0.1rem .75rem; margin-bottom: .2rem;" class="btn btn-outline-primary open-modal ml-2" data-url="' + config.addRecord.url + '">' + config.addRecord.label + '&nbsp; <i class="fas fa-plus-circle"></i></button>';
+                }
+
             }
             html += '</div>'
             html += '</div>';
@@ -457,6 +489,10 @@
             if (searchKeyword !== null) {
                 config.dataParams[config.getSearch] = searchKeyword;
                 isLiveSearch = true;
+            }
+
+            if(config.showExactSearch){
+                config.dataParams['exact_search'] = _isExactSearch();
             }
 
             if (url !== null || perPage != null) {
@@ -790,6 +826,17 @@
                     _loadAjaxPagination(_value);
                 }, magicalTimeout)
             });
+
+            $('#exact_search_' + uuid).on('change', function (e) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                clearTimeout(timeout);
+                var _value = $('#' + _textSearchId).val();
+                timeout = setTimeout(function () {
+                    _loadAjaxPagination(_value);
+                }, magicalTimeout)
+            });
+
             return false;
         }
 
@@ -841,12 +888,18 @@
                     } else {
 
                         html += '<li class="page-item">';
-                        html += '<a class="page-link ajax_link' + uuid + '" href="' + ((link.url !== null) ? link.url : '#!') + '">';
+                        //html += '<a class="page-link ajax_link' + uuid + '" href="' + ((link.url !== null) ? link.url : '#!') + '">';
+
+                        if(link.url === '' && ( link.label === '...' || link.label === '')){
+                            html += '<a class="page-link disabled-link ajax_link' + uuid + '">';
+                        }else{
+                            html += '<a class="page-link ajax_link' + uuid + '" href="' + ((link.url !== null) ? link.url : '#!') + '">';
+                        }
 
 
-                        if (link.label === '' && i === 0) {
+                        if ((link.label === '' || link.label === null) && i === 0) {
                             html += '&lsaquo;';
-                        } else if ((link.label == '') && (i === results.links.length - 1)) {
+                        } else if ((link.label == '' || link.label === null) && (i === results.links.length - 1)) {
                             html += '&rsaquo;';
                         } else {
                             html += link.label;
@@ -1020,6 +1073,13 @@
                 _setInputDataValue();
             })
         }
+
+
+        /** Funzione utilizzata nei casi di ricerca esatta */
+        function _isExactSearch() {
+            return $(`#exact_search_${uuid}`).is(':checked') ? 1 : 0;
+        }
+
 
         return this;
     }

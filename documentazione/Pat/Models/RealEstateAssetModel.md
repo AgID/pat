@@ -7,7 +7,6 @@ Il modello `RealEstateAssetModel` rappresenta la tabella `object_real_estate_ass
 * `$table`: Il nome della tabella nel database (default: `'object_real_estate_asset'`).
 * `$primaryKey`: Il nome della chiave primaria nella tabella (default: `'id'`).
 * `$fillable`: Un array dei nomi delle colonne che possono essere assegnate in massa.
-* `$metaModel`: Il nome della classe del modello dei metadati associati (default: `'MetaRealEstateAssetModel'`).
 * `$archiveName`: Il nome dell'archivio associato al modello (default: `'real_estate_asset'`).
 * `$objectName`: Il nome dell'oggetto (default: `'Patrimonio immobiliare'`).
 * `$objectId`: L'ID dell'oggetto (default: `8`).
@@ -50,11 +49,6 @@ scopeFilter(Builder $query, string$name = null, string$address = null): void
 
 Il metodo `scopeFilter` è uno scope locale che permette di filtrare i dati dei patrimoni immobiliari in base al nome e all'indirizzo.
 
-```
-meta(): HasMany
-```
-
-Il metodo `meta` definisce la relazione con il modello `MetaRealEstateAssetModel`, rappresentante i metadati associati ai patrimoni immobiliari.
 
 ```
 offices(): BelongsToMany

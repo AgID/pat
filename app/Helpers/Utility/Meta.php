@@ -40,11 +40,11 @@ class Meta
     const twitterImage = 'image';
 
     /**
-     * @return static
+     * @return self
      */
-    public static function getInstance(): static
+    public static function getInstance(): self
     {
-        return new static();
+        return new self();
     }
 
     /**
@@ -72,12 +72,12 @@ class Meta
     /**
      * @param string     $method    Metodo da chiamare
      * @param array|null $arguments Argomenti da passare al metodo
-     * @return static
+     * @return self
      */
-    public static function __callStatic(string $method, ?array $arguments)
+    public static function __callStatic(string $method, ?array $arguments): self
     {
         $vars = count($arguments) ? current($arguments) : [];
-        return new static($method, $vars);
+        return new self($method, $vars);
     }
 
     /**

@@ -53,10 +53,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             ]) }}
                         </div>
                     </div>
-
                     <div class="col-md-12">
                         <div class="form-group">
-                            <label for="description">Descrizione</label>
+                            <label for="description">Descrizione *</label>
                             {{ form_textarea([
                                 'placeholder' => 'Descrizione del ruolo ACL',
                                 'name' => 'description',
@@ -68,6 +67,47 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             ]) }}
                         </div>
                     </div>
+
+
+
+
+
+
+
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <span>Gestione immagini ed allegati</span>
+                            <div>
+                                <label for="file_archive_1" class="font-weight-normal">
+                                    {{ form_radio('file_archive', 1, !in_array((int)($fileArchive ?? 1), [2, 3], true), 'class="file_archive_1" id="file_archive_1"') }}
+                                    Nessun accesso
+                                </label> {{ nbs(2) }}
+                                <label for="file_archive_2" class="font-weight-normal">
+                                    {{ form_radio('file_archive', 2, (int)($fileArchive ?? 1) === 2, 'class="file_archive_2" id="file_archive_2"') }}
+                                    Gestione solo della cartella personale
+                                </label> {{ nbs(2) }}
+                                <label for="file_archive_3" class="font-weight-normal">
+                                    {{ form_radio('file_archive', 3, (int)($fileArchive ?? 1) === 3, 'class="file_archive_3" id="file_archive_3"') }}
+                                    Gestione di tutti i file dell'ente
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-sm-12">
+                        <div class="form-group">
+                            <label for="editor_wishing">Modalità di visualizzazione dell'editor redazionale dei
+                                contenuti</label>
+                            <div>
+                                <?php echo form_radio('editor_wishing', 'base', ((!empty($editorWishing) && $editorWishing === 'base') || empty($editorWishing)), 'class="editor_wishing" id="editor_wishing_0" data-toggle="tooltip" data-placement="top" data-original-title="Base"') ?>
+                                Base <?php echo nbs(2) ?>
+                                <?php echo form_radio('editor_wishing', 'adv', (!empty($editorWishing) && $editorWishing === 'adv'), 'class="editor_wishing" id="editor_wishing_1" data-toggle="tooltip" data-placement="top" data-original-title="Avanzato"') ?>
+                                Avanzato <?php echo nbs(2) ?>
+
+                            </div>
+                        </div>
+                    </div>
+
 
                     <div class="col-md-12">
                         <hr/>
@@ -110,6 +150,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             @if(!empty($section['children']))
                                 @php
                                     $allowed = true;
+                                    $allowed = $allowed ?? null;
                                 @endphp
                                 <div class="row mt-2 mb-3 tbl_section_bo" id="tbl_{{ $i }}">
                                     <div class="col-md-12 table-responsive">
@@ -169,6 +210,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     <i class="fas fa-question-circle"></i>
                                                 </span>
                                                 </th>
+
+
+
                                             </tr>
                                             </thead>
                                             <tbody>
@@ -180,6 +224,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                         $read = null;
                                                         $update = null;
                                                         $delete = null;
+                                                        $appIO = null;
+
+                                                        $children = $children ?? null;
 
                                                         if (!empty($permits) && !empty($_storageType) && ($_storageType==='clone' || $_storageType==='edit')) {
 
@@ -192,6 +239,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                                 $read = ($item['read'] === 1) ? 'checked="checked"' : null;
                                                                 $update = ($item['update'] === 1) ? 'checked="checked"' : null;
                                                                 $delete = ($item['delete'] === 1) ? 'checked="checked"' : null;
+                                                                $appIO = ($item['send_notify_app_io'] === 1) ? 'checked="checked"' : null;
 
                                                             }
 
@@ -200,6 +248,7 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                     <tr>
                                                         @php
                                                             $allowedSection = true;
+                                                            $allowedSection = $allowedSection ?? null;
                                                         @endphp
 
                                                         {{-- Nome sesione --}}
@@ -258,6 +307,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                                                                 {{ badgeAclUserProfile($delete) }}
                                                             @endif
                                                         </td>
+
+
+
                                                     </tr>
                                                 @endif
                                             @endforeach
@@ -360,11 +412,9 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
 
 <script type="text/javascript">
     //Previene il salvataggio quando si preme invio e il focus non è sul pulsante di salvataggio
-    $('#{{ $formSettings['id'] }}').on('keyup keypress', function (e) {
-        var keyCode = e.keyCode || e.which;
-        if (keyCode === 13 && e.target.tagName != 'TEXTAREA') {
+    document.getElementById('{{ $formSettings['id'] }}').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
-            return false;
         }
     });
 

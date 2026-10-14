@@ -75,9 +75,8 @@ class OpenDataGeneralActsDocumentsFrontController extends BaseFrontController
             // Recupero i bandi di concorso attivi
             $queryContents = $this->getData($resultSection['id']);
 
-            $resultContests = $queryContents->toArray();
-
-            if(!empty($queryContents)) {
+            if($queryContents->isNotEmpty()) {
+                $resultContests = $queryContents->toArray();
                 $this->generateCsv($resultContests, $resultSection);
             }
         }
@@ -129,11 +128,11 @@ class OpenDataGeneralActsDocumentsFrontController extends BaseFrontController
             ];
 
             foreach ($resultContests as $record) {
-                $actDate = !empty($record['document_date']) ? (date('d-m-Y', strtotime($record['document_date']))) : '';
+                $actDate = !empty($record['document_date']) ? (date('d/m/Y', strtotime($record['document_date']))) : '';
 
-                $startDate = !empty($record['start_date']) ? date('d-m-Y', strtotime($record['start_date'])) : '';
+                $startDate = !empty($record['start_date']) ? date('d/m/Y', strtotime($record['start_date'])) : '';
 
-                $updateAt = !empty($record['updated_at']) ? date('d-m-Y', strtotime($record['updated_at'])) : '';
+                $updateAt = !empty($record['updated_at']) ? date('d/m/Y', strtotime($record['updated_at'])) : '';
 
                 $attachLists = '';
                 if (!empty($record['attachs'])) {
@@ -187,10 +186,15 @@ class OpenDataGeneralActsDocumentsFrontController extends BaseFrontController
             $query->where('public_in_id', $section);
         })
             ->with('attachs')
+            ->filter(
+                (Input::get('o', true)),
+                Input::get('start', true),
+                Input::get('end', true)
+            )
             ->orderBy('document_date', 'DESC')
             ->orderBy('object', 'ASC')
-            ->skip(Input::get('skip'))
-            ->take(Input::get('take'))
+            ->skip(boundedQueryInt('skip', 1000000))
+            ->take(boundedQueryInt('take', 100000, 100000))
             ->get();
     }
 }

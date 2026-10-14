@@ -4,12 +4,10 @@
  * Licenza di utilizzo: GNU Affero General Public License» versione 3 e successive: https://spdx.org/licenses/AGPL-3.0-or-later.html
  */
 
-
 namespace Model;
 
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use System\Model;
 use Traits\SearchableTrait;
 
@@ -53,14 +51,4 @@ class InstitutionTypeModel extends Model
 
     }
 
-    /**
-     * Relazione con RelSectionExcludedModel
-     * Relazione "OneToMany" per prelevare le sezioni escluse per l'ente
-     *
-     * @return HasMany
-     */
-    public function excluded_sections(): HasMany
-    {
-        return $this->hasMany(RelSectionExcludedModel::class, 'institution_type_id', 'id');
-    }
 }

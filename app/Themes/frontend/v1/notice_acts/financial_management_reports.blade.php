@@ -20,7 +20,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                 <div class="col-12">
 
                     {{-- Nome pagina --}}
-                    <h1 class="page-title">{{e: !empty($h1) ? $h1 : $pageName }}</h1>
+                    <div class="div-title">
+                        <h1>{{e: !empty($h1) ? $h1 :  $pageName }}</h1>
+                        <div class="button-normative">
+                        </div>
+                    </div>
+
+                    {{-- Inclusione di librerie esterne --}}
 
                     {{-- Contenuto della pagina --}}
                     {% include v1/layout/partials/page_content %}
@@ -30,13 +36,14 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </section>
 
+
     <section id="risultati-ricerca">
         <div class="container">
             @if($title)
-            <h3 class="page-subtitle">
-                Affidamenti
-            </h3>
-            <hr>
+                <h3 class="page-subtitle">
+                    Affidamenti
+                </h3>
+                <hr>
             @endif
 
             {{-- Tabella generata dal server --}}
@@ -52,12 +59,13 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
             @endif
         </div>
 
+
         <div class="container">
             @if($titleNotices)
-            <h3 class="page-subtitle">
-                Atti
-            </h3>
-            <hr>
+                <h3 class="page-subtitle">
+                    Atti
+                </h3>
+                <hr>
             @endif
             <section id="risultati-ricerca" class="mb-5">
                 <div class="container">
@@ -70,24 +78,26 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
                             {{ paginateBootstrap($notices) }}
                         @endif
                     @else
-                        <h5 class="font-weight-bold">Nessun elemento presente</h5>
+                        <div class="box-card-shadow my-4">
+                <h5 class="title">
+                    <svg class="icon">
+                        <use href="/assets/frontend/v1/css/sprites.svg#it-note"></use>
+                    </svg>
+                    Nessun elemento presente
+                </h5>
+            </div>
                     @endif
                 </div>
             </section>
-
-            <div class="mb-2">
-                <p>Non hai trovato le informazioni soggette alla pubblicazione obbligatoria?</p>
-                <a href="" class="btn btn-primary"><span class="far fa-comment"></span> Richiedile ora</a>
-            </div>
         </div>
-
     </section>
 
     {{-- Bottom Menu --}}
     {% include v1/layout/partials/bottom_menu %}
 </main>
 
-
+{{-- Link utilii --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

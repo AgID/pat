@@ -58,11 +58,6 @@ class UserActivationController extends \System\BaseController
                     'user_id' => $id,
                     'action' => "{$fullName} ha attivato il proprio account nel giorno {$day} alle ore {$hours}",
                     'username' => $username,
-                    'request_post' => [
-                        'post' => Input::post(),
-                        'get' => Input::get(),
-                        'server' => Input::server(),
-                    ],
                 ]);
 
                 // Activate users
@@ -70,9 +65,6 @@ class UserActivationController extends \System\BaseController
                 $user->active_key = null;
                 $user->last_visit = $lastVisit;
                 $user->save();
-
-                // !ToDo
-                // Inserire lo script che notifica all'amministratore di sistema l'attivazione di un nuovo utente.
 
                 // Redirect auth..
                 session()->setFlash('user_activation', true);

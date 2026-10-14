@@ -40,6 +40,8 @@ defined('_FRAMEWORK_') OR exit('No direct script access allowed'); ?>
         </div>
     </section>
 </main>
+{{-- Cards Link --}}
+{% include v1/layout/partials/card_link %}
 
 {% endblock %}
 {{--  ************************************************ CSS ************************************************ --}}

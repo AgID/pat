@@ -13,6 +13,32 @@ defined('_FRAMEWORK_') or exit('No direct script access allowed');
  */
 class Crypto
 {
+    /**
+     * Configurazione OpenSSL memorizzata per la durata della richiesta corrente.
+     *
+     * @var array|null
+     */
+    private static ?array $configuration = null;
+
+    /**
+     * Recupera una sola volta i parametri OpenSSL, evitando di inizializzare
+     * ripetutamente la sanitizzazione delle variabili d'ambiente durante
+     * le operazioni massive di cifratura e decifratura.
+     *
+     * @return array
+     */
+    private static function getConfiguration(): array
+    {
+        if (self::$configuration === null) {
+            self::$configuration = [
+                'cipher' => _env('CIPHER'),
+                'iv' => _env('ENCRYPTION_IV'),
+                'key' => _env('ENCRYPTION_KEY'),
+            ];
+        }
+
+        return self::$configuration;
+    }
 
     /**
      * @param string $data La stringa da crittografare
@@ -20,11 +46,12 @@ class Crypto
      */
     public static function encrypt(string $data): bool|string
     {
-        $ciphering = _env('CIPHER');
+        $configuration = self::getConfiguration();
+        $ciphering = $configuration['cipher'];
         openssl_cipher_iv_length($ciphering);
         $options = 0;
-        $encryptionIv = _env('ENCRYPTION_IV');
-        $encryptionKey = _env('ENCRYPTION_KEY');
+        $encryptionIv = $configuration['iv'];
+        $encryptionKey = $configuration['key'];
         return openssl_encrypt($data, $ciphering, $encryptionKey, $options, $encryptionIv);
     }
 
@@ -34,11 +61,12 @@ class Crypto
      */
     public static function decrypt(string $data): bool|string
     {
-        $ciphering = _env('CIPHER');
+        $configuration = self::getConfiguration();
+        $ciphering = $configuration['cipher'];
         openssl_cipher_iv_length($ciphering);
         $options = 0;
-        $encryptionIv = _env('ENCRYPTION_IV');
-        $encryptionKey = _env('ENCRYPTION_KEY');
+        $encryptionIv = $configuration['iv'];
+        $encryptionKey = $configuration['key'];
         return openssl_decrypt($data, $ciphering, $encryptionKey, $options, $encryptionIv);
     }
 

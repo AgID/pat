@@ -9,7 +9,7 @@ namespace Model;
 defined('_FRAMEWORK_') or exit('No direct script access allowed');
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Scope\InstitutionScope;
+
 use System\Model;
 
 /**
@@ -29,6 +29,7 @@ class ConcurrentSessModel extends Model
         'ip',
         'browser_private_mode',
         'sess_id',
+        'destroyed_sess_id',
         'created_at',
         'updated_at'
     ];
@@ -41,7 +42,7 @@ class ConcurrentSessModel extends Model
     protected static function boot(): void
     {
         parent::boot();
-        static::addGlobalScope(new InstitutionScope);
+
     }
 
     /**

@@ -104,21 +104,20 @@ class SupplierAdminController extends BaseAuthController
                 4 => 'updated_at'
             ];
 
-            //Se l'utente è super Admin mostro la colonna dell'ente
-            if (isSuperAdmin(true)) {
-                $orderable[5] = 'i.full_name_institution';
-            }
-
             //Setto proprietà datatable
             $dataTable = [];
             setDataTableData($dataTable, 'name');
-            $filter = Input::get('filter');
+
             //Query per i dati da mostrare nel datatable
+            $filter = Input::get('filter');
+
             $totalRecords = SupplieListModel::select('count(*) as allcount')
                 ->count();
 
             $totalRecordsWithFilter = SupplieListModel::search($dataTable['searchValue'])
                 ->select(['count(object_supplie_list.id) as allcount']);
+
+            // Inclusione di librerie esterne
 
             $totalRecordsWithFilter->join('users', 'users.id', '=', 'object_supplie_list.owner_id');
 
@@ -132,8 +131,10 @@ class SupplierAdminController extends BaseAuthController
 
             $records = SupplieListModel::search($dataTable['searchValue'])
                 ->select(['object_supplie_list.id', 'owner_id', 'object_supplie_list.institution_id', 'typology', 'type', 'object_supplie_list.vat', 'foreign_tax_identification',
-                    'object_supplie_list.name', 'object_supplie_list.updated_at', 'object_supplie_list.publishing_status', 'users.name as userName', 'i.full_name_institution',])
+                    'object_supplie_list.name', 'object_supplie_list.p_iva', 'object_supplie_list.updated_at', 'users.name as userName', 'i.full_name_institution'])
                 ->join('users', 'users.id', '=', 'object_supplie_list.owner_id');
+
+            // Inclusione di librerie esterne
 
             $records->with('institution:id,full_name_institution')
                 ->with(['created_by' => function ($query) {
@@ -144,6 +145,7 @@ class SupplierAdminController extends BaseAuthController
             if (!empty($dataTable['searchValue'])) {
                 $records->orWhere('object_supplie_list.id', '=', $dataTable['searchValue']);
             }
+
 
             $records = $records->join('institutions as i', 'object_supplie_list.institution_id', '=', 'i.id', 'left outer')
                 ->orderBy($order, $dataTable['columnSortOrder'])
@@ -156,6 +158,8 @@ class SupplierAdminController extends BaseAuthController
             $response['iTotalRecords'] = ($totalRecords);
             $response['iTotalDisplayRecords'] = ($totalRecordsWithFilter);
             $response['aaData'] = [];
+
+            $av = null;
 
             if (!empty($records)) {
 
@@ -182,6 +186,8 @@ class SupplierAdminController extends BaseAuthController
                     ])
                         ->addEdit('admin/supplier/edit/' . $record['id'], $record['id'])
                         ->addDuplicate('admin/supplier/duplicate/' . $record['id'], $record['id'])
+                        ->addCustomButton('b_a_v', siteUrl('admin/supplier/versioning'), $record['id'], '', '', 'versioning')
+                        ->addCustomButton('s_r_l',siteUrl('admin/supplier/show-record-log/'.$record['id']), $record['id'], '17', 'show-record-log', 'view')
                         ->addDelete('admin/supplier/delete/' . $record['id'], $record['id'])
                         ->render() : '';
 
@@ -190,18 +196,12 @@ class SupplierAdminController extends BaseAuthController
                     //Setto i dati da mostrare nelle colonne del datatable
                     $setTempData = [];
                     $checkbox = ($this->acl->getCrud() || checkRecordOwner($record['owner_id'])) ? ButtonAction::checkList('item[]', $record['id']) : '';
+
                     $setTempData[] = $checkbox;
                     $setTempData[] = $icon . (!empty($record['name']) ? escapeXss($record['name']) : 'N.D.');
-                    $setTempData[] = !empty($record['vat']) ? escapeXss($record['vat']) : 'N.D.';
+                    $setTempData[] = !empty($record['p_iva']) ? escapeXss($record['p_iva']) : '';
                     $setTempData[] = createdByCheckDeleted(@$record['created_by']['name'], @$record['created_by']['deleted']);
                     $setTempData[] = $updateAt;
-
-                    //Se è un SuperAdmin mostro la colonna dell'Ente
-                    if (isSuperAdmin(true)) {
-                        $setTempData[] = !empty($record['institution']['full_name_institution'])
-                            ? escapeXss($record['institution']['full_name_institution'])
-                            : 'N.D.';
-                    }
 
                     $setTempData[] = $buttonAction;
 
@@ -210,9 +210,10 @@ class SupplierAdminController extends BaseAuthController
 
                 $response['aaData'] = $data;
             }
+            jsonOut($response);
 
-            echo json_encode($response);
-        }
+        } 
+
     }
 
     /**
@@ -231,7 +232,7 @@ class SupplierAdminController extends BaseAuthController
         $data = [];
 
         //Controllo se il metodo viene chiamato dalla creazione di un altro oggetto
-        $data['is_box'] = uri()->uriString() === 'admin/supplier/create-box';
+        $data['is_box'] = uri()->uriString() === verifyFirstOrLastSlash('admin/supplier/create-box', true);
 
         //Se non siamo nella form di creazione di un altro oggetto mostro il breadcrumb e le info dell'header della sezione
         if (!$data['is_box']) {
@@ -258,7 +259,7 @@ class SupplierAdminController extends BaseAuthController
         // Labels
         $data['labels'] = [];
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = (checkAlternativeInstitutionId() !== 0) ? checkAlternativeInstitutionId() : PatOsInstituteId();
 
         render('supplier/form_store', $data, 'admin');
@@ -275,7 +276,7 @@ class SupplierAdminController extends BaseAuthController
     public function store(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('create');
+        $this->acl->setRoute('create', true);
 
         $json = new JsonResponse();
         $code = $json->success();
@@ -309,7 +310,8 @@ class SupplierAdminController extends BaseAuthController
                     'type' => (strip_tags(Input::post('typology', true)) == 1) ? 'Fornitore singolo' : 'Raggruppamento',
                     'it' => strip_tags(Input::post('supplier_typology', true)),
                     'name' => strip_tags(Input::post('name', true)),
-                    'vat' => strip_tags(Input::post('vat', true)),
+                    'vat' => !empty(Input::post('vat', true)) ? trim(strip_tags(Input::post('vat', true))) : '',
+                    'p_iva' => !empty(Input::post('p_iva', true)) ? trim(strip_tags(Input::post('p_iva', true))) : '',
                     'foreign_tax_identification' => strip_tags(Input::post('foreign_tax_identification', true)),
                     'address' => strip_tags(Input::post('address', true)),
                     'email' => strip_tags(Input::post('email', true)),
@@ -455,7 +457,7 @@ class SupplierAdminController extends BaseAuthController
         $data['associateIds'] = Arr::pluck($supplier['associates'], 'id');
         $data['consortiumIds'] = Arr::pluck($supplier['consortiums'], 'id');
 
-        // Id dell'ente utilizzato per la gestione da parte del super admin
+        // ID dell'ente corrente.
         $data['institution_id'] = $supplier['institution_id'];
         $data['scp'] = $supplier['scp'] ?? null;
 
@@ -474,7 +476,7 @@ class SupplierAdminController extends BaseAuthController
     {
         $json = new JsonResponse();
         $code = $json->success();
-
+  
         //Validatore form
         $validator = new SupplierValidator();
         $check = $validator->check('update');
@@ -495,7 +497,7 @@ class SupplierAdminController extends BaseAuthController
                 ->first();
 
             //Setto il metodo della rotta per i permessi
-            $this->acl->setRoute(__FUNCTION__, (!checkRecordOwner($supplier['owner_id']) && $this->acl->getCreate()));
+            $this->acl->setRoute(checkRecordOwner($supplier['owner_id']) ? ['update', 'create'] : 'update', true);
 
             // Validazione upload allegati associati al tasso di assenza
             $attach = new AttachmentArchive();
@@ -516,8 +518,9 @@ class SupplierAdminController extends BaseAuthController
                 $data['type'] = (strip_tags(Input::post('typology', true)) == 1) ? 'Fornitore singolo' : 'Raggruppamento';
                 $data['it'] = strip_tags(Input::post('supplier_typology', true));
                 $data['name'] = strip_tags(Input::post('name', true));
-                $data['vat'] = (Input::post('typology') == 1) ? trim(strip_tags(Input::post('vat', true))) : null;
+                $data['vat'] = (Input::post('typology') == 1) ? (!empty(Input::post('vat', true)) ? trim(strip_tags(Input::post('vat', true))) : '') : null;
                 $data['foreign_tax_identification'] = strip_tags(Input::post('foreign_tax_identification', true));
+                $data['p_iva'] = !empty(Input::post('p_iva', true)) ? trim(strip_tags(Input::post('p_iva', true))) : '';
                 $data['address'] = strip_tags(Input::post('address', true));
                 $data['email'] = strip_tags(Input::post('email', true));
                 $data['phone'] = strip_tags(Input::post('phone', true));
@@ -669,7 +672,7 @@ class SupplierAdminController extends BaseAuthController
     public function deletes(): void
     {
         //Setto il metodo della rotta per i permessi
-        $this->acl->setRoute('delete');
+        $this->acl->setRoute('delete', true);
 
         $validator = new SupplierValidator();
         $validate = $validator->multipleSelection();
