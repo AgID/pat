@@ -82,8 +82,8 @@ localisation:
 logo: 'https://raw.githubusercontent.com/AgID/pat/HEAD/pat_logoyml.png'
 maintenance:
   contacts:
-    - email: a.bianchi@isweb.it
-      name: Alessandro Bianchi
+    - email: tecnico@isweb.it
+      name: Giovanni Cardarelli
       phone: '+390863441163'
   contractors:
     - name: ISWEB S.p.A.
